@@ -42,24 +42,28 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
   const bookDevigs = devigBooks(books);
   if (bookDevigs.length > 0) {
     const primary = [...bookDevigs].sort((a, b) => a.overround - b.overround)[0]; // 水位最低 = 最锐参考家
-    const consensus = consensusProbs(bookDevigs)!;
+    const consensus = consensusProbs(bookDevigs, params.bookWeights)!;
     market = {
       rawOdds: primary.rawOdds,
       overround: primary.overround,
       shinZ: primary.shinZ,
-      devigged: consensus,
-      books: bookDevigs,
+      devigged: consensus.probs,
+      books: bookDevigs.map(({ indicative: _i, ...rest }) => rest),
     };
     for (const bd of bookDevigs) {
       trace.push(
         `「${bd.bookmaker}」去水（Shin 1993）：水位 ${(bd.overround * 100).toFixed(2)}%，z=${bd.shinZ.toFixed(4)}，` +
-          `公平概率 主${fmtPct(bd.devigged.home)}/平${fmtPct(bd.devigged.draw)}/客${fmtPct(bd.devigged.away)}`,
+          `公平概率 主${fmtPct(bd.devigged.home)}/平${fmtPct(bd.devigged.draw)}/客${fmtPct(bd.devigged.away)}` +
+          (bd.indicative ? "（参考盘）" : ""),
       );
     }
     if (bookDevigs.length > 1) {
+      const w = consensus.detail
+        .map((d) => `${d.bookmaker}×${d.weight.toFixed(2)}${d.outlier ? "(离群降权)" : ""}`)
+        .join("、");
       trace.push(
-        `市场共识（${bookDevigs.length} 家逐项中位数归一）：` +
-          `主${fmtPct(consensus.home)}/平${fmtPct(consensus.draw)}/客${fmtPct(consensus.away)}`,
+        `市场加权共识（因子权重：${w}）：` +
+          `主${fmtPct(consensus.probs.home)}/平${fmtPct(consensus.probs.draw)}/客${fmtPct(consensus.probs.away)}`,
       );
     }
   } else {

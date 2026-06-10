@@ -99,7 +99,7 @@ export function recordOutcome(input: {
   htHome?: number | null;
   htAway?: number | null;
   finalStatus?: "finished" | "abandoned" | "postponed";
-  source: "csv" | "llm" | "manual";
+  source: "csv" | "llm" | "manual" | "espn";
   provisional?: boolean;
   recordedBy?: number;
 }): void {

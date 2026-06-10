@@ -211,6 +211,7 @@ export const SNAPSHOT_KINDS = [
   "weather",
   "referee",
   "soft_info",
+  "external_ratings",
   "manual_override",
 ] as const;
 export type SnapshotKind = (typeof SNAPSHOT_KINDS)[number];
@@ -225,7 +226,22 @@ export const dataSnapshots = sqliteTable(
       .references(() => matches.id),
     kind: text("kind", { enum: SNAPSHOT_KINDS }).notNull(),
     source: text("source", {
-      enum: ["football_data_couk", "open_meteo", "local_stats", "llm", "manual", "sporttery", "polymarket"],
+      enum: [
+        "football_data_couk",
+        "open_meteo",
+        "local_stats",
+        "llm",
+        "manual",
+        "sporttery",
+        "polymarket",
+        "espn",
+        "github",
+        "clubelo",
+        "eloratings",
+        "manifold",
+        "smarkets",
+        "understat",
+      ],
     }).notNull(),
     payload: text("payload").notNull(), // JSON，符合 datasources/types.ts 归一化 schema
     contentHash: text("content_hash").notNull(),
@@ -326,7 +342,7 @@ export const outcomes = sqliteTable(
     finalStatus: text("final_status", { enum: ["finished", "abandoned", "postponed"] })
       .notNull()
       .default("finished"),
-    source: text("source", { enum: ["csv", "llm", "manual"] }).notNull(),
+    source: text("source", { enum: ["csv", "llm", "manual", "espn"] }).notNull(),
     /** AI 检索的赛果先标 provisional=1，管理员确认后置 0 才允许结算 */
     provisional: integer("provisional").notNull().default(0),
     recordedBy: integer("recorded_by"),
@@ -354,4 +370,15 @@ export const fetchCache = sqliteTable("fetch_cache", {
   url: text("url").primaryKey(),
   contentHash: text("content_hash").notNull(),
   fetchedAt: integer("fetched_at").notNull(),
+});
+
+/** 数据源健康账本：每源成败计数与连败数；连败达阈值自动停用（采集跳过），体检成功自动复活 */
+export const sourceHealth = sqliteTable("source_health", {
+  source: text("source").primaryKey(),
+  okCount: integer("ok_count").notNull().default(0),
+  failCount: integer("fail_count").notNull().default(0),
+  consecutiveFails: integer("consecutive_fails").notNull().default(0),
+  lastOkAt: integer("last_ok_at"),
+  lastErrorAt: integer("last_error_at"),
+  lastError: text("last_error"),
 });

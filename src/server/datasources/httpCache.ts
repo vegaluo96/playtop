@@ -16,16 +16,20 @@ export interface FetchResult {
 
 /**
  * 礼貌抓取：进程内冷却 + 内容哈希比对（未变化时 changed=false，调用方可跳过解析）。
- * force=true 跳过冷却（管理员手动触发）。
+ * force=true 跳过冷却（管理员手动触发）；headers 供需要浏览器 UA 的源覆盖。
  */
-export async function politeFetchText(url: string, force = false): Promise<FetchResult> {
+export async function politeFetchText(
+  url: string,
+  force = false,
+  headers?: Record<string, string>,
+): Promise<FetchResult> {
   const last = inflightCooldown.get(url) ?? 0;
   if (!force && now() - last < MIN_INTERVAL_MS) {
     throw new Error(`抓取过于频繁，请 ${Math.ceil((MIN_INTERVAL_MS - (now() - last)) / 60000)} 分钟后再试：${url}`);
   }
   inflightCooldown.set(url, now());
   const res = await fetch(url, {
-    headers: { "user-agent": "playtop/1.0 (research; contact admin)" },
+    headers: { "user-agent": "playtop/1.0 (research; contact admin)", ...headers },
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`抓取失败 HTTP ${res.status}：${url}`);

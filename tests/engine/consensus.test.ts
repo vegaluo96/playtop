@@ -20,7 +20,7 @@ describe("多书商共识与最优价", () => {
 
   it("单家共识 ≡ 该家 Shin 去水（旧行为连续性）", () => {
     const devigs = devigBooks([b365]);
-    const consensus = consensusProbs(devigs)!;
+    const consensus = consensusProbs(devigs)!.probs;
     const shin = shinDevig(b365.oneXTwo!);
     expect(consensus.home).toBeCloseTo(shin.probs.home, 10);
     expect(consensus.draw).toBeCloseTo(shin.probs.draw, 10);
@@ -29,12 +29,12 @@ describe("多书商共识与最优价", () => {
 
   it("三家共识 = 逐项中位数再归一，且概率和为 1", () => {
     const devigs = devigBooks([b365, crown, poly]);
-    const consensus = consensusProbs(devigs)!;
+    const consensus = consensusProbs(devigs)!.probs;
     const sum = consensus.home + consensus.draw + consensus.away;
     expect(sum).toBeCloseTo(1, 10);
     // 中位数稳健性：单家极端报价不应把共识拉走太多
     const withBad = devigBooks([b365, crown, book("坏报价", { home: 1.05, draw: 15, away: 30 })]);
-    const c2 = consensusProbs(withBad)!;
+    const c2 = consensusProbs(withBad)!.probs;
     expect(Math.abs(c2.home - consensus.home)).toBeLessThan(0.08);
   });
 

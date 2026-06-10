@@ -15,10 +15,9 @@ interface Settings {
     enabledLeagues: string[];
     csvBase: string;
     aiRetrievalEnabled: boolean;
-    sportteryEnabled: boolean;
-    polymarketEnabled: boolean;
     aiOddsForCsvLeagues: boolean;
-  };
+    sourceAutoDisableAfter: number;
+  } & Record<string, unknown>;
   engine: Record<string, unknown> & { ensembleWeights: { market: number; dc: number; elo: number } };
   pricing: { defaultPricePoints: number };
   automation: {
@@ -31,6 +30,21 @@ interface Settings {
     aiResultConfirmPolicy: "double_check" | "delay";
     aiResultConfirmDelayHours: number;
   };
+}
+
+interface SourceRow {
+  key: string;
+  label: string;
+  note: string;
+  weightNote: string;
+  configKey: string | null;
+  enabled: boolean;
+  autoDisabled: boolean;
+  okCount: number;
+  failCount: number;
+  consecutiveFails: number;
+  lastOkAt: number | null;
+  lastError: string | null;
 }
 
 const AUTOMATION_FLAGS: { key: "autoCollect" | "autoAnalyze" | "autoPublish" | "autoConfirmAiResults"; label: string }[] = [
@@ -61,11 +75,30 @@ const LEAGUE_OPTIONS: { code: string; name: string }[] = [
 
 export default function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
+  const [sources, setSources] = useState<SourceRow[]>([]);
   const [msg, setMsg] = useState("");
 
+  const loadSources = () =>
+    api<{ sources: SourceRow[] }>("/api/admin/settings/sources")
+      .then((d) => setSources(d.sources))
+      .catch(() => {});
   useEffect(() => {
     void api<Settings>("/api/admin/settings").then(setS).catch((e) => setMsg(e.message));
+    void loadSources();
   }, []);
+
+  async function runHealthCheck() {
+    setMsg("数据源体检中（真实拉取全部源，约 10-30 秒）…");
+    try {
+      const r = await api<{ 体检: { 源: string; 状态: string; 结果: string }[] }>("/api/admin/settings/test-sources", {
+        method: "POST",
+      });
+      setMsg(r.体检.map((x) => `${x.状态} ${x.源} —— ${x.结果}`).join("\n"));
+      void loadSources();
+    } catch (e) {
+      setMsg(`✗ 体检失败：${e instanceof Error ? e.message : e}`);
+    }
+  }
 
   async function save(key: string, value: unknown) {
     setMsg("保存中…");
@@ -102,7 +135,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-3xl">
       <h1 className="font-display text-lg tracking-wider">系统设置</h1>
-      {msg && <p className="mt-2 break-all rounded border border-hairline bg-surface px-3 py-2 text-[12px] text-muted">{msg}</p>}
+      {msg && <p className="mt-2 break-all whitespace-pre-line rounded border border-hairline bg-surface px-3 py-2 text-[12px] text-muted">{msg}</p>}
 
       {/* apiyi */}
       <section className="card mt-5 p-4">
@@ -183,33 +216,72 @@ export default function SettingsPage() {
           <label className="mt-2 flex items-center gap-2 text-[12px] text-muted">
             <input
               type="checkbox"
-              checked={s.datasources.sportteryEnabled}
-              onChange={(e) => setS({ ...s, datasources: { ...s.datasources, sportteryEnabled: e.target.checked } })}
-            />
-            启用竞彩官方盘口（零 key；境外 IP 可能不通，先点下方测试）
-          </label>
-          <label className="mt-2 flex items-center gap-2 text-[12px] text-muted">
-            <input
-              type="checkbox"
-              checked={s.datasources.polymarketEnabled}
-              onChange={(e) => setS({ ...s, datasources: { ...s.datasources, polymarketEnabled: e.target.checked } })}
-            />
-            启用 Polymarket 预测市场盘口（零 key，价格即概率）
-          </label>
-          <label className="mt-2 flex items-center gap-2 text-[12px] text-muted">
-            <input
-              type="checkbox"
               checked={s.datasources.aiOddsForCsvLeagues}
               onChange={(e) => setS({ ...s, datasources: { ...s.datasources, aiOddsForCsvLeagues: e.target.checked } })}
             />
             CSV 联赛也走 AI 多家报价（联赛已有官方盘口，开启会增加 token 成本）
           </label>
         </div>
+
+        {/* 数据源因子表：注释（喂什么维度）+ 权重 + 健康状态 + 开关 */}
+        <h3 className="font-display mt-5 text-[12px] tracking-wider text-muted">
+          数据源因子表（连败 {s.datasources.sourceAutoDisableAfter} 次自动停用，体检成功自动复活）
+        </h3>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full min-w-[760px] text-[11.5px]">
+            <thead>
+              <tr className="text-left text-[10px] tracking-wider text-faint">
+                <th className="pb-1 font-normal">启用</th>
+                <th className="pb-1 font-normal">数据源</th>
+                <th className="pb-1 font-normal">注释（喂什么维度）</th>
+                <th className="pb-1 font-normal">模型权重</th>
+                <th className="pb-1 font-normal">健康</th>
+                <th className="pb-1 text-right font-normal">成/败</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sources.map((src) => (
+                <tr key={src.key} className={`border-t border-hairline ${src.autoDisabled ? "opacity-60" : ""}`}>
+                  <td className="py-1.5">
+                    {src.configKey ? (
+                      <input
+                        type="checkbox"
+                        checked={!!s.datasources[src.configKey]}
+                        onChange={(e) => {
+                          setS({ ...s, datasources: { ...s.datasources, [src.configKey!]: e.target.checked } });
+                          setSources(sources.map((x) => (x.key === src.key ? { ...x, enabled: e.target.checked } : x)));
+                        }}
+                      />
+                    ) : (
+                      <span className="text-faint">常开</span>
+                    )}
+                  </td>
+                  <td className="py-1.5 whitespace-nowrap">{src.label}</td>
+                  <td className="py-1.5 text-muted">{src.note}</td>
+                  <td className="py-1.5 text-muted">{src.weightNote}</td>
+                  <td className="py-1.5 whitespace-nowrap">
+                    {src.autoDisabled ? (
+                      <span className="text-down">自动停用（连败 {src.consecutiveFails}）</span>
+                    ) : src.consecutiveFails > 0 ? (
+                      <span className="text-down">连败 {src.consecutiveFails}</span>
+                    ) : src.okCount > 0 ? (
+                      <span className="text-up">正常</span>
+                    ) : (
+                      <span className="text-faint">未体检</span>
+                    )}
+                  </td>
+                  <td className="tabular py-1.5 text-right text-muted">
+                    {src.okCount}/{src.failCount}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <button onClick={() => save("datasources", s.datasources)} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">保存</button>
           <button onClick={() => test("/api/admin/settings/test-datasource", "数据源连通性")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">测试连接</button>
-          <button onClick={() => test("/api/admin/settings/test-sporttery", "竞彩接口")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">测试竞彩接口</button>
-          <button onClick={() => test("/api/admin/settings/test-polymarket", "Polymarket 接口")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">测试 Polymarket</button>
+          <button onClick={runHealthCheck} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] font-semibold text-gold-bright">数据源体检（全部源真实拉取）</button>
           <button onClick={() => importHistory({ type: "club", seasons: 3 }, "导入俱乐部历史（3 季）")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">导入俱乐部历史</button>
           <button onClick={() => importHistory({ type: "international", sinceYear: 2018 }, "导入国际赛历史")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">导入国际赛历史（世界杯用）</button>
           <button onClick={() => importHistory({ type: "backfill_elo" }, "Elo 全量回放")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">Elo 全量回放</button>
@@ -281,6 +353,25 @@ export default function SettingsPage() {
             <input type="number" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.pricing.defaultPricePoints} onChange={(e) => setS({ ...s, pricing: { defaultPricePoints: Number(e.target.value) } })} />
           </label>
         </div>
+        <label className="mt-3 block">
+          <span className="text-[10px] tracking-wider text-faint">
+            书商因子权重（JSON：书商名 → 权重。未列出默认 1，模拟盘默认 0.3；离群报价引擎自动再降权 80%。改完失焦生效，再点保存）
+          </span>
+          <textarea
+            rows={3}
+            className="tabular mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5 text-[11px]"
+            defaultValue={JSON.stringify(s.engine.bookWeights ?? {})}
+            onBlur={(e) => {
+              try {
+                const v = JSON.parse(e.target.value) as Record<string, number>;
+                setS({ ...s, engine: { ...s.engine, bookWeights: v } });
+                setMsg("书商权重已应用到表单（记得点「保存引擎参数」）");
+              } catch {
+                setMsg("✗ 书商权重 JSON 不合法，未应用");
+              }
+            }}
+          />
+        </label>
         <div className="mt-3 flex gap-2">
           <button onClick={() => save("engine", s.engine)} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">保存引擎参数</button>
           <button onClick={() => save("pricing", s.pricing)} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">保存定价</button>

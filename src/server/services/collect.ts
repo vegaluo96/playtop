@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import type { z } from "zod";
 import { db } from "../db";
 import { matches, teams } from "../db/schema";
 import { getConfig } from "../lib/config";
@@ -6,13 +7,25 @@ import { now } from "../lib/time";
 import { aiRetrieveSoftData } from "../datasources/aiRetrieval";
 import { aiRetrieveOddsBooks } from "../datasources/aiOdds";
 import { fetchPolymarketOdds } from "../datasources/polymarket";
+import { ESPN_LEAGUE_SLUG, fetchEspnScoreboard, matchEspnEvent } from "../datasources/espn";
+import { fetchClubElo, fetchEloRatings, findRating } from "../datasources/externalRatings";
+import { fetchManifoldOdds, fetchSmarketsOdds } from "../datasources/predictionMarkets";
+import { UNDERSTAT_LEAGUE, fetchUnderstatXg, findTeamXg } from "../datasources/understat";
+import { intlPlayerStats } from "../datasources/githubIntl";
+import type { externalRatingsPayloadSchema } from "../datasources/types";
 import { computeForm, computeH2h, computeStandings, computeTeamStats } from "../datasources/localStats";
 import { fetchKickoffWeather, geocode } from "../datasources/openMeteo";
 import { INTERNATIONAL_LEAGUE_CODE } from "../datasources/international";
 import { getMatch, syncFixtures, transitionMatch } from "./matchesService";
 import { sportteryOddsForMatch } from "./oddsSync";
+import { isSourceUsable, withSource } from "./sourceHealth";
 import { insertSnapshot, latestSnapshots } from "./snapshots";
 import { leagueById, teamNameById } from "./teamResolver";
+
+/** ESPN scoreboard 的 dates 参数：UTC YYYYMMDD */
+function espnDate(kickoffAt: number): string {
+  return new Date(kickoffAt).toISOString().slice(0, 10).replace(/-/g, "");
+}
 
 export interface CollectSummary {
   collected: string[];
@@ -52,25 +65,53 @@ export async function collectMatch(
     return t ? [t.name, ...(JSON.parse(t.aliases) as string[])] : [];
   };
 
-  // 盘口：多源并行、各自独立成败（每家书商独立快照，引擎侧做共识与最优价）
+  const matchRef = {
+    homeNames: teamAliases(match.homeTeamId),
+    awayNames: teamAliases(match.awayTeamId),
+    kickoffAt: match.kickoffAt,
+  };
+  const isIntl = league?.code === INTERNATIONAL_LEAGUE_CODE || league?.code === "WC2026";
+
+  // 盘口：多源并行、各自独立成败（每家书商独立快照，引擎侧做加权共识与最优价）。
+  // 每源经健康门控（连败自动停用）并记账（withSource）。
   if (match.source === "csv") {
     await attempt("odds:csv", async () => {
-      await syncFixtures(false, force);
-    });
-  } else if (dsCfg.sportteryEnabled) {
+    await withSource("football_data_couk", () => syncFixtures(false, force));
+  });
+  } else if (isSourceUsable("sporttery", dsCfg.sportteryEnabled)) {
     await attempt("odds:竞彩", async () => {
-      if (!(await sportteryOddsForMatch(match))) throw new Error("竞彩未覆盖本场");
+      if (!(await withSource("sporttery", () => sportteryOddsForMatch(match)))) throw new Error("竞彩未覆盖本场");
     });
   }
-  if (dsCfg.polymarketEnabled) {
+  if (isSourceUsable("polymarket", dsCfg.polymarketEnabled)) {
     await attempt("odds:polymarket", async () => {
-      const payload = await fetchPolymarketOdds({
-        homeNames: teamAliases(match.homeTeamId),
-        awayNames: teamAliases(match.awayTeamId),
-        kickoffAt: match.kickoffAt,
-      });
+      const payload = await withSource("polymarket", () => fetchPolymarketOdds(matchRef));
       if (!payload) throw new Error("Polymarket 未匹配到本场市场");
       insertSnapshot(matchId, "odds", "polymarket", payload);
+    });
+  }
+  if (isSourceUsable("manifold", dsCfg.manifoldEnabled)) {
+    await attempt("odds:manifold", async () => {
+      const payload = await withSource("manifold", () => fetchManifoldOdds(matchRef));
+      if (!payload) throw new Error("Manifold 未匹配到本场市场");
+      insertSnapshot(matchId, "odds", "manifold", payload);
+    });
+  }
+  if (isSourceUsable("smarkets", dsCfg.smarketsEnabled)) {
+    await attempt("odds:smarkets", async () => {
+      const payload = await withSource("smarkets", () => fetchSmarketsOdds(matchRef));
+      if (!payload) throw new Error("Smarkets 未匹配到本场事件");
+      insertSnapshot(matchId, "odds", "smarkets", payload);
+    });
+  }
+  if (isSourceUsable("espn", dsCfg.espnEnabled) && ESPN_LEAGUE_SLUG[league?.code ?? ""]) {
+    await attempt("odds:espn", async () => {
+      const events = await withSource("espn", () =>
+        fetchEspnScoreboard(ESPN_LEAGUE_SLUG[league!.code!], espnDate(match.kickoffAt)),
+      );
+      const hit = matchEspnEvent(events, matchRef);
+      if (!hit?.odds) throw new Error("ESPN 本场无赔率");
+      insertSnapshot(matchId, "odds", "espn", hit.odds);
     });
   }
   if ((match.source === "csv" ? dsCfg.aiOddsForCsvLeagues : true) && !opts.skipAi) {
@@ -84,6 +125,53 @@ export async function collectMatch(
       });
       if (books.length === 0) throw new Error("AI 未检索到可信赔率");
       for (const b of books) insertSnapshot(matchId, "odds", "llm", b);
+    });
+  }
+
+  // 外部评级：国家队 → eloratings.net；俱乐部 → ClubElo + Understat xG（展示/事实维度）
+  await attempt("external_ratings", async () => {
+    const items: z.infer<typeof externalRatingsPayloadSchema>["items"] = [];
+    if (isIntl && isSourceUsable("eloratings", dsCfg.eloRatingsEnabled)) {
+      const rows = await withSource("eloratings", () => fetchEloRatings(force));
+      for (const [side, names] of [["home", matchRef.homeNames], ["away", matchRef.awayNames]] as const) {
+        const r = findRating(rows, names);
+        if (r) items.push({ source: "eloratings.net", team: side, name: r.name, rating: r.rating, rank: r.rank });
+      }
+    }
+    if (!isIntl && isSourceUsable("clubelo", dsCfg.clubEloEnabled)) {
+      const rows = await withSource("clubelo", () =>
+        fetchClubElo(new Date(now()).toISOString().slice(0, 10), force),
+      );
+      for (const [side, names] of [["home", matchRef.homeNames], ["away", matchRef.awayNames]] as const) {
+        const r = findRating(rows, names);
+        if (r) items.push({ source: "ClubElo", team: side, name: r.name, rating: Math.round(r.rating), rank: r.rank });
+      }
+    }
+    if (!isIntl && isSourceUsable("understat", dsCfg.understatEnabled) && UNDERSTAT_LEAGUE[league?.code ?? ""]) {
+      const rows = await withSource("understat", () => fetchUnderstatXg(league!.code!, force));
+      for (const [side, names] of [["home", matchRef.homeNames], ["away", matchRef.awayNames]] as const) {
+        const r = findTeamXg(rows, names);
+        if (r) {
+          items.push({
+            source: "Understat xG",
+            team: side,
+            name: r.name,
+            rating: Number((r.xG / Math.max(1, r.matches)).toFixed(2)),
+            note: `赛季 xG ${r.xG.toFixed(1)} / xGA ${r.xGA.toFixed(1)}（${r.matches} 场）`,
+          });
+        }
+      }
+    }
+    if (items.length === 0) throw new Error("外部评级源无匹配数据");
+    insertSnapshot(matchId, "external_ratings", isIntl ? "eloratings" : "clubelo", { items });
+  });
+
+  // 球员数据（国际赛）：射手榜/点球主罚/点球大战史
+  if (isIntl && isSourceUsable("github", dsCfg.githubIntlEnabled)) {
+    await attempt("player_stats", async () => {
+      const payload = await withSource("github", () => intlPlayerStats(homeName, awayName, force));
+      if (payload.items.length === 0 && (payload.notes?.length ?? 0) === 0) throw new Error("数据集无两队记录");
+      insertSnapshot(matchId, "player_stats", "github", payload);
     });
   }
 

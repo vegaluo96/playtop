@@ -126,6 +126,23 @@ export const playerStatsPayloadSchema = z.object({
       note: z.string().optional(),
     }),
   ),
+  /** 球队级补充事实（如点球大战历史），旧数据无此字段 */
+  notes: z.array(z.string()).optional(),
+});
+
+/** 外部评级（ClubElo / eloratings.net 国家队 Elo / Understat xG 等第三方独立评级） */
+export const externalRatingsPayloadSchema = z.object({
+  items: z.array(
+    z.object({
+      /** 评级来源名（如 "eloratings.net" / "ClubElo" / "Understat xG"） */
+      source: z.string(),
+      team: z.enum(["home", "away"]),
+      name: z.string(),
+      rating: z.number(),
+      rank: z.number().nullable().optional(),
+      note: z.string().optional(),
+    }),
+  ),
 });
 
 export const coachPayloadSchema = z.object({
@@ -180,6 +197,7 @@ export const PAYLOAD_SCHEMAS = {
   weather: weatherPayloadSchema,
   referee: refereePayloadSchema,
   soft_info: softInfoPayloadSchema,
+  external_ratings: externalRatingsPayloadSchema,
   manual_override: z.object({ note: z.string(), lambda: z.number().optional(), mu: z.number().optional() }),
 } as const;
 

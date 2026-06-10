@@ -8,7 +8,10 @@ import { getConfig } from "../lib/config";
 import { now } from "../lib/time";
 import { matchesByStatus } from "../services/matchesService";
 import { confirmOutcomeRow, recordOutcome } from "../services/settle";
+import { isSourceUsable, withSource } from "../services/sourceHealth";
 import { leagueById, teamNameById } from "../services/teamResolver";
+import { ESPN_LEAGUE_SLUG, fetchEspnScoreboard, matchEspnEvent } from "../datasources/espn";
+import { teams } from "../db/schema";
 
 /**
  * 赛后赛果回填：
@@ -59,6 +62,58 @@ export async function fetchResultsFromCsv(): Promise<number> {
   return filled;
 }
 
+/**
+ * ESPN 权威赛果：非 CSV 场次（世界杯/手动）按联赛 slug 分组拉当日 scoreboard，
+ * 双队名+开球时间匹配，FT 即直接确认结算（等同官方 CSV 信任级，AI 双确认降为兜底）。
+ */
+export async function fetchResultsFromEspn(): Promise<number> {
+  const ds = getConfig("datasources");
+  if (!isSourceUsable("espn", ds.espnEnabled)) return 0;
+  const due = matchesByStatus(["in_play"]).filter((m) => m.source !== "csv" && now() - m.kickoffAt > 2 * 3_600_000);
+  if (due.length === 0) return 0;
+  let filled = 0;
+  // 按 (slug, 比赛日) 分组：一次抓取覆盖同日同赛事全部场次
+  const groups = new Map<string, typeof due>();
+  for (const m of due) {
+    const slug = ESPN_LEAGUE_SLUG[leagueById(m.leagueId)?.code ?? ""];
+    if (!slug) continue;
+    const key = `${slug}|${new Date(m.kickoffAt).toISOString().slice(0, 10).replace(/-/g, "")}`;
+    groups.set(key, [...(groups.get(key) ?? []), m]);
+  }
+  for (const [key, ms] of groups) {
+    const [slug, date] = key.split("|");
+    let events;
+    try {
+      events = await withSource("espn", () => fetchEspnScoreboard(slug, date));
+    } catch (e) {
+      console.warn(`[jobs] ESPN 赛果抓取失败 ${key}:`, e instanceof Error ? e.message : e);
+      continue;
+    }
+    for (const m of ms) {
+      const teamNames = (teamId: number) => {
+        const t = db.select().from(teams).where(eq(teams.id, teamId)).get();
+        return t ? [t.name, ...(JSON.parse(t.aliases) as string[])] : [];
+      };
+      const hit = matchEspnEvent(events, {
+        homeNames: teamNames(m.homeTeamId),
+        awayNames: teamNames(m.awayTeamId),
+        kickoffAt: m.kickoffAt,
+      });
+      if (hit?.completed && hit.homeScore !== null && hit.awayScore !== null) {
+        recordOutcome({
+          matchId: m.id,
+          homeGoals: hit.homeScore,
+          awayGoals: hit.awayScore,
+          source: "espn",
+          provisional: false, // 权威级：直接结算
+        });
+        filled++;
+      }
+    }
+  }
+  return filled;
+}
+
 const aiResultSchema = z.object({
   known: z.boolean(),
   homeGoals: z.number().int().min(0).max(20).nullable(),
@@ -72,6 +127,9 @@ export async function fetchResultsViaAi(): Promise<number> {
   );
   let filled = 0;
   for (const m of due) {
+    // 已有确认赛果（ESPN/人工）则跳过，省 token
+    const confirmed = db.select().from(outcomes).where(eq(outcomes.matchId, m.id)).get();
+    if (confirmed && confirmed.provisional === 0) continue;
     const league = leagueById(m.leagueId);
     try {
       const raw = await chatCompletion({

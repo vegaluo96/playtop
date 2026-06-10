@@ -24,6 +24,8 @@ export const normalizedOddsSchema = z.object({
   totalGoals: z.record(z.string(), z.number()).optional(),
   /** 波胆/正确比分赔率（"主:客" 格式） */
   correctScores: z.array(z.object({ score: z.string(), odds: z.number() })).optional(),
+  /** 参考盘（模拟盘/不可成交）：进共识但不进最优价/价值/Kelly 口径 */
+  indicative: z.boolean().optional(),
   capturedAt: z.number(),
 });
 export type NormalizedOdds = z.infer<typeof normalizedOddsSchema>;
@@ -66,6 +68,8 @@ export interface EngineParams {
   eloGoalDiffExp: number;
   eloCalib: { b: number; c1: number; c2: number };
   ensembleWeights: { market: number; dc: number; elo: number };
+  /** 书商权重（量化因子口径）：加权共识用；未列出的书商权重 1，离群报价自动降权 */
+  bookWeights: Record<string, number>;
   kellyFraction: number;
   kellyCap: number;
   evThreshold: number;

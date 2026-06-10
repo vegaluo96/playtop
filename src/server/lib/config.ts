@@ -33,6 +33,22 @@ export const datasourcesConfigSchema = z.object({
   polymarketEnabled: z.boolean().default(true),
   /** CSV 联赛是否也走 AI 多家报价（成本闸：联赛已有 football-data 盘口，默认关） */
   aiOddsForCsvLeagues: z.boolean().default(false),
+  /** ESPN 隐藏 API：权威赛果（分钟级结算）+ 赛程核对 + 顺带 odds */
+  espnEnabled: z.boolean().default(true),
+  /** eloratings.net 国家队 Elo（世界杯外部评级维度） */
+  eloRatingsEnabled: z.boolean().default(true),
+  /** api.clubelo.com 俱乐部 Elo（联赛外部评级维度） */
+  clubEloEnabled: z.boolean().default(true),
+  /** Manifold 预测市场（模拟盘，进共识低权重、不进价值口径） */
+  manifoldEnabled: z.boolean().default(true),
+  /** Smarkets 交易所盘口（锐价真实盘） */
+  smarketsEnabled: z.boolean().default(true),
+  /** Understat 球队 xG（五大联赛外部评级维度） */
+  understatEnabled: z.boolean().default(true),
+  /** martj42 GitHub 数据集：国际赛射手榜/点球大战史 */
+  githubIntlEnabled: z.boolean().default(true),
+  /** 数据源连败 N 次自动停用（体检成功自动复活）；0 = 不自动停用 */
+  sourceAutoDisableAfter: z.number().min(0).default(5),
 });
 export type DatasourcesConfig = z.infer<typeof datasourcesConfigSchema>;
 
@@ -75,6 +91,25 @@ export const engineConfigSchema = z.object({
   ensembleWeights: z
     .object({ market: z.number(), dc: z.number(), elo: z.number() })
     .default({ market: 0.55, dc: 0.3, elo: 0.15 }),
+  /**
+   * 书商因子权重（加权共识用）：锐盘（交易所/Pinnacle）高权，官方彩票/综合价中权，
+   * 模拟盘低权。未列出的书商默认 1；离群报价引擎自动再降权 80%。
+   */
+  bookWeights: z
+    .record(z.string(), z.number())
+    .default({
+      "Smarkets（交易所）": 1.3,
+      Pinnacle: 1.3,
+      bet365: 1.2,
+      "皇冠（Crown）": 1.1,
+      威廉希尔: 1.1,
+      "football-data.co.uk 综合": 1.0,
+      "ESPN BET": 1.0,
+      人工录入: 1.0,
+      "中国竞彩（官方）": 0.9,
+      Polymarket: 0.9,
+      "Manifold（模拟盘）": 0.3,
+    }),
   /** 射门质量混合系数 θ（Wheatcroft 2020），0 关闭 */
   shotsBlendTheta: z.number().min(0).max(1).default(0.35),
   kellyFraction: z.number().default(0.25),

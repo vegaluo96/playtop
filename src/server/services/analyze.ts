@@ -16,11 +16,13 @@ import { getConfig } from "../lib/config";
 import { hashObject } from "../lib/hash";
 import { now } from "../lib/time";
 import {
+  externalRatingsPayloadSchema,
   formPayloadSchema,
   h2hPayloadSchema,
   injuriesPayloadSchema,
   coachPayloadSchema,
   lineupsPayloadSchema,
+  playerStatsPayloadSchema,
   refereePayloadSchema,
   softInfoPayloadSchema,
   standingsPayloadSchema,
@@ -55,6 +57,7 @@ export function engineParamsFromConfig(): EngineParams {
     eloGoalDiffExp: cfg.eloGoalDiffExp,
     eloCalib: cfg.eloCalib,
     ensembleWeights: cfg.ensembleWeights,
+    bookWeights: cfg.bookWeights,
     kellyFraction: cfg.kellyFraction,
     kellyCap: cfg.kellyCap,
     evThreshold: cfg.evThreshold,
@@ -220,6 +223,19 @@ export async function analyzeMatch(
   if (referee?.name) facts.push(`主裁判：${referee.name}${referee.note ? `（${referee.note}）` : ""}`);
   const soft = snapshotPayload<z.infer<typeof softInfoPayloadSchema>>(snaps.get("soft_info"));
   for (const item of soft?.items ?? []) facts.push(`${item.topic}：${item.content}`);
+  // 外部评级（eloratings.net / ClubElo / Understat xG）与球员数据（射手榜/点球史）入事实清单
+  const ratings = snapshotPayload<z.infer<typeof externalRatingsPayloadSchema>>(snaps.get("external_ratings"));
+  for (const r of ratings?.items ?? []) {
+    facts.push(
+      `${r.team === "home" ? homeName : awayName}外部评级（${r.source}）：${r.rating}` +
+        `${r.rank != null ? `，排名第${r.rank}` : ""}${r.note ? `（${r.note}）` : ""}`,
+    );
+  }
+  const ps = snapshotPayload<z.infer<typeof playerStatsPayloadSchema>>(snaps.get("player_stats"));
+  for (const i of (ps?.items ?? []).slice(0, 6)) {
+    facts.push(`${i.team === "home" ? homeName : awayName}射手：${i.player}${i.note ? `（${i.note}）` : ""}`);
+  }
+  for (const n of ps?.notes ?? []) facts.push(n);
 
   const stats = snapshotStats(matchId);
   const ctx: ReportContext = {
@@ -243,7 +259,12 @@ export async function analyzeMatch(
       count: s.count,
     })),
     missingKinds: stats.missing
-      .filter((k) => !(league?.code === INTERNATIONAL_LEAGUE_CODE && k === "standings"))
+      .filter((k) => {
+        const isIntl = league?.code === INTERNATIONAL_LEAGUE_CODE || league?.code === "WC2026";
+        if (isIntl && k === "standings") return false; // 国际赛无积分榜
+        if (!isIntl && k === "player_stats") return false; // 射手数据集仅覆盖国家队
+        return true;
+      })
       .map((k) => KIND_LABELS[k]),
     facts,
     totalSnapshotCount: stats.total,
