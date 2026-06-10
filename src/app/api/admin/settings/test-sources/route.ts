@@ -3,6 +3,7 @@ import { requireAdmin } from "@/server/auth/guards";
 import { SOURCE_REGISTRY } from "@/server/datasources/registry";
 import { getConfig } from "@/server/lib/config";
 import { listSourceHealth, reportSourceFail, reportSourceOk } from "@/server/services/sourceHealth";
+import { recordProviderHealth } from "@/server/v2/providers";
 
 export const maxDuration = 120;
 
@@ -25,10 +26,12 @@ export async function POST() {
             new Promise<never>((_, rej) => setTimeout(() => rej(new Error("超时(25s)")), 25_000)),
           ]);
           reportSourceOk(s.key);
+          recordProviderHealth({ providerName: s.key, latencyMs: Date.now() - start, ok: true });
           return { 源: s.label, 状态: "✓ 正常", 耗时ms: Date.now() - start, 结果: summary };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           reportSourceFail(s.key, msg);
+          recordProviderHealth({ providerName: s.key, latencyMs: Date.now() - start, ok: false, details: { error: msg.slice(0, 200) } });
           return { 源: s.label, 状态: "✗ 失败", 耗时ms: Date.now() - start, 结果: msg.slice(0, 160) };
         }
       }),

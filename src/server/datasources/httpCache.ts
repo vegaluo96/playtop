@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { fetchCache } from "../db/schema";
 import { sha256Hex } from "../lib/hash";
+import { recordRawPayload } from "../v2/providers";
 import { now } from "../lib/time";
 
 /** 同一 URL 的最小抓取间隔（礼貌限速） */
@@ -32,8 +33,12 @@ export async function politeFetchText(
     headers: { "user-agent": "playtop/1.0 (research; contact admin)", ...headers },
     signal: AbortSignal.timeout(12_000), // 被墙源常挂死而非拒绝——12s 截断保证并发批快速收敛
   });
-  if (!res.ok) throw new Error(`抓取失败 HTTP ${res.status}：${url}`);
+  if (!res.ok) {
+    recordRawPayload({ endpoint: url, httpStatus: res.status, body: null, errorMessage: `HTTP ${res.status}` });
+    throw new Error(`抓取失败 HTTP ${res.status}：${url}`);
+  }
   const body = await res.text();
+  recordRawPayload({ endpoint: url, httpStatus: res.status, body }); // V2 原则 6：原始响应原样留档
   const hash = sha256Hex(body);
   const cached = db.select().from(fetchCache).where(eq(fetchCache.url, url)).get();
   const changed = !cached || cached.contentHash !== hash;

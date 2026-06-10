@@ -21,4 +21,6 @@ export async function bootstrapOnFirstRun(): Promise<void> {
     setConfig(key, getConfig(key));
   }
   ensureLeague("INT");
+  const { seedProviders } = await import("../v2/providers");
+  seedProviders();
 }

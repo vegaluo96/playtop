@@ -12,6 +12,7 @@ import { getMatch, matchesAtKickoff, matchesByStatus, transitionMatch } from "./
 import { voidMatch } from "./publish";
 import { latestOddsBooks } from "./snapshots";
 import { leagueById } from "./teamResolver";
+import { recordReportLock, recordSettlements, refreshTrackRecords } from "../v2/pipeline";
 
 /**
  * 开赛锁定 + 赛果 + 结算：
@@ -87,6 +88,12 @@ export function lockFinalAnalysisAtKickoff(): number {
       }
     });
     transitionMatch(match.id, "in_play");
+    // V2 钩子：开赛锁定记录（终版三元组 + 锁定哈希）；失败不阻塞 V1
+    try {
+      recordReportLock(match.id);
+    } catch (e) {
+      console.warn(`[v2] lock 记录失败 match=${match.id}:`, e instanceof Error ? e.message : e);
+    }
     locked++;
   }
   return locked;
@@ -266,6 +273,13 @@ export function settleDueMatches(): number {
       if (!(e instanceof Error && /UNIQUE/.test(e.message))) throw e;
     }
     transitionMatch(match.id, "settled");
+    // V2 钩子：逐观点结算（ROI/CLV/Brier）+ 战绩物化；失败不阻塞 V1
+    try {
+      recordSettlements(match.id, { homeGoals: outcome.homeGoals, awayGoals: outcome.awayGoals });
+      refreshTrackRecords(match.id);
+    } catch (e) {
+      console.warn(`[v2] settlement 记录失败 match=${match.id}:`, e instanceof Error ? e.message : e);
+    }
     settled++;
   }
   return settled;
