@@ -32,6 +32,18 @@ interface Workbench {
 
 const PIPELINE = ["scheduled", "collecting", "ready", "analyzed", "published", "in_play", "finished", "settled"];
 
+const KIND_CN: Record<string, string> = {
+  injuries: "伤停",
+  suspensions: "停赛",
+  lineups: "预计阵容",
+  coach: "教练",
+  referee: "裁判",
+  soft_info: "软信息/舆情",
+  venue: "场馆",
+  weather: "天气",
+  manual_override: "人工覆盖",
+};
+
 export default function MatchWorkbench({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [wb, setWb] = useState<Workbench | null>(null);
@@ -86,7 +98,84 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
 
   if (!wb) return <p className="text-muted">{msg || "加载中…"}</p>;
   const m = wb.match;
-  const latestVersion = wb.versions[0];
+
+  const collect = (skipAi: boolean) =>
+    act(skipAi ? "采集（跳过 AI）" : "全维度采集", () =>
+      api(`/api/admin/matches/${m.id}/collect`, { method: "POST", body: skipAi ? JSON.stringify({ skipAi: true }) : "{}" }),
+    );
+  const analyze = () => act("引擎建模", () => api(`/api/admin/matches/${m.id}/analyze`, { method: "POST", body: "{}" }));
+  const publish = (analysisId: number) =>
+    act("发布", () =>
+      api(`/api/admin/analyses/${analysisId}/publish`, {
+        method: "POST",
+        body: JSON.stringify(price.trim() === "" ? {} : { pricePoints: Number(price) }),
+      }),
+    );
+  const confirmOutcome = () =>
+    act("确认赛果", () => api(`/api/admin/matches/${m.id}/outcome`, { method: "POST", body: JSON.stringify({ action: "confirm" }) }));
+
+  /** 状态 → 当前该做什么。让任何人打开工作台都知道下一步按哪个钮。 */
+  function nextStep(): { title: string; desc: string; btn?: { label: string; onClick: () => void } } {
+    const latestDraft = wb!.versions.find((v) => v.status === "draft");
+    const hasOdds = wb!.snapshots.perKind.some((s) => s.kind === "odds");
+    switch (m.status) {
+      case "scheduled":
+      case "collecting":
+        return {
+          title: "第 1 步 · 采集数据",
+          desc: hasOdds
+            ? "已有盘口数据。点击采集抓取全部维度（历史/天气/伤停等），完成后自动进入『数据就绪』。"
+            : "本场还没有盘口数据：CSV 覆盖的联赛点采集即可；世界杯等无 CSV 赛事请先在左下方『手动录入盘口』，再点采集。",
+          btn: { label: "一键采集（含 AI）", onClick: () => collect(false) },
+        };
+      case "ready":
+        return {
+          title: "第 2 步 · 建模生成研报",
+          desc: "数据已就绪。运行引擎计算全部概率并生成报告草稿——数字由模型计算，AI 只负责文字。",
+          btn: { label: "运行引擎 + 生成报告", onClick: analyze },
+        };
+      case "analyzed":
+        return latestDraft
+          ? {
+              title: "第 3 步 · 审阅并发布",
+              desc: "草稿已生成：可在右侧编辑定性段落、设定解锁价，确认无误后发布。发布后自动进入实时改版。",
+              btn: { label: `发布 V${latestDraft.version}`, onClick: () => publish(latestDraft.id) },
+            }
+          : {
+              title: "第 3 步 · 审阅并发布",
+              desc: "暂无待发布草稿，可重新运行引擎生成。",
+              btn: { label: "重新运行引擎", onClick: analyze },
+            };
+      case "published":
+        return {
+          title: "✓ 已发布 · 自动改版中",
+          desc: "调度器每 30 分钟自动重采集→重算→发布新版，开赛瞬间自动锁定终版——无需人工值守。",
+        };
+      case "in_play":
+        return {
+          title: "比赛进行中",
+          desc: "等待完场。完场后系统每 6 小时自动尝试 AI 检索赛果（检索结果需人工确认才结算）。",
+        };
+      case "finished":
+        return wb!.outcome && wb!.outcome.provisional === 1
+          ? {
+              title: "第 4 步 · 确认赛果",
+              desc: `AI 检索到比分 ${wb!.outcome.homeGoals}:${wb!.outcome.awayGoals}（待确认）。确认后自动结算积分、判定命中、全网免费公开。`,
+              btn: { label: "确认并结算", onClick: confirmOutcome },
+            }
+          : {
+              title: "第 4 步 · 录入赛果",
+              desc: "在右下方『赛果与结算』录入 90 分钟比分，提交即自动结算并公开。",
+            };
+      case "settled":
+        return { title: "✓ 流程完成", desc: "本场已结算并免费公开，战绩已更新，无需任何操作。" };
+      case "void":
+        return { title: "已作废", desc: "本场已作废并全额退款，不计入战绩。" };
+      default:
+        return { title: m.status, desc: "" };
+    }
+  }
+  const step = nextStep();
 
   function buildOddsPayload() {
     const n = (v: string) => (v.trim() === "" ? null : Number(v));
@@ -102,6 +191,8 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
     }
     return payload;
   }
+
+  const oddsInput = "rounded border border-hairline bg-overlay/50 px-2 py-1.5";
 
   return (
     <div>
@@ -121,7 +212,7 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
       </div>
 
       {/* 状态机进度 */}
-      <div className="mt-4 flex items-center gap-1">
+      <div className="mt-4 flex flex-wrap items-center gap-1">
         {PIPELINE.map((st, i) => {
           const reached = PIPELINE.indexOf(m.status) >= i && m.status !== "void";
           return (
@@ -136,6 +227,23 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
         {m.status === "void" && <Tag tone="down">已作废</Tag>}
       </div>
 
+      {/* 下一步引导：打开页面即知道现在该干什么 */}
+      <div className="card mt-3 flex flex-wrap items-center gap-3 border-gold/30 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="font-display text-[13px] tracking-widest text-gold-bright">{step.title}</div>
+          <p className="mt-0.5 text-[11.5px] leading-5 text-muted">{step.desc}</p>
+        </div>
+        {step.btn && (
+          <button
+            disabled={busy}
+            onClick={step.btn.onClick}
+            className="shrink-0 rounded border border-gold/60 bg-gold/10 px-4 py-2 text-[12px] font-semibold text-gold-bright disabled:opacity-50"
+          >
+            {step.btn.label}
+          </button>
+        )}
+      </div>
+
       {msg && <p className="mt-3 break-all rounded border border-hairline bg-surface px-3 py-2 text-[12px] text-muted">{msg}</p>}
 
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -144,10 +252,10 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
           <div className="flex items-center justify-between">
             <h2 className="font-display text-sm tracking-widest text-gold-bright">数据快照（{wb.snapshots.total} 份）</h2>
             <div className="flex gap-2">
-              <button disabled={busy} onClick={() => act("全维度采集", () => api(`/api/admin/matches/${m.id}/collect`, { method: "POST", body: "{}" }))} className="rounded border border-gold/50 px-2.5 py-1 text-[11px] text-gold-bright disabled:opacity-50">
+              <button disabled={busy} onClick={() => collect(false)} className="rounded border border-gold/50 px-2.5 py-1 text-[11px] text-gold-bright disabled:opacity-50">
                 采集（含 AI）
               </button>
-              <button disabled={busy} onClick={() => act("采集（跳过 AI）", () => api(`/api/admin/matches/${m.id}/collect`, { method: "POST", body: JSON.stringify({ skipAi: true }) }))} className="rounded border border-hairline px-2.5 py-1 text-[11px] text-muted disabled:opacity-50">
+              <button disabled={busy} onClick={() => collect(true)} className="rounded border border-hairline px-2.5 py-1 text-[11px] text-muted disabled:opacity-50">
                 采集（跳过 AI）
               </button>
             </div>
@@ -168,36 +276,53 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
             <p className="mt-2 text-[11px] text-faint">缺失：{wb.snapshots.missing.join("、")}</p>
           )}
 
-          <h3 className="font-display mt-5 text-[12px] tracking-widest text-muted">手动录入盘口（无 CSV 覆盖的赛事）</h3>
-          <div className="tabular mt-2 grid grid-cols-3 gap-2 text-[12px]">
-            {(["home", "draw", "away"] as const).map((k) => (
-              <input key={k} placeholder={{ home: "主胜赔率", draw: "平局赔率", away: "客胜赔率" }[k]} className="rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={odds[k]} onChange={(e) => setOdds({ ...odds, [k]: e.target.value })} />
-            ))}
-            <input placeholder="大小盘口 2.5" className="rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={odds.ouLine} onChange={(e) => setOdds({ ...odds, ouLine: e.target.value })} />
-            <input placeholder="大球赔率" className="rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={odds.over} onChange={(e) => setOdds({ ...odds, over: e.target.value })} />
-            <input placeholder="小球赔率" className="rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={odds.under} onChange={(e) => setOdds({ ...odds, under: e.target.value })} />
-            <input placeholder="亚盘（主让 -0.5）" className="rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={odds.ahLine} onChange={(e) => setOdds({ ...odds, ahLine: e.target.value })} />
-            <input placeholder="主队水位" className="rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={odds.ahHome} onChange={(e) => setOdds({ ...odds, ahHome: e.target.value })} />
-            <input placeholder="客队水位" className="rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={odds.ahAway} onChange={(e) => setOdds({ ...odds, ahAway: e.target.value })} />
+          <h3 className="font-display mt-5 text-[12px] tracking-widest text-muted">手动录入盘口（无 CSV 覆盖的赛事，从任意盘口网站抄录）</h3>
+          <div className="tabular mt-2 space-y-2 text-[12px]">
+            <div>
+              <div className="mb-1 text-[10px] tracking-widest text-faint">胜平负（1X2）</div>
+              <div className="grid grid-cols-3 gap-2">
+                <input placeholder="主胜赔率" className={oddsInput} value={odds.home} onChange={(e) => setOdds({ ...odds, home: e.target.value })} />
+                <input placeholder="平局赔率" className={oddsInput} value={odds.draw} onChange={(e) => setOdds({ ...odds, draw: e.target.value })} />
+                <input placeholder="客胜赔率" className={oddsInput} value={odds.away} onChange={(e) => setOdds({ ...odds, away: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <div className="mb-1 text-[10px] tracking-widest text-faint">大小球（选填）</div>
+              <div className="grid grid-cols-3 gap-2">
+                <input placeholder="盘口（如 2.5）" className={oddsInput} value={odds.ouLine} onChange={(e) => setOdds({ ...odds, ouLine: e.target.value })} />
+                <input placeholder="大球赔率" className={oddsInput} value={odds.over} onChange={(e) => setOdds({ ...odds, over: e.target.value })} />
+                <input placeholder="小球赔率" className={oddsInput} value={odds.under} onChange={(e) => setOdds({ ...odds, under: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <div className="mb-1 text-[10px] tracking-widest text-faint">亚盘（选填）</div>
+              <div className="grid grid-cols-3 gap-2">
+                <input placeholder="盘口（主让 -0.5）" className={oddsInput} value={odds.ahLine} onChange={(e) => setOdds({ ...odds, ahLine: e.target.value })} />
+                <input placeholder="主队水位" className={oddsInput} value={odds.ahHome} onChange={(e) => setOdds({ ...odds, ahHome: e.target.value })} />
+                <input placeholder="客队水位" className={oddsInput} value={odds.ahAway} onChange={(e) => setOdds({ ...odds, ahAway: e.target.value })} />
+              </div>
+            </div>
           </div>
           <button disabled={busy} onClick={() => act("录入盘口", () => api(`/api/admin/matches/${m.id}/snapshots`, { method: "POST", body: JSON.stringify({ kind: "odds", payload: buildOddsPayload() }) }))} className="mt-2 rounded border border-gold/50 px-3 py-1.5 text-[11px] text-gold-bright disabled:opacity-50">
-            写入 odds 快照
+            保存盘口
           </button>
 
-          <h3 className="font-display mt-5 text-[12px] tracking-widest text-muted">手动录入任意维度（JSON，同归一化校验）</h3>
-          <div className="mt-2 flex gap-2">
-            <select value={manualKind} onChange={(e) => setManualKind(e.target.value)} className="rounded border border-hairline bg-overlay/50 px-2 py-1.5 text-[12px]">
-              {["injuries", "suspensions", "lineups", "coach", "referee", "soft_info", "venue", "weather", "manual_override"].map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-          </div>
-          <textarea rows={4} className="tabular mt-2 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5 text-[11px]" value={manualJson} onChange={(e) => setManualJson(e.target.value)} />
-          <button disabled={busy} onClick={() => act("录入快照", () => api(`/api/admin/matches/${m.id}/snapshots`, { method: "POST", body: JSON.stringify({ kind: manualKind, payload: JSON.parse(manualJson) }) }))} className="mt-1 rounded border border-hairline px-3 py-1.5 text-[11px] text-muted disabled:opacity-50">
-            写入快照
-          </button>
+          <details className="mt-5">
+            <summary className="cursor-pointer text-[11px] tracking-widest text-faint">▸ 高级：手动录入任意维度（JSON，同归一化校验）</summary>
+            <div className="mt-2 flex gap-2">
+              <select value={manualKind} onChange={(e) => setManualKind(e.target.value)} className="rounded border border-hairline bg-overlay/50 px-2 py-1.5 text-[12px]">
+                {Object.entries(KIND_CN).map(([k, label]) => (
+                  <option key={k} value={k}>
+                    {label}（{k}）
+                  </option>
+                ))}
+              </select>
+            </div>
+            <textarea rows={4} className="tabular mt-2 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5 text-[11px]" value={manualJson} onChange={(e) => setManualJson(e.target.value)} />
+            <button disabled={busy} onClick={() => act("录入快照", () => api(`/api/admin/matches/${m.id}/snapshots`, { method: "POST", body: JSON.stringify({ kind: manualKind, payload: JSON.parse(manualJson) }) }))} className="mt-1 rounded border border-hairline px-3 py-1.5 text-[11px] text-muted disabled:opacity-50">
+              写入快照
+            </button>
+          </details>
         </section>
 
         {/* 右列：建模/发布/赛果 */}
@@ -205,7 +330,7 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-sm tracking-widest text-gold-bright">建模与发布</h2>
-              <button disabled={busy} onClick={() => act("引擎建模", () => api(`/api/admin/matches/${m.id}/analyze`, { method: "POST", body: "{}" }))} className="rounded border border-gold/50 px-2.5 py-1 text-[11px] text-gold-bright disabled:opacity-50">
+              <button disabled={busy} onClick={analyze} className="rounded border border-gold/50 px-2.5 py-1 text-[11px] text-gold-bright disabled:opacity-50">
                 运行引擎 + 生成报告
               </button>
             </div>
@@ -227,14 +352,7 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
                           </button>
                           <button
                             disabled={busy}
-                            onClick={() =>
-                              act("发布", () =>
-                                api(`/api/admin/analyses/${v.id}/publish`, {
-                                  method: "POST",
-                                  body: JSON.stringify(price.trim() === "" ? {} : { pricePoints: Number(price) }),
-                                }),
-                              )
-                            }
+                            onClick={() => publish(v.id)}
                             className="text-[11px] text-gold-bright underline underline-offset-2 disabled:opacity-50"
                           >
                             发布
@@ -248,7 +366,7 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
             </table>
             {wb.versions.length === 0 && <p className="mt-2 text-[11px] text-faint">尚未建模。先确保数据就绪（ready），再运行引擎。</p>}
             <div className="mt-3 flex items-center gap-2 text-[12px]">
-              <span className="text-faint">解锁价（积分）</span>
+              <span className="text-faint">解锁价（积分，留空用默认价）</span>
               <input className="tabular w-24 rounded border border-hairline bg-overlay/50 px-2 py-1" value={price} onChange={(e) => setPrice(e.target.value)} />
               <button disabled={busy} onClick={() => act("保存价格", () => api(`/api/admin/matches/${m.id}`, { method: "PUT", body: JSON.stringify({ pricePoints: Number(price) }) }))} className="rounded border border-hairline px-2.5 py-1 text-[11px] text-muted disabled:opacity-50">
                 保存
@@ -296,7 +414,7 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
                 当前赛果：{wb.outcome.homeGoals}:{wb.outcome.awayGoals}（{wb.outcome.source}
                 {wb.outcome.provisional === 1 ? " · 待确认" : " · 已确认"}）
                 {wb.outcome.provisional === 1 && (
-                  <button disabled={busy} onClick={() => act("确认赛果", () => api(`/api/admin/matches/${m.id}/outcome`, { method: "POST", body: JSON.stringify({ action: "confirm" }) }))} className="ml-2 rounded border border-up/50 px-2 py-0.5 text-[11px] text-up disabled:opacity-50">
+                  <button disabled={busy} onClick={confirmOutcome} className="ml-2 rounded border border-up/50 px-2 py-0.5 text-[11px] text-up disabled:opacity-50">
                     确认并结算
                   </button>
                 )}

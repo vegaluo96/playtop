@@ -31,9 +31,9 @@ export default async function HomePage() {
       </div>
 
       <p className="mt-4 rounded-lg border border-gold/20 bg-gold/5 px-3 py-2 text-[11px] leading-5 text-muted">
-        每份研报由<b className="text-gold-bright">确定性量化引擎</b>生成（Dixon-Coles / Elo / Shin 去水 / 对数意见池），
-        赛前持续抓取数据<b className="text-gold-bright">实时改版</b>，开赛锁定终版并以哈希链存证，
-        赛后免费公开、战绩可验。
+        每份研报的数字都由<b className="text-gold-bright">量化模型</b>计算（AI 不参与任何计算）；
+        赛前随数据变化<b className="text-gold-bright">自动改版</b>，开赛锁定存证、赛后免费公开——
+        我们无法事后修改任何预测，<b className="text-gold-bright">战绩页</b>可验证全部历史。
       </p>
 
       {groups.size === 0 && (

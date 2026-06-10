@@ -10,7 +10,24 @@ interface Settings {
   pricing: { defaultPricePoints: number };
 }
 
-const LEAGUE_OPTIONS = ["E0", "E1", "SP1", "SP2", "I1", "I2", "D1", "D2", "F1", "F2", "N1", "B1", "P1", "T1", "G1", "SC0"];
+const LEAGUE_OPTIONS: { code: string; name: string }[] = [
+  { code: "E0", name: "英超" },
+  { code: "E1", name: "英冠" },
+  { code: "SP1", name: "西甲" },
+  { code: "SP2", name: "西乙" },
+  { code: "I1", name: "意甲" },
+  { code: "I2", name: "意乙" },
+  { code: "D1", name: "德甲" },
+  { code: "D2", name: "德乙" },
+  { code: "F1", name: "法甲" },
+  { code: "F2", name: "法乙" },
+  { code: "N1", name: "荷甲" },
+  { code: "B1", name: "比甲" },
+  { code: "P1", name: "葡超" },
+  { code: "T1", name: "土超" },
+  { code: "G1", name: "希超" },
+  { code: "SC0", name: "苏超" },
+];
 
 export default function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
@@ -90,7 +107,7 @@ export default function SettingsPage() {
         <div className="mt-3">
           <span className="text-[10px] tracking-widest text-faint">启用联赛（football-data.co.uk 代码）</span>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {LEAGUE_OPTIONS.map((code) => {
+            {LEAGUE_OPTIONS.map(({ code, name }) => {
               const on = s.datasources.enabledLeagues.includes(code);
               return (
                 <button
@@ -108,7 +125,7 @@ export default function SettingsPage() {
                   }
                   className={`rounded border px-2 py-1 text-[11px] ${on ? "border-gold/60 text-gold-bright" : "border-hairline text-faint"}`}
                 >
-                  {code}
+                  {name} {code}
                 </button>
               );
             })}

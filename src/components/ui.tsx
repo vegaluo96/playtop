@@ -14,6 +14,20 @@ export function SectionTitle({ index, children }: { index?: string; children: Re
   );
 }
 
+/** 折叠区块：专业内容默认收起，summary 一句人话简介（server 端可渲染） */
+export function Collapse({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <details className="card group mt-2 px-3.5 py-2.5">
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <span className="text-[10px] text-gold transition-transform group-open:rotate-90">▸</span>
+        <span className="font-display text-[12px] tracking-widest text-ink">{title}</span>
+        {hint && <span className="ml-auto text-right text-[10px] text-faint">{hint}</span>}
+      </summary>
+      <div className="mt-3 border-t border-hairline pt-3">{children}</div>
+    </details>
+  );
+}
+
 export function Stat({ label, value, sub, accent }: { label: string; value: ReactNode; sub?: string; accent?: boolean }) {
   return (
     <div className="card px-3 py-2.5">

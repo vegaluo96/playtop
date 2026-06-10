@@ -36,6 +36,9 @@ export default function AdminMatches() {
 
   const load = () => api<MatchRow[]>("/api/admin/matches").then(setRows).catch((e) => setMsg(e.message));
   useEffect(() => {
+    // 支持从看板带筛选跳入：/admin/matches?f=ready
+    const f = new URLSearchParams(window.location.search).get("f");
+    if (f) setFilter(f);
     void load();
   }, []);
 

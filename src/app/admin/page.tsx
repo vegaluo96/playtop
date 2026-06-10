@@ -1,8 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, fmtTs } from "@/components/admin/api";
-import { MARKET_LABEL, Stat } from "@/components/ui";
+import { MARKET_LABEL, STATUS_LABEL, Stat } from "@/components/ui";
+
+/** 这些状态意味着有活等管理员干——置顶提醒 */
+const TODO_HINT: Record<string, string> = {
+  ready: "场数据就绪，待运行引擎建模",
+  analyzed: "场已建模，草稿待审阅发布",
+  finished: "场已完场，待录入/确认赛果",
+};
+
+const JOBS: { name: string; label: string; desc: string }[] = [
+  { name: "state_machine", label: "推进状态机", desc: "检查全部比赛并自动流转状态" },
+  { name: "live_revisions", label: "触发实时改版", desc: "已发布场次重采集→重算→发新版" },
+  { name: "fetch_results", label: "抓取赛果", desc: "AI 检索完场比分（需人工确认）" },
+];
 
 interface Dashboard {
   statusCounts: { status: string; n: number }[];
@@ -39,9 +53,29 @@ export default function AdminDashboard() {
   if (error) return <p className="text-down">{error}</p>;
   if (!data) return <p className="text-muted">加载中…</p>;
 
+  const todos = data.statusCounts.filter((s) => TODO_HINT[s.status] && s.n > 0);
+
   return (
     <div>
       <h1 className="font-display text-lg tracking-widest">运营看板</h1>
+
+      {todos.length > 0 && (
+        <div className="card mt-4 border-gold/40 px-4 py-3">
+          <div className="font-display text-[12px] tracking-widest text-gold-bright">待处理</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {todos.map((s) => (
+              <Link
+                key={s.status}
+                href={`/admin/matches?f=${s.status}`}
+                className="rounded border border-gold/40 bg-gold/10 px-3 py-1.5 text-[12px] text-gold-bright hover:bg-gold/20"
+              >
+                <b className="tabular">{s.n}</b> {TODO_HINT[s.status]} →
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         <Stat label="注册用户" value={data.userCount} />
         <Stat label="今日解锁" value={data.todayUnlocks} accent />
@@ -50,12 +84,16 @@ export default function AdminDashboard() {
         <Stat label="历史样本库" value={data.historyCount.toLocaleString()} sub="场赛果" />
       </div>
 
-      <h2 className="font-display mt-8 text-sm tracking-widest text-muted">比赛状态分布</h2>
+      <h2 className="font-display mt-8 text-sm tracking-widest text-muted">比赛状态分布（点击查看对应比赛）</h2>
       <div className="mt-2 flex flex-wrap gap-2">
         {data.statusCounts.map((s) => (
-          <span key={s.status} className="rounded border border-hairline bg-surface px-3 py-1.5 text-[12px] text-muted">
-            {s.status} <b className="text-ink">{s.n}</b>
-          </span>
+          <Link
+            key={s.status}
+            href={`/admin/matches?f=${s.status}`}
+            className="rounded border border-hairline bg-surface px-3 py-1.5 text-[12px] text-muted hover:border-gold/50 hover:text-gold-bright"
+          >
+            {STATUS_LABEL[s.status]?.text ?? s.status} <b className="text-ink">{s.n}</b>
+          </Link>
         ))}
       </div>
 
@@ -76,11 +114,17 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <h2 className="font-display mt-8 text-sm tracking-widest text-muted">手动触发任务</h2>
-      <div className="mt-2 flex gap-2">
-        {["state_machine", "live_revisions", "fetch_results"].map((j) => (
-          <button key={j} onClick={() => runJob(j)} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted hover:border-gold/50 hover:text-gold-bright">
-            {j}
+      <h2 className="font-display mt-8 text-sm tracking-widest text-muted">手动触发任务（平时由调度器自动执行，这里仅用于立即生效）</h2>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {JOBS.map((j) => (
+          <button
+            key={j.name}
+            onClick={() => runJob(j.name)}
+            title={j.name}
+            className="rounded border border-hairline px-3 py-1.5 text-left text-[12px] text-muted hover:border-gold/50 hover:text-gold-bright"
+          >
+            {j.label}
+            <span className="ml-2 text-[10px] text-faint">{j.desc}</span>
           </button>
         ))}
       </div>

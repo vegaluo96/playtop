@@ -23,8 +23,6 @@ export default function MatchCardRow({ card }: { card: MatchCard }) {
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Tag tone={s.tone}>{s.text}</Tag>
-            {card.version !== null && <Tag>研报 V{card.version}</Tag>}
-            <Tag>{card.snapshotTotal} 份快照</Tag>
             {card.stars && <Tag tone="gold">{card.stars}</Tag>}
           </div>
         </div>

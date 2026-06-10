@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MARKET_LABEL, SectionTitle, Stat, Tag, fmtCn, pct } from "@/components/ui";
+import { Collapse, MARKET_LABEL, SectionTitle, Stat, Tag, fmtCn, pct } from "@/components/ui";
 import { selectionLabel } from "@/server/llm/reportWriter";
 import { calibrationStats, recordList, recordOverview } from "@/server/services/stats";
 
@@ -69,7 +69,7 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
                   <div className={`text-lg font-semibold ${m.avgClv !== null && m.avgClv >= 0 ? "text-up" : "text-muted"}`}>
                     {m.avgClv === null ? "—" : `${m.avgClv >= 0 ? "+" : ""}${pct(m.avgClv)}`}
                   </div>
-                  <div className="text-[9px] tracking-widest text-faint">平均 CLV</div>
+                  <div className="text-[9px] tracking-widest text-faint">收盘价值</div>
                 </div>
               </div>
             ) : (
@@ -77,7 +77,7 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
             )}
             {m.wilsonLow !== null && m.wilsonHigh !== null && m.hits + m.misses >= 5 && (
               <p className="tabular mt-2 text-[10px] text-faint">
-                95% Wilson 置信区间：{pct(m.wilsonLow)} – {pct(m.wilsonHigh)}（样本 {m.hits + m.misses}）
+                命中率 95% 置信区间：{pct(m.wilsonLow)} – {pct(m.wilsonHigh)}（样本 {m.hits + m.misses}，Wilson 法）
               </p>
             )}
           </div>
@@ -85,25 +85,30 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
       </div>
 
       {calibration.n >= 5 && calibration.model && (
-        <>
-          <SectionTitle>概率校准（vs 市场基线）</SectionTitle>
-          <div className="grid grid-cols-2 gap-2">
-            <Stat
-              label="模型 RPS"
-              value={calibration.model.rps.toFixed(4)}
-              sub={`对数损失 ${calibration.model.logLoss.toFixed(4)}`}
-              accent
-            />
-            <Stat
-              label="市场基线 RPS"
-              value={calibration.market ? calibration.market.rps.toFixed(4) : "—"}
-              sub={calibration.market ? `对数损失 ${calibration.market.logLoss.toFixed(4)}` : ""}
-            />
-          </div>
-          <p className="mt-2 text-[10px] leading-4 text-faint">
-            RPS（Ranked Probability Score，Constantinou &amp; Fenton 2012）越低越好；与去水收盘价对比是业内最严苛的自检。样本 {calibration.n} 场。
-          </p>
-        </>
+        <div className="mt-5">
+          <Collapse title="概率校准（专业自检）" hint={`模型 vs 市场基线 · ${calibration.n} 场`}>
+            <p className="mb-2 text-[11px] leading-5 text-muted">
+              回答一个问题：<b className="text-ink">模型报出的概率本身准不准？</b>
+              用 RPS 评分对照去水收盘价（业内公认最强基线），分数越低越准。
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Stat
+                label="模型 RPS"
+                value={calibration.model.rps.toFixed(4)}
+                sub={`对数损失 ${calibration.model.logLoss.toFixed(4)}`}
+                accent
+              />
+              <Stat
+                label="市场基线 RPS"
+                value={calibration.market ? calibration.market.rps.toFixed(4) : "—"}
+                sub={calibration.market ? `对数损失 ${calibration.market.logLoss.toFixed(4)}` : ""}
+              />
+            </div>
+            <p className="mt-2 text-[10px] leading-4 text-faint">
+              RPS：Ranked Probability Score（Constantinou &amp; Fenton 2012）。
+            </p>
+          </Collapse>
+        </div>
       )}
 
       <SectionTitle>逐场流水</SectionTitle>
