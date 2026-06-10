@@ -53,6 +53,23 @@ export default function AdminMatches() {
     }
   }
 
+  async function importWorldCup() {
+    setMsg("正在从 openfootball 导入世界杯 2026 赛程（队名/中立场/场馆/时区自动处理）…");
+    try {
+      const r = await api<{ created: number; updated: number; unchanged: number; pendingKnockout: number; pastSkipped: number }>(
+        "/api/admin/matches/import-worldcup",
+        { method: "POST" },
+      );
+      setMsg(
+        `✓ 世界杯导入完成：新建 ${r.created} 场，更新 ${r.updated} 场，已存在 ${r.unchanged} 场，` +
+          `淘汰赛待定 ${r.pendingKnockout} 场（对阵确定后每 6 小时自动补建），已过期跳过 ${r.pastSkipped} 场`,
+      );
+      void load();
+    } catch (e) {
+      setMsg(`✗ ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
   async function createMatch() {
     try {
       const kickoffAt = new Date(form.kickoff).getTime();
@@ -84,12 +101,15 @@ export default function AdminMatches() {
     <div>
       <div className="flex items-center justify-between">
         <h1 className="font-display text-lg tracking-widest">比赛管理</h1>
-        <div className="flex gap-2">
-          <button onClick={importFixtures} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted hover:text-gold-bright">
-            从 CSV 导入赛程（俱乐部联赛）
+        <div className="flex flex-wrap gap-2">
+          <button onClick={importWorldCup} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">
+            导入世界杯 2026（自动）
           </button>
-          <button onClick={() => setShowCreate(!showCreate)} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">
-            手动建赛（世界杯/杯赛）
+          <button onClick={importFixtures} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted hover:text-gold-bright">
+            同步联赛赛程（CSV）
+          </button>
+          <button onClick={() => setShowCreate(!showCreate)} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted hover:text-gold-bright">
+            手动建赛（兜底）
           </button>
         </div>
       </div>

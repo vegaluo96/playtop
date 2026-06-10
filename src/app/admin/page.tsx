@@ -16,6 +16,7 @@ const JOBS: { name: string; label: string; desc: string }[] = [
   { name: "state_machine", label: "推进状态机", desc: "检查全部比赛并自动流转状态" },
   { name: "live_revisions", label: "触发实时改版", desc: "已发布场次重采集→重算→发新版" },
   { name: "fetch_results", label: "抓取赛果", desc: "AI 检索完场比分（需人工确认）" },
+  { name: "sync_fixtures", label: "同步赛程", desc: "联赛 CSV + 世界杯自动建赛" },
 ];
 
 interface Dashboard {

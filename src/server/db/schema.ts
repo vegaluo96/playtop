@@ -180,7 +180,7 @@ export const matches = sqliteTable(
     /** 中立场（世界杯等国际大赛）：引擎不计主场优势 */
     neutral: integer("neutral").notNull().default(0),
     round: text("round"),
-    source: text("source", { enum: ["csv", "manual"] }).notNull(),
+    source: text("source", { enum: ["csv", "manual", "openfootball"] }).notNull(),
     status: text("status", { enum: MATCH_STATUSES }).notNull().default("scheduled"),
     /** 解锁价格（积分）；发布时定价，解锁按比赛计（覆盖赛前全部实时改版） */
     pricePoints: integer("price_points"),

@@ -22,6 +22,7 @@ export const LEAGUE_NAMES: Record<string, { name: string; country: string }> = {
   G1: { name: "希超", country: "希腊" },
   SC0: { name: "苏超", country: "苏格兰" },
   INT: { name: "国际赛事", country: "国际" },
+  WC2026: { name: "世界杯 2026", country: "国际" },
 };
 
 export function ensureLeague(code: string): number {

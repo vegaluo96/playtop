@@ -5,6 +5,7 @@ import { dataSnapshots } from "../db/schema";
 import { now } from "../lib/time";
 import { analyzeMatch } from "../services/analyze";
 import { collectMatch } from "../services/collect";
+import { importWorldCupFixtures } from "../services/importWorldCup";
 import { matchesByStatus, syncFixtures } from "../services/matchesService";
 import { lockFinalAnalysisAtKickoff, settleDueMatches } from "../services/settle";
 import { fetchResultsFromCsv, fetchResultsViaAi } from "./fetchResults";
@@ -14,6 +15,7 @@ import { fetchResultsFromCsv, fetchResultsViaAi } from "./fetchResults";
  * - 每 10 分钟：状态机推进（开赛锁定终版 → 结算公开）
  * - 每 30 分钟：实时改版引擎——对 48h 内已发布比赛重新采集 + 重算 + 自动发布新版
  * - 每 6 小时：赛果回填（CSV 权威 + AI provisional）
+ * - 每 6 小时：赛程同步——联赛 CSV + 世界杯（openfootball）自动建赛/补建淘汰赛
  * 所有任务有 isRunning 互斥，避免重入。
  */
 
@@ -45,7 +47,8 @@ export async function tickLiveRevisions(): Promise<{ refreshed: number; revised:
   } catch (e) {
     console.warn("[jobs] fixtures 刷新失败:", e instanceof Error ? e.message : e);
   }
-  const live = matchesByStatus(["published", "analyzed", "ready"]).filter(
+  // scheduled 也纳入：自动建赛的场次临近开球时自动采集，推进到"数据就绪"等待建模
+  const live = matchesByStatus(["published", "analyzed", "ready", "scheduled", "collecting"]).filter(
     (m) => m.kickoffAt > now() && m.kickoffAt - now() < 48 * 3_600_000,
   );
   for (const m of live) {
@@ -70,10 +73,27 @@ export async function tickResults(): Promise<{ csv: number; ai: number }> {
   return { csv, ai };
 }
 
+/** 赛程同步：联赛 CSV 自动建赛 + 世界杯增量同步（淘汰赛对阵确定后自动补建） */
+export async function tickFixtureSync(): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  try {
+    out.club = await syncFixtures(true);
+  } catch (e) {
+    out.club = `失败：${e instanceof Error ? e.message : e}`;
+  }
+  try {
+    out.worldCup = await importWorldCupFixtures();
+  } catch (e) {
+    out.worldCup = `失败：${e instanceof Error ? e.message : e}`;
+  }
+  return out;
+}
+
 export const JOBS: Record<string, () => Promise<unknown>> = {
   state_machine: tickStateMachine,
   live_revisions: tickLiveRevisions,
   fetch_results: tickResults,
+  sync_fixtures: tickFixtureSync,
 };
 
 const g = globalThis as unknown as { __playtopCron?: boolean };
@@ -97,7 +117,8 @@ export function startScheduler(): void {
   cron.schedule("*/10 * * * *", () => void guarded("state_machine"));
   cron.schedule("*/30 * * * *", () => void guarded("live_revisions"));
   cron.schedule("15 */6 * * *", () => void guarded("fetch_results"));
-  console.log("[jobs] 调度器已启动（状态机 10m / 实时改版 30m / 赛果 6h）");
+  cron.schedule("45 */6 * * *", () => void guarded("sync_fixtures"));
+  console.log("[jobs] 调度器已启动（状态机 10m / 实时改版 30m / 赛果 6h / 赛程同步 6h）");
 }
 
 /** 管理端手动触发（演示/补偿） */
