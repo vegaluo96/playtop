@@ -1,0 +1,180 @@
+import { z } from "zod";
+
+export const ENGINE_MODEL_VERSION = "engine-1.0.0";
+
+/** 三向概率/赔率 */
+export const threeWaySchema = z.object({
+  home: z.number(),
+  draw: z.number(),
+  away: z.number(),
+});
+export type ThreeWay = z.infer<typeof threeWaySchema>;
+
+/** 归一化赔率快照（odds kind 的 payload） */
+export const normalizedOddsSchema = z.object({
+  bookmaker: z.string().optional(),
+  oneXTwo: threeWaySchema.optional(),
+  /** 大小球：line 如 2.5 */
+  ou: z.array(z.object({ line: z.number(), over: z.number(), under: z.number() })).default([]),
+  /** 亚盘：line 为主队让球（主让半球 = -0.5） */
+  ah: z.array(z.object({ line: z.number(), home: z.number(), away: z.number() })).default([]),
+  capturedAt: z.number(),
+});
+export type NormalizedOdds = z.infer<typeof normalizedOddsSchema>;
+
+/** 历史比赛（DC 拟合 / Elo 回放输入）；射门数据用于射门质量评分（可缺省） */
+export interface HistMatch {
+  homeTeamId: number;
+  awayTeamId: number;
+  homeGoals: number;
+  awayGoals: number;
+  playedAt: number;
+  /** 中立场（国际大赛常见）：该场不计主场优势 γ */
+  neutral?: boolean;
+  homeShots?: number;
+  homeSot?: number;
+  awayShots?: number;
+  awaySot?: number;
+}
+
+export interface InjuryItem {
+  team: "home" | "away";
+  player: string;
+  role: "goalkeeper" | "defender" | "midfielder" | "attacker" | "unknown";
+  importance: "key" | "regular" | "fringe";
+  status: string;
+}
+
+export interface WeatherInfo {
+  temperatureC?: number;
+  precipitationMmH?: number;
+  windKmH?: number;
+  summary?: string;
+}
+
+export interface EngineParams {
+  xi: number;
+  rho: number;
+  homeAdvElo: number;
+  eloK0: number;
+  eloGoalDiffExp: number;
+  eloCalib: { b: number; c1: number; c2: number };
+  ensembleWeights: { market: number; dc: number; elo: number };
+  kellyFraction: number;
+  kellyCap: number;
+  evThreshold: number;
+  minProbForPick: number;
+  adjustmentsEnabled: boolean;
+  /**
+   * 射门质量混合系数 θ∈[0,1]：进球是高噪声信号，射门/射正更稳定
+   * （Wheatcroft 2020，shots-based ratings 对大小球市场显著优于纯进球）。
+   * 0 = 纯进球；历史数据缺射门列时自动退回纯进球。
+   */
+  shotsBlendTheta: number;
+}
+
+/** runEngine 的输入包：全部来自数据快照与本地库，引擎本身零 IO、无时钟 */
+export interface EngineBundle {
+  match: {
+    homeTeamId: number;
+    awayTeamId: number;
+    kickoffAt: number;
+    neutralVenue?: boolean;
+  };
+  odds?: NormalizedOdds;
+  oddsSeries?: NormalizedOdds[];
+  injuries?: InjuryItem[];
+  weather?: WeatherInfo;
+  leagueHistory: HistMatch[];
+  elo?: {
+    home: { rating: number; matchesPlayed: number };
+    away: { rating: number; matchesPlayed: number };
+  };
+  computedAt: number;
+}
+
+/** DC 退化等级：1=完整MLE 2=矩估计 3=市场反推 4=纯市场 */
+export type FallbackLevel = 1 | 2 | 3 | 4;
+
+export const engineOutputSchema = z.object({
+  modelVersion: z.string(),
+  computedAt: z.number(),
+  fallbackLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  market: z
+    .object({
+      rawOdds: threeWaySchema,
+      overround: z.number(),
+      shinZ: z.number(),
+      devigged: threeWaySchema,
+    })
+    .nullable(),
+  dixonColes: z
+    .object({
+      lambda: z.number(),
+      mu: z.number(),
+      rho: z.number(),
+      gamma: z.number(),
+      probs: threeWaySchema,
+      /** P[homeGoals][awayGoals]，0..10 截断（集成重标定后的最终矩阵） */
+      scoreMatrix: z.array(z.array(z.number())),
+      topScores: z.array(z.object({ score: z.string(), prob: z.number() })),
+    })
+    .nullable(),
+  elo: z
+    .object({
+      home: z.number(),
+      away: z.number(),
+      diff: z.number(),
+      probs: threeWaySchema,
+    })
+    .nullable(),
+  adjustments: z.array(
+    z.object({
+      reason: z.string(),
+      lambdaFactor: z.number(),
+      muFactor: z.number(),
+    }),
+  ),
+  ensemble: z.object({
+    weights: z.object({ market: z.number(), dc: z.number(), elo: z.number() }),
+    probs: threeWaySchema,
+  }),
+  markets: z.object({
+    ou: z.array(z.object({ line: z.number(), over: z.number(), under: z.number() })),
+    /** 主队覆盖（赢盘）概率，已含 push 折算 */
+    ah: z.array(z.object({ line: z.number(), homeCover: z.number(), awayCover: z.number() })),
+  }),
+  value: z.array(
+    z.object({
+      market: z.enum(["1x2", "ou", "ah"]),
+      selection: z.string(),
+      line: z.number().nullable(),
+      odds: z.number(),
+      modelProb: z.number(),
+      ev: z.number(),
+      kelly: z.number(),
+    }),
+  ),
+  picks: z.array(
+    z.object({
+      market: z.enum(["1x2", "ou", "ah"]),
+      selection: z.string(),
+      line: z.number().nullable(),
+      modelProb: z.number(),
+      odds: z.number().nullable(),
+      ev: z.number().nullable(),
+      kelly: z.number().nullable(),
+      confidence: z.enum(["A", "B", "C"]),
+    }),
+  ),
+  oddsMovement: z
+    .array(
+      z.object({
+        capturedAt: z.number(),
+        oneXTwo: threeWaySchema.nullable(),
+      }),
+    )
+    .default([]),
+  trace: z.array(z.string()),
+});
+export type EngineOutput = z.infer<typeof engineOutputSchema>;

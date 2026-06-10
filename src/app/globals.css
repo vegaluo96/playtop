@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* 设计语言：私募研报终端 —— 深海军蓝底、香槟金点缀、高数据密度、克制的动效 */
+@theme {
+  --color-bg: #0a0f1c;
+  --color-surface: #0e1525;
+  --color-raised: #141d31;
+  --color-overlay: #1a2440;
+  --color-hairline: rgba(148, 163, 184, 0.14);
+  --color-ink: #e8edf6;
+  --color-muted: #8b96ab;
+  --color-faint: #5b6679;
+  --color-gold: #c9a86a;
+  --color-gold-bright: #e8d3a3;
+  --color-up: #34d399;
+  --color-down: #f87171;
+  --color-info: #7dd3fc;
+  --font-display: "Noto Serif SC", "Songti SC", "STSong", serif;
+}
+
+html {
+  background: var(--color-bg);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-feature-settings: "tnum";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 细发丝边框卡片 */
+.card {
+  background: linear-gradient(180deg, rgba(20, 29, 49, 0.9), rgba(14, 21, 37, 0.95));
+  border: 1px solid var(--color-hairline);
+  border-radius: 0.75rem;
+}
+
+.gold-rule {
+  background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
+  height: 1px;
+  opacity: 0.5;
+}
+
+/* 实时脉冲点 */
+.pulse-dot {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-up);
+}
+.pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-up);
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* 报告正文排版 */
+.report-prose p { margin: 0.5rem 0; line-height: 1.9; }
+
+::selection { background: rgba(201, 168, 106, 0.35); }
