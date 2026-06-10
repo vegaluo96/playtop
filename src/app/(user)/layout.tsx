@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AutoRefresh from "@/components/AutoRefresh";
 import BottomNav from "@/components/BottomNav";
 import ThemeToggle from "@/components/ThemeToggle";
 import { LiveBadge } from "@/components/ui";
@@ -8,6 +9,8 @@ export default async function UserLayout({ children }: { children: React.ReactNo
   const user = await currentUser();
   return (
     <div className="mx-auto min-h-screen max-w-md pb-20">
+      {/* 实时研报语义：前端每 60s 静默重取服务端数据，发布/改版/结算自动浮现 */}
+      <AutoRefresh seconds={60} />
       <header className="sticky top-0 z-30 border-b border-hairline bg-bg/90 backdrop-blur">
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-baseline gap-2">

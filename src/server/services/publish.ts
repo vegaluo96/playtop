@@ -52,8 +52,11 @@ export function publishAnalysisRow(
     if (row.status !== "draft") throw new HttpError(400, "只有草稿可以发布");
     const match = tx.select().from(matches).where(eq(matches.id, row.matchId)).get();
     if (!match) throw new HttpError(404, "比赛不存在");
-    if (!["analyzed", "published"].includes(match.status)) {
-      throw new HttpError(400, `当前比赛状态（${match.status}）不可发布`);
+    // 赛前任意状态都可发布（草稿存在即代表引擎已跑过）：状态机快进到 published。
+    // 只拦开赛后/已终结的（锁定终版后再发布会破坏战绩口径）。
+    const FAST_FORWARD = ["scheduled", "collecting", "ready", "analyzed"];
+    if (!FAST_FORWARD.includes(match.status) && match.status !== "published") {
+      throw new HttpError(400, `当前比赛状态（${match.status}）不可发布（已开赛/已结算/已作废）`);
     }
     const contentHash = computeAnalysisHash(row);
     tx.update(analyses)
@@ -69,7 +72,11 @@ export function publishAnalysisRow(
     // 同场旧的已发布版本保持 published 状态留在链上（历史版本），结算时统一转 public
     const price = opts.pricePoints ?? match.pricePoints ?? getConfig("pricing").defaultPricePoints;
     tx.update(matches)
-      .set({ pricePoints: price, updatedAt: now(), ...(match.status === "analyzed" ? { status: "published" as const } : {}) })
+      .set({
+        pricePoints: price,
+        updatedAt: now(),
+        ...(FAST_FORWARD.includes(match.status) ? { status: "published" as const } : {}),
+      })
       .where(eq(matches.id, match.id))
       .run();
   });

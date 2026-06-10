@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
-import { analyses, historyMatches, leagues } from "../db/schema";
+import { analyses, historyMatches, leagues, type MatchStatus } from "../db/schema";
 import { runEngine } from "../engine";
 import {
   engineOutputSchema,
@@ -323,7 +323,13 @@ export async function analyzeMatch(
     .returning({ id: analyses.id })
     .get();
 
-  if (match.status === "ready") transitionMatch(matchId, "analyzed");
+  // 建模成功即推进到"已建模"：手动从采集中/待采集直接运行引擎时沿合法迁移链快进
+  const FF: Record<string, MatchStatus> = { scheduled: "collecting", collecting: "ready", ready: "analyzed" };
+  let st = getMatch(matchId).status;
+  while (FF[st]) {
+    transitionMatch(matchId, FF[st]);
+    st = FF[st];
+  }
 
   let autoPublished = false;
   if (opts.autoPublishRevision && match.status === "published") {

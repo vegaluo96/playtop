@@ -121,6 +121,11 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
   );
   useEffect(() => {
     void load();
+    // 工作台实时轮询：调度器在后台自动推进，页面 30s 自动反映最新状态
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 30_000);
+    return () => clearInterval(timer);
   }, [load]);
 
   async function act(label: string, fn: () => Promise<unknown>) {

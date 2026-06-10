@@ -60,7 +60,7 @@ export const automationConfigSchema = z.object({
   /** analyzed → 自动按默认积分价发布首版 */
   autoPublish: z.boolean().default(true),
   /** 距开球 N 小时内仍无盘口 → 强制进 ready（引擎走无市场退化链）；0 = 关闭兜底 */
-  readyWithoutOddsHours: z.number().min(0).default(12),
+  readyWithoutOddsHours: z.number().min(0).default(48),
   /** 自动流水线处理窗口：开球前 N 小时进入采集→建模→发布管道 */
   pipelineWindowHours: z.number().min(1).default(48),
   /** AI 检索赛果自动确认并结算（安全栏见 policy） */

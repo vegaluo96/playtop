@@ -55,6 +55,23 @@ describe("advanceMatch：ready → 建模 → 发布全链路", () => {
     expect(audit[0].actorId).toBe(0);
   });
 
+  it("无盘口卡在采集中时：手动建模/发布沿状态机快进（修复'collecting 不可发布'）", async () => {
+    const { analyzeMatch } = await import("@/server/services/analyze");
+    const { publishAnalysisRow } = await import("@/server/services/publish");
+    const id = createManualMatch({
+      leagueCode: "WC2026",
+      homeName: "Portugal",
+      awayName: "Colombia",
+      kickoffAt: T0 + 6 * 3_600_000,
+      neutral: true,
+    });
+    transitionMatch(id, "collecting"); // 无盘口 → 停在采集中
+    const r = await analyzeMatch(id); // 手动运行引擎（不再要求 ready）
+    expect(matchStatus(id)).toBe("analyzed"); // 快进 collecting→ready→analyzed
+    publishAnalysisRow(r.analysisId, {}); // 手动发布不再报"collecting 不可发布"
+    expect(matchStatus(id)).toBe("published");
+  });
+
   it("autoPublish 关闭时停在已建模等待人工", async () => {
     setConfig("automation", { autoPublish: false });
     const id = createManualMatch({
