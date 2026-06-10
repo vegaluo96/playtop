@@ -30,7 +30,7 @@ export async function politeFetchText(
   inflightCooldown.set(url, now());
   const res = await fetch(url, {
     headers: { "user-agent": "playtop/1.0 (research; contact admin)", ...headers },
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(12_000), // 被墙源常挂死而非拒绝——12s 截断保证并发批快速收敛
   });
   if (!res.ok) throw new Error(`抓取失败 HTTP ${res.status}：${url}`);
   const body = await res.text();

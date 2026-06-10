@@ -72,50 +72,64 @@ export async function collectMatch(
   };
   const isIntl = league?.code === INTERNATIONAL_LEAGUE_CODE || league?.code === "WC2026";
 
-  // 盘口：多源并行、各自独立成败（每家书商独立快照，引擎侧做加权共识与最优价）。
-  // 每源经健康门控（连败自动停用）并记账（withSource）。
+  // 盘口：多源真并发（生产环境被墙源会挂死等超时，串行一次采集可达数分钟——
+  // 并发后墙钟时间 = 最慢一源；每源独立成败 + 健康门控记账）。
+  const networkTasks: Promise<void>[] = [];
   if (match.source === "csv") {
-    await attempt("odds:csv", async () => {
-    await withSource("football_data_couk", () => syncFixtures(false, force));
-  });
+    networkTasks.push(
+      attempt("odds:csv", async () => {
+        await withSource("football_data_couk", () => syncFixtures(false, force));
+      }),
+    );
   } else if (isSourceUsable("sporttery", dsCfg.sportteryEnabled)) {
-    await attempt("odds:竞彩", async () => {
-      if (!(await withSource("sporttery", () => sportteryOddsForMatch(match)))) throw new Error("竞彩未覆盖本场");
-    });
+    networkTasks.push(
+      attempt("odds:竞彩", async () => {
+        if (!(await withSource("sporttery", () => sportteryOddsForMatch(match)))) throw new Error("竞彩未覆盖本场");
+      }),
+    );
   }
   if (isSourceUsable("polymarket", dsCfg.polymarketEnabled)) {
-    await attempt("odds:polymarket", async () => {
-      const payload = await withSource("polymarket", () => fetchPolymarketOdds(matchRef));
-      if (!payload) throw new Error("Polymarket 未匹配到本场市场");
-      insertSnapshot(matchId, "odds", "polymarket", payload);
-    });
+    networkTasks.push(
+      attempt("odds:polymarket", async () => {
+        const payload = await withSource("polymarket", () => fetchPolymarketOdds(matchRef));
+        if (!payload) throw new Error("Polymarket 未匹配到本场市场");
+        insertSnapshot(matchId, "odds", "polymarket", payload);
+      }),
+    );
   }
   if (isSourceUsable("manifold", dsCfg.manifoldEnabled)) {
-    await attempt("odds:manifold", async () => {
-      const payload = await withSource("manifold", () => fetchManifoldOdds(matchRef));
-      if (!payload) throw new Error("Manifold 未匹配到本场市场");
-      insertSnapshot(matchId, "odds", "manifold", payload);
-    });
+    networkTasks.push(
+      attempt("odds:manifold", async () => {
+        const payload = await withSource("manifold", () => fetchManifoldOdds(matchRef));
+        if (!payload) throw new Error("Manifold 未匹配到本场市场");
+        insertSnapshot(matchId, "odds", "manifold", payload);
+      }),
+    );
   }
   if (isSourceUsable("smarkets", dsCfg.smarketsEnabled)) {
-    await attempt("odds:smarkets", async () => {
-      const payload = await withSource("smarkets", () => fetchSmarketsOdds(matchRef));
-      if (!payload) throw new Error("Smarkets 未匹配到本场事件");
-      insertSnapshot(matchId, "odds", "smarkets", payload);
-    });
+    networkTasks.push(
+      attempt("odds:smarkets", async () => {
+        const payload = await withSource("smarkets", () => fetchSmarketsOdds(matchRef));
+        if (!payload) throw new Error("Smarkets 未匹配到本场事件");
+        insertSnapshot(matchId, "odds", "smarkets", payload);
+      }),
+    );
   }
   if (isSourceUsable("espn", dsCfg.espnEnabled) && ESPN_LEAGUE_SLUG[league?.code ?? ""]) {
-    await attempt("odds:espn", async () => {
-      const events = await withSource("espn", () =>
-        fetchEspnScoreboard(ESPN_LEAGUE_SLUG[league!.code!], espnDate(match.kickoffAt)),
-      );
-      const hit = matchEspnEvent(events, matchRef);
-      if (!hit?.odds) throw new Error("ESPN 本场无赔率");
-      insertSnapshot(matchId, "odds", "espn", hit.odds);
-    });
+    networkTasks.push(
+      attempt("odds:espn", async () => {
+        const events = await withSource("espn", () =>
+          fetchEspnScoreboard(ESPN_LEAGUE_SLUG[league!.code!], espnDate(match.kickoffAt)),
+        );
+        const hit = matchEspnEvent(events, matchRef);
+        if (!hit?.odds) throw new Error("ESPN 本场无赔率");
+        insertSnapshot(matchId, "odds", "espn", hit.odds);
+      }),
+    );
   }
   if ((match.source === "csv" ? dsCfg.aiOddsForCsvLeagues : true) && !opts.skipAi) {
-    await attempt("odds:ai", async () => {
+    networkTasks.push(
+      attempt("odds:ai", async () => {
       const books = await aiRetrieveOddsBooks({
         leagueName: league?.name ?? "",
         homeName,
@@ -124,12 +138,14 @@ export async function collectMatch(
         round: match.round,
       });
       if (books.length === 0) throw new Error("AI 未检索到可信赔率");
-      for (const b of books) insertSnapshot(matchId, "odds", "llm", b);
-    });
+        for (const b of books) insertSnapshot(matchId, "odds", "llm", b);
+      }),
+    );
   }
 
   // 外部评级：国家队 → eloratings.net；俱乐部 → ClubElo + Understat xG（展示/事实维度）
-  await attempt("external_ratings", async () => {
+  networkTasks.push(
+    attempt("external_ratings", async () => {
     const items: z.infer<typeof externalRatingsPayloadSchema>["items"] = [];
     if (isIntl && isSourceUsable("eloratings", dsCfg.eloRatingsEnabled)) {
       const rows = await withSource("eloratings", () => fetchEloRatings(force));
@@ -164,16 +180,22 @@ export async function collectMatch(
     }
     if (items.length === 0) throw new Error("外部评级源无匹配数据");
     insertSnapshot(matchId, "external_ratings", isIntl ? "eloratings" : "clubelo", { items });
-  });
+    }),
+  );
 
   // 球员数据（国际赛）：射手榜/点球主罚/点球大战史
   if (isIntl && isSourceUsable("github", dsCfg.githubIntlEnabled)) {
-    await attempt("player_stats", async () => {
-      const payload = await withSource("github", () => intlPlayerStats(homeName, awayName, force));
-      if (payload.items.length === 0 && (payload.notes?.length ?? 0) === 0) throw new Error("数据集无两队记录");
-      insertSnapshot(matchId, "player_stats", "github", payload);
-    });
+    networkTasks.push(
+      attempt("player_stats", async () => {
+        const payload = await withSource("github", () => intlPlayerStats(homeName, awayName, force));
+        if (payload.items.length === 0 && (payload.notes?.length ?? 0) === 0) throw new Error("数据集无两队记录");
+        insertSnapshot(matchId, "player_stats", "github", payload);
+      }),
+    );
   }
+
+  // 等全部网络源并发完成（墙钟时间 = 最慢一源，而非求和）
+  await Promise.all(networkTasks);
 
   // 本地历史库统计（确定性，零外部调用）
   await attempt("h2h", () => {
