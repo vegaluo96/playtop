@@ -1,201 +1,177 @@
-# PlayTop 重构计划(REBUILD_PLAN.md)
+# PlayTop V2 重构计划(REBUILD_PLAN.md · Opinion 主链修正版)
 
-> 架构师注:本文档基于对现有仓库的逐文件审计撰写。结论先行——**当前项目已经实现了你定义的核心闭环的约 80%,真正缺的不是"推倒重来",而是把领域模型显性化、把审计链补全、把前台体验收口。** 下文逐条对照你的 8 条重构原则给出证据与差距,再给分阶段方案。
-
----
-
-## 一、当前项目现状
-
-### 技术栈(建议沿用,理由见原则 8 对照)
-
-| 层 | 现状 | 评估 |
-|---|---|---|
-| 前端框架 | Next.js 15 App Router(React 19,服务端组件) | ✅ 保留。SSR + force-dynamic 天然适配"赛前数据频繁变、赛后归档"的读多写少模型 |
-| 后端框架 | Next.js Route Handlers(同进程)+ `src/server/*` 分层服务 | ✅ 保留。单体足够;服务层已与路由解耦,可独立测试 |
-| 数据库 | SQLite(better-sqlite3,同步驱动) | ✅ 保留(单机)。⚠️ 见风险点:写并发与多实例水平扩展的上限 |
-| ORM | Drizzle ORM + drizzle-kit 迁移 | ✅ 保留。schema 即类型,迁移已纳入版本管理(drizzle/0000、0001) |
-| 任务队列 | **无外部队列**;`node-cron` 进程内调度 + `instrumentation.ts` 启动钩子 | ⚠️ 保留但需加固(见原则 7/风险点):进程内 cron 无分布式锁,多实例会重复执行 |
-| 认证系统 | 自建会话(`sessions` 表 + cookie,`src/server/auth/*`,scrypt 密码) | ✅ 保留。够用,无需引入第三方 |
-| 部署 | 单容器 Docker(standalone 输出),SQLite 挂卷,服务器本地构建,infra 仓库管脚本 | ✅ 保留。已在香港 ECS 跑通,Caddy 反代 |
-
-代码规模:`src/` 约 12,500 行 TS/TSX;17 张表;31 个 API 路由;4 个 cron;104 项测试 + 2 个端到端脚本(`simulate` / `demo:wc`)。
-
-### 现有功能盘点(对照你的清单)
-
-| 功能 | 状态 | 位置 |
-|---|---|---|
-| 赛程 | ✅ 完整:openfootball 世界杯一键导入 + football-data CSV 联赛同步 + 手动建赛;冷启动自动导入 | `services/importWorldCup.ts`、`matchesService.ts` |
-| 比赛页 | ✅ 前台研报三态(锁定/解锁/公开)+ "研报准备中"赛程态;后台工作台 | `app/(user)/matches/[id]`、`app/admin/matches/[id]` |
-| 用户系统 | ✅ 注册/登录/会话/封禁 | `server/auth/*`、`app/api/auth/*` |
-| 支付或积分 | ✅ 积分制(管理员人工充值,无自助支付);append-only 流水 + 原子解锁 + 作废退款 | `services/points.ts`、`unlock.ts`、`pointTransactions` 表 |
-| 数据源接入 | ✅ 15 源中台:全部经 `src/server/datasources/*` 适配器归一,**前端零直连**;健康账本自动停用 | `datasources/*`、`services/sourceHealth.ts`、`registry.ts` |
-| 模型逻辑 | ✅ 纯函数确定性引擎:Dixon-Coles / Elo / Shin 去水 / 加权共识 / 对数意见池 / EV+Kelly | `server/engine/*` |
-| 研报逻辑 | ✅ 版本化 + SHA-256 哈希链 + 开赛锁定 + 赛后结算 + /verify 公开验证 | `services/publish.ts`、`settle.ts` |
-| 后台管理 | ✅ 看板/比赛工作台/用户积分/系统设置(含因子表、自动化开关、引擎参数) | `app/admin/*` |
+> 状态:**待产品负责人确认**。确认前不做大规模业务代码修改(本版只产出文档)。
+> 核心修正:**付费商品 = Opinion(赛前观点),Report 只是解释层**。上一轮 V2 MVP 把 report_versions 当成了商品载体——这是本计划要纠正的第一错误。
 
 ---
 
-## 二、逐条对照"重构原则"——证据与差距
+## 1. 当前项目现状
 
-> 这是本文档最关键的部分:你的 8 条原则,现状满足到什么程度,差距在哪。
+**技术栈**(逐层审计,全部胜任,无重写理由):
+Next.js 15 App Router(前端+API 同进程)· Drizzle ORM + SQLite(better-sqlite3,迁移 0000-0002)· node-cron 进程内调度(4 任务)+ instrumentation 启动钩子 · 自建会话认证(scrypt+cookie)· 单容器 Docker 部署(香港 ECS,Caddy 反代,infra 仓库管脚本)。
 
-**原则 1(不做门户)——✅ 已满足。** 无社区/投稿/直播/资料库。产品面是"赛事卡片 → 研报 → 解锁 → 战绩"四屏,克制。**无需动作。**
+**规模**:~13,000 行 TS;20 张表(V1 17 + V2 首批 12 中已建);36 个 API 路由;111 项测试 + 2 个端到端脚本(simulate / demo:wc)。
 
-**原则 2(第三方 API 不得前端直连)——✅ 已满足。** 全部第三方源在 `src/server/datasources/*` 适配器内抓取并归一,前端只调 `/api/*`。**无需动作。**
+**已具备的能力**(资产):
+- 数据中台:15 个零注册数据源适配器(ESPN/竞彩/Polymarket/Smarkets/Manifold/ClubElo/eloratings/Understat/martj42/openfootball/football-data/open-meteo 等),统一归一化 zod schema,健康账本连败自动停用,**原始响应已全量留档(raw_api_payloads,512KB 截断)**。
+- 确定性引擎:Dixon-Coles MLE/矩估计/市场反推退化链、进球差 Elo、Shin 去水、多书商加权共识(因子权重+离群降权)、对数意见池、EV+¼Kelly、比分市场对照。纯函数、零随机、model_version 已记录、黄金值测试守护。
+- 信任机制:研报 SHA-256 哈希链(prevHash)+ /verify 公开校验;V2 通用 audit_hashes 链 + 篡改检测测试;数字白名单(AI 违规数字→拒绝→降级模板)。
+- 全自动流水线:赛程导入→采集→建模→发布→改版→锁定→赛果(CSV/ESPN 权威+AI 双确认)→结算→战绩,冷启动零人工。
+- 积分:append-only 流水、原子解锁、作废退款、管理员操作留痕(audit_logs 记 operator)。
 
-**原则 3(供应商预测只能当因子)——🟡 基本满足,需补一处。** Polymarket/Manifold/Smarkets 等预测市场进入的是 `odds` 快照(书商维度),由引擎做加权共识后才成为观点——它们是因子,不是直接包装。⚠️ 差距:`aiOdds.ts` 的 AI 检索盘口、未来可能接入的"第三方 prediction"需要一条明文红线——**任何 `probability`/`pick` 字段的外部源只能落到因子层,严禁直接写入 `analyses`**。当前没有源违反,但缺一个架构约束(类型层面禁止)。
+## 2. 当前最大结构问题(逐项实证)
 
-**原则 4(系统核心是领域对象链,不是"研报")——🟡 概念已全有,但命名/边界未显性化。** 你要的对象链:
-`Match → Snapshot → ModelRun → ReportVersion → LockRecord → Settlement → TrackRecord`
-现状映射:
+| # | 审计项 | 结论 | 证据 |
+|---|---|---|---|
+| 1 | 是否把 Report 当核心商品 | **🔴 是——这是头号建模错误** | V1:解锁授予的是"该场全部研报版本"的阅读权;V2 首批:report_versions 直接承载 free_preview/paid_content,商品=报告 |
+| 2 | 是否没有 Opinion 层 | **🔴 没有** | "观点"以三种残缺形态散落:engine.picks(JSON 内嵌)、predictions(仅锁定时落库、无版本、无身份延续)、研报观点表格(纯展示) |
+| 3 | 是否按 Match 结算而非按 Opinion | **🟡 半对半错** | predictions/settlements 行级是逐 pick 的 ✓,但结算入口、锁定、状态机全挂在 match 上;观点没有跨版本身份,无法回答"这个观点从 T72 到锁定改了几次" |
+| 4 | Unlock 是否绑死某个 ReportVersion | **🟢 否(意外正确)** | V1 解锁就是 match 范围、覆盖全部赛前版本+终版,正是规约的 all_pre_kickoff_versions 语义;缺的只是 opinion 粒度与 initial_version 指针 |
+| 5 | Report/Prediction/Pick/Opinion 概念混乱 | **🔴 是** | 四个概念横跨 6 个服务文件;analyses 同时是模型输出+报告+哈希节点 |
+| 6 | 前端是否直连第三方 API | 🟢 否 | 全部经后端适配器 |
+| 7 | 原始 payload 是否未保存 | 🟢 已修复 | politeFetchText 统一落 raw_api_payloads(成功+失败) |
+| 8 | AI 是否参与计算 | 🟢 否 | 引擎零 LLM;数字白名单强制 |
+| 9 | 战绩是否只统计有利样本 | 🟢 否 | 锁定终版全量结算、哈希链防删改;V2 track_records 已含 watch_only_count |
+| 10 | 观望是否未进统计 | 🟡 半 | V2 已计数;V1 战绩页口径"观望不计分母"(作为口径明示,合规)但 V1 聚合未展示观望数 |
+| 11 | 赌博化/喊单化文案 | **🟡 有残留** | 引擎 trace"N 个可下注选项"前台可见;"建议仓位(¼ Kelly)"措辞;需按第 20 节词表全量清洗为"模拟单位/风险刻度"口径 |
 
-| 你的对象 | 现有载体 | 差距 |
-|---|---|---|
-| Match | `matches` 表 | ✅ |
-| Snapshot | `dataSnapshots` 表(每 kind 多版本,内容哈希去重) | 🟡 见原则 6:**未存原始 payload** |
-| ModelRun | 揉进了 `analyses.engineOutput`(引擎输出 JSON) | 🔴 **未独立成对象**:引擎输入 bundle 未持久化,无独立 model_run_id/耗时/输入指纹 |
-| ReportVersion | `analyses` 表(version + status + contentHash + prevHash) | ✅ 强 |
-| LockRecord | 隐式:`matches.finalAnalysisId` + `predictions` 落库 | 🟡 **未独立成记录**:锁定时刻、锁定时市场快照、锁定原因散落 |
-| Settlement | `outcomes` 表 + `settleDueMatches` | ✅ |
-| TrackRecord | 实时聚合计算(`services/stats.ts`),无物化表 | 🟡 每次查询重算;赛果口径变更无法追溯历史结算版本 |
+## 3. 可以保留的模块(直接复用,不重写)
 
-**核心结论:对象链 7 个节点中,5 个已是一等公民,2 个(ModelRun、LockRecord)是"隐式存在"需要显性化,1 个(Snapshot)需补原始 payload。这是本次重构的主轴,而非推倒。**
+- `src/server/engine/*` 全部数学(对应规约模型:加权共识=MarketConsensusModel、elo.ts=EloModel、dixonColes.ts=Poisson+DixonColes、adjustments.ts=FormAdjustmentModel、ensemble+picks=PlayTopConsensusModel 雏形)——**按规约输出契约重新包装,不重写算法**。
+- `src/server/datasources/*` 15 源 + registry + sourceHealth + raw 留档(对应规约 Provider Adapter 的既有实现;Canonical* 类型即现有归一化 schema 的改名收口)。
+- 哈希链/audit_hashes/verify、数字白名单、积分原子操作与流水、认证、自动化调度骨架、测试体系。
+- V2 首批表中:providers / provider_entity_map / raw_api_payloads / match_snapshots / odds_snapshots / model_runs / audit_hashes / data_provider_health / track_records——**与新规约字段一致或仅差少量列,沿用**。
 
-**原则 5(AI 不参与计算)——✅ 已满足且有强保障。** 引擎纯函数零 LLM;AI 仅 `llm/reportWriter.ts` 写定性段落,且有**数字白名单**(`numberGuard.ts`:输出中任何未在事实清单/引擎输出出现过的数字 → 拒绝重写,3 次失败降级纯模板)。AI 检索的赛果/盘口经 zod + 区间校验 + 双重确认。**这是当前项目最稳的部分,保留并固化为不可回退的契约。**
+## 4. 必须废弃或标记 legacy 的模块
 
-**原则 6(全链路可追溯)——🔴 最大差距。** 逐项:
-- 原始 API payload:🔴 **未保存**。`fetch_cache` 只存 URL+内容哈希用于去重,不存正文。适配器归一后原始响应即丢弃 → 无法事后复盘"当时供应商到底返回了什么"。
-- 标准化数据:✅ `dataSnapshots.payload`(zod 归一后)。
-- 快照:✅ append-only,只插不改不删。
-- 模型输入输出:🟡 输出存了(`engineOutput`),**输入 bundle 未存**(只存了 `inputSnapshotIds` 引用)→ 历史快照若被新采集覆盖,无法精确重放当时输入。
-- 研报版本:✅ `analyses` + 哈希链。
-- 开赛锁定记录:🟡 隐式(见原则 4)。
-- 赛后结算:✅ `outcomes` + `predictions.result`。
+| 模块 | 处置 |
+|---|---|
+| `analyses` 表与 V1 发布/解锁链路 | **legacy**:继续服务旧页面,不再扩展;新主链不写入 |
+| `predictions` 表 | **legacy**:被 opinion_versions + opinion_settlements 取代 |
+| V2 首批 `settlements` 表 | **deprecated**(你已明确):被 opinion_settlements 取代,保留不删 |
+| V2 首批 `report_versions` | **改造沿用**:加 opinion_id / opinion_version_id 外键,降级为解释层 |
+| V1 战绩聚合(stats.ts) | legacy;V2 战绩以 opinion_settlements 为事实源 |
+| 前台违规措辞 | 清洗:"可下注选项"→"可评估点位"、"建议仓位"→"模拟单位(风险刻度)"等,按第 20 节词表全站扫描 |
 
-**原则 7(模型确定性)——✅ 已满足。** 引擎是纯函数,`tests/engine/*` 有黄金值+性质测试守护;`stableEngineHash` 剔除时间戳判定"是否真变化"。⚠️ 唯一隐患:`ENGINE_MODEL_VERSION` 已记录(engine-1.1.0),但**参数快照未随 ModelRun 持久化**——改了 `bookWeights` 后无法重放旧版本的确切参数。补 ModelRun 对象即解决。
-
-**原则 8(沿用技术栈)——✅ 满足,无重写理由。** 现有栈完全胜任;唯一需要架构级决策的是 SQLite 的扩展上限(见风险点),但在当前单机+读多写少负载下不构成重写理由。
-
----
-
-## 三、推荐保留 / 废弃
-
-### 强保留(资产,勿动)
-- **整个 `src/server/engine/*`**(纯函数引擎):这是平台的知识产权核心,有文献依据、有测试守护、确定性可复现。
-- **`src/server/datasources/*` + `registry.ts` + `sourceHealth.ts`**:15 源中台 + 因子化 + 健康自停用,正是原则 2 要的"数据中台"。
-- **哈希链与 /verify**(`publish.ts`):原则 6 信任机制的基石。
-- **积分原子操作**(`unlock.ts`、`points.ts`):事务正确,有并发测试。
-- **数字白名单**(`numberGuard.ts`):原则 5 的执行者。
-- **测试体系**:104 单测 + 2 端到端脚本,重构的安全网。
-
-### 重构(保留数据,改造结构)
-- `dataSnapshots`:**新增 `rawPayloadId` 关联原始响应表**(补原则 6)。
-- `analyses`:拆出独立的 `model_runs`(输入指纹+参数快照+耗时)与 `report_versions` 仍由 analyses 承载,二者 1:1。
-- 锁定:`matches.finalAnalysisId` 升级为独立 `lock_records` 表。
-
-### 废弃 / 收敛(技术债)
-- **历史 token 名 `gold`/`gold-bright`**:已重定义为主题蓝但名字误导,渐进重命名为 `accent`(纯改名,不改值)。
-- **`analyses` 表语义过载**:它同时是 ModelRun + ReportVersion + 哈希链节点,职责拆分(见下)。
-- **`ratingStars` 函数名**:已返回字母评级却仍叫 stars,改名 `ratingGrade`。
-- 无"必须整体删除"的模块——这印证了不需要推倒重来。
-
----
-
-## 四、新架构设计:领域对象链显性化
-
-把你定义的 7 节点对象链落成一等公民。**核心改动 = 3 张新表 + 1 张原始数据表,不破坏现有数据。**
+## 5. PlayTop V2 唯一主链
 
 ```
-Match (matches, 已有)
-  └─ Snapshot (data_snapshots, 已有) ──→ RawPayload (raw_payloads, 新) 原始响应留档
-        └─ ModelRun (model_runs, 新) 一次引擎执行:输入指纹+参数快照+seed+model_version+耗时
-              └─ ReportVersion (analyses, 已有→瘦身) 文字研报+哈希链,关联 model_run_id
-                    └─ LockRecord (lock_records, 新) 开赛锁定:终版+锁定时市场快照+时刻
-                          └─ Settlement (outcomes, 已有) 赛果+结算
-                                └─ TrackRecord (track_records, 新物化 或 保持聚合) 战绩归档
+API 原始数据(raw_api_payloads)
+→ 标准化(Canonical*,provider_entity_map)
+→ 多时间点快照(match_snapshots T72/T24/T6/T1/lineup/lock/post/manual + odds_snapshots)
+→ 模型运行(model_runs:六模块组合,输入输出双哈希,确定性)
+→ 观点版本(opinions + opinion_versions:市场/方向/盘口/参考赔率/最低可接受赔率/评级/风险/失效条件)
+→ 解释报告(report_versions:观点的文字化,数字白名单)
+→ 积分解锁(unlock scope = match|opinion,all_pre_kickoff_versions)
+→ 开赛锁定(opinion_locks,开赛前 15 分钟,锁后只可追加 correction)
+→ 赛后结算(opinion_settlements:win/lose/push/void/half_win/half_lose + pnl/roi/clv/brier)
+→ 公开战绩(track_records 聚合缓存,观望计入)
 ```
 
-### 数据库重构方案(增量迁移,零数据丢失)
+## 6. 新数据库结构
 
-新增表(drizzle 迁移 0002):
-1. **`raw_payloads`**:`id, source, url, fetchedAt, payload(原始正文), contentHash`。适配器抓取成功即落一条,`data_snapshots.rawPayloadId` 外键引用。原始数据可追溯(原则 6)。
-   - 成本控制:设保留窗口(如赛后 30 天清理原始 payload,标准化快照永久留存)。
-2. **`model_runs`**:`id, matchId, modelVersion, paramsHash, paramsSnapshot(JSON), inputDigest(快照id集合的哈希), engineOutput(JSON,从 analyses 迁移), trace, computedAt, durationMs`。一次引擎执行 = 一条。`analyses` 通过 `modelRunId` 引用,引擎输出不再直接挂 analyses。
-3. **`lock_records`**:`id, matchId, analysisId(终版), lockedAt, closingOddsSnapshot(JSON 多书商收盘价), reason`。开赛锁定显性化,CLV 计算口径固定。
-4. **`track_records`**(可选物化):结算时写入逐观点结算结果快照,带 `settlementVersion`——赛果口径若调整,旧结算记录不被覆盖。
+**已存在且符合规约(沿用)**:providers(补 config_json 列)、provider_entity_map、raw_api_payloads、match_snapshots(snapshot_type 补 manual)、odds_snapshots(market_type 补 double_chance)、model_runs、audit_hashes、data_provider_health、track_records(补 half_wins/half_losses 列)。
+**复用 V1 表映射**:leagues(补 tier/is_active)、teams(补 short_name 取 aliases[0])、matches(状态服务层映射)、users.points+pointTransactions(=user_points+point_transactions 语义,流水 type 改名映射 admin_grant→admin_add)、unlocks(**加列**:unlock_scope_type 默认 match、unlock_scope_id、initial_opinion_version_id、initial_report_version_id、access_policy 默认 all_pre_kickoff_versions——存量行语义不变)。
+**新建(迁移 0003,附 0003_down.sql)**:
+- `players`(id/team_id/name/position/country,来源 ESPN roster 落地)
+- `opinions`(规约 §7.11 全字段;唯一约束:每场最多一条 primary)
+- `opinion_versions`(规约 §7.12 全字段;version_hash 链)
+- `opinion_locks`(规约 §7.14 全字段,含 final_report_version_id)
+- `opinion_settlements`(规约 §7.15 全字段)
+- `correction_records`(锁后纠错只追加:opinion_id/operator_id/diff_json/reason/created_at)
+- `jobs` 任务表(name/payload/status/attempts/last_error/run_at——cron+job table 的 MVP 队列)
 
-`analyses` 瘦身:保留 version/status/contentHash/prevHash/llmSections/reportMd,`engineOutput` 迁往 `model_runs`(迁移脚本一次性搬运,旧行回填 model_run)。
+## 7. 新 API 结构
 
-### API 重构方案
+前台(规约 §21,全部新建于 /api/v2):picks、schedule、matches/:id、matches/:id/opinion、matches/:id/report、matches/:id/versions、track-record、me/points、me/unlocks、POST unlock(scope 化)。**未解锁响应裁剪在服务端完成:方向/盘口/赔率/概率字段直接不出现在 JSON 中**(上线检查 §24.3)。
+后台:/api/admin/v2/*(规约清单全部),其中 create-snapshot/run-model/generate-opinion/generate-report/lock/settle 是把现自动化编排器拆成可单步触发的对象级动作。
+现有 /api/v2/matches 等首批 5 路由:改造为读 opinion 主链;/api/v2/audit 保留(规约外加分项)。旧 /api/* 全部保留标 legacy。
 
-现有 31 个路由保留语义,按对象链收口命名(渐进,不破坏前端):
-- 读侧聚合:`GET /api/matches/[id]` 返回 Match + 当前 ReportVersion + LockRecord + Settlement(用户态按解锁权限裁剪)。
-- 审计侧(新,体现"公开审计系统"定位):`GET /api/audit/[matchId]` 公开返回该场完整对象链——所有快照时间线、所有版本、锁定记录、结算、哈希验证。**这是"赛后公开审计系统"的门面 API,当前缺失。**
-- 后台保持 `/api/admin/*`,新增 `/api/admin/matches/[id]/runs`(查看 ModelRun 历史)、`/api/admin/matches/[id]/lock`(查看锁定记录)。
+## 8. 新前端页面结构(移动端 H5 优先,冷静工具风,沿用现双主题)
 
-### 前端页面重构方案(收口为四类页面)
+/v2/picks(精选:今日统计条 + 观点卡,未解锁隐藏方向/盘口/赔率/概率,只示评级/风险/锁定状态)· /v2/schedule(筛选:全部/热门/五大/已出观点/即将锁定/已完赛)· /v2/matches/:id(规约 §19.3 的 13 段顺序)· /v2/track-record(含观望数、强观点占比、按联赛/市场/评级/周期拆分、最大回撤、连败)· /v2/database(轻量资料)· /v2/me。旧页面保留,导航逐步切换。
 
-1. **赛事列表(首页)**:今晚值得看的比赛,按评级/开球排序。已有,微调信息层级——突出"方向+评级+风险"三要素。
-2. **观点页(比赛详情)**:锁定/解锁/公开三态已有。重构重点:**赛后态增加"审计视图"入口**——把对象链(快照时间线、版本演化、锁定时刻、结算比对、哈希验证)做成一个公开可查的时间线组件,这是信任的可视化。
-3. **战绩页**:已有逐观点流水 + 校准。重构:接入 `track_records` 物化数据,口径版本化展示。
-4. **后台驾驶舱**:已有。新增 ModelRun/LockRecord 查看,体现可追溯。
+## 9. 新后台管理结构
 
-不新增:社区、专家、投稿、直播、资料库(守原则 1)。
+/admin/v2:赛事管理(七态看板)· 数据源健康(现因子表迁入+时间序列)· 模型运行(input/output hash+JSON 预览)· 观点版本 · 研报版本(白名单+AI 文案+diff)· 观点审核(发布/暂停/标异常/重生成;**禁止改模型数字**;人工改文案记 diff+operator_id)· 赛果结算 · 战绩 · 用户积分(留痕已有)· 系统审计(六类 hash 链校验)。
 
-### 后台任务重构方案
+## 10. 新任务队列结构
 
-保留 4 个 cron 的职责,加固确定性与可追溯:
-- 采集任务:抓取时**先落 `raw_payloads`,再归一落 `data_snapshots`**(补原则 6)。
-- 建模任务:每次 `analyzeMatch` 产出一条 `model_runs`(显性化 ModelRun)。
-- 锁定任务:开赛时写 `lock_records`(显性化 LockRecord)。
-- ⚠️ 加分布式锁(见风险点):cron 任务用 SQLite 行锁或 `settings` 表的 advisory lock,防多实例重复执行——即使当前单实例,也为水平扩展留路。
+保留 node-cron 触发器,新增 `jobs` 表实现幂等+重试+可观测(规约 §18):任务先入表(name+payload 去重键),执行器领取→执行→记结果;失败 attempts+1 可重试;后台任务页可查。任务清单按规约 11 项映射现有 tick 函数拆分(sync_fixtures_daily=现 sync_fixtures、create_scheduled_snapshots=新增 T 档触发、lock_opinion_before_kickoff=现锁定改为开赛前 15 分钟、其余对应改造)。
+
+## 11. 新数据源接入结构(Provider Adapter)
+
+统一接口 `ProviderAdapter`(fetchLeagues/fetchTeams/fetchPlayers/fetchFixtures/fetchMatchDetail/fetchStandings/fetchRecentResults/fetchLineups/fetchInjuries/fetchOdds/fetchResult,各自可选实现)+ Canonical* 返回类型(=现归一化 schema 收口改名)。现 15 源重组为适配器实现(ESPN 实现 fixtures/lineups/odds/result;竞彩/Smarkets/Polymarket/Manifold 实现 fetchOdds;…)。**预留 SportmonksAdapter/ApiFootballAdapter 接口位**(见 §22 待确认问题 1)。key 走环境变量、不进仓库、不出前端(现已满足:唯一的 key 是 apiyi,存 DB 设置)。
+
+## 12. 新模型引擎结构
+
+现引擎重组为规约六模块(算法零改动,接口重排):MarketConsensusModel(=consensus.ts,proportional 去水为默认、Shin 为既有增强 ✓ 已超规约)· EloModel(=elo.ts)· PoissonScoreModel+DixonColesModel(=dixonColes.ts 拆出两档输出)· FormAdjustmentModel(=adjustments.ts 扩:赛程密度/首发)· PlayTopConsensusModel(=ensemble+picks 重写输出契约为规约 §11.6 JSON:primary_opinion/probabilities/top_scores/model_breakdown/data_quality)。确定性五要求现已全部满足(同输入同输出/input_hash/output_hash/model_version/error_message)。
+
+## 13. 新 Opinion 层设计(核心)
+
+- ModelRun 成功 → OpinionGenerationService:有明确优势(edge≥阈值)→ primary opinion(必含 market_type/selection/line/reference_odds/min_acceptable_odds/rating/risk_level/invalidate_conditions,**必须绑定具体盘口,禁止"主队不败"式模糊方向**);无优势 → watch_only opinion(记录、计入统计、不作为强观点售卖)。
+- 每场最多一个 primary(DB 唯一约束);secondary lean 仅展示。
+- 同一 opinion 跨快照演化:新 model_run 与上版关键字段比对 → 变化则追加 opinion_version(version_no+1,change_reason_json 记录哪个输入变了),opinion.current_opinion_version_id 前移;方向被推翻 → 旧 opinion 状态 void+新 opinion(或同 opinion 换 selection 记 change_reason,**待确认问题 4**)。
+- rating 标尺:A/A-/B+/B/C/W(W=观望),由 edge×model_consistency_score×数据质量映射,映射表进 engine config 可调。
+- min_acceptable_odds = 公允概率盈亏平衡价上浮安全垫(如 fair_odds×1.02),低于此价观点自动标"价值消失"失效。
+
+## 14. 新 Report 层设计
+
+ReportGenerationService 输入(match/snapshot/model_run/opinion_version/odds_timeline/version_type)→ 输出规约十段结构(结果卡/概率卡/比分卡/核心理由≤3/风险≤3/失效条件/盘口变化/模型分歧/版本记录/审计信息)。AI 只读白名单内数字(numbers_whitelist_json 持久化已有),违规→重写→降级模板(现机制保留);report_versions 增加 opinion_id/opinion_version_id 外键,free_preview 只含合规预览字段。
+
+## 15. 新积分解锁逻辑
+
+复用现原子扣费;unlocks 加列扩展 scope(match|opinion)+access_policy(all_pre_kickoff_versions)+initial 指针。**Primary opinion 统一 1 积分**(配置化,见待确认问题 5);已解锁不重复扣;watch_only 免费可见(标"观望");赛后 final report 公开不消耗积分(现已如此)。未解锁 API 响应字段白名单见 §7。
+
+## 16. 新锁定逻辑
+
+开赛前 **15 分钟**(配置 lockBeforeKickoffMinutes,现为开赛时刻→改):创建 lock snapshot → final model_run → final opinion_version → final report_version → opinion_locks(六步一事务,幂等)→ opinion.status=locked。锁后 final 三元组不可覆盖(服务层拒绝+测试守护);纠错只能追加 correction_records(diff+operator+reason)。
+
+## 17. 新结算逻辑
+
+完赛 → 权威赛果(ESPN/CSV 已有)+ 收盘赔率(lock snapshot 内嵌)→ 读 final opinion_version → 按 market_type+selection+line 结算(1x2/亚盘四态含 quarter 半赢半输/大小/波胆/double_chance)→ opinion_settlements(settlement_result/pnl_unit/roi/clv/brier_score/settlement_hash)→ track_records 刷新 → final report 公开。现 settleAhDetailed/Brier/CLV 实现直接迁移;**结算主体从 match 改为 opinion**。
+
+## 18. 新战绩统计逻辑
+
+事实源 opinion_settlements,track_records 为聚合缓存(scope:global/league/market/rating/period;新增 rating 与 period 两维)。必展:总比赛数/发布观点数/**观望场次数**/强观点占比/A 级战绩/B 级战绩/命中率/ROI/CLV/Brier/最大回撤/**连续亏损**。观望计入、不美化、口径白纸黑字(现声明保留)。
+
+## 19. 分阶段迁移计划(对应规约 §22 十阶段)
+
+| 阶段 | 内容 | 现状起点 |
+|---|---|---|
+| 1 冻结 legacy | analyses/predictions/旧 settlements 标记 @deprecated,旧链路只维护不扩展 | 本计划确认后立即执行(纯注释+文档) |
+| 2 V2 数据模型 | 迁移 0003:7 张新表+3 张表加列,附 down.sql | 12 张 V2 表已在,增量小 |
+| 3 数据源中台 | ProviderAdapter 接口收口+Canonical 类型改名;players 落地 | 15 源/raw 留档/健康账本已在,重组为主 |
+| 4 Snapshot+ModelRun | SnapshotService 规约五方法+manual 类型;模型输出契约改为 §11.6 JSON | 已在,改输出契约 |
+| 5 Opinion 层 | opinions/opinion_versions+生成规则+版本演化 | **全新,本次核心工程量** |
+| 6 Report 层 | report_versions 挂 opinion,十段结构重写 | 白名单/AI 管线已在 |
+| 7 积分解锁 | unlocks 加列+scope 化+1 积分定价+响应裁剪 | 原子逻辑已在 |
+| 8 锁定结算 | opinion_locks/opinion_settlements/correction+15 分钟锁 | 四态结算/CLV/Brier 已在,换主体 |
+| 9 前台 V2 | 五页(picks/schedule/matches/track-record/me)+database 轻量 | 双主题/组件库已在 |
+| 10 后台 V2 | /admin/v2 十菜单 | 工作台/因子表已在,重排+补对象页 |
+
+## 20. 每阶段验收标准
+
+1:全量测试绿+deprecated 标记齐;2:迁移上/下行各执行一次无损;3:任一源断网系统不崩+raw 留档可查;4:同 input_hash 双跑 output_hash 相等(测试);5:同一比赛 T24→T6 盘口变化产生 version_no=2 且 change_reason 指明盘口、每场仅一 primary(约束测试);6:白名单外数字注入→报告生成失败(测试);7:未解锁 API 响应不含 selection/line/odds/概率字段(测试)、解锁后可见后续版本(测试);8:锁后覆盖被拒(测试)+15 分钟自动锁+亚盘四态结算全过+watch 计入统计(测试);9:规约 §25 用户路径手工跑通;10:§25 后台路径跑通+§24 十二项检查单全过。
+
+## 21. 主要风险点
+
+1. **双链并行期数据一致性**:V1 链(analyses)与 V2 链(opinions)同时写,战绩两套口径——缓解:V2 上线即以 V2 为对外唯一口径,V1 页面标"旧版";切换窗口≤2 阶段。
+2. Opinion 版本演化的边界(方向反转算新版本还是新观点)——见待确认问题 4,定错了会污染战绩口径。
+3. SQLite 写放大(opinion_versions 每 30 分钟可能新增)——版本去重:关键字段(selection/line/odds±阈值/rating)未变不发版,沿用 stableEngineHash 思路。
+4. 15 源无 Sportmonks 级 SLA,首发(lineup 档)覆盖依赖 ESPN summary 的公布时机——lineup 快照设“未公布”显式态,不阻塞锁定。
+5. 合规清洗遗漏——上线检查 §24.12 做全站词表 CI 扫描(grep 进测试)。
+6. 迁移期间旧解锁用户权益——unlocks 加列默认 match scope,存量权益自动等价延续。
+
+## 22. 需要你确认的问题(回答后开工阶段 1-2)
+
+1. **数据源主源**:规约建议 Sportmonks(主)+API-Football(备),两者均需付费 API key——与此前"零注册全自抓"约束冲突。**A. 采购 Sportmonks key**(我留好 Adapter 接口位,你提供 key)/ **B. 维持现 15 个零注册源为第一版主源**(接口同样收口,随时可插 Sportmonks)。我建议 B 先行,接口兼容 A。
+2. **首批 V2 表处置确认**:settlements→deprecated(你已定);report_versions 加列沿用;unlocks 加列扩展而非新建 unlock_records 表(保积分原子逻辑,字段语义与规约 §7.19 一一对应)——是否同意"加列沿用"两处?
+3. **锁定时点**:统一开赛前 15 分钟(可配置)。现为开赛时刻——确认改为 15 分钟?
+4. **方向反转语义**:同一场比赛模型方向从"主 -0.5"变为"客 +0.5"时:A. 旧 primary 置 void、新建 primary(战绩里旧观点不结算,标 void);B. 同一 opinion 追加版本、以锁定时方向为准结算。**我建议 B**(观点身份=该场的 primary 席位,版本记录完整演化,锁定版定生死)——确认?
+5. **定价**:primary opinion 统一 1 积分(现默认 10)——确认 1 积分起步?
+6. **评级标尺**:A/A-/B+/B/C/W 六档(规约示例含 A-/B+)映射现 A/B/C/观望——确认六档?
 
 ---
 
-## 五、分阶段开发计划与验收标准
-
-> 原则:每阶段独立可上线、可回滚;测试先行;不破坏现有 104 测试。
-
-### 阶段 0:本文档 + 契约固化(当前)
-- 产出:REBUILD_PLAN.md(本文件)。
-- 把"AI 不碰计算""供应商预测只进因子层"写成类型层约束(如 `analyses` 禁止直接写概率的 lint/类型守卫)。
-- **验收**:文档评审通过;`npm test` 全绿基线(当前 104)。
-
-### 阶段 1:可追溯性补全(原则 6,最高优先级)
-- 新增 `raw_payloads` 表 + 适配器落原始响应;`data_snapshots.rawPayloadId`。
-- 新增 `model_runs` 表;`analyzeMatch` 持久化输入指纹+参数快照;`engineOutput` 迁移。
-- **验收**:任取一场已结算比赛,能从 DB 完整重放"当时的原始响应 → 标准化快照 → 引擎输入 → 引擎输出";`npm run demo:wc` 通过;迁移脚本对旧数据回填无损(旧 analyses 全部生成对应 model_run)。
-
-### 阶段 2:锁定与结算对象化(原则 4)
-- 新增 `lock_records`(锁定时刻+收盘价快照);`track_records` 物化结算。
-- **验收**:开赛锁定产生一条不可变 lock_record;CLV 从 lock_record 的收盘价计算;赛果口径变更不污染历史结算。
-
-### 阶段 3:公开审计视图(产品定位"赛后公开审计系统"的门面)
-- `GET /api/audit/[matchId]` 公开对象链;前端赛后态"审计时间线"组件。
-- **验收**:任意访客(无需登录)可查任一已结算比赛的完整证据链与哈希验证结果。
-
-### 阶段 4:体验收口 + 技术债
-- token 改名(gold→accent)、ratingStars→ratingGrade、analyses 瘦身收尾。
-- 首页信息层级、战绩页口径版本化展示。
-- **验收**:无 `gold` 命名残留;Lighthouse/可读性自查;全量回归。
-
-### 阶段 5:加固(为规模化留路,非当前必需)
-- cron 分布式锁;raw_payloads 保留窗口清理任务;关键服务补集成测试。
-- **验收**:多实例启动不重复执行任务;原始数据按窗口自动清理且标准化快照不受影响。
-
----
-
-## 六、风险点
-
-1. **SQLite 写并发与水平扩展上限(最高)**:better-sqlite3 同步驱动 + 单写者。当前读多写少、单实例 OK;但若未来多实例或写入激增(原始 payload 落库会显著增加写量),需评估迁移 Postgres。**缓解**:阶段 1 给 raw_payloads 设保留窗口控制写量;架构上让 ORM(Drizzle)保持可切换 Postgres 的抽象。
-2. **进程内 cron 无分布式锁**:多实例部署会重复采集/结算。当前单实例无害,水平扩展前必须解决(阶段 5)。
-3. **原始 payload 存储膨胀**:15 源 × 多时间点 × 多比赛 → 原始正文增长快。**缓解**:保留窗口 + 仅对"成功归一"的响应留档 + 内容哈希去重。
-4. **第三方源稳定性**:已有健康账本自动停用缓解;但 ESPN/竞彩等隐藏 API 可能随时变结构。**缓解**:防御式解析(已有)+ raw_payloads 留档便于事后修解析器。
-5. **赛果口径变更的历史一致性**:亚盘拆腿、走水规则若调整,会影响历史战绩。**缓解**:阶段 2 的 track_records 带 settlementVersion,口径变更不覆盖历史。
-6. **重构期间不破坏线上**:每阶段增量迁移 + 旧数据回填 + 可回滚;前端 API 语义保持向后兼容。
-
----
-
-## 七、给决策者的一句话总结
-
-**这不是一次重写,是一次"领域模型显性化 + 审计链补全"。** 现有项目已经把最难的部分(确定性引擎、数据中台、哈希链信任机制、积分原子性、AI 数字白名单)做对了;真正欠缺的是把"模型运行""开赛锁定"从隐式状态升级为一等对象,以及补上"原始数据留档 + 公开审计视图"这两块让平台名副其实成为"可审计系统"的拼图。按阶段 1→3 推进,4 周内即可让 PlayTop 完整兑现"赛前观点 + 赛后公开审计"的产品承诺,且全程不停机、不丢数据。
+*确认以上 6 问后,按阶段 1→2 开工(冻结标记 + 迁移 0003),严格按规约 §26 顺序推进,不跳步。*
