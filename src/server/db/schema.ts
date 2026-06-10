@@ -225,7 +225,7 @@ export const dataSnapshots = sqliteTable(
       .references(() => matches.id),
     kind: text("kind", { enum: SNAPSHOT_KINDS }).notNull(),
     source: text("source", {
-      enum: ["football_data_couk", "open_meteo", "local_stats", "llm", "manual"],
+      enum: ["football_data_couk", "open_meteo", "local_stats", "llm", "manual", "sporttery"],
     }).notNull(),
     payload: text("payload").notNull(), // JSON，符合 datasources/types.ts 归一化 schema
     contentHash: text("content_hash").notNull(),

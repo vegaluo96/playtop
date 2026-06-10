@@ -5,7 +5,7 @@ import { api } from "@/components/admin/api";
 
 interface Settings {
   apiyi: { baseUrl: string; apiKey: string; model: string; temperature: number };
-  datasources: { enabledLeagues: string[]; csvBase: string; aiRetrievalEnabled: boolean };
+  datasources: { enabledLeagues: string[]; csvBase: string; aiRetrievalEnabled: boolean; sportteryEnabled: boolean };
   engine: Record<string, unknown> & { ensembleWeights: { market: number; dc: number; elo: number } };
   pricing: { defaultPricePoints: number };
 }
@@ -138,10 +138,19 @@ export default function SettingsPage() {
             />
             启用 AI 检索（伤停/教练/阵容/舆情等软维度，走 apiyi）
           </label>
+          <label className="mt-2 flex items-center gap-2 text-[12px] text-muted">
+            <input
+              type="checkbox"
+              checked={s.datasources.sportteryEnabled}
+              onChange={(e) => setS({ ...s, datasources: { ...s.datasources, sportteryEnabled: e.target.checked } })}
+            />
+            启用竞彩官方盘口（世界杯/手动赛事自动拉取，零 key；境外 IP 可能不通，先点下方测试）
+          </label>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <button onClick={() => save("datasources", s.datasources)} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">保存</button>
           <button onClick={() => test("/api/admin/settings/test-datasource", "数据源连通性")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">测试连接</button>
+          <button onClick={() => test("/api/admin/settings/test-sporttery", "竞彩接口")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">测试竞彩接口</button>
           <button onClick={() => importHistory({ type: "club", seasons: 3 }, "导入俱乐部历史（3 季）")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">导入俱乐部历史</button>
           <button onClick={() => importHistory({ type: "international", sinceYear: 2018 }, "导入国际赛历史")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">导入国际赛历史（世界杯用）</button>
           <button onClick={() => importHistory({ type: "backfill_elo" }, "Elo 全量回放")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">Elo 全量回放</button>

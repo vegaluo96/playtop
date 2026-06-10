@@ -17,6 +17,8 @@ export const datasourcesConfigSchema = z.object({
   enabledLeagues: z.array(z.string()).default(["E0", "SP1", "I1", "D1", "F1"]),
   csvBase: z.string().default("https://www.football-data.co.uk"),
   aiRetrievalEnabled: z.boolean().default(true),
+  /** 竞彩官方盘口接口（零 key；境外 IP 可能被拦，设置页可测试连通性） */
+  sportteryEnabled: z.boolean().default(true),
 });
 export type DatasourcesConfig = z.infer<typeof datasourcesConfigSchema>;
 

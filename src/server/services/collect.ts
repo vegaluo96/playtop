@@ -4,10 +4,12 @@ import { matches, teams } from "../db/schema";
 import { getConfig } from "../lib/config";
 import { now } from "../lib/time";
 import { aiRetrieveSoftData } from "../datasources/aiRetrieval";
+import { aiRetrieveOdds } from "../datasources/aiOdds";
 import { computeForm, computeH2h, computeStandings, computeTeamStats } from "../datasources/localStats";
 import { fetchKickoffWeather, geocode } from "../datasources/openMeteo";
 import { INTERNATIONAL_LEAGUE_CODE } from "../datasources/international";
 import { getMatch, syncFixtures, transitionMatch } from "./matchesService";
+import { sportteryOddsForMatch } from "./oddsSync";
 import { insertSnapshot, latestSnapshots } from "./snapshots";
 import { leagueById, teamNameById } from "./teamResolver";
 
@@ -43,10 +45,24 @@ export async function collectMatch(
 
   if (match.status === "scheduled") transitionMatch(matchId, "collecting");
 
-  // 盘口（CSV 源比赛）：刷新 fixtures.csv 并落 odds 快照
+  // 盘口：CSV 源走 fixtures.csv；其余（世界杯/手动建赛）竞彩官方优先，AI 检索兜底
   if (match.source === "csv") {
     await attempt("odds", async () => {
       await syncFixtures(false, force);
+    });
+  } else {
+    await attempt("odds", async () => {
+      if (await sportteryOddsForMatch(match)) return;
+      if (opts.skipAi) throw new Error("竞彩未命中（本轮跳过 AI 检索）");
+      const payload = await aiRetrieveOdds({
+        leagueName: league?.name ?? "",
+        homeName,
+        awayName,
+        kickoffAtIso: new Date(match.kickoffAt).toISOString(),
+        round: match.round,
+      });
+      if (!payload) throw new Error("AI 未检索到可信赔率（可手动录入）");
+      insertSnapshot(matchId, "odds", "llm", payload);
     });
   }
 

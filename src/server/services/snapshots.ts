@@ -6,7 +6,7 @@ import { normalizedOddsSchema, type NormalizedOdds } from "../engine/types";
 import { hashObject } from "../lib/hash";
 import { now } from "../lib/time";
 
-export type SnapshotSource = "football_data_couk" | "open_meteo" | "local_stats" | "llm" | "manual";
+export type SnapshotSource = "football_data_couk" | "open_meteo" | "local_stats" | "llm" | "manual" | "sporttery";
 
 /**
  * 快照写入唯一入口：zod 归一校验 + 内容哈希；与该 kind 最新一份内容相同则不重复入库。

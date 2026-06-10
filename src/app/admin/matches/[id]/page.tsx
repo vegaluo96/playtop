@@ -125,7 +125,7 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
           title: "第 1 步 · 采集数据",
           desc: hasOdds
             ? "已有盘口数据。点击采集抓取全部维度（历史/天气/伤停等），完成后自动进入『数据就绪』。"
-            : "本场还没有盘口数据：CSV 覆盖的联赛点采集即可；世界杯等无 CSV 赛事请先在左下方『手动录入盘口』，再点采集。",
+            : "点击采集自动抓取全部维度——盘口按『竞彩官方 → AI 检索』自动拉取；两路都失败时再用左下方『手动录入盘口』兜底。",
           btn: { label: "一键采集（含 AI）", onClick: () => collect(false) },
         };
       case "ready":
