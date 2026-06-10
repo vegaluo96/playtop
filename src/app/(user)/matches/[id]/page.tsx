@@ -4,7 +4,7 @@ import UnlockButton from "@/components/UnlockButton";
 import VerifyBadge from "@/components/VerifyBadge";
 import { LiveBadge, SectionTitle, Tag, STATUS_LABEL, fmtCn } from "@/components/ui";
 import { currentUser } from "@/server/auth/guards";
-import { getMatchDetail } from "@/server/services/views";
+import { getMatchDetail, getUpcomingFixture } from "@/server/services/views";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,42 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const view = getMatchDetail(Number(id), user?.id ?? null, user?.role === "admin");
 
   if (!view) {
+    // 赛程已建、研报未发布（世界杯等自动导入的未来场次）：展示赛程与自动发布说明
+    const up = getUpcomingFixture(Number(id));
+    if (up) {
+      const hours = Math.max(1, Math.round((up.kickoffAt - Date.now()) / 3_600_000));
+      return (
+        <div className="py-4">
+          <div className="text-center">
+            <div className="text-[10px] tracking-wider text-faint">
+              {up.league}
+              {up.round ? ` · ${up.round}` : ""}
+              {up.neutral ? " · 中立场" : ""}
+            </div>
+            <h1 className="font-display mt-2 text-xl tracking-wide">
+              {up.homeName}
+              <span className="mx-3 text-sm text-faint">VS</span>
+              {up.awayName}
+            </h1>
+            <div className="tabular mt-2 text-[11px] text-muted">开球 {fmtCn(up.kickoffAt)}</div>
+            <div className="mt-2 flex items-center justify-center gap-2">
+              <Tag tone="info">研报准备中</Tag>
+              {up.snapshotTotal > 0 && <Tag>{up.snapshotTotal} 份数据已采集</Tag>}
+            </div>
+          </div>
+          <div className="card mt-5 px-4 py-5 text-center text-[12px] leading-6 text-muted">
+            本场研报由系统全自动生成：临近开赛将自动采集多家盘口与情报数据、
+            运行量化引擎并发布（距开球约 <b className="tabular text-gold-bright">{hours}</b> 小时）。
+            发布后赛前持续自动改版，开赛锁定存证，赛后免费公开。
+          </div>
+          <div className="mt-5 text-center">
+            <Link href="/" className="text-gold-bright underline underline-offset-4">
+              返回赛事列表
+            </Link>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="card mt-8 px-4 py-10 text-center text-sm text-muted">
         本场研报尚未发布或不存在。

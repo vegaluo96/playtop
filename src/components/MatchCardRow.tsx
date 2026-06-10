@@ -1,8 +1,14 @@
 import { Tag, STATUS_LABEL, fmtCn } from "@/components/ui";
 import type { MatchCard } from "@/server/services/views";
 
+/** 赛前未发布状态：用户端统一显示"研报准备中"，不泄漏内部状态机 */
+const PRE_PUBLISH = ["scheduled", "collecting", "ready", "analyzed"];
+
 export default function MatchCardRow({ card }: { card: MatchCard }) {
-  const s = STATUS_LABEL[card.status] ?? { text: card.status, tone: "default" as const };
+  const upcoming = PRE_PUBLISH.includes(card.status);
+  const s = upcoming
+    ? { text: "赛前·研报准备中", tone: "info" as const }
+    : (STATUS_LABEL[card.status] ?? { text: card.status, tone: "default" as const });
   const free = card.status === "settled";
   return (
     <div className="card px-3.5 py-3 transition-colors hover:border-gold/40">
@@ -33,6 +39,8 @@ export default function MatchCardRow({ card }: { card: MatchCard }) {
               <span className="mx-1 text-faint">:</span>
               {card.outcome.awayGoals}
             </div>
+          ) : upcoming ? (
+            <Tag tone="info">待发布</Tag>
           ) : free ? (
             <Tag tone="up">免费</Tag>
           ) : card.unlocked ? (

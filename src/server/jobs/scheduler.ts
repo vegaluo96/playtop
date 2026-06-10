@@ -50,9 +50,10 @@ export async function tickLiveRevisions(): Promise<{ refreshed: number; advanced
   } catch (e) {
     console.warn("[jobs] fixtures 刷新失败:", e instanceof Error ? e.message : e);
   }
-  // scheduled 也纳入：自动建赛的场次临近开球时自动采集，并一路推进到发布
+  // scheduled 也纳入：自动建赛的场次临近开球时自动采集，并一路推进到发布（窗口可配置）
+  const windowMs = auto.pipelineWindowHours * 3_600_000;
   const live = matchesByStatus(["published", "analyzed", "ready", "scheduled", "collecting"]).filter(
-    (m) => m.kickoffAt > now() && m.kickoffAt - now() < 48 * 3_600_000,
+    (m) => m.kickoffAt > now() && m.kickoffAt - now() < windowMs,
   );
   for (const m of live) {
     try {
@@ -121,7 +122,11 @@ export function startScheduler(): void {
   cron.schedule("*/30 * * * *", () => void guarded("live_revisions"));
   cron.schedule("15 */2 * * *", () => void guarded("fetch_results")); // 2h：double_check 两次一致约 4-5h 内自动结算
   cron.schedule("45 */6 * * *", () => void guarded("sync_fixtures"));
-  console.log("[jobs] 调度器已启动（状态机 10m / 自动推进 30m / 赛果 2h / 赛程同步 6h）");
+  // 冷启动即开跑：部署后无需任何人工——先同步赛程（世界杯/联赛自动建赛），再立即推进窗口内场次
+  setTimeout(() => void guarded("sync_fixtures"), 5_000);
+  setTimeout(() => void guarded("live_revisions"), 30_000);
+  setTimeout(() => void guarded("state_machine"), 60_000);
+  console.log("[jobs] 调度器已启动（状态机 10m / 自动推进 30m / 赛果 2h / 赛程同步 6h；冷启动自动开跑）");
 }
 
 /** 管理端手动触发（演示/补偿） */

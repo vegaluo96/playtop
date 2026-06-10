@@ -26,6 +26,7 @@ interface Settings {
     autoAnalyze: boolean;
     autoPublish: boolean;
     readyWithoutOddsHours: number;
+    pipelineWindowHours: number;
     autoConfirmAiResults: boolean;
     aiResultConfirmPolicy: "double_check" | "delay";
     aiResultConfirmDelayHours: number;
@@ -237,6 +238,10 @@ export default function SettingsPage() {
           <label className="block">
             <span className="text-[10px] tracking-wider text-faint">无盘口兜底（距开球 N 小时强制进就绪，0=关闭）</span>
             <input type="number" min="0" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.automation.readyWithoutOddsHours} onChange={(e) => setS({ ...s, automation: { ...s.automation, readyWithoutOddsHours: Number(e.target.value) } })} />
+          </label>
+          <label className="block">
+            <span className="text-[10px] tracking-wider text-faint">流水线窗口（开球前 N 小时开始采集建模发布）</span>
+            <input type="number" min="1" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.automation.pipelineWindowHours} onChange={(e) => setS({ ...s, automation: { ...s.automation, pipelineWindowHours: Number(e.target.value) } })} />
           </label>
           <label className="block">
             <span className="text-[10px] tracking-wider text-faint">AI 赛果确认策略</span>

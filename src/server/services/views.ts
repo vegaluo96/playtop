@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { db } from "../db";
 import { analyses, leagues, matches, outcomes, teams, unlocks } from "../db/schema";
@@ -43,6 +43,9 @@ function latestVisibleAnalysis(matchId: number) {
   );
 }
 
+/** 用户端可见的"赛前未发布"状态（卡片显示"研报准备中"，不泄漏内部状态机） */
+export const UPCOMING_STATUSES = ["scheduled", "collecting", "ready", "analyzed"] as const;
+
 export function listMatchCards(userId: number | null): MatchCard[] {
   const rows = db
     .select({ m: matches, league: leagues.name, homeName: home.name, awayName: away.name })
@@ -52,7 +55,16 @@ export function listMatchCards(userId: number | null): MatchCard[] {
     .innerJoin(away, eq(away.id, matches.awayTeamId))
     .where(
       and(
-        inArray(matches.status, ["published", "in_play", "finished", "settled"]),
+        or(
+          // 已发布/进行中/已结束：照旧
+          inArray(matches.status, ["published", "in_play", "finished", "settled"]),
+          // 未发布的未来赛程（世界杯等）：未来 14 天内也上首页，显示"研报准备中"
+          and(
+            inArray(matches.status, [...UPCOMING_STATUSES]),
+            gte(matches.kickoffAt, now()),
+            lte(matches.kickoffAt, now() + 14 * 86_400_000),
+          ),
+        ),
         gte(matches.kickoffAt, now() - 7 * 86_400_000),
       ),
     )
@@ -126,6 +138,36 @@ export function versionHistory(matchId: number): VersionInfo[] {
         contentHash: a.contentHash,
       };
     });
+}
+
+/** 赛前未发布场次的赛程视图（"研报准备中"页用）；非未发布状态返回 null */
+export function getUpcomingFixture(matchId: number): MatchCard | null {
+  const row = db
+    .select({ m: matches, league: leagues.name, homeName: home.name, awayName: away.name })
+    .from(matches)
+    .innerJoin(leagues, eq(leagues.id, matches.leagueId))
+    .innerJoin(home, eq(home.id, matches.homeTeamId))
+    .innerJoin(away, eq(away.id, matches.awayTeamId))
+    .where(eq(matches.id, matchId))
+    .get();
+  if (!row || !(UPCOMING_STATUSES as readonly string[]).includes(row.m.status)) return null;
+  return {
+    id: row.m.id,
+    league: row.league,
+    round: row.m.round,
+    homeName: row.homeName,
+    awayName: row.awayName,
+    kickoffAt: row.m.kickoffAt,
+    status: row.m.status,
+    neutral: row.m.neutral === 1,
+    pricePoints: row.m.pricePoints ?? getConfig("pricing").defaultPricePoints,
+    stars: null,
+    verdict: null,
+    version: null,
+    snapshotTotal: snapshotStats(row.m.id).total,
+    unlocked: false,
+    outcome: null,
+  };
 }
 
 export type MatchAccess = "locked" | "unlocked" | "public";
