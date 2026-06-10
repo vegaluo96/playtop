@@ -208,6 +208,7 @@ export default function SettingsPage() {
           <button onClick={() => save("datasources", s.datasources)} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">保存</button>
           <button onClick={() => test("/api/admin/settings/test-datasource", "数据源连通性")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">测试连接</button>
           <button onClick={() => test("/api/admin/settings/test-sporttery", "竞彩接口")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">测试竞彩接口</button>
+          <button onClick={() => test("/api/admin/settings/test-polymarket", "Polymarket 接口")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">测试 Polymarket</button>
           <button onClick={() => importHistory({ type: "club", seasons: 3 }, "导入俱乐部历史（3 季）")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">导入俱乐部历史</button>
           <button onClick={() => importHistory({ type: "international", sinceYear: 2018 }, "导入国际赛历史")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">导入国际赛历史（世界杯用）</button>
           <button onClick={() => importHistory({ type: "backfill_elo" }, "Elo 全量回放")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">Elo 全量回放</button>

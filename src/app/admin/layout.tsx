@@ -24,7 +24,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </Link>
             <div className="mt-0.5 text-[10px] tracking-wider text-faint">管理后台</div>
           </div>
-          <div className="text-[11px] text-faint md:hidden">{user.username}</div>
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle />
+            <span className="text-[11px] text-faint">{user.username}</span>
+          </div>
         </div>
         <nav className="mt-3 flex gap-1 overflow-x-auto md:mt-8 md:flex-col md:gap-0 md:space-y-1">
           {NAV.map((n) => (

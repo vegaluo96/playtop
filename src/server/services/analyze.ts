@@ -36,7 +36,7 @@ import {
 } from "../llm/reportWriter";
 import { getRating } from "./eloService";
 import { getMatch, transitionMatch } from "./matchesService";
-import { latestOddsBooks, latestSnapshots, oddsSeries, snapshotPayload, snapshotStats, KIND_LABELS } from "./snapshots";
+import { latestOddsBookRows, latestOddsBooks, latestSnapshots, oddsSeries, snapshotPayload, snapshotStats, KIND_LABELS } from "./snapshots";
 import { leagueById, teamNameById } from "./teamResolver";
 import { publishAnalysisRow } from "./publish";
 
@@ -277,7 +277,10 @@ export async function analyzeMatch(
       engineOutput: JSON.stringify(engine),
       reportMd,
       llmSections: JSON.stringify(sections),
-      inputSnapshotIds: JSON.stringify([...snaps.values()].map((s) => s.id)),
+      // 可复现性审计：各维度最新快照 + 多书商盘口的每家最新一份（去重）
+      inputSnapshotIds: JSON.stringify([
+        ...new Set([...[...snaps.values()].map((s) => s.id), ...latestOddsBookRows(matchId).map(({ row }) => row.id)]),
+      ]),
       status: "draft",
       createdAt: now(),
       updatedAt: now(),

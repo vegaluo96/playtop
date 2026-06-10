@@ -212,7 +212,7 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
     }
   }
   const st = stage();
-  const canAdvance = ["ready", "analyzed", "published"].includes(m.status);
+  const canAdvance = ["scheduled", "collecting", "ready", "analyzed", "published"].includes(m.status);
 
   function buildOddsPayload() {
     const n = (v: string) => (v.trim() === "" ? null : Number(v));
