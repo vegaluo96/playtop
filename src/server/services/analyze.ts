@@ -1,7 +1,7 @@
-import { and, desc, eq, gte, lt } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
-import { analyses, historyMatches } from "../db/schema";
+import { analyses, historyMatches, leagues } from "../db/schema";
 import { runEngine } from "../engine";
 import {
   engineOutputSchema,
@@ -67,13 +67,27 @@ export function engineParamsFromConfig(): EngineParams {
   };
 }
 
+/** 国际类联赛（世界杯/INT 等，country=国际）共享同一个国家队历史池——否则 WC2026 联赛下无历史，DC 永远退化 */
+function historyLeagueIds(leagueId: number): number[] {
+  const lg = leagueById(leagueId);
+  if (lg?.country === "国际") {
+    return db
+      .select({ id: leagues.id })
+      .from(leagues)
+      .where(eq(leagues.country, "国际"))
+      .all()
+      .map((r) => r.id);
+  }
+  return [leagueId];
+}
+
 function loadLeagueHistory(leagueId: number, refTime: number): HistMatch[] {
   const rows = db
     .select()
     .from(historyMatches)
     .where(
       and(
-        eq(historyMatches.leagueId, leagueId),
+        inArray(historyMatches.leagueId, historyLeagueIds(leagueId)),
         gte(historyMatches.playedAt, refTime - HISTORY_WINDOW_DAYS * 86_400_000),
         lt(historyMatches.playedAt, refTime),
       ),

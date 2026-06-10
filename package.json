@@ -13,6 +13,7 @@
     "import-history": "tsx scripts/import-history.ts",
     "backfill-elo": "tsx scripts/backfill-elo.ts",
     "simulate": "tsx scripts/simulate-match.ts",
+    "demo:wc": "tsx scripts/demo-worldcup.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
