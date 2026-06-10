@@ -57,6 +57,9 @@ export async function sportteryOddsForMatch(match: typeof matches.$inferSelect):
       oneXTwo: r.oneXTwo,
       ou: [],
       ah: [],
+      ...(r.hhad ? { hhad: r.hhad } : {}),
+      ...(r.totalGoals ? { totalGoals: r.totalGoals } : {}),
+      ...(r.correctScores.length > 0 ? { correctScores: r.correctScores } : {}),
       capturedAt: now(),
     });
     return true;

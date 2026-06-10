@@ -84,6 +84,9 @@ describe("竞彩接口解析（结构防御）", () => {
           homeTeamAllName: "墨西哥",
           awayTeamAllName: "南非",
           had: { h: "1.65", d: "3.90", a: "5.50" },
+          hhad: { goalLine: "-1", h: "2.80", d: "3.40", a: "2.30" },
+          ttg: { s0: "8.5", s1: "4.5", s2: "3.6", s3: "4.2", s4: "6.5", s5: "11", s6: "20", s7: "30" },
+          crs: { "0100": "7.0", "0000": "9.0", "0101": "6.0", "0201": "9.0", other: "x" },
         },
         {
           // 嵌套一层的日期分组变体
@@ -117,6 +120,13 @@ describe("竞彩接口解析（结构防御）", () => {
     expect(rows[0].oneXTwo).toEqual({ home: 1.65, draw: 3.9, away: 5.5 });
     expect(rows[0].homeEn).toBe("Mexico");
     expect(rows[0].awayEn).toBe("South Africa");
+    // 全玩法维度：让球（goalLine 解析）、总进球（s0..s7→"0".."7+"）、波胆（"0100"→"1:0"，非比分键跳过）
+    expect(rows[0].hhad).toEqual({ line: -1, home: 2.8, draw: 3.4, away: 2.3 });
+    expect(rows[0].totalGoals!["0"]).toBe(8.5);
+    expect(rows[0].totalGoals!["7+"]).toBe(30);
+    expect(rows[0].correctScores).toContainEqual({ score: "1:0", odds: 7.0 });
+    expect(rows[0].correctScores).toContainEqual({ score: "2:1", odds: 9.0 });
+    expect(rows[0].correctScores).toHaveLength(4);
     // 03:00 北京 = 前一天 19:00 UTC（跨日）
     expect(rows[1].kickoffAt).toBe(Date.UTC(2026, 5, 11, 19, 0));
     expect(rows[1].homeEn).toBe("South Korea");

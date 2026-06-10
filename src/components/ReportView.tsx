@@ -263,6 +263,42 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         </Collapse>
       )}
 
+      {engine.scoreMarket.length > 0 && (
+        <Collapse title="比分市场对照" hint={`波胆去水 vs 模型分布（${engine.scoreMarket[0].bookmaker}）`}>
+          <p className="mb-2 text-[11px] leading-5 text-muted">
+            市场（波胆赔率 power 去水）与模型（Dixon-Coles 比分分布）对每个具体比分的定价对照——分歧即研究信号。
+          </p>
+          <table className="tabular w-full text-[11px]">
+            <thead>
+              <tr className="text-left text-[10px] tracking-wider text-faint">
+                <th className="pb-1 font-normal">比分</th>
+                <th className="pb-1 text-right font-normal">市场赔率</th>
+                <th className="pb-1 text-right font-normal">市场概率</th>
+                <th className="pb-1 text-right font-normal">模型概率</th>
+                <th className="pb-1 text-right font-normal">分歧</th>
+              </tr>
+            </thead>
+            <tbody>
+              {engine.scoreMarket.map((s) => {
+                const diff = s.modelProb - s.marketProb;
+                return (
+                  <tr key={s.score} className="border-t border-hairline">
+                    <td className="py-1.5">{s.score}</td>
+                    <td className="py-1.5 text-right">{s.odds.toFixed(2)}</td>
+                    <td className="py-1.5 text-right">{pct(s.marketProb)}</td>
+                    <td className="py-1.5 text-right">{pct(s.modelProb)}</td>
+                    <td className={`py-1.5 text-right ${diff > 0.01 ? "text-up" : diff < -0.01 ? "text-down" : "text-muted"}`}>
+                      {diff >= 0 ? "+" : ""}
+                      {pct(diff)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Collapse>
+      )}
+
       {engine.value.length > 0 && (
         <Collapse title="价值扫描全表" hint="所有点位的期望收益与仓位">
           <table className="tabular w-full text-[11px]">

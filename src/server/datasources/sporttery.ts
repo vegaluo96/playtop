@@ -6,7 +6,7 @@
  */
 
 const CALC_URL =
-  "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry?poolCode=had,hhad&channel=c";
+  "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry?poolCode=had,hhad,ttg,crs&channel=c";
 
 /** 竞彩中文队名 → martj42 历史库英文名（世界杯 2026 48 队 + 常见简称变体） */
 export const CN_TEAM_EN: Record<string, string> = {
@@ -75,6 +75,12 @@ export interface SportteryMatch {
   /** 接口未给开球钟点时为 false，匹配时放宽到同一天 */
   hasTime: boolean;
   oneXTwo: { home: number; draw: number; away: number } | null;
+  /** 让球胜平负（三向整数让球，非亚盘） */
+  hhad: { line: number; home: number; draw: number; away: number } | null;
+  /** 总进球数赔率："0".."6" 与 "7+" */
+  totalGoals: Record<string, number> | null;
+  /** 波胆（具体比分赔率，"主:客"） */
+  correctScores: { score: string; odds: number }[];
 }
 
 function num(v: unknown): number | null {
@@ -106,6 +112,49 @@ function beijingToUtc(date: string, time: string): { at: number; hasTime: boolea
   };
 }
 
+/** 三向玩法对象（had/hhad 共用结构）→ {home,draw,away} */
+function threeWay(v: unknown): { home: number; draw: number; away: number } | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const h = num(o.h);
+  const d = num(o.d);
+  const a = num(o.a);
+  return h && d && a ? { home: h, draw: d, away: a } : null;
+}
+
+/** 让球线：goalLine 形如 "+1"/"-1"（字符串） */
+function hhadOf(v: unknown): SportteryMatch["hhad"] {
+  const tw = threeWay(v);
+  if (!tw || !v || typeof v !== "object") return null;
+  const line = Number(str((v as Record<string, unknown>).goalLine));
+  if (!Number.isFinite(line) || line === 0) return null;
+  return { line, ...tw };
+}
+
+/** 总进球：键 s0..s7（s7 = 7+），防御式扫描 */
+function ttgOf(v: unknown): Record<string, number> | null {
+  if (!v || typeof v !== "object") return null;
+  const out: Record<string, number> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    const m = k.match(/^s(\d)$/);
+    const n = num(val);
+    if (m && n) out[m[1] === "7" ? "7+" : m[1]] = n;
+  }
+  return Object.keys(out).length >= 5 ? out : null;
+}
+
+/** 波胆：键 "ddff"（如 "0100" = 1:0），含"胜/平/负其他"等非比分键时跳过该键 */
+function crsOf(v: unknown): { score: string; odds: number }[] {
+  if (!v || typeof v !== "object") return [];
+  const out: { score: string; odds: number }[] = [];
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    const m = k.match(/^(\d{2})(\d{2})$/);
+    const n = num(val);
+    if (m && n) out.push({ score: `${Number(m[1])}:${Number(m[2])}`, odds: n });
+  }
+  return out;
+}
+
 function toMatch(o: Record<string, unknown>): SportteryMatch | null {
   const homeCn = pick(o, ["homeTeamAllName", "hostTeamAllName", "homeTeamAbbName", "hostTeamAbbName"]);
   const awayCn = pick(o, ["awayTeamAllName", "guestTeamAllName", "awayTeamAbbName", "guestTeamAbbName"]);
@@ -113,14 +162,6 @@ function toMatch(o: Record<string, unknown>): SportteryMatch | null {
   if (!homeCn || !awayCn || !date) return null;
   const ts = beijingToUtc(date, pick(o, ["matchTime", "matchTimeStr"]));
   if (!ts) return null;
-  let oneXTwo: SportteryMatch["oneXTwo"] = null;
-  const had = o.had;
-  if (had && typeof had === "object") {
-    const h = num((had as Record<string, unknown>).h);
-    const d = num((had as Record<string, unknown>).d);
-    const a = num((had as Record<string, unknown>).a);
-    if (h && d && a) oneXTwo = { home: h, draw: d, away: a };
-  }
   return {
     homeCn,
     awayCn,
@@ -129,7 +170,10 @@ function toMatch(o: Record<string, unknown>): SportteryMatch | null {
     league: pick(o, ["leagueAllName", "leagueAbbName", "leagueName"]),
     kickoffAt: ts.at,
     hasTime: ts.hasTime,
-    oneXTwo,
+    oneXTwo: threeWay(o.had),
+    hhad: hhadOf(o.hhad),
+    totalGoals: ttgOf(o.ttg),
+    correctScores: crsOf(o.crs),
   };
 }
 

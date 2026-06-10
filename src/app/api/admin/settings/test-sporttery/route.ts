@@ -14,10 +14,14 @@ export async function POST() {
       在售场次: rows.length,
       有赔率: withOdds.length,
       世界杯场次: worldCup.length,
+      有让球: rows.filter((r) => r.hhad).length,
+      有总进球: rows.filter((r) => r.totalGoals).length,
+      有波胆: rows.filter((r) => r.correctScores.length > 0).length,
       样例: rows.slice(0, 3).map(
         (r) =>
           `${r.league} ${r.homeCn} vs ${r.awayCn}` +
-          (r.oneXTwo ? ` @ ${r.oneXTwo.home}/${r.oneXTwo.draw}/${r.oneXTwo.away}` : "（暂无赔率）"),
+          (r.oneXTwo ? ` @ ${r.oneXTwo.home}/${r.oneXTwo.draw}/${r.oneXTwo.away}` : "（暂无赔率）") +
+          (r.correctScores.length ? ` 波胆×${r.correctScores.length}` : ""),
       ),
     });
   });

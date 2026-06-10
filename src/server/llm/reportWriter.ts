@@ -309,6 +309,17 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
       L.push("");
     }
   }
+  if (e.scoreMarket.length > 0) {
+    L.push("### 比分市场对照（波胆去水 vs 模型分布）");
+    L.push("");
+    L.push("| 比分 | 市场赔率 | 市场概率 | 模型概率 | 分歧 |");
+    L.push("|---|---|---|---|---|");
+    for (const s of e.scoreMarket) {
+      const diff = s.modelProb - s.marketProb;
+      L.push(`| ${s.score} | ${fmtOdds(s.odds)} | ${pct(s.marketProb)} | ${pct(s.modelProb)} | ${diff >= 0 ? "+" : ""}${pct(diff)} |`);
+    }
+    L.push("");
+  }
   const valuable = e.value.filter((v) => v.ev >= 0.0);
   if (e.value.length > 0) {
     L.push("## 六、价值扫描与仓位（¼ Kelly，上限 5%）");

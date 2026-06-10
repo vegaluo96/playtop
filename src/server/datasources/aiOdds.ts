@@ -119,6 +119,7 @@ export async function aiRetrieveOddsBooks(match: {
     "输出 JSON：",
     `{"found":true,"books":[{"bookmaker":"bet365","oneXTwo":{"home":主胜,"draw":平局,"away":客胜},`,
     `"ou":[{"line":2.5,"over":大球,"under":小球}],"ah":[{"line":主队让球(主让半球=-0.5),"home":主水位,"away":客水位}]}]}`,
+    "ou 尽量给该场挂出的 2-3 条主流盘口线（如 2 / 2.25 / 2.5 / 2.75 / 3）；ah 给主盘口及可核实的相邻 quarter 线。",
     "每家的 ou/ah 检索不到就给空数组，oneXTwo 是必需项。",
   ].join("\n");
   const user = `比赛：${match.leagueName}${match.round ? ` ${match.round}` : ""}，${match.homeName} vs ${match.awayName}，开球时间（UTC）：${match.kickoffAtIso}。请检索该场多家书商的当前赔率。`;

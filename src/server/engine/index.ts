@@ -11,7 +11,7 @@ import {
   type DcParams,
 } from "./dixonColes";
 import { eloToProbs } from "./elo";
-import { twoWayDevig } from "./devig";
+import { powerDevig, twoWayDevig } from "./devig";
 import { bestAh, bestOneXTwo, bestOu, consensusProbs, devigBooks, pickMainOu } from "./consensus";
 import { computeAdjustments } from "./adjustments";
 import { logOpinionPool } from "./ensemble";
@@ -308,6 +308,26 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
       : "无盘口赔率，跳过价值扫描",
   );
 
+  // ---------- 7b. 比分市场对照：波胆赔率 power 去水 vs 模型比分分布 ----------
+  let scoreMarket: EngineOutput["scoreMarket"] = [];
+  const csBook = books.find((b) => (b.correctScores?.length ?? 0) >= 8);
+  if (csBook?.correctScores && finalMatrix) {
+    const list = csBook.correctScores;
+    const marketProbs = powerDevig(list.map((c) => c.odds));
+    scoreMarket = list
+      .map((c, i) => {
+        const m = c.score.match(/^(\d+):(\d+)$/);
+        const modelProb = m ? (finalMatrix[Number(m[1])]?.[Number(m[2])] ?? 0) : 0;
+        return { score: c.score, marketProb: marketProbs[i], modelProb, odds: c.odds, bookmaker: csBook.bookmaker ?? "未知来源" };
+      })
+      .sort((a, b) => b.marketProb - a.marketProb)
+      .slice(0, 8);
+    trace.push(
+      `比分市场对照：「${csBook.bookmaker ?? "未知来源"}」波胆 ${list.length} 项 power 去水，` +
+        `市场最热 ${scoreMarket[0].score}（${fmtPct(scoreMarket[0].marketProb)}），模型 ${fmtPct(scoreMarket[0].modelProb)}`,
+    );
+  }
+
   // ---------- 8. 生成 picks ----------
   const picks: EngineOutput["picks"] = [];
   for (const mkt of ["1x2", "ou", "ah"] as const) {
@@ -378,6 +398,7 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
       probs: ensembleProbs,
     },
     markets: { ou: ouOut, ah: ahOut },
+    scoreMarket,
     value,
     picks,
     oddsMovement: (bundle.oddsSeries ?? []).map((o) => ({

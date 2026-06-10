@@ -105,3 +105,70 @@ describe("runEngine 集成", () => {
     expect(product).toBeLessThan(1.1);
   }, 30_000);
 });
+
+describe("多书商与比分市场（v0.2 增量）", () => {
+  const league = syntheticLeague(11, 14, 3);
+  const computedAt = league.history[league.history.length - 1].playedAt + 86_400_000;
+  const base = {
+    match: { homeTeamId: 100, awayTeamId: 101, kickoffAt: computedAt + 86_400_000 },
+    leagueHistory: league.history,
+    elo: { home: { rating: 1560, matchesPlayed: 40 }, away: { rating: 1480, matchesPlayed: 40 } },
+    computedAt,
+  };
+
+  it("books 多家：market.books 逐家产出，价值行取跨家最优价并带书商", () => {
+    const bundle: EngineBundle = {
+      ...base,
+      books: [
+        { bookmaker: "bet365", oneXTwo: { home: 2.1, draw: 3.4, away: 3.6 }, ou: [], ah: [], capturedAt: 1 },
+        { bookmaker: "Polymarket", oneXTwo: { home: 2.2, draw: 3.3, away: 3.5 }, ou: [], ah: [], capturedAt: 2 },
+      ],
+    };
+    const out = runEngine(bundle, params);
+    expect(out.market!.books).toHaveLength(2);
+    const home = out.value.find((v) => v.market === "1x2" && v.selection === "home")!;
+    expect(home.odds).toBe(2.2);
+    expect(home.bookmaker).toBe("Polymarket");
+    // 确定性：同输入同输出
+    expect(JSON.stringify(runEngine(bundle, params))).toBe(JSON.stringify(out));
+  });
+
+  it("波胆赔率 → scoreMarket 对照（市场概率归一、模型概率出自比分矩阵）", () => {
+    const correctScores = [
+      { score: "1:0", odds: 7.0 },
+      { score: "0:0", odds: 9.0 },
+      { score: "1:1", odds: 6.0 },
+      { score: "2:1", odds: 9.0 },
+      { score: "0:1", odds: 9.5 },
+      { score: "2:0", odds: 12.0 },
+      { score: "0:2", odds: 15.0 },
+      { score: "2:2", odds: 14.0 },
+    ];
+    const bundle: EngineBundle = {
+      ...base,
+      books: [
+        {
+          bookmaker: "中国竞彩（官方）",
+          oneXTwo: { home: 2.1, draw: 3.4, away: 3.6 },
+          ou: [],
+          ah: [],
+          correctScores,
+          capturedAt: 1,
+        },
+      ],
+    };
+    const out = runEngine(bundle, params);
+    expect(out.scoreMarket).toHaveLength(8);
+    const sum = out.scoreMarket.reduce((a, s) => a + s.marketProb, 0);
+    expect(sum).toBeGreaterThan(0.95);
+    expect(sum).toBeLessThanOrEqual(1.000001);
+    for (const s of out.scoreMarket) {
+      expect(s.modelProb).toBeGreaterThan(0);
+      expect(s.bookmaker).toBe("中国竞彩（官方）");
+    }
+    // 旧输出（无 scoreMarket 字段）仍可被 schema 解析
+    const legacy = JSON.parse(JSON.stringify(out)) as Record<string, unknown>;
+    delete legacy.scoreMarket;
+    expect(engineOutputSchema.parse(legacy).scoreMarket).toEqual([]);
+  });
+});

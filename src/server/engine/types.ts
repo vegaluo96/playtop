@@ -18,6 +18,12 @@ export const normalizedOddsSchema = z.object({
   ou: z.array(z.object({ line: z.number(), over: z.number(), under: z.number() })).default([]),
   /** 亚盘：line 为主队让球（主让半球 = -0.5） */
   ah: z.array(z.object({ line: z.number(), home: z.number(), away: z.number() })).default([]),
+  /** 让球胜平负（竞彩口径：整数让球的三向盘，非亚盘），line 为主队让球数 */
+  hhad: z.object({ line: z.number(), home: z.number(), draw: z.number(), away: z.number() }).optional(),
+  /** 总进球数赔率：键为 "0".."6" 与 "7+" */
+  totalGoals: z.record(z.string(), z.number()).optional(),
+  /** 波胆/正确比分赔率（"主:客" 格式） */
+  correctScores: z.array(z.object({ score: z.string(), odds: z.number() })).optional(),
   capturedAt: z.number(),
 });
 export type NormalizedOdds = z.infer<typeof normalizedOddsSchema>;
@@ -160,6 +166,18 @@ export const engineOutputSchema = z.object({
     /** 主队覆盖（赢盘）概率，已含 push 折算 */
     ah: z.array(z.object({ line: z.number(), homeCover: z.number(), awayCover: z.number() })),
   }),
+  /** 比分市场对照：波胆赔率 power 去水 vs 模型比分分布（旧版输出无此字段） */
+  scoreMarket: z
+    .array(
+      z.object({
+        score: z.string(),
+        marketProb: z.number(),
+        modelProb: z.number(),
+        odds: z.number(),
+        bookmaker: z.string(),
+      }),
+    )
+    .default([]),
   value: z.array(
     z.object({
       market: z.enum(["1x2", "ou", "ah"]),
