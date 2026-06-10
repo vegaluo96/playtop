@@ -7,12 +7,21 @@ import { now } from "../lib/time";
 import { aiRetrieveSoftData } from "../datasources/aiRetrieval";
 import { aiRetrieveOddsBooks } from "../datasources/aiOdds";
 import { fetchPolymarketOdds } from "../datasources/polymarket";
-import { ESPN_LEAGUE_SLUG, fetchEspnScoreboard, matchEspnEvent } from "../datasources/espn";
+import {
+  ESPN_LEAGUE_SLUG,
+  fetchEspnRoster,
+  fetchEspnScoreboard,
+  fetchEspnSummaryLineups,
+  matchEspnEvent,
+  positionToRole,
+  type EspnEvent,
+} from "../datasources/espn";
+import { normName } from "../datasources/polymarket";
 import { fetchClubElo, fetchEloRatings, findRating } from "../datasources/externalRatings";
 import { fetchManifoldOdds, fetchSmarketsOdds } from "../datasources/predictionMarkets";
 import { UNDERSTAT_LEAGUE, fetchUnderstatXg, findTeamXg } from "../datasources/understat";
 import { intlPlayerStats } from "../datasources/githubIntl";
-import type { externalRatingsPayloadSchema } from "../datasources/types";
+import type { externalRatingsPayloadSchema, playerStatsPayloadSchema } from "../datasources/types";
 import { computeForm, computeH2h, computeStandings, computeTeamStats } from "../datasources/localStats";
 import { fetchKickoffWeather, geocode } from "../datasources/openMeteo";
 import { INTERNATIONAL_LEAGUE_CODE } from "../datasources/international";
@@ -72,6 +81,18 @@ export async function collectMatch(
   };
   const isIntl = league?.code === INTERNATIONAL_LEAGUE_CODE || league?.code === "WC2026";
 
+  // ESPN scoreboard 单次抓取、多任务共享（odds/名单/阵容都要用，避免同 URL 冷却冲突）
+  const espnSlug = ESPN_LEAGUE_SLUG[league?.code ?? ""];
+  const espnUsable = isSourceUsable("espn", dsCfg.espnEnabled) && !!espnSlug;
+  let espnEventsP: Promise<EspnEvent[]> | null = null;
+  const getEspnEvent = async (): Promise<EspnEvent | null> => {
+    if (!espnUsable) return null;
+    if (!espnEventsP) {
+      espnEventsP = withSource("espn", () => fetchEspnScoreboard(espnSlug, espnDate(match.kickoffAt)));
+    }
+    return matchEspnEvent(await espnEventsP, matchRef);
+  };
+
   // 盘口：多源真并发（生产环境被墙源会挂死等超时，串行一次采集可达数分钟——
   // 并发后墙钟时间 = 最慢一源；每源独立成败 + 健康门控记账）。
   const networkTasks: Promise<void>[] = [];
@@ -115,15 +136,22 @@ export async function collectMatch(
       }),
     );
   }
-  if (isSourceUsable("espn", dsCfg.espnEnabled) && ESPN_LEAGUE_SLUG[league?.code ?? ""]) {
+  if (espnUsable) {
     networkTasks.push(
       attempt("odds:espn", async () => {
-        const events = await withSource("espn", () =>
-          fetchEspnScoreboard(ESPN_LEAGUE_SLUG[league!.code!], espnDate(match.kickoffAt)),
-        );
-        const hit = matchEspnEvent(events, matchRef);
+        const hit = await getEspnEvent();
         if (!hit?.odds) throw new Error("ESPN 本场无赔率");
         insertSnapshot(matchId, "odds", "espn", hit.odds);
+      }),
+    );
+    // 官方首发阵容（公布后 confirmed=true，喂建模情境与研报；AI 阵容退为兜底）
+    networkTasks.push(
+      attempt("lineups:espn", async () => {
+        const hit = await getEspnEvent();
+        if (!hit?.eventId) throw new Error("ESPN 未匹配到本场事件");
+        const lineups = await fetchEspnSummaryLineups(espnSlug, hit.eventId, force);
+        if (!lineups) throw new Error("首发未公布");
+        insertSnapshot(matchId, "lineups", "espn", { confirmed: true, home: lineups.home, away: lineups.away, note: "ESPN 官方首发" });
       }),
     );
   }
@@ -183,16 +211,48 @@ export async function collectMatch(
     }),
   );
 
-  // 球员数据（国际赛）：射手榜/点球主罚/点球大战史
-  if (isIntl && isSourceUsable("github", dsCfg.githubIntlEnabled)) {
-    networkTasks.push(
-      attempt("player_stats", async () => {
-        const payload = await withSource("github", () => intlPlayerStats(homeName, awayName, force));
-        if (payload.items.length === 0 && (payload.notes?.length ?? 0) === 0) throw new Error("数据集无两队记录");
-        insertSnapshot(matchId, "player_stats", "github", payload);
-      }),
-    );
-  }
+  // 球员数据：ESPN 大名单（位置/号码/年龄，国家队+俱乐部通用）
+  // 国际赛叠加真实射手榜/点球主罚/点球大战史（martj42）
+  networkTasks.push(
+    attempt("player_stats", async () => {
+      type PsItem = z.infer<typeof playerStatsPayloadSchema>["items"][number];
+      const items: PsItem[] = [];
+      let fromEspn = false;
+      let notes: string[] | undefined;
+      const scorers = isIntl && isSourceUsable("github", dsCfg.githubIntlEnabled)
+        ? await withSource("github", () => intlPlayerStats(homeName, awayName, force)).catch(() => null)
+        : null;
+      const ev = espnUsable ? await getEspnEvent().catch(() => null) : null;
+      if (ev?.homeTeamId && ev.awayTeamId) {
+        for (const [side, teamId] of [["home", ev.homeTeamId], ["away", ev.awayTeamId]] as const) {
+          const roster = await fetchEspnRoster(espnSlug, teamId, force).catch(() => []);
+          for (const p of roster.slice(0, 26)) {
+            // 名单叠加真实射手数据（按归一化名匹配）
+            const hit = scorers?.items.find((s) => s.team === side && normName(s.player) === normName(p.name));
+            items.push({
+              team: side,
+              player: p.name,
+              role: positionToRole(p.position),
+              ...(hit?.goals !== undefined ? { goals: hit.goals } : {}),
+              note: [p.jersey ? `${p.jersey} 号` : null, p.age ? `${p.age} 岁` : null, hit?.note ?? null]
+                .filter(Boolean)
+                .join("·"),
+            });
+          }
+        }
+      }
+      if (items.length > 0) fromEspn = true;
+      if (items.length === 0 && scorers) {
+        items.push(...scorers.items); // ESPN 名单不可用时退回射手榜
+      }
+      notes = scorers?.notes;
+      if (items.length === 0 && (notes?.length ?? 0) === 0) throw new Error("球员数据源均无记录");
+      insertSnapshot(matchId, "player_stats", fromEspn ? "espn" : "github", {
+        items,
+        ...(notes ? { notes } : {}),
+      });
+    }),
+  );
 
   // 等全部网络源并发完成（墙钟时间 = 最慢一源，而非求和）
   await Promise.all(networkTasks);
@@ -281,7 +341,11 @@ export async function collectMatch(
       });
       if (result.injuries) insertSnapshot(matchId, "injuries", "llm", result.injuries);
       if (result.suspensions) insertSnapshot(matchId, "suspensions", "llm", result.suspensions);
-      if (result.lineups) insertSnapshot(matchId, "lineups", "llm", result.lineups);
+      if (result.lineups) {
+        // ESPN 官方首发优先：已有 espn 来源的阵容时，AI 预计阵容不再覆盖
+        const cur = latestSnapshots(matchId).get("lineups");
+        if (!cur || cur.source !== "espn") insertSnapshot(matchId, "lineups", "llm", result.lineups);
+      }
       if (result.coach) insertSnapshot(matchId, "coach", "llm", result.coach);
       if (result.referee) insertSnapshot(matchId, "referee", "llm", result.referee);
       if (result.softInfo) insertSnapshot(matchId, "soft_info", "llm", result.softInfo);

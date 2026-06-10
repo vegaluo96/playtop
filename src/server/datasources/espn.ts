@@ -29,11 +29,16 @@ export const ESPN_LEAGUE_SLUG: Record<string, string> = {
 };
 
 export interface EspnEvent {
+  /** ESPN 事件 id（summary/阵容端点用） */
+  eventId: string | null;
   homeName: string;
   awayName: string;
   /** 该队的全部可匹配名字（displayName/shortDisplayName/name/abbreviation） */
   homeKeys: string[];
   awayKeys: string[];
+  /** ESPN 球队 id（roster 端点用） */
+  homeTeamId: string | null;
+  awayTeamId: string | null;
   kickoffAt: number;
   completed: boolean;
   homeScore: number | null;
@@ -100,10 +105,13 @@ export function parseEspnScoreboard(text: string, capturedAt: number): EspnEvent
       }
     }
     out.push({
+      eventId: str(e.id) || null,
       homeName: str(homeTeam.displayName) || str(homeTeam.name),
       awayName: str(awayTeam.displayName) || str(awayTeam.name),
       homeKeys: teamKeys(homeTeam),
       awayKeys: teamKeys(awayTeam),
+      homeTeamId: str(homeTeam.id) || null,
+      awayTeamId: str(awayTeam.id) || null,
       kickoffAt,
       completed,
       homeScore: Number.isFinite(hs) ? hs : null,
@@ -142,4 +150,89 @@ export async function fetchEspnScoreboard(slug: string, dateYYYYMMDD?: string, f
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard${dateYYYYMMDD ? `?dates=${dateYYYYMMDD}` : ""}`;
   const { body } = await politeFetchText(url, force, UA);
   return parseEspnScoreboard(body, Date.now());
+}
+
+/* ---------------- 球员名单与比赛阵容 ---------------- */
+
+export interface EspnRosterPlayer {
+  name: string;
+  /** 位置缩写（G/D/M/F…） */
+  position: string;
+  jersey: string | null;
+  age: number | null;
+}
+
+/** 位置缩写 → 归一化角色 */
+export function positionToRole(pos: string): "goalkeeper" | "defender" | "midfielder" | "attacker" | "unknown" {
+  const p = pos.toUpperCase();
+  if (p.startsWith("G")) return "goalkeeper";
+  if (p.startsWith("D")) return "defender";
+  if (p.startsWith("M")) return "midfielder";
+  if (p.startsWith("F") || p.startsWith("A") || p.startsWith("S") || p.startsWith("W")) return "attacker";
+  return "unknown";
+}
+
+/** roster 响应防御解析：递归收集"像球员"的对象（fullName/displayName + position） */
+export function parseEspnRoster(text: string): EspnRosterPlayer[] {
+  const out: EspnRosterPlayer[] = [];
+  const seen = new Set<string>();
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const x of node) walk(x);
+      return;
+    }
+    if (!node || typeof node !== "object") return;
+    const o = node as Record<string, unknown>;
+    const name = str(o.fullName) || str(o.displayName);
+    const pos = o.position && typeof o.position === "object" ? str((o.position as Record<string, unknown>).abbreviation) || str((o.position as Record<string, unknown>).name) : "";
+    if (name && pos && !seen.has(name)) {
+      seen.add(name);
+      const age = Number(o.age);
+      out.push({ name, position: pos, jersey: str(o.jersey) || null, age: Number.isFinite(age) ? age : null });
+    }
+    for (const v of Object.values(o)) {
+      if (v && typeof v === "object") walk(v);
+    }
+  };
+  walk(JSON.parse(text));
+  return out;
+}
+
+export async function fetchEspnRoster(slug: string, teamId: string, force = false): Promise<EspnRosterPlayer[]> {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/teams/${teamId}/roster`;
+  const { body } = await politeFetchText(url, force, UA);
+  return parseEspnRoster(body);
+}
+
+export interface EspnLineups {
+  confirmed: boolean;
+  home: { starters: string[] };
+  away: { starters: string[] };
+}
+
+/** summary 响应的 rosters[]：homeAway 分边，starter=true 为首发 */
+export function parseEspnSummaryLineups(text: string): EspnLineups | null {
+  const json = JSON.parse(text) as { rosters?: unknown[] };
+  if (!Array.isArray(json.rosters)) return null;
+  const sides: Record<string, string[]> = { home: [], away: [] };
+  for (const r of json.rosters) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const side = str(o.homeAway);
+    if (side !== "home" && side !== "away") continue;
+    for (const p of (Array.isArray(o.roster) ? o.roster : []) as Record<string, unknown>[]) {
+      if (p.starter !== true) continue;
+      const ath = (p.athlete ?? {}) as Record<string, unknown>;
+      const name = str(ath.displayName) || str(ath.fullName);
+      if (name) sides[side].push(name);
+    }
+  }
+  if (sides.home.length < 7 || sides.away.length < 7) return null; // 未公布首发
+  return { confirmed: true, home: { starters: sides.home }, away: { starters: sides.away } };
+}
+
+export async function fetchEspnSummaryLineups(slug: string, eventId: string, force = false): Promise<EspnLineups | null> {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
+  const { body } = await politeFetchText(url, force, UA);
+  return parseEspnSummaryLineups(body);
 }

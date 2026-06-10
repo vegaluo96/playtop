@@ -60,6 +60,40 @@ describe("ESPN 适配器", () => {
   });
 });
 
+describe("ESPN 球员名单与首发阵容", () => {
+  it("roster 防御解析 + 位置→角色映射", async () => {
+    const { parseEspnRoster, positionToRole } = await import("@/server/datasources/espn");
+    const sample = JSON.stringify({
+      athletes: [
+        { fullName: "Guillermo Ochoa", position: { abbreviation: "G" }, jersey: "13", age: 40 },
+        { fullName: "Raúl Jiménez", position: { name: "Forward" }, jersey: "9", age: 35 },
+        { fullName: "Edson Álvarez", position: { abbreviation: "M" }, jersey: "4" },
+      ],
+    });
+    const roster = parseEspnRoster(sample);
+    expect(roster).toHaveLength(3);
+    expect(positionToRole(roster[0].position)).toBe("goalkeeper");
+    expect(positionToRole(roster[1].position)).toBe("attacker");
+    expect(roster[2].age).toBeNull();
+  });
+
+  it("summary 首发解析：双方 ≥7 人才算公布，否则 null", async () => {
+    const { parseEspnSummaryLineups } = await import("@/server/datasources/espn");
+    const mk = (n: number) => Array.from({ length: n }, (_, i) => ({ starter: true, athlete: { displayName: `P${i}` } }));
+    const full = JSON.stringify({
+      rosters: [
+        { homeAway: "home", roster: [...mk(11), { starter: false, athlete: { displayName: "Sub" } }] },
+        { homeAway: "away", roster: mk(11) },
+      ],
+    });
+    const lineups = parseEspnSummaryLineups(full)!;
+    expect(lineups.confirmed).toBe(true);
+    expect(lineups.home.starters).toHaveLength(11);
+    const partial = JSON.stringify({ rosters: [{ homeAway: "home", roster: mk(3) }, { homeAway: "away", roster: mk(11) }] });
+    expect(parseEspnSummaryLineups(partial)).toBeNull();
+  });
+});
+
 describe("外部评级解析", () => {
   it("eloratings TSV 防御解析 + 队名匹配", () => {
     const tsv = "1\tARG\tArgentina\t2143\n2\tFRA\tFrance\t2077\n47\tKOR\tSouth Korea\t1742\n";
