@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ENGINE_MODEL_VERSION = "engine-1.0.0";
+export const ENGINE_MODEL_VERSION = "engine-1.1.0";
 
 /** 三向概率/赔率 */
 export const threeWaySchema = z.object({
@@ -82,6 +82,8 @@ export interface EngineBundle {
     neutralVenue?: boolean;
   };
   odds?: NormalizedOdds;
+  /** 多家书商各自最新盘口（缺省时回落到 odds 单家）；引擎内做共识与最优价 */
+  books?: NormalizedOdds[];
   oddsSeries?: NormalizedOdds[];
   injuries?: InjuryItem[];
   weather?: WeatherInfo;
@@ -102,10 +104,24 @@ export const engineOutputSchema = z.object({
   fallbackLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   market: z
     .object({
+      /** 主参考家（水位最低=最锐）的原始赔率与去水参数 */
       rawOdds: threeWaySchema,
       overround: z.number(),
       shinZ: z.number(),
+      /** 多家共识概率（各家 Shin 去水后逐项中位数归一；单家时即该家去水） */
       devigged: threeWaySchema,
+      /** 每家明细（旧版输出无此字段 → 默认空数组，向后兼容） */
+      books: z
+        .array(
+          z.object({
+            bookmaker: z.string(),
+            rawOdds: threeWaySchema,
+            overround: z.number(),
+            shinZ: z.number(),
+            devigged: threeWaySchema,
+          }),
+        )
+        .default([]),
     })
     .nullable(),
   dixonColes: z
@@ -150,6 +166,8 @@ export const engineOutputSchema = z.object({
       selection: z.string(),
       line: z.number().nullable(),
       odds: z.number(),
+      /** 该最优价出自哪家书商（旧版输出无此字段） */
+      bookmaker: z.string().optional(),
       modelProb: z.number(),
       ev: z.number(),
       kelly: z.number(),
@@ -162,6 +180,7 @@ export const engineOutputSchema = z.object({
       line: z.number().nullable(),
       modelProb: z.number(),
       odds: z.number().nullable(),
+      bookmaker: z.string().optional(),
       ev: z.number().nullable(),
       kelly: z.number().nullable(),
       confidence: z.enum(["A", "B", "C"]),
@@ -172,6 +191,7 @@ export const engineOutputSchema = z.object({
       z.object({
         capturedAt: z.number(),
         oneXTwo: threeWaySchema.nullable(),
+        bookmaker: z.string().optional(),
       }),
     )
     .default([]),

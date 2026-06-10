@@ -58,11 +58,11 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <h1 className="font-display text-lg tracking-widest">运营看板</h1>
+      <h1 className="font-display text-lg tracking-wider">运营看板</h1>
 
       {todos.length > 0 && (
         <div className="card mt-4 border-gold/40 px-4 py-3">
-          <div className="font-display text-[12px] tracking-widest text-gold-bright">待处理</div>
+          <div className="font-display text-[12px] tracking-wider text-gold-bright">待处理</div>
           <div className="mt-2 flex flex-wrap gap-2">
             {todos.map((s) => (
               <Link
@@ -85,7 +85,7 @@ export default function AdminDashboard() {
         <Stat label="历史样本库" value={data.historyCount.toLocaleString()} sub="场赛果" />
       </div>
 
-      <h2 className="font-display mt-8 text-sm tracking-widest text-muted">比赛状态分布（点击查看对应比赛）</h2>
+      <h2 className="font-display mt-8 text-sm tracking-wider text-muted">比赛状态分布（点击查看对应比赛）</h2>
       <div className="mt-2 flex flex-wrap gap-2">
         {data.statusCounts.map((s) => (
           <Link
@@ -98,7 +98,7 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <h2 className="font-display mt-8 text-sm tracking-widest text-muted">战绩与校准</h2>
+      <h2 className="font-display mt-8 text-sm tracking-wider text-muted">战绩与校准</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 md:grid-cols-4">
         {data.record.map((r) => (
           <Stat
@@ -115,7 +115,7 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <h2 className="font-display mt-8 text-sm tracking-widest text-muted">手动触发任务（平时由调度器自动执行，这里仅用于立即生效）</h2>
+      <h2 className="font-display mt-8 text-sm tracking-wider text-muted">手动触发任务（平时由调度器自动执行，这里仅用于立即生效）</h2>
       <div className="mt-2 flex flex-wrap gap-2">
         {JOBS.map((j) => (
           <button
@@ -131,10 +131,10 @@ export default function AdminDashboard() {
       </div>
       {jobMsg && <p className="mt-2 break-all text-[11px] text-muted">{jobMsg}</p>}
 
-      <h2 className="font-display mt-8 text-sm tracking-widest text-muted">最近审计日志</h2>
+      <h2 className="font-display mt-8 text-sm tracking-wider text-muted">最近审计日志</h2>
       <table className="tabular mt-2 w-full text-[12px]">
         <thead>
-          <tr className="text-left text-[10px] tracking-widest text-faint">
+          <tr className="text-left text-[10px] tracking-wider text-faint">
             <th className="pb-1 font-normal">时间</th>
             <th className="pb-1 font-normal">操作人</th>
             <th className="pb-1 font-normal">动作</th>

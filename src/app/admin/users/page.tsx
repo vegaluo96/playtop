@@ -58,7 +58,7 @@ export default function AdminUsers() {
 
   return (
     <div>
-      <h1 className="font-display text-lg tracking-widest">用户与积分</h1>
+      <h1 className="font-display text-lg tracking-wider">用户与积分</h1>
       <p className="mt-1 text-[12px] text-faint">积分只能在这里人工添加（线下收款后操作），所有变动写入不可变流水与审计日志。</p>
       <div className="mt-3 flex gap-2">
         <input
@@ -77,7 +77,7 @@ export default function AdminUsers() {
       <div className="mt-4 overflow-x-auto">
       <table className="tabular w-full min-w-[720px] text-[12.5px]">
         <thead>
-          <tr className="text-left text-[10px] tracking-widest text-faint">
+          <tr className="text-left text-[10px] tracking-wider text-faint">
             <th className="pb-2 font-normal">ID</th>
             <th className="pb-2 font-normal">用户名</th>
             <th className="pb-2 font-normal">角色</th>

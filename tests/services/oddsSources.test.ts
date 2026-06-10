@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOddsFromAi } from "@/server/datasources/aiOdds";
+import { buildBooksFromAi, buildOddsFromAi } from "@/server/datasources/aiOdds";
 import { CN_TEAM_EN, parseSportteryJson } from "@/server/datasources/sporttery";
 
 describe("AI 检索盘口校验（三道闸）", () => {
@@ -47,6 +47,28 @@ describe("AI 检索盘口校验（三道闸）", () => {
     );
     expect(p!.ou).toHaveLength(1);
     expect(p!.ah).toHaveLength(0);
+  });
+});
+
+describe("AI 多家报价：逐家过闸", () => {
+  it("坏家单独丢弃，好家保留并各自成 payload", () => {
+    const books = buildBooksFromAi(
+      {
+        found: true,
+        books: [
+          { bookmaker: "bet365", oneXTwo: { home: 1.65, draw: 3.9, away: 5.5 }, ou: [], ah: [] },
+          { bookmaker: "皇冠", oneXTwo: { home: 3, draw: 4, away: 6 }, ou: [], ah: [] }, // 概率和 0.77，编造特征
+          { bookmaker: "Pinnacle", oneXTwo: { home: 1.68, draw: 3.85, away: 5.3 }, ou: [], ah: [] },
+        ],
+      },
+      7,
+    );
+    expect(books.map((b) => b.bookmaker)).toEqual(["bet365", "Pinnacle"]);
+    expect(books[0].capturedAt).toBe(7);
+  });
+
+  it("found=false → 空数组", () => {
+    expect(buildBooksFromAi({ found: false, books: [] }, 0)).toEqual([]);
   });
 });
 

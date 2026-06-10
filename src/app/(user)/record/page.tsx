@@ -20,7 +20,7 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="py-4">
-      <h1 className="font-display text-lg tracking-[0.2em]">战绩档案</h1>
+      <h1 className="font-display text-lg tracking-wide">战绩档案</h1>
       <p className="mt-1 text-[11px] leading-5 text-muted">
         全部数据由不可变的链上记录实时计算：预测在开赛瞬间锁定，赛后自动比对官方赛果，无任何人工修饰空间。
       </p>
@@ -43,33 +43,33 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
         {overview.map((m) => (
           <div key={m.market} className="card px-3.5 py-3">
             <div className="flex items-center justify-between">
-              <span className="font-display text-[13px] tracking-widest text-ink">{MARKET_LABEL[m.market]}</span>
+              <span className="font-display text-[13px] tracking-wider text-ink">{MARKET_LABEL[m.market]}</span>
               <Tag>{m.n} 个观点</Tag>
             </div>
             {m.hitRate !== null ? (
               <div className="tabular mt-2 grid grid-cols-4 gap-2 text-center">
                 <div>
                   <div className="text-lg font-semibold text-gold-bright">{pct(m.hitRate)}</div>
-                  <div className="text-[9px] tracking-widest text-faint">命中率</div>
+                  <div className="text-[9px] tracking-wider text-faint">命中率</div>
                 </div>
                 <div>
                   <div className="text-lg font-semibold text-ink">
                     {m.hits}-{m.misses}
                     {m.pushes > 0 ? `-${m.pushes}` : ""}
                   </div>
-                  <div className="text-[9px] tracking-widest text-faint">胜-负{m.pushes > 0 ? "-走" : ""}</div>
+                  <div className="text-[9px] tracking-wider text-faint">胜-负{m.pushes > 0 ? "-走" : ""}</div>
                 </div>
                 <div>
                   <div className={`text-lg font-semibold ${m.roi !== null && m.roi >= 0 ? "text-up" : "text-down"}`}>
                     {m.roi === null ? "—" : `${m.roi >= 0 ? "+" : ""}${pct(m.roi)}`}
                   </div>
-                  <div className="text-[9px] tracking-widest text-faint">平注 ROI</div>
+                  <div className="text-[9px] tracking-wider text-faint">平注 ROI</div>
                 </div>
                 <div>
                   <div className={`text-lg font-semibold ${m.avgClv !== null && m.avgClv >= 0 ? "text-up" : "text-muted"}`}>
                     {m.avgClv === null ? "—" : `${m.avgClv >= 0 ? "+" : ""}${pct(m.avgClv)}`}
                   </div>
-                  <div className="text-[9px] tracking-widest text-faint">收盘价值</div>
+                  <div className="text-[9px] tracking-wider text-faint">收盘价值</div>
                 </div>
               </div>
             ) : (

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import ThemeToggle from "@/components/ThemeToggle";
 import { currentUser } from "@/server/auth/guards";
 
 const NAV = [
@@ -18,10 +19,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <aside className="shrink-0 border-b border-hairline px-4 py-3 md:w-48 md:border-r md:border-b-0 md:py-6">
         <div className="flex items-center justify-between md:block">
           <div>
-            <Link href="/" className="font-display block text-base tracking-[0.25em] text-gold-bright">
+            <Link href="/" className="font-display block text-base tracking-wider text-gold-bright">
               PLAYTOP
             </Link>
-            <div className="mt-0.5 text-[10px] tracking-[0.3em] text-faint">管理后台</div>
+            <div className="mt-0.5 text-[10px] tracking-wider text-faint">管理后台</div>
           </div>
           <div className="text-[11px] text-faint md:hidden">{user.username}</div>
         </div>
@@ -42,6 +43,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/" className="text-muted underline underline-offset-4">
             返回前台
           </Link>
+          <div className="mt-3">
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
       <main className="min-w-0 flex-1 px-4 py-4 md:px-6 md:py-6">{children}</main>

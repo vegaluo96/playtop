@@ -4,7 +4,8 @@ import { matches, teams } from "../db/schema";
 import { getConfig } from "../lib/config";
 import { now } from "../lib/time";
 import { aiRetrieveSoftData } from "../datasources/aiRetrieval";
-import { aiRetrieveOdds } from "../datasources/aiOdds";
+import { aiRetrieveOddsBooks } from "../datasources/aiOdds";
+import { fetchPolymarketOdds } from "../datasources/polymarket";
 import { computeForm, computeH2h, computeStandings, computeTeamStats } from "../datasources/localStats";
 import { fetchKickoffWeather, geocode } from "../datasources/openMeteo";
 import { INTERNATIONAL_LEAGUE_CODE } from "../datasources/international";
@@ -45,24 +46,44 @@ export async function collectMatch(
 
   if (match.status === "scheduled") transitionMatch(matchId, "collecting");
 
-  // 盘口：CSV 源走 fixtures.csv；其余（世界杯/手动建赛）竞彩官方优先，AI 检索兜底
+  const dsCfg = getConfig("datasources");
+  const teamAliases = (teamId: number): string[] => {
+    const t = db.select().from(teams).where(eq(teams.id, teamId)).get();
+    return t ? [t.name, ...(JSON.parse(t.aliases) as string[])] : [];
+  };
+
+  // 盘口：多源并行、各自独立成败（每家书商独立快照，引擎侧做共识与最优价）
   if (match.source === "csv") {
-    await attempt("odds", async () => {
+    await attempt("odds:csv", async () => {
       await syncFixtures(false, force);
     });
-  } else {
-    await attempt("odds", async () => {
-      if (await sportteryOddsForMatch(match)) return;
-      if (opts.skipAi) throw new Error("竞彩未命中（本轮跳过 AI 检索）");
-      const payload = await aiRetrieveOdds({
+  } else if (dsCfg.sportteryEnabled) {
+    await attempt("odds:竞彩", async () => {
+      if (!(await sportteryOddsForMatch(match))) throw new Error("竞彩未覆盖本场");
+    });
+  }
+  if (dsCfg.polymarketEnabled) {
+    await attempt("odds:polymarket", async () => {
+      const payload = await fetchPolymarketOdds({
+        homeNames: teamAliases(match.homeTeamId),
+        awayNames: teamAliases(match.awayTeamId),
+        kickoffAt: match.kickoffAt,
+      });
+      if (!payload) throw new Error("Polymarket 未匹配到本场市场");
+      insertSnapshot(matchId, "odds", "polymarket", payload);
+    });
+  }
+  if ((match.source === "csv" ? dsCfg.aiOddsForCsvLeagues : true) && !opts.skipAi) {
+    await attempt("odds:ai", async () => {
+      const books = await aiRetrieveOddsBooks({
         leagueName: league?.name ?? "",
         homeName,
         awayName,
         kickoffAtIso: new Date(match.kickoffAt).toISOString(),
         round: match.round,
       });
-      if (!payload) throw new Error("AI 未检索到可信赔率（可手动录入）");
-      insertSnapshot(matchId, "odds", "llm", payload);
+      if (books.length === 0) throw new Error("AI 未检索到可信赔率");
+      for (const b of books) insertSnapshot(matchId, "odds", "llm", b);
     });
   }
 
@@ -139,7 +160,6 @@ export async function collectMatch(
   });
 
   // AI 检索软维度（apiyi）
-  const dsCfg = getConfig("datasources");
   if (dsCfg.aiRetrievalEnabled && !opts.skipAi) {
     await attempt("ai_soft", async () => {
       const result = await aiRetrieveSoftData({
@@ -158,13 +178,19 @@ export async function collectMatch(
     });
   }
 
-  // 数据齐备校验：至少有盘口或手动覆盖才能进入 ready（否则停在 collecting 等管理员补录）
+  // 数据齐备校验：有盘口/手动覆盖 → ready；临近开球仍无盘口 → 兜底强制 ready（引擎走无市场退化链）
   const latest = latestSnapshots(matchId);
   const fresh = getMatch(matchId);
   let status = fresh.status;
-  if (fresh.status === "collecting" && (latest.has("odds") || latest.has("manual_override"))) {
-    transitionMatch(matchId, "ready");
-    status = "ready";
+  if (fresh.status === "collecting") {
+    const hasOdds = latest.has("odds") || latest.has("manual_override");
+    const fallbackHours = getConfig("automation").readyWithoutOddsHours;
+    const nearKickoff =
+      fallbackHours > 0 && fresh.kickoffAt > now() && fresh.kickoffAt - now() < fallbackHours * 3_600_000;
+    if (hasOdds || nearKickoff) {
+      transitionMatch(matchId, "ready");
+      status = "ready";
+    }
   }
   return { collected, failed, status };
 }

@@ -34,7 +34,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     <div className="py-4">
       {/* 比赛头部 */}
       <div className="text-center">
-        <div className="text-[10px] tracking-[0.3em] text-faint">
+        <div className="text-[10px] tracking-wider text-faint">
           {card.league}
           {card.round ? ` · ${card.round}` : ""}
           {card.neutral ? " · 中立场" : ""}
@@ -103,7 +103,7 @@ function LockedTeaser({
     <div className="pb-8">
       <div className="card mt-4 p-4">
         <div className="flex items-center justify-between">
-          <span className="font-display text-lg tracking-[0.2em] text-gold-bright">{card.stars ?? "★★★☆"}</span>
+          <span className="font-display text-lg tracking-wide text-gold-bright">{card.stars ?? "评级待解锁"}</span>
           <Tag tone="gold">第 {card.version} 版</Tag>
         </div>
         <div className="relative mt-4 space-y-3 overflow-hidden">

@@ -1,7 +1,8 @@
-import { getConfig } from "../lib/config";
+import { getConfig, type LlmTask } from "../lib/config";
 
 /**
  * apiyi（API易）客户端：OpenAI 兼容 /chat/completions，原生 fetch 直连。
+ * 按任务路由模型（retrieval 检索 / writing 写作 / fast 校验），未配置则回落 model 缺省。
  * LLM=mock 时返回调用方提供的兜底内容（端到端模拟/无 key 环境）。
  */
 
@@ -10,6 +11,8 @@ export interface ChatOptions {
   user: string;
   json?: boolean;
   maxTokens?: number;
+  /** 任务类型 → 路由到对应模型（设置页可配）；缺省 retrieval */
+  task?: LlmTask;
   /** LLM=mock 或调用失败时的兜底内容（由调用方给出合规内容） */
   mock?: string;
 }
@@ -23,6 +26,7 @@ export async function chatCompletion(opts: ChatOptions): Promise<string> {
   }
   const cfg = getConfig("apiyi");
   if (!cfg.apiKey) throw new LlmUnavailableError("apiyi 尚未配置 API Key（管理后台 → 设置）");
+  const model = cfg.models[opts.task ?? "retrieval"] || cfg.model;
   const res = await fetch(`${cfg.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: {
@@ -30,7 +34,7 @@ export async function chatCompletion(opts: ChatOptions): Promise<string> {
       authorization: `Bearer ${cfg.apiKey}`,
     },
     body: JSON.stringify({
-      model: cfg.model,
+      model,
       temperature: cfg.temperature,
       max_tokens: opts.maxTokens ?? 1800,
       ...(opts.json ? { response_format: { type: "json_object" } } : {}),

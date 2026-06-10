@@ -45,7 +45,7 @@ export default async function HomePage() {
       {[...groups.entries()].map(([date, list]) => (
         <section key={date} className="mt-5">
           <div className="mb-2 flex items-center gap-3">
-            <h2 className="font-display text-[13px] tracking-[0.2em] text-muted">{date}</h2>
+            <h2 className="font-display text-[13px] tracking-wide text-muted">{date}</h2>
             <div className="gold-rule flex-1" />
           </div>
           <div className="space-y-2.5">

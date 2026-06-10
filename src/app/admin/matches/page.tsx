@@ -100,7 +100,7 @@ export default function AdminMatches() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-lg tracking-widest">比赛管理</h1>
+        <h1 className="font-display text-lg tracking-wider">比赛管理</h1>
         <div className="flex flex-wrap gap-2">
           <button onClick={importWorldCup} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">
             导入世界杯 2026（自动）
@@ -118,31 +118,31 @@ export default function AdminMatches() {
       {showCreate && (
         <div className="card mt-3 grid grid-cols-1 gap-3 p-4 text-[13px] sm:grid-cols-2 lg:grid-cols-4">
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">联赛代码（如 WC2026 / INT）</span>
+            <span className="text-[10px] tracking-wider text-faint">联赛代码（如 WC2026 / INT）</span>
             <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={form.leagueCode} onChange={(e) => setForm({ ...form, leagueCode: e.target.value })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">国家/地区（队名归一用，国家队填"国际"）</span>
+            <span className="text-[10px] tracking-wider text-faint">国家/地区（队名归一用，国家队填"国际"）</span>
             <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">主队（须与历史库同名，如 Argentina）</span>
+            <span className="text-[10px] tracking-wider text-faint">主队（须与历史库同名，如 Argentina）</span>
             <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={form.homeName} onChange={(e) => setForm({ ...form, homeName: e.target.value })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">客队</span>
+            <span className="text-[10px] tracking-wider text-faint">客队</span>
             <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={form.awayName} onChange={(e) => setForm({ ...form, awayName: e.target.value })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">开球时间（本地时区）</span>
+            <span className="text-[10px] tracking-wider text-faint">开球时间（本地时区）</span>
             <input type="datetime-local" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={form.kickoff} onChange={(e) => setForm({ ...form, kickoff: e.target.value })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">场馆/城市（喂天气与地理编码）</span>
+            <span className="text-[10px] tracking-wider text-faint">场馆/城市（喂天气与地理编码）</span>
             <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">轮次</span>
+            <span className="text-[10px] tracking-wider text-faint">轮次</span>
             <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={form.round} onChange={(e) => setForm({ ...form, round: e.target.value })} />
           </label>
           <label className="mt-5 flex items-center gap-2 text-[12px] text-muted">
@@ -166,7 +166,7 @@ export default function AdminMatches() {
       <div className="mt-3 overflow-x-auto">
       <table className="tabular w-full min-w-[640px] text-[12.5px]">
         <thead>
-          <tr className="text-left text-[10px] tracking-widest text-faint">
+          <tr className="text-left text-[10px] tracking-wider text-faint">
             <th className="pb-2 font-normal">ID</th>
             <th className="pb-2 font-normal">赛事</th>
             <th className="pb-2 font-normal">对阵</th>

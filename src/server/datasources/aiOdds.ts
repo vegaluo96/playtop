@@ -74,7 +74,55 @@ export async function aiRetrieveOdds(match: {
     "ou/ah 检索不到就给空数组，oneXTwo 是必需项。",
   ].join("\n");
   const user = `比赛：${match.leagueName}${match.round ? ` ${match.round}` : ""}，${match.homeName} vs ${match.awayName}，开球时间（UTC）：${match.kickoffAtIso}。请检索该场当前赔率。`;
-  const raw = await chatCompletion({ system, user, json: true, maxTokens: 600, mock: MOCK });
+  const raw = await chatCompletion({ system, user, json: true, maxTokens: 600, task: "retrieval", mock: MOCK });
   const parsed = aiOddsSchema.parse(JSON.parse(raw));
   return buildOddsFromAi(parsed, now());
+}
+
+/* —— 多家报价：一次检索 2-4 家书商，逐家过闸、坏家单独丢弃 —— */
+
+const aiBookSchema = z.object({
+  bookmaker: z.string().min(1),
+  oneXTwo: z.object({ home: z.number(), draw: z.number(), away: z.number() }).nullable().default(null),
+  ou: z.array(z.object({ line: z.number(), over: z.number(), under: z.number() })).default([]),
+  ah: z.array(z.object({ line: z.number(), home: z.number(), away: z.number() })).default([]),
+});
+const aiMultiOddsSchema = z.object({
+  found: z.boolean().default(false),
+  books: z.array(aiBookSchema).max(4).default([]),
+});
+export type AiMultiOddsRaw = z.infer<typeof aiMultiOddsSchema>;
+
+/** 逐家校验组装；某家不可信只丢该家（纯函数，可单测） */
+export function buildBooksFromAi(raw: AiMultiOddsRaw, capturedAt: number): NormalizedOdds[] {
+  if (!raw.found) return [];
+  const out: NormalizedOdds[] = [];
+  for (const b of raw.books) {
+    const built = buildOddsFromAi({ found: true, bookmaker: b.bookmaker, oneXTwo: b.oneXTwo, ou: b.ou, ah: b.ah }, capturedAt);
+    if (built) out.push(built);
+  }
+  return out;
+}
+
+export async function aiRetrieveOddsBooks(match: {
+  leagueName: string;
+  homeName: string;
+  awayName: string;
+  kickoffAtIso: string;
+  round: string | null;
+}): Promise<NormalizedOdds[]> {
+  const system = [
+    "你是体育数据机构的盘口检索员。请检索指定比赛【当前最新】的多家博彩公司赔率（欧洲十进制小数格式），",
+    "目标书商：bet365、皇冠（Crown）、Pinnacle（平博）、威廉希尔等，输出 2-4 家，每家独立一组。",
+    "【铁律】只允许输出你真实检索核实到的数字；核实不到某家就不要输出该家；",
+    '一家都核实不到、或你的运行环境无法联网检索，必须输出 {"found":false}。严禁凭印象估算、严禁编造。',
+    "输出 JSON：",
+    `{"found":true,"books":[{"bookmaker":"bet365","oneXTwo":{"home":主胜,"draw":平局,"away":客胜},`,
+    `"ou":[{"line":2.5,"over":大球,"under":小球}],"ah":[{"line":主队让球(主让半球=-0.5),"home":主水位,"away":客水位}]}]}`,
+    "每家的 ou/ah 检索不到就给空数组，oneXTwo 是必需项。",
+  ].join("\n");
+  const user = `比赛：${match.leagueName}${match.round ? ` ${match.round}` : ""}，${match.homeName} vs ${match.awayName}，开球时间（UTC）：${match.kickoffAtIso}。请检索该场多家书商的当前赔率。`;
+  const raw = await chatCompletion({ system, user, json: true, maxTokens: 1200, task: "retrieval", mock: MOCK });
+  const parsed = aiMultiOddsSchema.parse(JSON.parse(raw));
+  return buildBooksFromAi(parsed, now());
 }

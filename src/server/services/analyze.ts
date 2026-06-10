@@ -36,7 +36,7 @@ import {
 } from "../llm/reportWriter";
 import { getRating } from "./eloService";
 import { getMatch, transitionMatch } from "./matchesService";
-import { latestSnapshots, oddsSeries, snapshotPayload, snapshotStats, KIND_LABELS } from "./snapshots";
+import { latestOddsBooks, latestSnapshots, oddsSeries, snapshotPayload, snapshotStats, KIND_LABELS } from "./snapshots";
 import { leagueById, teamNameById } from "./teamResolver";
 import { publishAnalysisRow } from "./publish";
 
@@ -152,6 +152,7 @@ export async function analyzeMatch(
       neutralVenue: match.neutral === 1,
     },
     odds: odds ?? undefined,
+    books: latestOddsBooks(matchId),
     oddsSeries: oddsSeries(matchId),
     injuries,
     weather: weather
@@ -302,6 +303,8 @@ function sourceLabel(source: string): string {
       local_stats: "本地历史库",
       llm: "AI 检索",
       manual: "人工录入",
+      sporttery: "中国竞彩官方",
+      polymarket: "Polymarket 预测市场",
     }[source] ?? source
   );
 }

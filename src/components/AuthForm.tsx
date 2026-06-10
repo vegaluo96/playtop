@@ -34,12 +34,12 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   return (
     <div className="card mt-10 p-6">
-      <h1 className="font-display text-center text-lg tracking-[0.3em] text-gold-bright">
+      <h1 className="font-display text-center text-lg tracking-wider text-gold-bright">
         {mode === "login" ? "登 录" : "注 册"}
       </h1>
       <form onSubmit={submit} className="mt-6 space-y-4">
         <div>
-          <label className="text-[10px] tracking-widest text-faint">用户名</label>
+          <label className="text-[10px] tracking-wider text-faint">用户名</label>
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -49,7 +49,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
           />
         </div>
         <div>
-          <label className="text-[10px] tracking-widest text-faint">密码</label>
+          <label className="text-[10px] tracking-wider text-faint">密码</label>
           <input
             type="password"
             value={password}
@@ -64,7 +64,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-lg border border-gold/60 bg-gold/15 py-3 font-display text-[14px] tracking-[0.3em] text-gold-bright hover:bg-gold/25 disabled:opacity-50"
+          className="w-full rounded-lg border border-gold/60 bg-gold/15 py-3 font-display text-[14px] tracking-wider text-gold-bright hover:bg-gold/25 disabled:opacity-50"
         >
           {busy ? "提交中…" : mode === "login" ? "登录" : "创建账号"}
         </button>

@@ -17,7 +17,7 @@ export async function bootstrapOnFirstRun(): Promise<void> {
       .run();
     console.log(`[bootstrap] 管理员账号已创建：${username}（默认密码请尽快修改）`);
   }
-  for (const key of ["apiyi", "datasources", "engine", "pricing"] as const) {
+  for (const key of ["apiyi", "datasources", "engine", "pricing", "automation"] as const) {
     setConfig(key, getConfig(key));
   }
   ensureLeague("INT");

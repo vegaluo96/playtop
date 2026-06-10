@@ -11,13 +11,22 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0a0f1c",
+  themeColor: "#f4f6f8",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN">
-      <body className="min-h-screen antialiased">{children}</body>
+    <html lang="zh-CN" suppressHydrationWarning>
+      <body className="min-h-screen antialiased">
+        {/* 首屏主题恢复（解析阻塞内联脚本，避免闪烁）；缺省浅色 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              '(function(){try{if(localStorage.getItem("theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}})()',
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

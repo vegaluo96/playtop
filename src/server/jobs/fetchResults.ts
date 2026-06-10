@@ -1,16 +1,20 @@
 import { z } from "zod";
+import { eq } from "drizzle-orm";
+import { db } from "../db";
+import { outcomes } from "../db/schema";
 import { fetchLeagueSeasonCsv, seasonCodes } from "../datasources/footballDataCouk";
 import { chatCompletion, LlmUnavailableError } from "../llm/apiyi";
 import { getConfig } from "../lib/config";
 import { now } from "../lib/time";
 import { matchesByStatus } from "../services/matchesService";
-import { recordOutcome } from "../services/settle";
+import { confirmOutcomeRow, recordOutcome } from "../services/settle";
 import { leagueById, teamNameById } from "../services/teamResolver";
 
 /**
  * 赛后赛果回填：
  * 1) CSV 源比赛：用结果 CSV 自动回填（站方权威数据，直接生效）
- * 2) 其他来源：AI 检索（provisional，须管理员确认后才结算）
+ * 2) 其他来源：AI 检索（provisional）；double_check 策略下两次独立检索
+ *    同比分（间隔 ≥90 分钟）即自动确认结算，异分覆盖并重置时钟
  */
 
 export async function fetchResultsFromCsv(): Promise<number> {
@@ -77,17 +81,31 @@ export async function fetchResultsViaAi(): Promise<number> {
         user: `比赛：${league?.name ?? ""} ${m.round ?? ""}，${teamNameById(m.homeTeamId)} vs ${teamNameById(m.awayTeamId)}，开球（UTC）：${new Date(m.kickoffAt).toISOString()}。请给出常规时间最终比分。`,
         json: true,
         maxTokens: 100,
+        task: "retrieval",
         mock: JSON.stringify({ known: false, homeGoals: null, awayGoals: null, status: "unknown" }),
       });
       const parsed = aiResultSchema.parse(JSON.parse(raw));
       if (parsed.known && parsed.homeGoals !== null && parsed.awayGoals !== null && parsed.status === "finished") {
+        // double_check 安全栏：先看上一次 AI 检索结果（再录入，避免时钟被重置）
+        const existing = db.select().from(outcomes).where(eq(outcomes.matchId, m.id)).get();
+        const auto = getConfig("automation");
+        const doubleChecked =
+          existing !== undefined &&
+          existing.provisional === 1 &&
+          existing.source === "llm" &&
+          existing.homeGoals === parsed.homeGoals &&
+          existing.awayGoals === parsed.awayGoals &&
+          now() - existing.recordedAt >= 90 * 60_000;
         recordOutcome({
           matchId: m.id,
           homeGoals: parsed.homeGoals,
           awayGoals: parsed.awayGoals,
           source: "llm",
-          provisional: true, // 管理员确认后才结算
+          provisional: true,
         });
+        if (auto.autoConfirmAiResults && auto.aiResultConfirmPolicy === "double_check" && doubleChecked) {
+          confirmOutcomeRow(m.id, { auto: true }); // 两次独立检索一致 → 自动确认，下个状态机 tick 结算
+        }
         filled++;
       }
     } catch (e) {

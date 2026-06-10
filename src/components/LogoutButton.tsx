@@ -11,7 +11,7 @@ export default function LogoutButton() {
         router.push("/");
         router.refresh();
       }}
-      className="w-full rounded border border-hairline py-2.5 text-[12px] tracking-widest text-faint hover:text-muted"
+      className="w-full rounded border border-hairline py-2.5 text-[12px] tracking-wider text-faint hover:text-muted"
     >
       退出登录
     </button>

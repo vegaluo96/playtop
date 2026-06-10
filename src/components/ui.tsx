@@ -6,9 +6,9 @@ export function SectionTitle({ index, children }: { index?: string; children: Re
   return (
     <div className="mt-7 mb-3 flex items-center gap-3">
       {index && (
-        <span className="font-display text-gold text-xs tracking-[0.3em]">{index}</span>
+        <span className="font-display text-gold text-xs tracking-wider">{index}</span>
       )}
-      <h2 className="font-display text-[15px] tracking-widest text-ink">{children}</h2>
+      <h2 className="font-display text-[15px] tracking-wider text-ink">{children}</h2>
       <div className="gold-rule flex-1" />
     </div>
   );
@@ -20,7 +20,7 @@ export function Collapse({ title, hint, children }: { title: string; hint?: stri
     <details className="card group mt-2 px-3.5 py-2.5">
       <summary className="flex cursor-pointer list-none items-center gap-2">
         <span className="text-[10px] text-gold transition-transform group-open:rotate-90">▸</span>
-        <span className="font-display text-[12px] tracking-widest text-ink">{title}</span>
+        <span className="font-display text-[12px] tracking-wider text-ink">{title}</span>
         {hint && <span className="ml-auto text-right text-[10px] text-faint">{hint}</span>}
       </summary>
       <div className="mt-3 border-t border-hairline pt-3">{children}</div>
@@ -31,7 +31,7 @@ export function Collapse({ title, hint, children }: { title: string; hint?: stri
 export function Stat({ label, value, sub, accent }: { label: string; value: ReactNode; sub?: string; accent?: boolean }) {
   return (
     <div className="card px-3 py-2.5">
-      <div className="text-[10px] tracking-[0.2em] text-faint uppercase">{label}</div>
+      <div className="text-[10px] tracking-wide text-faint uppercase">{label}</div>
       <div className={`tabular mt-1 text-lg font-semibold ${accent ? "text-gold-bright" : "text-ink"}`}>{value}</div>
       {sub && <div className="mt-0.5 text-[10px] text-muted">{sub}</div>}
     </div>
@@ -66,7 +66,7 @@ export function ProbBar({ home, draw, away, labels = true }: { home: number; dra
 
 export function LiveBadge({ text = "实时数据" }: { text?: string }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-hairline bg-surface px-2.5 py-1 text-[10px] tracking-widest text-up">
+    <span className="inline-flex items-center gap-2 rounded-full border border-hairline bg-surface px-2.5 py-1 text-[10px] tracking-wider text-up">
       <span className="pulse-dot" />
       {text}
     </span>

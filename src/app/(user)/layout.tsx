@@ -1,5 +1,6 @@
 import Link from "next/link";
 import BottomNav from "@/components/BottomNav";
+import ThemeToggle from "@/components/ThemeToggle";
 import { LiveBadge } from "@/components/ui";
 import { currentUser } from "@/server/auth/guards";
 
@@ -10,10 +11,11 @@ export default async function UserLayout({ children }: { children: React.ReactNo
       <header className="sticky top-0 z-30 border-b border-hairline bg-bg/90 backdrop-blur">
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-baseline gap-2">
-            <span className="font-display text-lg tracking-[0.25em] text-gold-bright">PLAYTOP</span>
-            <span className="text-[10px] tracking-[0.3em] text-muted">量化球研</span>
+            <span className="font-display text-lg tracking-wider text-gold-bright">PLAYTOP</span>
+            <span className="text-[10px] tracking-wider text-muted">量化球研</span>
           </Link>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <LiveBadge />
             {user ? (
               <Link href="/me" className="tabular rounded border border-gold/40 px-2 py-1 text-[11px] text-gold-bright">

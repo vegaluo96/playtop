@@ -7,10 +7,20 @@ import { now } from "./time";
 export const apiyiConfigSchema = z.object({
   baseUrl: z.string().default("https://api.apiyi.com/v1"),
   apiKey: z.string().default(""),
+  /** 兼容字段：三类模型未单独配置时的缺省 */
   model: z.string().default("gpt-4o"),
+  /** 按任务路由：检索（需联网搜索）/ 写作（专业长文）/ 快速（校验类）；留空回落到 model */
+  models: z
+    .object({
+      retrieval: z.string().default(""),
+      writing: z.string().default(""),
+      fast: z.string().default(""),
+    })
+    .default({ retrieval: "", writing: "", fast: "" }),
   temperature: z.number().min(0).max(2).default(0.3),
 });
 export type ApiyiConfig = z.infer<typeof apiyiConfigSchema>;
+export type LlmTask = "retrieval" | "writing" | "fast";
 
 export const datasourcesConfigSchema = z.object({
   /** football-data.co.uk 联赛代码，如 E0(英超) SP1(西甲) I1(意甲) D1(德甲) F1(法甲) */
@@ -19,8 +29,29 @@ export const datasourcesConfigSchema = z.object({
   aiRetrievalEnabled: z.boolean().default(true),
   /** 竞彩官方盘口接口（零 key；境外 IP 可能被拦，设置页可测试连通性） */
   sportteryEnabled: z.boolean().default(true),
+  /** Polymarket 预测市场公开 API（零 key；价格即概率） */
+  polymarketEnabled: z.boolean().default(true),
+  /** CSV 联赛是否也走 AI 多家报价（成本闸：联赛已有 football-data 盘口，默认关） */
+  aiOddsForCsvLeagues: z.boolean().default(false),
 });
 export type DatasourcesConfig = z.infer<typeof datasourcesConfigSchema>;
+
+/** 全自动流水线开关：全开 = 建模→发布→改版→赛果→结算零人工；可逐项降级回人工 */
+export const automationConfigSchema = z.object({
+  autoCollect: z.boolean().default(true),
+  /** ready → 自动运行引擎建模 */
+  autoAnalyze: z.boolean().default(true),
+  /** analyzed → 自动按默认积分价发布首版 */
+  autoPublish: z.boolean().default(true),
+  /** 距开球 N 小时内仍无盘口 → 强制进 ready（引擎走无市场退化链）；0 = 关闭兜底 */
+  readyWithoutOddsHours: z.number().min(0).default(12),
+  /** AI 检索赛果自动确认并结算（安全栏见 policy） */
+  autoConfirmAiResults: z.boolean().default(true),
+  /** double_check：两次独立检索同比分才确认；delay：录入后等 N 小时无人纠正即确认 */
+  aiResultConfirmPolicy: z.enum(["double_check", "delay"]).default("double_check"),
+  aiResultConfirmDelayHours: z.number().min(1).default(6),
+});
+export type AutomationConfig = z.infer<typeof automationConfigSchema>;
 
 export const engineConfigSchema = z.object({
   /** Dixon-Coles 时间衰减（每天），论文 ξ=0.0065/半周 ≈ 0.0019/天 */
@@ -64,6 +95,7 @@ const CONFIG_SCHEMAS = {
   datasources: datasourcesConfigSchema,
   engine: engineConfigSchema,
   pricing: pricingConfigSchema,
+  automation: automationConfigSchema,
 } as const;
 export type ConfigKey = keyof typeof CONFIG_SCHEMAS;
 

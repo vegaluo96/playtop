@@ -4,11 +4,40 @@ import { useEffect, useState } from "react";
 import { api } from "@/components/admin/api";
 
 interface Settings {
-  apiyi: { baseUrl: string; apiKey: string; model: string; temperature: number };
-  datasources: { enabledLeagues: string[]; csvBase: string; aiRetrievalEnabled: boolean; sportteryEnabled: boolean };
+  apiyi: {
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+    models: { retrieval: string; writing: string; fast: string };
+    temperature: number;
+  };
+  datasources: {
+    enabledLeagues: string[];
+    csvBase: string;
+    aiRetrievalEnabled: boolean;
+    sportteryEnabled: boolean;
+    polymarketEnabled: boolean;
+    aiOddsForCsvLeagues: boolean;
+  };
   engine: Record<string, unknown> & { ensembleWeights: { market: number; dc: number; elo: number } };
   pricing: { defaultPricePoints: number };
+  automation: {
+    autoCollect: boolean;
+    autoAnalyze: boolean;
+    autoPublish: boolean;
+    readyWithoutOddsHours: number;
+    autoConfirmAiResults: boolean;
+    aiResultConfirmPolicy: "double_check" | "delay";
+    aiResultConfirmDelayHours: number;
+  };
 }
+
+const AUTOMATION_FLAGS: { key: "autoCollect" | "autoAnalyze" | "autoPublish" | "autoConfirmAiResults"; label: string }[] = [
+  { key: "autoCollect", label: "自动采集（每 30 分钟，临近 48h 场次）" },
+  { key: "autoAnalyze", label: "自动建模（数据就绪即运行引擎）" },
+  { key: "autoPublish", label: "自动发布（按默认积分价上线首版）" },
+  { key: "autoConfirmAiResults", label: "AI 赛果自动确认结算（安全栏见下）" },
+];
 
 const LEAGUE_OPTIONS: { code: string; name: string }[] = [
   { code: "E0", name: "英超" },
@@ -71,28 +100,40 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="font-display text-lg tracking-widest">系统设置</h1>
+      <h1 className="font-display text-lg tracking-wider">系统设置</h1>
       {msg && <p className="mt-2 break-all rounded border border-hairline bg-surface px-3 py-2 text-[12px] text-muted">{msg}</p>}
 
       {/* apiyi */}
       <section className="card mt-5 p-4">
-        <h2 className="font-display text-sm tracking-widest text-gold-bright">apiyi（AI 接口，OpenAI 兼容）</h2>
+        <h2 className="font-display text-sm tracking-wider text-gold-bright">apiyi（AI 接口，OpenAI 兼容）</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 text-[13px] sm:grid-cols-2">
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">Base URL</span>
+            <span className="text-[10px] tracking-wider text-faint">Base URL</span>
             <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.apiyi.baseUrl} onChange={(e) => setS({ ...s, apiyi: { ...s.apiyi, baseUrl: e.target.value } })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">API Key（留尾号不变则不修改）</span>
+            <span className="text-[10px] tracking-wider text-faint">API Key（留尾号不变则不修改）</span>
             <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.apiyi.apiKey} onChange={(e) => setS({ ...s, apiyi: { ...s.apiyi, apiKey: e.target.value } })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">模型（建议选带联网检索能力的）</span>
+            <span className="text-[10px] tracking-wider text-faint">缺省模型（下方三类未填时使用）</span>
             <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.apiyi.model} onChange={(e) => setS({ ...s, apiyi: { ...s.apiyi, model: e.target.value } })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">temperature</span>
+            <span className="text-[10px] tracking-wider text-faint">temperature</span>
             <input type="number" step="0.1" min="0" max="2" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.apiyi.temperature} onChange={(e) => setS({ ...s, apiyi: { ...s.apiyi, temperature: Number(e.target.value) } })} />
+          </label>
+          <label className="block">
+            <span className="text-[10px] tracking-wider text-faint">检索模型（情报/盘口/赛果，建议带联网搜索，如 gemini-2.5-pro）</span>
+            <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" placeholder="留空用缺省模型" value={s.apiyi.models.retrieval} onChange={(e) => setS({ ...s, apiyi: { ...s.apiyi, models: { ...s.apiyi.models, retrieval: e.target.value } } })} />
+          </label>
+          <label className="block">
+            <span className="text-[10px] tracking-wider text-faint">写作模型（研报正文，建议旗舰写作模型，如 claude-sonnet-4-6）</span>
+            <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" placeholder="留空用缺省模型" value={s.apiyi.models.writing} onChange={(e) => setS({ ...s, apiyi: { ...s.apiyi, models: { ...s.apiyi.models, writing: e.target.value } } })} />
+          </label>
+          <label className="block">
+            <span className="text-[10px] tracking-wider text-faint">快速模型（校验类轻任务，如 gemini-2.5-flash）</span>
+            <input className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" placeholder="留空用缺省模型" value={s.apiyi.models.fast} onChange={(e) => setS({ ...s, apiyi: { ...s.apiyi, models: { ...s.apiyi.models, fast: e.target.value } } })} />
           </label>
         </div>
         <div className="mt-3 flex gap-2">
@@ -103,9 +144,9 @@ export default function SettingsPage() {
 
       {/* 数据源 */}
       <section className="card mt-4 p-4">
-        <h2 className="font-display text-sm tracking-widest text-gold-bright">数据源（全部免 API Key）</h2>
+        <h2 className="font-display text-sm tracking-wider text-gold-bright">数据源（全部免 API Key）</h2>
         <div className="mt-3">
-          <span className="text-[10px] tracking-widest text-faint">启用联赛（football-data.co.uk 代码）</span>
+          <span className="text-[10px] tracking-wider text-faint">启用联赛（football-data.co.uk 代码）</span>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {LEAGUE_OPTIONS.map(({ code, name }) => {
               const on = s.datasources.enabledLeagues.includes(code);
@@ -144,7 +185,23 @@ export default function SettingsPage() {
               checked={s.datasources.sportteryEnabled}
               onChange={(e) => setS({ ...s, datasources: { ...s.datasources, sportteryEnabled: e.target.checked } })}
             />
-            启用竞彩官方盘口（世界杯/手动赛事自动拉取，零 key；境外 IP 可能不通，先点下方测试）
+            启用竞彩官方盘口（零 key；境外 IP 可能不通，先点下方测试）
+          </label>
+          <label className="mt-2 flex items-center gap-2 text-[12px] text-muted">
+            <input
+              type="checkbox"
+              checked={s.datasources.polymarketEnabled}
+              onChange={(e) => setS({ ...s, datasources: { ...s.datasources, polymarketEnabled: e.target.checked } })}
+            />
+            启用 Polymarket 预测市场盘口（零 key，价格即概率）
+          </label>
+          <label className="mt-2 flex items-center gap-2 text-[12px] text-muted">
+            <input
+              type="checkbox"
+              checked={s.datasources.aiOddsForCsvLeagues}
+              onChange={(e) => setS({ ...s, datasources: { ...s.datasources, aiOddsForCsvLeagues: e.target.checked } })}
+            />
+            CSV 联赛也走 AI 多家报价（联赛已有官方盘口，开启会增加 token 成本）
           </label>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -157,24 +214,64 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* 引擎与定价 */}
+      {/* 自动化 */}
       <section className="card mt-4 p-4">
-        <h2 className="font-display text-sm tracking-widest text-gold-bright">引擎参数与定价</h2>
+        <h2 className="font-display text-sm tracking-wider text-gold-bright">全自动流水线</h2>
+        <p className="mt-1 text-[11px] leading-5 text-faint">
+          全开 = 建赛→采集→建模→发布→改版→赛果→结算零人工；任意一项关闭即回退到该环节的人工流程。
+        </p>
+        <div className="mt-3 space-y-2">
+          {AUTOMATION_FLAGS.map((f) => (
+            <label key={f.key} className="flex items-center gap-2 text-[12px] text-muted">
+              <input
+                type="checkbox"
+                checked={s.automation[f.key]}
+                onChange={(e) => setS({ ...s, automation: { ...s.automation, [f.key]: e.target.checked } })}
+              />
+              {f.label}
+            </label>
+          ))}
+        </div>
         <div className="mt-3 grid grid-cols-1 gap-3 text-[13px] sm:grid-cols-3">
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">集成权重·市场</span>
+            <span className="text-[10px] tracking-wider text-faint">无盘口兜底（距开球 N 小时强制进就绪，0=关闭）</span>
+            <input type="number" min="0" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.automation.readyWithoutOddsHours} onChange={(e) => setS({ ...s, automation: { ...s.automation, readyWithoutOddsHours: Number(e.target.value) } })} />
+          </label>
+          <label className="block">
+            <span className="text-[10px] tracking-wider text-faint">AI 赛果确认策略</span>
+            <select className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.automation.aiResultConfirmPolicy} onChange={(e) => setS({ ...s, automation: { ...s.automation, aiResultConfirmPolicy: e.target.value as "double_check" | "delay" } })}>
+              <option value="double_check">两次检索同比分才结算（推荐）</option>
+              <option value="delay">录入后等 N 小时无人纠正即结算</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-[10px] tracking-wider text-faint">delay 策略等待小时数</span>
+            <input type="number" min="1" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.automation.aiResultConfirmDelayHours} onChange={(e) => setS({ ...s, automation: { ...s.automation, aiResultConfirmDelayHours: Number(e.target.value) } })} />
+          </label>
+        </div>
+        <div className="mt-3">
+          <button onClick={() => save("automation", s.automation)} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">保存自动化设置</button>
+        </div>
+      </section>
+
+      {/* 引擎与定价 */}
+      <section className="card mt-4 p-4">
+        <h2 className="font-display text-sm tracking-wider text-gold-bright">引擎参数与定价</h2>
+        <div className="mt-3 grid grid-cols-1 gap-3 text-[13px] sm:grid-cols-3">
+          <label className="block">
+            <span className="text-[10px] tracking-wider text-faint">集成权重·市场</span>
             <input type="number" step="0.05" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.engine.ensembleWeights.market} onChange={(e) => setS({ ...s, engine: { ...s.engine, ensembleWeights: { ...s.engine.ensembleWeights, market: Number(e.target.value) } } })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">集成权重·DC</span>
+            <span className="text-[10px] tracking-wider text-faint">集成权重·DC</span>
             <input type="number" step="0.05" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.engine.ensembleWeights.dc} onChange={(e) => setS({ ...s, engine: { ...s.engine, ensembleWeights: { ...s.engine.ensembleWeights, dc: Number(e.target.value) } } })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">集成权重·Elo</span>
+            <span className="text-[10px] tracking-wider text-faint">集成权重·Elo</span>
             <input type="number" step="0.05" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.engine.ensembleWeights.elo} onChange={(e) => setS({ ...s, engine: { ...s.engine, ensembleWeights: { ...s.engine.ensembleWeights, elo: Number(e.target.value) } } })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-widest text-faint">默认解锁价（积分）</span>
+            <span className="text-[10px] tracking-wider text-faint">默认解锁价（积分）</span>
             <input type="number" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.pricing.defaultPricePoints} onChange={(e) => setS({ ...s, pricing: { defaultPricePoints: Number(e.target.value) } })} />
           </label>
         </div>

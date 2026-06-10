@@ -40,7 +40,7 @@ export default function MatchCardRow({ card }: { card: MatchCard }) {
           ) : (
             <div className="rounded border border-gold/50 bg-gold/10 px-2 py-1 text-center">
               <div className="tabular text-sm font-bold text-gold-bright">{card.pricePoints}</div>
-              <div className="text-[9px] tracking-widest text-gold/80">积分解锁</div>
+              <div className="text-[9px] tracking-wider text-gold/80">积分解锁</div>
             </div>
           )}
         </div>

@@ -44,6 +44,10 @@ export const llmSectionsSchema = z.object({
   thesis: z.string().min(10),
   drivers: z.array(z.string().min(4)).min(2).max(6),
   risks: z.array(z.string().min(4)).min(1).max(4),
+  /** 深度章节（写作模型产出，全部定性；旧版本数据无这些字段） */
+  tactics: z.string().optional(),
+  marketView: z.string().optional(),
+  scenarios: z.array(z.string().min(4)).max(4).default([]),
 });
 export type LlmSections = z.infer<typeof llmSectionsSchema> & {
   generatedAtVersion: number;
@@ -82,14 +86,13 @@ export function selectionLabel(market: string, selection: string, line: number |
   return selection;
 }
 
-/** 评级：picks 最高置信 → 星级 */
+/** 评级：picks 最高置信 → 信心等级（A/B/C/观望，专业徽章口径，不用星级） */
 export function ratingStars(engine: EngineOutput): { stars: string; verdict: string } {
   const best = engine.picks[0];
-  if (!best) return { stars: "★☆☆☆", verdict: "观望（无足够价值偏差）" };
+  if (!best) return { stars: "观望", verdict: "观望（无足够价值偏差）" };
   const conf = engine.picks.reduce((m, p) => (p.confidence < m ? p.confidence : m), "C" as string);
-  const stars = conf === "A" ? "★★★★" : conf === "B" ? "★★★☆" : "★★☆☆";
   const labels = engine.picks.map((p) => selectionLabel(p.market, p.selection, p.line)).join("、");
-  return { stars, verdict: `倾向：${labels}` };
+  return { stars: `评级 ${conf}`, verdict: `倾向：${labels}` };
 }
 
 /** 代码预生成的定性结论短语（供 LLM 引用措辞，自身不含敏感数字） */
@@ -102,6 +105,9 @@ export function qualitativePhrases(ctx: ReportContext): string[] {
     const diff = e.ensemble.probs.home - e.market.devigged.home;
     const dir = diff > 0.03 ? "明显高于" : diff > 0.01 ? "略高于" : diff < -0.03 ? "明显低于" : diff < -0.01 ? "略低于" : "基本贴合";
     phrases.push(`模型对主胜的评估${dir}市场去水定价`);
+    if (e.market.books.length > 1) {
+      phrases.push(`市场参照覆盖 ${e.market.books.length} 家盘口来源（${e.market.books.map((b) => b.bookmaker).join("、")}），共识取各家去水中位数`);
+    }
   } else {
     phrases.push("本场缺乏盘口数据，结论基于纯模型概率，置信度相应下调");
   }
@@ -139,6 +145,7 @@ function fallbackSections(ctx: ReportContext): z.infer<typeof llmSectionsSchema>
       "足球比赛单场方差极大，任何概率优势都不保证单场结果。",
       "临场阵容、天气与盘口变化可能在本版报告生成后继续演变，请以最新版本为准。",
     ],
+    scenarios: [],
   };
 }
 
@@ -152,7 +159,11 @@ export async function generateLlmSections(ctx: ReportContext): Promise<LlmSectio
     "你将收到：比赛背景、由确定性数学模型计算完成的结论短语、以及事实清单。",
     "你的任务只是为指定字段撰写定性文字。【铁律】严禁输出任何具体数字、百分比、赔率、比分、积分（事实清单中原样出现过的数字除外）；",
     "所有数字均由系统排版呈现，你只用定性语言（如“明显占优”“略高于市场预期”“价值有限”）。",
-    '输出 JSON：{"thesis": "核心论点（2-3句）", "drivers": ["关键驱动因素…3-5条"], "risks": ["风险提示…2-3条"]}',
+    "输出 JSON：",
+    `{"thesis": "核心论点（2-3句）", "drivers": ["关键驱动因素…3-5条"], "risks": ["风险提示…2-3条"],`,
+    `"tactics": "战术对位分析（两队风格/攻防形态/对位优劣势，3-4句，纯定性）",`,
+    `"marketView": "市场叙事（盘口为何如此开价、模型与市场共识的分歧方向及可能原因，2-3句）",`,
+    `"scenarios": ["情景推演…1-3条（如关键人员变动确认、天气恶化等情形下结论将如何定性变化）"]}`,
   ].join("\n");
   const user = [
     `【比赛】${ctx.match.leagueName} ${ctx.match.round ?? ""}：${ctx.match.homeName}（主） vs ${ctx.match.awayName}（客）`,
@@ -173,6 +184,8 @@ export async function generateLlmSections(ctx: ReportContext): Promise<LlmSectio
         system,
         user: user + feedback,
         json: true,
+        maxTokens: 2600,
+        task: "writing",
         mock: JSON.stringify(fallback),
       });
     } catch (e) {
@@ -183,7 +196,7 @@ export async function generateLlmSections(ctx: ReportContext): Promise<LlmSectio
     }
     try {
       const parsed = llmSectionsSchema.parse(JSON.parse(raw));
-      const all = [parsed.thesis, ...parsed.drivers, ...parsed.risks].join("\n");
+      const all = [parsed.thesis, ...parsed.drivers, ...parsed.risks, parsed.tactics ?? "", parsed.marketView ?? "", ...parsed.scenarios].join("\n");
       const violations = findViolations(all, whitelist);
       if (violations.length === 0) {
         return { ...parsed, generatedAtVersion: ctx.version, degraded: false };
@@ -204,7 +217,7 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   const L: string[] = [];
   L.push(`# ${m.leagueName}${m.round ? ` ${m.round}` : ""}：${m.homeName} vs ${m.awayName} · 赛前量化研报`);
   L.push("");
-  L.push(`> 评级 ${stars} · ${verdict}`);
+  L.push(`> ${stars} · ${verdict}`);
   L.push(`> 第 ${ctx.version} 版 · 数据截至 ${fmtTime(e.computedAt)} · 开球 ${fmtTime(m.kickoffAt)}${m.neutral ? " · 中立场" : ""}`);
   L.push(`> 本报告为实时研报：赛前将随盘口/阵容/天气等数据持续重算改版，请以最新版本为准。`);
   L.push("");
@@ -212,16 +225,28 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   L.push("");
   L.push(`- 集成概率：主胜 **${pct(e.ensemble.probs.home)}** / 平局 **${pct(e.ensemble.probs.draw)}** / 客胜 **${pct(e.ensemble.probs.away)}**`);
   if (e.market) {
+    const label = e.market.books.length > 1 ? `市场共识（${e.market.books.length} 家 Shin 去水中位数）` : "市场去水（Shin）";
     L.push(
-      `- 市场去水（Shin）：主 ${pct(e.market.devigged.home)} / 平 ${pct(e.market.devigged.draw)} / 客 ${pct(e.market.devigged.away)}（原始赔率 ${fmtOdds(e.market.rawOdds.home)}/${fmtOdds(e.market.rawOdds.draw)}/${fmtOdds(e.market.rawOdds.away)}，水位 ${pct(e.market.overround)}）`,
+      `- ${label}：主 ${pct(e.market.devigged.home)} / 平 ${pct(e.market.devigged.draw)} / 客 ${pct(e.market.devigged.away)}（主参考家水位 ${pct(e.market.overround)}）`,
     );
+  }
+  if (e.market && e.market.books.length > 0) {
+    L.push("");
+    L.push("| 盘口来源 | 主胜 | 平局 | 客胜 | 水位 | 去水主胜 |");
+    L.push("|---|---|---|---|---|---|");
+    for (const b of e.market.books) {
+      L.push(
+        `| ${b.bookmaker} | ${fmtOdds(b.rawOdds.home)} | ${fmtOdds(b.rawOdds.draw)} | ${fmtOdds(b.rawOdds.away)} | ${pct(b.overround)} | ${pct(b.devigged.home)} |`,
+      );
+    }
+    L.push("");
   }
   if (e.picks.length > 0) {
     L.push(`- 研究观点：`);
     for (const p of e.picks) {
       L.push(
         `  - ${MARKET_LABEL[p.market]}「${selectionLabel(p.market, p.selection, p.line)}」` +
-          `模型概率 ${pct(p.modelProb)}${p.odds ? `，赔率 ${fmtOdds(p.odds)}` : ""}${p.ev !== null ? `，EV ${pct(p.ev)}` : ""}` +
+          `模型概率 ${pct(p.modelProb)}${p.odds ? `，赔率 ${fmtOdds(p.odds)}${p.bookmaker ? `（${p.bookmaker}）` : ""}` : ""}${p.ev !== null ? `，EV ${pct(p.ev)}` : ""}` +
           `${p.kelly ? `，建议仓位（¼ Kelly）${pct(p.kelly)}` : ""}，置信 ${p.confidence}`,
       );
     }
@@ -237,6 +262,18 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   L.push("");
   for (const d of sections.drivers) L.push(`- ${d}`);
   L.push("");
+  if (sections.tactics) {
+    L.push("### 战术对位");
+    L.push("");
+    L.push(sections.tactics);
+    L.push("");
+  }
+  if (sections.marketView) {
+    L.push("### 市场叙事");
+    L.push("");
+    L.push(sections.marketView);
+    L.push("");
+  }
   L.push("## 四、模型结果");
   L.push("");
   L.push("| 信息源 | 主胜 | 平局 | 客胜 | 集成权重 |");
@@ -276,11 +313,11 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   if (e.value.length > 0) {
     L.push("## 六、价值扫描与仓位（¼ Kelly，上限 5%）");
     L.push("");
-    L.push("| 玩法 | 点位 | 赔率 | 模型概率 | 期望值 EV | 建议仓位 |");
-    L.push("|---|---|---|---|---|---|");
+    L.push("| 玩法 | 点位 | 最优赔率 | 出处 | 模型概率 | 期望值 EV | 建议仓位 |");
+    L.push("|---|---|---|---|---|---|---|");
     for (const v of [...e.value].sort((a, b) => b.ev - a.ev).slice(0, 8)) {
       L.push(
-        `| ${MARKET_LABEL[v.market]} | ${selectionLabel(v.market, v.selection, v.line)} | ${fmtOdds(v.odds)} | ${pct(v.modelProb)} | ${v.ev >= 0 ? "+" : ""}${pct(v.ev)} | ${v.kelly > 0 ? pct(v.kelly) : "—"} |`,
+        `| ${MARKET_LABEL[v.market]} | ${selectionLabel(v.market, v.selection, v.line)} | ${fmtOdds(v.odds)} | ${v.bookmaker ?? "—"} | ${pct(v.modelProb)} | ${v.ev >= 0 ? "+" : ""}${pct(v.ev)} | ${v.kelly > 0 ? pct(v.kelly) : "—"} |`,
       );
     }
     L.push("");
@@ -290,10 +327,10 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   if (e.oddsMovement.length >= 2) {
     L.push("## 七、盘口异动（1X2）");
     L.push("");
-    L.push("| 采集时间 | 主胜 | 平局 | 客胜 |");
-    L.push("|---|---|---|---|");
-    for (const o of e.oddsMovement.slice(-8)) {
-      if (o.oneXTwo) L.push(`| ${fmtTime(o.capturedAt)} | ${fmtOdds(o.oneXTwo.home)} | ${fmtOdds(o.oneXTwo.draw)} | ${fmtOdds(o.oneXTwo.away)} |`);
+    L.push("| 采集时间 | 来源 | 主胜 | 平局 | 客胜 |");
+    L.push("|---|---|---|---|---|");
+    for (const o of e.oddsMovement.slice(-10)) {
+      if (o.oneXTwo) L.push(`| ${fmtTime(o.capturedAt)} | ${o.bookmaker ?? "—"} | ${fmtOdds(o.oneXTwo.home)} | ${fmtOdds(o.oneXTwo.draw)} | ${fmtOdds(o.oneXTwo.away)} |`);
     }
     L.push("");
   }
@@ -307,10 +344,16 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   L.push("");
   L.push("## 九、风险提示");
   L.push("");
+  if (sections.scenarios.length > 0) {
+    L.push("### 情景推演");
+    L.push("");
+    for (const s of sections.scenarios) L.push(`- ${s}`);
+    L.push("");
+  }
   for (const r of sections.risks) L.push(`- ${r}`);
   L.push("- 收盘前盘口仍可能显著移动；本平台报告将持续改版，以开赛前最后一版为战绩结算口径。");
   L.push(
-    "- 本报告全部概率与结算均为 **90 分钟常规时间口径**（不含加时与点球）；赔率为单一参考来源（football-data.co.uk 综合价或人工录入价），不同渠道实际成交价格可能不同。",
+    "- 本报告全部概率与结算均为 **90 分钟常规时间口径**（不含加时与点球）；赔率参照来自多来源（官方 CSV / 竞彩 / Polymarket / AI 检索多家），价值口径取各方向跨家最优价，不同渠道实际成交价格可能不同。",
   );
   L.push("");
   L.push("## 十、计算过程（审计轨迹）");

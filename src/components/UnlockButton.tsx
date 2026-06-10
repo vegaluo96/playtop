@@ -43,7 +43,7 @@ export default function UnlockButton({
       <button
         onClick={unlock}
         disabled={busy || insufficient}
-        className="w-full rounded-lg border border-gold/60 bg-gold/15 py-3 font-display text-[15px] tracking-[0.2em] text-gold-bright transition-colors hover:bg-gold/25 disabled:opacity-50"
+        className="w-full rounded-lg border border-gold/60 bg-gold/15 py-3 font-display text-[15px] tracking-wide text-gold-bright transition-colors hover:bg-gold/25 disabled:opacity-50"
       >
         {busy ? "解锁中…" : loggedIn ? `${price} 积分 · 解锁全文研报` : "登录后解锁研报"}
       </button>

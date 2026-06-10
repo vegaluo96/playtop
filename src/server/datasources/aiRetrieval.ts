@@ -60,7 +60,7 @@ export async function aiRetrieveSoftData(match: {
     `"softInfo":[{"topic":"动机/轮换/舆情/天气场地等","content":"","sourceHint":"信息来源线索"}]}`,
   ].join("\n");
   const user = `比赛：${match.leagueName}${match.round ? ` ${match.round}` : ""}，${match.homeName}（主） vs ${match.awayName}（客），开球时间（UTC）：${match.kickoffAtIso}。请检索并整理赛前情报。`;
-  const raw = await chatCompletion({ system, user, json: true, maxTokens: 2200, mock: EMPTY_MOCK });
+  const raw = await chatCompletion({ system, user, json: true, maxTokens: 2200, task: "retrieval", mock: EMPTY_MOCK });
   const parsed = retrievalSchema.parse(JSON.parse(raw));
   return {
     injuries: parsed.injuries.length ? injuriesPayloadSchema.parse({ items: parsed.injuries }) : null,

@@ -1,46 +1,85 @@
 @import "tailwindcss";
 
-/* 设计语言：私募研报终端 —— 深海军蓝底、香槟金点缀、高数据密度、克制的动效 */
-@theme {
-  --color-bg: #0a0f1c;
-  --color-surface: #0e1525;
-  --color-raised: #141d31;
-  --color-overlay: #1a2440;
-  --color-hairline: rgba(148, 163, 184, 0.14);
-  --color-ink: #e8edf6;
-  --color-muted: #8b96ab;
-  --color-faint: #5b6679;
-  --color-gold: #c9a86a;
-  --color-gold-bright: #e8d3a3;
-  --color-up: #34d399;
-  --color-down: #f87171;
-  --color-info: #7dd3fc;
-  --font-display: "Noto Serif SC", "Songti SC", "STSong", serif;
+/*
+ * 设计语言：专业金融数据终端（IBKR / Bloomberg 风格）。
+ * 双主题：浅色为缺省（白底、深海军蓝文字、蓝色点缀），html[data-theme="dark"] 切换深色。
+ * 组件只引用语义 token（--color-*），主题切换零组件改动。
+ */
+
+:root {
+  --t-bg: #f4f6f8;
+  --t-surface: #ffffff;
+  --t-raised: #eef1f5;
+  --t-overlay: #e7ebf1;
+  --t-hairline: rgba(13, 30, 60, 0.12);
+  --t-ink: #122038;
+  --t-muted: #4f5f78;
+  --t-faint: #8694a9;
+  --t-accent: #1254a8;
+  --t-accent-bright: #0d63d0;
+  --t-up: #0a8754;
+  --t-down: #c43d3d;
+  --t-info: #34708f;
+  color-scheme: light;
 }
 
-html {
-  background: var(--color-bg);
+html[data-theme="dark"] {
+  --t-bg: #0b0d10;
+  --t-surface: #13161b;
+  --t-raised: #191d24;
+  --t-overlay: #20262f;
+  --t-hairline: rgba(160, 175, 195, 0.14);
+  --t-ink: #e6eaf0;
+  --t-muted: #95a1b2;
+  --t-faint: #5e6a7a;
+  --t-accent: #4d9fff;
+  --t-accent-bright: #79b8ff;
+  --t-up: #2ecc8f;
+  --t-down: #f07070;
+  --t-info: #6db9e8;
   color-scheme: dark;
 }
 
+@theme inline {
+  --color-bg: var(--t-bg);
+  --color-surface: var(--t-surface);
+  --color-raised: var(--t-raised);
+  --color-overlay: var(--t-overlay);
+  --color-hairline: var(--t-hairline);
+  --color-ink: var(--t-ink);
+  --color-muted: var(--t-muted);
+  --color-faint: var(--t-faint);
+  /* 历史 token 名保留（300+ 处调用方零改动），语义为"主题强调色" */
+  --color-gold: var(--t-accent);
+  --color-gold-bright: var(--t-accent-bright);
+  --color-up: var(--t-up);
+  --color-down: var(--t-down);
+  --color-info: var(--t-info);
+  --font-display: -apple-system, "PingFang SC", "Segoe UI", "Microsoft YaHei", Roboto, "Helvetica Neue", sans-serif;
+}
+
+html {
+  background: var(--t-bg);
+}
+
 body {
-  background: var(--color-bg);
-  color: var(--color-ink);
+  background: var(--t-bg);
+  color: var(--t-ink);
   font-feature-settings: "tnum";
   -webkit-font-smoothing: antialiased;
 }
 
-/* 细发丝边框卡片 */
+/* 数据面板：纯色 + 细边框，无渐变无投影 */
 .card {
-  background: linear-gradient(180deg, rgba(20, 29, 49, 0.9), rgba(14, 21, 37, 0.95));
-  border: 1px solid var(--color-hairline);
-  border-radius: 0.75rem;
+  background: var(--t-surface);
+  border: 1px solid var(--t-hairline);
+  border-radius: 0.5rem;
 }
 
+/* 分隔线（原金色渐变线，改为普通细线） */
 .gold-rule {
-  background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
+  background: var(--t-hairline);
   height: 1px;
-  opacity: 0.5;
 }
 
 /* 实时脉冲点 */
@@ -49,14 +88,14 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 9999px;
-  background: var(--color-up);
+  background: var(--t-up);
 }
 .pulse-dot::after {
   content: "";
   position: absolute;
   inset: -4px;
   border-radius: 9999px;
-  border: 1px solid var(--color-up);
+  border: 1px solid var(--t-up);
   animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes pulse-ring {
@@ -67,6 +106,6 @@ body {
 .tabular { font-variant-numeric: tabular-nums; }
 
 /* 报告正文排版 */
-.report-prose p { margin: 0.5rem 0; line-height: 1.9; }
+.report-prose p { margin: 0.5rem 0; line-height: 1.8; }
 
-::selection { background: rgba(201, 168, 106, 0.35); }
+::selection { background: color-mix(in srgb, var(--t-accent) 22%, transparent); }

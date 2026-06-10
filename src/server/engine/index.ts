@@ -11,7 +11,8 @@ import {
   type DcParams,
 } from "./dixonColes";
 import { eloToProbs } from "./elo";
-import { shinDevig, twoWayDevig } from "./devig";
+import { twoWayDevig } from "./devig";
+import { bestAh, bestOneXTwo, bestOu, consensusProbs, devigBooks, pickMainOu } from "./consensus";
 import { computeAdjustments } from "./adjustments";
 import { logOpinionPool } from "./ensemble";
 import { expectedValue, kellyStake } from "./kelly";
@@ -33,27 +34,40 @@ import {
 export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOutput {
   const trace: string[] = [];
   const { match } = bundle;
+  // 多家书商（缺省回落到单家 odds）：共识做市场成员，最优价做价值口径
+  const books = bundle.books?.length ? bundle.books : bundle.odds ? [bundle.odds] : [];
 
-  // ---------- 1. 市场基线（Shin 去水） ----------
+  // ---------- 1. 市场基线（逐家 Shin 去水 → 中位数共识） ----------
   let market: EngineOutput["market"] = null;
-  if (bundle.odds?.oneXTwo) {
-    const shin = shinDevig(bundle.odds.oneXTwo);
+  const bookDevigs = devigBooks(books);
+  if (bookDevigs.length > 0) {
+    const primary = [...bookDevigs].sort((a, b) => a.overround - b.overround)[0]; // 水位最低 = 最锐参考家
+    const consensus = consensusProbs(bookDevigs)!;
     market = {
-      rawOdds: bundle.odds.oneXTwo,
-      overround: shin.overround,
-      shinZ: shin.z,
-      devigged: shin.probs,
+      rawOdds: primary.rawOdds,
+      overround: primary.overround,
+      shinZ: primary.shinZ,
+      devigged: consensus,
+      books: bookDevigs,
     };
-    trace.push(
-      `市场去水（Shin 1993）：水位 ${(shin.overround * 100).toFixed(2)}%，z=${shin.z.toFixed(4)}，` +
-        `公平概率 主${fmtPct(shin.probs.home)}/平${fmtPct(shin.probs.draw)}/客${fmtPct(shin.probs.away)}`,
-    );
+    for (const bd of bookDevigs) {
+      trace.push(
+        `「${bd.bookmaker}」去水（Shin 1993）：水位 ${(bd.overround * 100).toFixed(2)}%，z=${bd.shinZ.toFixed(4)}，` +
+          `公平概率 主${fmtPct(bd.devigged.home)}/平${fmtPct(bd.devigged.draw)}/客${fmtPct(bd.devigged.away)}`,
+      );
+    }
+    if (bookDevigs.length > 1) {
+      trace.push(
+        `市场共识（${bookDevigs.length} 家逐项中位数归一）：` +
+          `主${fmtPct(consensus.home)}/平${fmtPct(consensus.draw)}/客${fmtPct(consensus.away)}`,
+      );
+    }
   } else {
     trace.push("无 1X2 盘口数据，市场模型缺席");
   }
 
-  // 大小球去水（供市场反推与价值计算）
-  const ouMain = pickMainOuLine(bundle);
+  // 大小球去水（供市场反推与价值计算）：取最接近 2.5、水位最低的一家
+  const ouMain = pickMainOu(books);
   let pOverDevigged: number | null = null;
   if (ouMain) {
     pOverDevigged = twoWayDevig(ouMain.over, ouMain.under);
@@ -212,7 +226,9 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
   const finalMatrix = baseMatrix ? rescaleMatrixTo1x2(baseMatrix, ensembleProbs) : null;
   if (baseMatrix) trace.push("比分矩阵已整体重标定，使 1X2 边际与集成概率一致");
 
-  const ouLines = bundle.odds?.ou.length ? bundle.odds.ou.map((o) => o.line) : [2.5];
+  const bestOuLines = bestOu(books);
+  const bestAhLines = bestAh(books);
+  const ouLines = bestOuLines.length ? bestOuLines.map((o) => o.line) : [2.5];
   const ouOut: EngineOutput["markets"]["ou"] = [];
   if (finalMatrix) {
     for (const line of [...new Set(ouLines)]) {
@@ -221,60 +237,66 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
     }
   }
   const ahOut: EngineOutput["markets"]["ah"] = [];
-  if (finalMatrix && bundle.odds?.ah.length) {
-    for (const ah of bundle.odds.ah) {
+  if (finalMatrix && bestAhLines.length) {
+    for (const ah of bestAhLines) {
       const homeCover = ahHomeCover(finalMatrix, ah.line);
       ahOut.push({ line: ah.line, homeCover, awayCover: 1 - homeCover });
     }
   }
 
-  // ---------- 7. 价值检测 + Kelly ----------
+  // ---------- 7. 价值检测 + Kelly（一律用跨家最优价：真实可成交口径） ----------
   const value: EngineOutput["value"] = [];
-  if (bundle.odds?.oneXTwo) {
-    const o = bundle.odds.oneXTwo;
+  const best1x2 = bestOneXTwo(books);
+  if (best1x2) {
     for (const sel of ["home", "draw", "away"] as const) {
       const p = ensembleProbs[sel];
-      const ev = expectedValue(p, o[sel]);
+      const { odds, bookmaker } = best1x2[sel];
+      const ev = expectedValue(p, odds);
       value.push({
         market: "1x2",
         selection: sel,
         line: null,
-        odds: o[sel],
+        odds,
+        bookmaker,
         modelProb: p,
         ev,
-        kelly: kellyStake(p, o[sel], params.kellyFraction, params.kellyCap),
+        kelly: kellyStake(p, odds, params.kellyFraction, params.kellyCap),
       });
     }
   }
-  if (finalMatrix && bundle.odds) {
-    for (const ou of bundle.odds.ou) {
+  if (finalMatrix) {
+    for (const ou of bestOuLines) {
       const p = ouProbs(finalMatrix, ou.line);
       for (const side of ["over", "under"] as const) {
-        const ev = ouEv(finalMatrix, ou.line, side, ou[side]);
+        const { odds, bookmaker } = ou[side];
+        const ev = ouEv(finalMatrix, ou.line, side, odds);
         value.push({
           market: "ou",
           selection: side,
           line: ou.line,
-          odds: ou[side],
+          odds,
+          bookmaker,
           modelProb: side === "over" ? p.over : p.under,
           ev,
-          kelly: kellyStake(side === "over" ? p.over : p.under, ou[side], params.kellyFraction, params.kellyCap),
+          kelly: kellyStake(side === "over" ? p.over : p.under, odds, params.kellyFraction, params.kellyCap),
         });
       }
     }
-    for (const ah of bundle.odds.ah) {
+    for (const ah of bestAhLines) {
       const homeCover = ahHomeCover(finalMatrix, ah.line);
       for (const side of ["home", "away"] as const) {
-        const ev = ahEv(finalMatrix, ah.line, side, ah[side]);
+        const { odds, bookmaker } = ah[side];
+        const ev = ahEv(finalMatrix, ah.line, side, odds);
         const prob = side === "home" ? homeCover : 1 - homeCover;
         value.push({
           market: "ah",
           selection: side,
           line: ah.line,
-          odds: ah[side],
+          odds,
+          bookmaker,
           modelProb: prob,
           ev,
-          kelly: kellyStake(prob, ah[side], params.kellyFraction, params.kellyCap),
+          kelly: kellyStake(prob, odds, params.kellyFraction, params.kellyCap),
         });
       }
     }
@@ -300,6 +322,7 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
         line: best.line,
         modelProb: best.modelProb,
         odds: best.odds,
+        bookmaker: best.bookmaker,
         ev: best.ev,
         kelly: best.kelly,
         confidence: best.ev >= 0.08 && best.modelProb >= 0.45 ? "A" : best.ev >= 0.05 ? "B" : "C",
@@ -307,7 +330,7 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
     }
   }
   // 无盘口时：模型倾向明显才给出 1X2 观点（无价值口径，置信 C）
-  if (picks.length === 0 && !bundle.odds?.oneXTwo && fallbackLevel < 4) {
+  if (picks.length === 0 && bookDevigs.length === 0 && fallbackLevel < 4) {
     const best = (["home", "draw", "away"] as const)
       .map((sel) => ({ sel, p: ensembleProbs[sel] }))
       .sort((a, b) => b.p - a.p)[0];
@@ -360,17 +383,11 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
     oddsMovement: (bundle.oddsSeries ?? []).map((o) => ({
       capturedAt: o.capturedAt,
       oneXTwo: o.oneXTwo ?? null,
+      bookmaker: o.bookmaker,
     })),
     trace,
   };
   return engineOutputSchema.parse(output);
-}
-
-function pickMainOuLine(bundle: EngineBundle): { line: number; over: number; under: number } | null {
-  const list = bundle.odds?.ou ?? [];
-  if (list.length === 0) return null;
-  // 优先 2.5，其次离 2.5 最近的盘
-  return [...list].sort((a, b) => Math.abs(a.line - 2.5) - Math.abs(b.line - 2.5))[0];
 }
 
 function fmtPct(p: number): string {

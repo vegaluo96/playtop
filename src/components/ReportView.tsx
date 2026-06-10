@@ -22,7 +22,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
       {/* 摘要卡：星级 + 结论 + 三向概率 + 观点表，一屏看懂 */}
       <div className="card mt-4 p-4">
         <div className="flex items-center justify-between">
-          <span className="font-display text-lg tracking-[0.2em] text-gold-bright">{stars}</span>
+          <span className="font-display text-lg tracking-wide text-gold-bright">{stars}</span>
           <Tag tone="gold">第 {view.card.version} 版</Tag>
         </div>
         <div className="mt-1 text-[13px] text-ink">{verdict}</div>
@@ -33,10 +33,11 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
           <>
             <table className="tabular mt-4 w-full text-[11px]">
               <thead>
-                <tr className="text-left text-[10px] tracking-widest text-faint">
+                <tr className="text-left text-[10px] tracking-wider text-faint">
                   <th className="pb-1 font-normal">观点</th>
                   <th className="pb-1 text-right font-normal">模型概率</th>
-                  <th className="pb-1 text-right font-normal">参考赔率</th>
+                  <th className="pb-1 text-right font-normal">最优赔率</th>
+                  <th className="pb-1 text-right font-normal">出处</th>
                   <th className="pb-1 text-right font-normal">期望收益</th>
                   <th className="pb-1 text-right font-normal">建议仓位</th>
                   <th className="pb-1 text-right font-normal">信心</th>
@@ -50,6 +51,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
                     </td>
                     <td className="py-1.5 text-right">{pct(p.modelProb)}</td>
                     <td className="py-1.5 text-right">{odds2(p.odds)}</td>
+                    <td className="py-1.5 text-right text-muted">{p.bookmaker ?? "—"}</td>
                     <td className={`py-1.5 text-right ${p.ev !== null && p.ev > 0 ? "text-up" : "text-muted"}`}>
                       {p.ev === null ? "—" : `${p.ev >= 0 ? "+" : ""}${pct(p.ev)}`}
                     </td>
@@ -84,6 +86,20 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         ))}
       </ul>
 
+      {sections.tactics && (
+        <>
+          <SectionTitle index={idx()}>战术对位</SectionTitle>
+          <p className="report-prose text-[12.5px] leading-7 text-ink/85">{sections.tactics}</p>
+        </>
+      )}
+
+      {sections.marketView && (
+        <>
+          <SectionTitle index={idx()}>市场叙事</SectionTitle>
+          <p className="report-prose text-[12.5px] leading-7 text-ink/85">{sections.marketView}</p>
+        </>
+      )}
+
       {engine.dixonColes && (
         <>
           <SectionTitle index={idx()}>最可能比分</SectionTitle>
@@ -100,6 +116,15 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
 
       <SectionTitle index={idx()}>风险提示</SectionTitle>
       <ul className="space-y-2 text-[12px] leading-6 text-muted">
+        {(sections.scenarios ?? []).map((s, i) => (
+          <li key={`sc-${i}`} className="flex gap-2">
+            <span className="text-info">◇</span>
+            <span>
+              <b className="text-ink">情景：</b>
+              {s}
+            </span>
+          </li>
+        ))}
         {sections.risks.map((r, i) => (
           <li key={i} className="flex gap-2">
             <span className="text-down">⚠</span>
@@ -113,7 +138,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         <li className="flex gap-2">
           <span className="text-down">⚠</span>
           <span>
-            全部概率与结算均为 <b className="text-ink">90 分钟常规时间口径</b>（不含加时与点球）；赔率为单一参考来源，不同渠道实际成交价格可能不同。
+            全部概率与结算均为 <b className="text-ink">90 分钟常规时间口径</b>（不含加时与点球）；赔率参照多来源，价值口径取跨家最优价，不同渠道实际成交价格可能不同。
           </span>
         </li>
       </ul>
@@ -127,7 +152,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
       <Collapse title="模型结果与集成权重" hint="市场去水 / Dixon-Coles / Elo 三路印证">
         <table className="tabular w-full text-[11px]">
           <thead>
-            <tr className="text-left text-[10px] tracking-widest text-faint">
+            <tr className="text-left text-[10px] tracking-wider text-faint">
               <th className="pb-1 font-normal">信息源</th>
               <th className="pb-1 text-right font-normal">主胜</th>
               <th className="pb-1 text-right font-normal">平局</th>
@@ -136,9 +161,18 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
             </tr>
           </thead>
           <tbody>
+            {engine.market?.books.map((b) => (
+              <tr key={b.bookmaker} className="border-t border-hairline text-muted">
+                <td className="py-1.5">「{b.bookmaker}」Shin 去水（水位 {pct(b.overround)}）</td>
+                <td className="py-1.5 text-right">{pct(b.devigged.home)}</td>
+                <td className="py-1.5 text-right">{pct(b.devigged.draw)}</td>
+                <td className="py-1.5 text-right">{pct(b.devigged.away)}</td>
+                <td className="py-1.5 text-right">—</td>
+              </tr>
+            ))}
             {engine.market && (
               <tr className="border-t border-hairline">
-                <td className="py-1.5">市场（Shin 去水，水位 {pct(engine.market.overround)}）</td>
+                <td className="py-1.5">市场共识（{engine.market.books.length > 1 ? `${engine.market.books.length} 家中位数` : "Shin 去水"}）</td>
                 <td className="py-1.5 text-right">{pct(engine.market.devigged.home)}</td>
                 <td className="py-1.5 text-right">{pct(engine.market.devigged.draw)}</td>
                 <td className="py-1.5 text-right">{pct(engine.market.devigged.away)}</td>
@@ -188,7 +222,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
             {engine.markets.ou.length > 0 && (
               <table className="tabular w-full text-[11px]">
                 <thead>
-                  <tr className="text-left text-[10px] tracking-widest text-faint">
+                  <tr className="text-left text-[10px] tracking-wider text-faint">
                     <th className="pb-1 font-normal">大小球</th>
                     <th className="pb-1 text-right font-normal">大</th>
                     <th className="pb-1 text-right font-normal">小</th>
@@ -208,7 +242,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
             {engine.markets.ah.length > 0 && (
               <table className="tabular w-full text-[11px]">
                 <thead>
-                  <tr className="text-left text-[10px] tracking-widest text-faint">
+                  <tr className="text-left text-[10px] tracking-wider text-faint">
                     <th className="pb-1 font-normal">亚盘</th>
                     <th className="pb-1 text-right font-normal">主赢盘</th>
                     <th className="pb-1 text-right font-normal">客赢盘</th>
@@ -233,7 +267,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         <Collapse title="价值扫描全表" hint="所有点位的期望收益与仓位">
           <table className="tabular w-full text-[11px]">
             <thead>
-              <tr className="text-left text-[10px] tracking-widest text-faint">
+              <tr className="text-left text-[10px] tracking-wider text-faint">
                 <th className="pb-1 font-normal">点位</th>
                 <th className="pb-1 text-right font-normal">赔率</th>
                 <th className="pb-1 text-right font-normal">模型概率</th>
@@ -268,7 +302,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         <Collapse title="盘口异动记录" hint={`${engine.oddsMovement.length} 次采样（1X2）`}>
           <table className="tabular w-full text-[11px]">
             <thead>
-              <tr className="text-left text-[10px] tracking-widest text-faint">
+              <tr className="text-left text-[10px] tracking-wider text-faint">
                 <th className="pb-1 font-normal">采集时间</th>
                 <th className="pb-1 text-right font-normal">主胜</th>
                 <th className="pb-1 text-right font-normal">平局</th>
@@ -302,7 +336,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         </p>
         <table className="tabular mt-2 w-full text-[11px]">
           <thead>
-            <tr className="text-left text-[10px] tracking-widest text-faint">
+            <tr className="text-left text-[10px] tracking-wider text-faint">
               <th className="pb-1 font-normal">维度</th>
               <th className="pb-1 font-normal">来源</th>
               <th className="pb-1 text-right font-normal">采集次数</th>
@@ -326,7 +360,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         <Collapse title="版本演化" hint={`${view.versions.length} 个版本的概率轨迹`}>
           <table className="tabular w-full text-[11px]">
             <thead>
-              <tr className="text-left text-[10px] tracking-widest text-faint">
+              <tr className="text-left text-[10px] tracking-wider text-faint">
                 <th className="pb-1 font-normal">版本</th>
                 <th className="pb-1 text-right font-normal">主胜</th>
                 <th className="pb-1 text-right font-normal">平局</th>

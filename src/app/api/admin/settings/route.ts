@@ -13,12 +13,13 @@ export async function GET() {
       datasources: getConfig("datasources"),
       engine: getConfig("engine"),
       pricing: getConfig("pricing"),
+      automation: getConfig("automation"),
     });
   });
 }
 
 const putSchema = z.object({
-  key: z.enum(["apiyi", "datasources", "engine", "pricing"]),
+  key: z.enum(["apiyi", "datasources", "engine", "pricing", "automation"]),
   value: z.record(z.string(), z.unknown()),
 });
 

@@ -57,7 +57,7 @@ export default async function MePage() {
   return (
     <div className="py-4">
       <div className="card p-5 text-center">
-        <div className="text-[10px] tracking-[0.3em] text-faint">积分余额</div>
+        <div className="text-[10px] tracking-wider text-faint">积分余额</div>
         <div className="tabular font-display mt-1 text-4xl text-gold-bright">{user.points}</div>
         <div className="mt-2 text-[11px] text-muted">
           {user.username}
@@ -97,7 +97,7 @@ export default async function MePage() {
       ) : (
         <table className="tabular w-full text-[11px]">
           <thead>
-            <tr className="text-left text-[10px] tracking-widest text-faint">
+            <tr className="text-left text-[10px] tracking-wider text-faint">
               <th className="pb-1 font-normal">时间</th>
               <th className="pb-1 font-normal">类型</th>
               <th className="pb-1 text-right font-normal">变动</th>

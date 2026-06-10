@@ -20,7 +20,7 @@ export default function BottomNav() {
             <Link
               key={t.href}
               href={t.href}
-              className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] tracking-widest ${
+              className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] tracking-wider ${
                 active ? "text-gold-bright" : "text-faint"
               }`}
             >
