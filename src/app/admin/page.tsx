@@ -13,7 +13,7 @@ import { MARKET_LABEL, STATUS_LABEL, Stat, Tag } from "@/components/ui";
 
 const JOBS: { name: string; label: string; cadence: string; expectMin: number }[] = [
   { name: "state_machine", label: "状态机（锁定/结算）", cadence: "每 10 分钟", expectMin: 10 },
-  { name: "hot_window", label: "临场冲刺（开球前 30 分钟）", cadence: "每 5 分钟", expectMin: 5 },
+  { name: "hot_window", label: "临场冲刺（30~10min 每5分 / 最后10min 每分钟）", cadence: "每分钟 tick", expectMin: 1 },
   { name: "live_revisions", label: "采集→建模→发布→改版", cadence: "每 30 分钟", expectMin: 30 },
   { name: "fetch_results", label: "赛果回填", cadence: "每 2 小时", expectMin: 120 },
   { name: "sync_fixtures", label: "赛程同步", cadence: "每 6 小时", expectMin: 360 },

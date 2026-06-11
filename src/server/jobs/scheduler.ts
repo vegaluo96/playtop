@@ -33,26 +33,11 @@ function latestLlmSnapshotAge(matchId: number): number {
   return row ? now() - row.fetchedAt : Infinity;
 }
 
-export async function tickStateMachine(): Promise<{ confirmed: number; locked: number; settled: number; nearRefreshed: number }> {
+export async function tickStateMachine(): Promise<{ confirmed: number; locked: number; settled: number }> {
   const confirmed = autoConfirmDueOutcomes(); // delay 策略的自动确认（double_check 在赛果抓取时即时处理）
   const locked = lockFinalAnalysisAtKickoff();
   const settled = settleDueMatches();
-  // 临场加密刷新：开球前 30 分钟 ~ 6h 的已发布场次，10 分钟级只刷盘口+官方首发——
-  // 价差监测/边界线的时效窗口；最后 30 分钟交给 5 分钟级的 hot_window；其余维度走 30 分钟主循环
-  let nearRefreshed = 0;
-  const near = matchesByStatus(["published"]).filter(
-    (m) => m.kickoffAt - now() >= 30 * 60_000 && m.kickoffAt - now() < 6 * 3_600_000,
-  );
-  for (const m of near) {
-    try {
-      await collectMatch(m.id, { oddsOnly: true, skipAi: true });
-      await advanceMatch(m.id);
-      nearRefreshed++;
-    } catch (e) {
-      console.warn(`[jobs] 临场刷新失败 match=${m.id}:`, e instanceof Error ? e.message : e);
-    }
-  }
-  return { confirmed, locked, settled, nearRefreshed };
+  return { confirmed, locked, settled };
 }
 
 /** 全自动核心循环：采集 → 建模 → 发布 → 改版，全链路由 advanceMatch 推进（断头修复点） */
@@ -86,11 +71,29 @@ export async function tickLiveRevisions(): Promise<{ refreshed: number; advanced
   return { refreshed, advanced };
 }
 
-/** 临场冲刺：开球前 30 分钟内的已发布场次，5 分钟级强制刷新盘口+首发（绕过礼貌冷却） */
+function latestOddsAge(matchId: number): number {
+  const row = db
+    .select({ fetchedAt: dataSnapshots.fetchedAt })
+    .from(dataSnapshots)
+    .where(and(eq(dataSnapshots.matchId, matchId), eq(dataSnapshots.kind, "odds")))
+    .orderBy(desc(dataSnapshots.fetchedAt))
+    .limit(1)
+    .get();
+  return row ? now() - row.fetchedAt : Infinity;
+}
+
+/**
+ * 临场冲刺（每分钟 tick，分级节奏）。盘口刷新阶梯（用户可见承诺）：
+ * >12h 静默（仅首采）→ 12h~30min 每 30 分钟（主循环）→ 30~10min 每 5 分钟 → 最后 10 分钟每分钟。
+ * 强制绕过礼貌冷却；引擎指纹去重保证价格未变不发新版。
+ */
 export async function tickHotWindow(): Promise<{ refreshed: number }> {
   let refreshed = 0;
   const hot = matchesByStatus(["published"]).filter((m) => m.kickoffAt > now() && m.kickoffAt - now() < 30 * 60_000);
   for (const m of hot) {
+    const minsToKickoff = (m.kickoffAt - now()) / 60_000;
+    // 30~10 分钟段维持 5 分钟节奏（4.5min 阈值容忍 cron 抖动）；最后 10 分钟每个 tick 都刷
+    if (minsToKickoff > 10 && latestOddsAge(m.id) < 4.5 * 60_000) continue;
     try {
       await collectMatch(m.id, { oddsOnly: true, hot: true, skipAi: true });
       await advanceMatch(m.id);
@@ -181,7 +184,7 @@ export function startScheduler(): void {
   if (g.__playtopCron) return;
   g.__playtopCron = true;
   cron.schedule("*/10 * * * *", () => void guarded("state_machine"));
-  cron.schedule("*/5 * * * *", () => void guarded("hot_window"));
+  cron.schedule("* * * * *", () => void guarded("hot_window"));
   cron.schedule("*/30 * * * *", () => void guarded("live_revisions"));
   cron.schedule("15 */2 * * *", () => void guarded("fetch_results")); // 2h：double_check 两次一致约 4-5h 内自动结算
   cron.schedule("45 */6 * * *", () => void guarded("sync_fixtures"));
@@ -189,7 +192,7 @@ export function startScheduler(): void {
   setTimeout(() => void guarded("sync_fixtures"), 5_000);
   setTimeout(() => void guarded("live_revisions"), 30_000);
   setTimeout(() => void guarded("state_machine"), 60_000);
-  console.log("[jobs] 调度器已启动（状态机 10m / 临场冲刺 5m / 自动推进 30m / 赛果 2h / 赛程同步 6h；冷启动自动开跑）");
+  console.log("[jobs] 调度器已启动（状态机 10m / 临场冲刺 1m / 自动推进 30m / 赛果 2h / 赛程同步 6h；冷启动自动开跑）");
 }
 
 /** 管理端手动触发（演示/补偿）——同样记心跳 */

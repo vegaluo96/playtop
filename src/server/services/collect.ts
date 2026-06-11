@@ -47,7 +47,7 @@ export async function collectMatch(
   const force = opts.force ?? false;
   /** 临场加密刷新模式：只跑盘口+官方首发（价差监测的时效窗口），其余维度不动 */
   const oddsOnly = opts.oddsOnly ?? false;
-  /** 临场冲刺（开球前 30 分钟）：盘口/首发强制绕过礼貌冷却，5 分钟级拿最新价 */
+  /** 临场冲刺（开球前 30 分钟内）：盘口/首发强制绕过礼貌冷却（30~10min 每 5 分钟,最后 10 分钟每分钟） */
   const hot = opts.hot ?? false;
   const match = getMatch(matchId);
   const league = leagueById(match.leagueId);
@@ -88,6 +88,10 @@ export async function collectMatch(
     return r ? now() - r.fetchedAt : Infinity;
   };
   const H = 3_600_000;
+  // 盘口刷新阶梯（用户可见承诺）：>12h 静默（仅首采）→ 12h~30min 每 30 分钟（主循环）
+  // → 30~10min 每 5 分钟 → 最后 10 分钟每分钟（hot_window 分级强刷）。force/hot 始终放行。
+  const hoursToKickoff = (match.kickoffAt - now()) / H;
+  const oddsDue = force || hot || ageOf("odds") === Infinity || hoursToKickoff <= 12;
 
   // API-Football（付费主源）：按比赛日拉一次 fixtures、本场内存共享（odds/首发/伤停共用 fixtureId）
   const afUsable = apiFootballConfigured() && isSourceUsable("api_football", dsCfg.apiFootballEnabled);
@@ -107,7 +111,7 @@ export async function collectMatch(
   // 并发后墙钟时间 = 最慢一源；每源独立成败 + 健康门控记账）。
   const networkTasks: Promise<void>[] = [];
   if (afUsable) {
-    networkTasks.push(
+    if (oddsDue) networkTasks.push(
       attempt("odds:api_football", async () => {
         const fx = await getAfFixture();
         if (!fx) throw new Error("API-Football 未匹配到本场");
@@ -159,14 +163,14 @@ export async function collectMatch(
       }),
     );
   }
-  if (match.source === "csv") {
+  if (oddsDue && match.source === "csv") {
     networkTasks.push(
       attempt("odds:csv", async () => {
         await withSource("football_data_couk", () => syncFixtures(false, force));
       }),
     );
   }
-  if (isSourceUsable("polymarket", dsCfg.polymarketEnabled)) {
+  if (oddsDue && isSourceUsable("polymarket", dsCfg.polymarketEnabled)) {
     networkTasks.push(
       attempt("odds:polymarket", async () => {
         const payload = await withSource("polymarket", () => fetchPolymarketOdds(matchRef));
@@ -175,7 +179,7 @@ export async function collectMatch(
       }),
     );
   }
-  if (isSourceUsable("smarkets", dsCfg.smarketsEnabled)) {
+  if (oddsDue && isSourceUsable("smarkets", dsCfg.smarketsEnabled)) {
     networkTasks.push(
       attempt("odds:smarkets", async () => {
         const payload = await withSource("smarkets", () => fetchSmarketsOdds(matchRef));

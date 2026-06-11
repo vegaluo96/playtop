@@ -98,13 +98,16 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
       {/* 实时改版 / 赛后公开 横幅 */}
       {live && (
-        <div className="card mt-4 flex items-center gap-3 border-gold/30 px-3 py-2.5">
-          <LiveBadge text="实时研报" />
-          <p className="text-[10.5px] leading-4 text-muted">
-            本报告随盘口、阵容、天气等数据<b className="text-gold-bright">持续重算改版</b>，截图分享会很快过时；
-            开赛瞬间锁定终版并计入战绩。
-          </p>
-        </div>
+        <>
+          <RefreshLadder kickoffAt={card.kickoffAt} />
+          <div className="card mt-2 flex items-center gap-3 border-gold/30 px-3 py-2.5">
+            <LiveBadge text="实时研报" />
+            <p className="text-[10.5px] leading-4 text-muted">
+              本报告随盘口、阵容、天气等数据<b className="text-gold-bright">持续重算改版</b>，截图分享会很快过时；
+              开赛瞬间锁定终版并计入战绩。
+            </p>
+          </div>
+        </>
       )}
       {card.status === "settled" && view.hoursBeforeKickoffPublished !== null && (
         <div className="card mt-4 border-up/30 px-3 py-2.5 text-[10.5px] leading-5 text-muted">
@@ -122,6 +125,43 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           {view.analysisId && <VerifyBadge analysisId={view.analysisId} contentHash={view.contentHash} />}
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * 盘口刷新节奏指示条（用户可见的服务承诺）：
+ * >12h 静默 → 12h~30min 每 30 分钟 → 30~10min 每 5 分钟 → 最后 10 分钟每分钟。
+ * 当前档位高亮，越临近开赛越"热"——配合 60s 页面自动刷新，临场分钟级更新肉眼可见。
+ */
+function RefreshLadder({ kickoffAt }: { kickoffAt: number }) {
+  const mins = (kickoffAt - Date.now()) / 60_000;
+  if (mins <= 0) return null;
+  const stages = [
+    { label: "盘口静默", range: "开赛前 12 小时以上", active: mins > 720 },
+    { label: "每 30 分钟", range: "12 小时 ~ 30 分钟", active: mins <= 720 && mins > 30 },
+    { label: "每 5 分钟", range: "30 ~ 10 分钟", active: mins <= 30 && mins > 10 },
+    { label: "每分钟", range: "最后 10 分钟", active: mins <= 10 },
+  ];
+  const current = stages.find((s) => s.active)!;
+  return (
+    <div className="card mt-4 border-gold/30 px-3 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[10px] tracking-wider text-faint">盘口刷新节奏</span>
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-gold-bright">
+          {current.label !== "盘口静默" && <span className="pulse-dot" />}
+          当前：{current.label}
+          <span className="font-normal text-faint">（{current.range}）</span>
+        </span>
+      </div>
+      <div className="mt-2 flex gap-1">
+        {stages.map((s) => (
+          <div key={s.label} className="flex-1">
+            <div className={`h-1 rounded-full ${s.active ? "bg-gold" : "bg-overlay"}`} />
+            <div className={`mt-1 text-center text-[9px] ${s.active ? "font-semibold text-gold-bright" : "text-faint"}`}>{s.label}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
