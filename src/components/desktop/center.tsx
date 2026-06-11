@@ -85,7 +85,10 @@ export function CenterPane({
 
   const trendCol = (title: string, data: { rows: V[]; chart: ChartRow[] }, cols: [string, string]) => (
     <div>
-      <div style={{ fontSize: 12, fontWeight: 700, margin: "0 2px 8px" }}>{title}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, margin: "0 2px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        {title}
+        {data.chart.length > 1 && <span className="mono" style={{ fontSize: 9, color: "var(--fg-4)", fontWeight: 400 }}>自 {data.chart[0].t} 归档</span>}
+      </div>
       <Card style={{ padding: "10px 8px 4px" }}>
         <LineChart rows={data.chart} id={title} />
       </Card>
@@ -487,7 +490,7 @@ export function CenterPane({
                     <span style={{ fontSize: 12, fontWeight: 700 }}>球场因素</span>
                     <span style={{ fontSize: 10, color: "var(--fg-3)" }}>{deepV.venue?.city}</span>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>{deepV.venue?.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>{deepV.venue?.name}<span style={{ fontSize: 10, color: "var(--fg-2)", fontWeight: 400, marginLeft: 10 }}>当值主裁:{deepV.referee ?? "未公布"}</span></div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                     {[[deepV.venue?.cap, "容量"], [deepV.venue?.surface, "草皮"], [deepV.venue?.country || "—", "国家/地区"]].map(([val, label]) => (
                       <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "7px 0", textAlign: "center" }}>

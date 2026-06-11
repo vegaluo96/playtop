@@ -235,17 +235,37 @@ async function cycle(): Promise<void> {
   kvSet("worker_heartbeat", String(Date.now()));
 }
 
+/** 滚球快循环:仅滚球场次的 比分bundle + 滚球盘 + 赛前盘,间隔由后台「滚球档」控制(可至 5s) */
+async function liveFast(now: number): Promise<void> {
+  const lives = fixturesBetween(now - 4 * H, now).filter((x) => isLive(x.status));
+  if (lives.length === 0) return;
+  await tickLive(now);
+  for (const f of lives) await tickFixture(f.fixture_id, now);
+}
+
 async function main(): Promise<void> {
-  log(`worker 启动:联赛 ${FOLLOWED().join(",")} · 调用间隔 ${DELAY}ms`);
+  log(`worker 启动:联赛 ${FOLLOWED().join(",")} · 调用间隔 ${DELAY}ms · 双速循环(整轮 ${TICK_MS / 1000}s + 滚球快循环按后台配置,最低 5s)`);
+  let lastFull = 0;
+  let lastLive = 0;
   for (;;) {
-    const t0 = Date.now();
+    const now = Date.now();
     try {
-      await cycle();
+      if (now - lastFull >= TICK_MS) {
+        lastFull = now;
+        await cycle();
+        lastLive = Date.now();
+      } else {
+        const liveIv = Math.max(5_000, cfgTierIntervals()[6] ?? 60_000);
+        if (now - lastLive >= liveIv) {
+          lastLive = now;
+          await liveFast(now);
+        }
+      }
     } catch (e) {
-      log(`cycle 异常:${msg(e)}`);
+      log(`循环异常:${msg(e)}`);
     }
-    const elapsed = Date.now() - t0;
-    if (elapsed < TICK_MS) await sleep(TICK_MS - elapsed);
+    kvSet("worker_heartbeat", String(Date.now()));
+    await sleep(2_500);
   }
 }
 

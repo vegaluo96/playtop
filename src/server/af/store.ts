@@ -165,27 +165,24 @@ export function archiveOdds(fixtureId: number, oddsItem: unknown, capturedAt = D
 }
 
 /**
- * 该场的统一主书商:三个市场覆盖最全者优先,同覆盖按 PRIMARY 顺序。
- * 关键约束:亚盘/大小/胜平负三个市场必须同源同书商,整行数值才能与单一外站对得上。
+ * 某场某市场的快照序列:按实际抓取情况选源——取该市场「最新一帧最新鲜」的书商
+ * (同鲜度按 PRIMARY 顺序),不强制全场同源;全部书商数据都在,百家对比可查任一家。
  */
-export function primaryBookmakerFor(fixtureId: number): string | null {
-  const rows = db()
-    .prepare("SELECT bookmaker, COUNT(DISTINCT market) cov FROM odds_snapshots WHERE fixture_id = ? GROUP BY bookmaker")
-    .all(fixtureId) as unknown as { bookmaker: string; cov: number }[];
-  if (rows.length === 0) return null;
+export function oddsSeries(fixtureId: number, market: "ah" | "ou" | "eu"): SnapRow[] {
+  const d = db();
+  const latest = d
+    .prepare(
+      "SELECT bookmaker, MAX(captured_at) at FROM odds_snapshots WHERE fixture_id = ? AND market = ? GROUP BY bookmaker",
+    )
+    .all(fixtureId, market) as unknown as { bookmaker: string; at: number }[];
+  if (latest.length === 0) return [];
   const rank = (n: string) => {
     const i = PRIMARY_BOOKMAKERS.indexOf(n);
     return i < 0 ? 99 : i;
   };
-  rows.sort((x, y) => y.cov - x.cov || rank(x.bookmaker) - rank(y.bookmaker));
-  return rows[0].bookmaker;
-}
-
-/** 某场某市场的快照序列(全场统一主书商;该书商缺这个市场则该市场显示为空,绝不混源) */
-export function oddsSeries(fixtureId: number, market: "ah" | "ou" | "eu"): SnapRow[] {
-  const pick = primaryBookmakerFor(fixtureId);
-  if (!pick) return [];
-  return db()
+  latest.sort((x, y) => y.at - x.at || rank(x.bookmaker) - rank(y.bookmaker));
+  const pick = latest[0].bookmaker;
+  return d
     .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND market = ? AND bookmaker = ? ORDER BY captured_at")
     .all(fixtureId, market, pick) as unknown as SnapRow[];
 }

@@ -184,11 +184,11 @@ export function DataMonView() {
           <ACard
             title="AF 抓取频率配置"
             right={<ABtn small kind="line" label="编辑" onClick={async () => {
-              const cur = v.intervals.map((x: V) => Math.round(x.ms / 60_000)).join(",");
-              const next = prompt("各档间隔(分钟,逗号分隔,滚球档下限 1):", cur);
+              const cur = v.intervals.map((x: V) => Math.round(x.ms / 1000)).join(",");
+              const next = prompt("各档间隔(秒,逗号分隔;滚球两档可至 5,其余下限 60):", cur);
               if (!next || next === cur) return;
-              if (!confirm2(`抓取频率 → ${next}(分钟)`)) return;
-              const j = await post("/api/admin/monitor", { action: "intervals", values: next.split(",").map((x) => Number(x.trim()) * 60_000) });
+              if (!confirm2(`抓取频率 → ${next}(秒)`)) return;
+              const j = await post("/api/admin/monitor", { action: "intervals", values: next.split(",").map((x) => Number(x.trim()) * 1000) });
               if (!j.ok) alert(j.error);
               void load();
             }} />}
@@ -197,7 +197,7 @@ export function DataMonView() {
               <div key={t.label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line-soft)" }}>
                 <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{t.label}</span>
                 <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: t.ms <= 60_000 ? "var(--gold)" : undefined }}>
-                  {t.ms >= 3_600_000 ? `巡检 / ${Math.round(t.ms / 3_600_000)}h` : `${Math.round(t.ms / 60_000)} min`}
+                  {t.ms >= 3_600_000 ? `巡检 / ${Math.round(t.ms / 3_600_000)}h` : t.ms < 60_000 ? `${Math.round(t.ms / 1000)} s` : `${Math.round(t.ms / 60_000)} min`}
                 </span>
               </div>
             ))}
@@ -214,7 +214,7 @@ export function DataMonView() {
                 {v.emergency ? "开" : "关"}
               </span>
             </div>
-            <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 8 }}>改动即时下发调度器并写审计;1 min 为 API-SPORTS 速率下限,不可更低</div>
+            <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 8 }}>改动即时下发调度器并写审计;滚球两档可低至 5s(注意配额与书商更新节奏),其余档下限 1 min</div>
           </ACard>
           <ACard title="AI 报告服务" right={<span style={{ fontSize: 10, fontWeight: 700, color: v.llm.configured ? "#2ecc8a" : "var(--fg-3)" }}>{v.llm.configured ? "运行正常" : "模板模式"}</span>}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>

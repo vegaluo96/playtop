@@ -58,7 +58,7 @@ export function LineChart({ rows, id }: { rows: ChartRow[]; id: string }) {
       {rows.map((r, i) =>
         labelIdx.has(i) ? (
           <text key={i} x={x(i)} y={H - 5} fill="var(--fg-3)" fontSize="8" textAnchor={i === 0 ? "start" : i === rows.length - 1 ? "end" : "middle"}>
-            {i === 0 ? "初盘" : r.t}
+            {r.t}
           </text>
         ) : null,
       )}

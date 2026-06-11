@@ -105,9 +105,9 @@ function MobileMatchDetail({ id }: { id: string }) {
     </div>
   );
 
-  const trendBlock = (title: string, data: { rows: V[]; chart: ChartRow[] }, legend: [string, string], cols: [string, string]) => (
+  const trendBlock = (title: string, data: { rows: V[]; chart: ChartRow[]; startAt?: number | null }, legend: [string, string], cols: [string, string]) => (
     <>
-      <SectionTitle title={title} />
+      <SectionTitle title={title} right={data.chart.length > 1 ? `自 ${data.chart[0].t} 归档` : undefined} />
       <Card style={{ padding: "10px 8px 6px" }}>
         <LineChart rows={data.chart} id={title} />
         <Legend items={[{ color: "var(--home)", label: legend[0] }, { color: "var(--gold)", label: legend[1] }]} />
@@ -136,7 +136,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       <Card style={{ overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 16px 1fr", padding: "8px 12px", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
           <span style={{ fontSize: 10, color: "var(--fg-3)" }}>公司</span>
-          <span style={{ fontSize: 10, color: "var(--fg-3)" }}>{headEu ? "初盘 主/平/客" : "初盘 · 主/客"}</span>
+          <span style={{ fontSize: 10, color: "var(--fg-3)" }}>{headEu ? "首帧 主/平/客" : "首帧 · 主/客"}</span>
           <span />
           <span style={{ fontSize: 10, color: "var(--fg-3)" }}>{headEu ? "即时 主/平/客" : "即时 · 主/客"}</span>
         </div>
@@ -494,6 +494,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                     </div>
                   ))}
                 </div>
+                <div style={{ fontSize: 10.5, color: "var(--fg-2)", marginTop: 9 }}>当值主裁:{deepV.referee ?? "官方未公布"}</div>
               </Card>
 
               <SectionTitle title="射手依赖度" />

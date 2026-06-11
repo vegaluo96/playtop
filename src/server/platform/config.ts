@@ -63,7 +63,8 @@ export function cfgFollowedIds(): number[] {
 export function cfgTierIntervals(): number[] {
   const def = TIERS.map((t) => t.intervalMs);
   const v = json<number[]>("tier_intervals", def);
-  return v.length === def.length ? v.map((ms, i) => Math.max(i >= 5 ? 60_000 : ms, 60_000)) : def;
+  // 滚球两档(临场 5min 内 / 滚球)可低至 5s(后台设置,注意配额);其余档下限 1min
+  return v.length === def.length ? v.map((ms, i) => Math.max(ms, i >= 5 ? 5_000 : 60_000)) : def;
 }
 export const cfgEmergencyThrottle = () => num("emergency_throttle", 0) === 1;
 

@@ -30,7 +30,7 @@ export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
     const isEdge = i === 0 || i === series.length - 1;
     if (isEdge || chg) {
       rows.push({
-        t: i === 0 ? "初盘" : hhmm(s.captured_at, tz),
+        t: hhmm(s.captured_at, tz), // 首帧=本站归档起点,不冒充真实初盘
         text: market === "ah" ? ahText(s.line ?? 0) : ouText(s.line ?? 0),
         h: f2(s.h),
         a: f2(s.a),
@@ -47,13 +47,13 @@ export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
     a: s.a,
     chg: false,
   }));
-  return { rows: capped, chart };
+  return { rows: capped, chart, startAt: series[0]?.captured_at ?? null };
 }
 
 export function euRows(series: SnapRow[], tz: string) {
   const pick = series.length > 5 ? [series[0], ...series.slice(-4)] : series;
-  return pick.map((s, i) => ({
-    t: i === 0 ? "初盘" : hhmm(s.captured_at, tz),
+  return pick.map((s) => ({
+    t: hhmm(s.captured_at, tz),
     h: f2(s.h),
     d: f2(s.d ?? 0),
     a: f2(s.a),
@@ -336,7 +336,8 @@ async function deepView(p: Panorama) {
 
   const motiv = coaches.map((c) => `${c.name}:执教生涯冠军 ${c.trophies} 座`);
 
-  return { lb, venue, scorers, ratings, coaches, transfers, depth, motiv };
+  const referee = String(dig(p.bundle, "fixture", "referee") ?? "").trim() || null;
+  return { lb, venue, referee, scorers, ratings, coaches, transfers, depth, motiv };
 }
 
 /* ── 汇总 ── */
@@ -418,6 +419,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     }
   }
 
+  // 「首帧」= 本站归档到的第一帧(AF 不提供真正初盘),表头与此对齐,不冒充初盘
   const compMap = (list: Panorama["odds"]["compareAh"], market: "ah" | "ou") =>
     list.map((c) => ({
       co: c.bookmaker,
