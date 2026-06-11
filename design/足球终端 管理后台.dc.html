@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0;background:#060709;}
+*{box-sizing:border-box;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:#20242e;border-radius:4px;}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+</helmet>
+
+<div style="width:100%;height:100vh;min-width:1180px;display:flex;flex-direction:column;background:#0a0b0f;color:#eceef2;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased;filter: {{ themeFilter }}">
+
+  <div style="flex-shrink:0;height:52px;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid #20242e;background:#0e1015">
+    <span style="font-size:17px;font-weight:800">足球<span style="color:#e9b949">终端</span></span>
+    <span style="font-size:10px;font-weight:800;color:#5b9dff;border:1px solid rgba(91,157,255,.4);border-radius:4px;padding:2px 7px">管理后台</span>
+    <span style="flex:1"></span>
+    <span onClick="{{ themeToggle }}" style="font-size:10px;font-weight:700;color:#959ba6;border:1px solid #20242e;border-radius:8px;padding:4px 12px;cursor:pointer" style-hover="border-color:#343b49">{{ themeLabel }}</span>
+    <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:#2ecc8a;font-weight:700"><span style="width:5px;height:5px;border-radius:50%;background:#2ecc8a;animation:livepulse 1.5s infinite"></span>调度运行中</span>
+    <span style="font-size:11px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ adEmail }}</span>
+  </div>
+
+  <div style="flex:1;display:grid;grid-template-columns:200px minmax(0,1fr);min-height:0">
+
+    <div style="border-right:1px solid #20242e;background:#0c0d12;padding:12px 10px">
+      <sc-for list="{{ navs }}" as="n" hint-placeholder-count="4">
+        <div onClick="{{ n.onClick }}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:9px;cursor:pointer;margin-bottom:4px;background: {{ n.bg }};color: {{ n.fg }}" style-hover="background:#14161d">
+          <span style="font-size:12.5px;font-weight:700">{{ n.label }}</span>
+          <span style="flex:1"></span>
+          <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}">
+            <span style="font-size:9px;font-weight:800;background:rgba(240,67,79,.16);color:#f0434f;border-radius:8px;padding:1px 6px">{{ n.badgeTxt }}</span>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="overflow-y:auto;min-height:0;padding:16px 22px 24px">
+
+      <!-- ===== 运营看板 ===== -->
+      <sc-if value="{{ vDash }}" hint-placeholder-val="{{ true }}">
+        <div style="font-size:15px;font-weight:800;margin-bottom:10px">运营看板 <span style="font-size:10px;color:#5c626e;font-weight:400">· 今日 06-11 · 实时</span></div>
+        <div style="display:flex;align-items:center;gap:14px;background:rgba(233,185,73,.07);border:1px solid rgba(233,185,73,.3);border-radius:10px;padding:8px 14px;margin-bottom:12px">
+          <span style="font-size:11px;font-weight:800;color:#e9b949;flex-shrink:0">⚠ 告警</span>
+          <span style="font-size:11px;color:#c3c8d2">injuries 端点响应慢(655ms,连续 3 次)</span>
+          <span style="width:1px;height:12px;background:#20242e"></span>
+          <span style="font-size:11px;color:#c3c8d2">FOOT58 兑换码即将售罄(4,982 / 5,000)</span>
+          <span style="flex:1"></span>
+          <span style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer">处理 ›</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:14px">
+          <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5">
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+              <div style="font-size:10px;color:#959ba6;margin-bottom:6px">{{ k.label }}</div>
+              <div style="font-size:20px;font-weight:800;font-family:'IBM Plex Mono',monospace;color: {{ k.c }};white-space:nowrap">{{ k.v }}</div>
+              <div style="font-size:9.5px;margin-top:4px;color: {{ k.dC }}">{{ k.delta }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:1.2fr 1.2fr 1fr 1fr;gap:14px">
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+            <div style="font-size:12px;font-weight:800;margin-bottom:10px">近 7 日收入(元)</div>
+            <div style="display:flex;gap:8px;align-items:flex-end;height:128px">
+              <sc-for list="{{ revBars }}" as="b" hint-placeholder-count="7">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end">
+                  <span style="font-size:8.5px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ b.v }}</span>
+                  <div style="width:100%;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#e9b949,#8a6a1f);height: {{ b.h }}"></div>
+                  <span style="font-size:8.5px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ b.d }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+            <div style="font-size:12px;font-weight:800;margin-bottom:10px">近 7 日新增注册</div>
+            <div style="display:flex;gap:7px;align-items:flex-end;height:128px">
+              <sc-for list="{{ reg7 }}" as="b" hint-placeholder-count="7">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end">
+                  <span style="font-size:8.5px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ b.v }}</span>
+                  <div style="width:100%;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#5b9dff,#2c4a7a);height: {{ b.h }}"></div>
+                  <span style="font-size:8.5px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ b.d }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font-size:10px;color:#5c626e;margin-top:6px">邀请带来 312 人(17%)· 分享链接 9%</div>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+              <span style="font-size:12px;font-weight:800">API 配额</span>
+              <span style="font-size:9px;color:#5c626e;font-family:'IBM Plex Mono',monospace">Pro · /status</span>
+            </div>
+            <div style="font-size:18px;font-weight:800;font-family:'IBM Plex Mono',monospace">38,420 <span style="font-size:10px;color:#5c626e;font-weight:400">/ 150,000 req</span></div>
+            <div style="height:7px;background:#181b23;border-radius:4px;overflow:hidden;margin:8px 0"><div style="height:100%;background:#2ecc8a;width:26%"></div></div>
+            <div style="font-size:10px;color:#959ba6;line-height:1.7">已用 25.6% · 预计峰值 64%(欧洲临场段)<br>滚球并发 2 场 · 约 14 req/min</div>
+            <div style="border-top:1px solid #181b23;margin-top:9px;padding-top:8px;display:flex;justify-content:space-between">
+              <span style="font-size:10px;color:#959ba6">快照归档</span>
+              <span style="font-size:10px;font-weight:700;color:#2ecc8a">正常 · 4,182 条</span>
+            </div>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+              <span style="font-size:12px;font-weight:800">大模型配额</span>
+              <span style="font-size:9px;color:#5c626e;font-family:'IBM Plex Mono',monospace">AI 报告生成</span>
+            </div>
+            <div style="font-size:18px;font-weight:800;font-family:'IBM Plex Mono',monospace">1.8M <span style="font-size:10px;color:#5c626e;font-weight:400">/ 10M tokens</span></div>
+            <div style="height:7px;background:#181b23;border-radius:4px;overflow:hidden;margin:8px 0"><div style="height:100%;background:#5b9dff;width:18%"></div></div>
+            <div style="font-size:10px;color:#959ba6;line-height:1.7">今日生成 412 份 · 缓存命中 63%<br>均耗 4.4k tokens/份 · 失败率 0.5%</div>
+            <div style="border-top:1px solid #181b23;margin-top:9px;padding-top:8px;display:flex;justify-content:space-between">
+              <span style="font-size:10px;color:#959ba6">预算预警线</span>
+              <span style="font-size:10px;font-weight:700;color:#2ecc8a">80% · 未触发</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.2fr 1.2fr 1fr 1fr;gap:14px;margin-top:14px">
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;overflow:hidden">
+            <div style="padding:11px 14px;border-bottom:1px solid #20242e;font-size:12px;font-weight:800">今日热门场次 Top 5</div>
+            <div style="display:grid;grid-template-columns:1.4fr 60px 70px 56px 64px;padding:7px 14px;border-bottom:1px solid #181b23">
+              <span style="font-size:10px;color:#5c626e">比赛</span><span style="font-size:10px;color:#5c626e">联赛</span><span style="font-size:10px;color:#5c626e;text-align:right">浏览</span><span style="font-size:10px;color:#5c626e;text-align:right">解锁</span><span style="font-size:10px;color:#5c626e;text-align:right">解锁率</span>
+            </div>
+            <sc-for list="{{ hotm }}" as="h" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:1.4fr 60px 70px 56px 64px;padding:8px 14px;align-items:center;border-bottom:1px solid #181b23" style-hover="background:#14161d">
+                <span style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.m }}</span>
+                <span style="font-size:10px;color:#959ba6">{{ h.lg }}</span>
+                <span style="font-size:10.5px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ h.pv }}</span>
+                <span style="font-size:10.5px;font-weight:700;text-align:right;font-family:'IBM Plex Mono',monospace;color:#e9b949">{{ h.un }}</span>
+                <span style="font-size:10px;font-weight:700;text-align:right;color: {{ h.rateC }}">{{ h.rate }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+            <div style="font-size:12px;font-weight:800;margin-bottom:10px">今日收入构成(充值档位)</div>
+            <sc-for list="{{ revmix }}" as="r" hint-placeholder-count="5">
+              <div style="margin-bottom:9px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+                  <span style="font-size:10.5px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ r.k }}</span>
+                  <span style="font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono',monospace">{{ r.v }} <span style="color:#5c626e">{{ r.w }}</span></span>
+                </div>
+                <div style="height:5px;background:#181b23;border-radius:3px;overflow:hidden"><div style="height:100%;background:linear-gradient(90deg,#8a6a1f,#e9b949);width: {{ r.w }}"></div></div>
+              </div>
+            </sc-for>
+            <div style="font-size:10px;color:#5c626e;margin-top:4px">大额档位贡献 78% · 首充转化占比 31%</div>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+            <div style="font-size:12px;font-weight:800;margin-bottom:10px">积分流水(今日)</div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #181b23"><span style="font-size:10.5px;color:#959ba6">发放</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:#2ecc8a">+28,420</span></div>
+            <div style="font-size:9.5px;color:#5c626e;padding:4px 0 7px;border-bottom:1px solid #181b23">充值 26.4k · 礼包 1.1k · 邀请 312 · 兑换 0.6k</div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #181b23"><span style="font-size:10.5px;color:#959ba6">消耗(解锁预测)</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:#f0434f">-9,840</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0"><span style="font-size:10.5px;color:#959ba6">净增负债</span><span style="font-size:11px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#e9b949">+18,580</span></div>
+            <div style="font-size:10px;color:#5c626e;margin-top:4px">负债总额 412k ≈ ¥41,200 · 周转 11 天</div>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+            <div style="font-size:12px;font-weight:800;margin-bottom:10px">今日转化漏斗</div>
+            <sc-for list="{{ funnel }}" as="f" hint-placeholder-count="4">
+              <div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:10.5px;color:#959ba6">{{ f.label }}</span>
+                  <span style="font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono',monospace">{{ f.v }} <span style="color:#5c626e">{{ f.pct }}</span></span>
+                </div>
+                <div style="height:6px;background:#181b23;border-radius:3px;overflow:hidden"><div style="height:100%;background: {{ f.c }};width: {{ f.w }}"></div></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== 系统设置 ===== -->
+      <sc-if value="{{ vCfg }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:15px;font-weight:800;margin-bottom:12px">系统设置 <span style="font-size:10px;color:#5c626e;font-weight:400">· 密钥仅写入服务端环境变量,后台不回显明文;每次更新写入审计日志</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:14px 16px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+              <span style="font-size:12px;font-weight:800">API-Football 密钥</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:#2ecc8a;font-weight:700"><span style="width:5px;height:5px;border-radius:50%;background:#2ecc8a"></span>已连接</span>
+            </div>
+            <div style="font-size:10px;color:#959ba6;margin-bottom:6px">API_FOOTBALL_KEY</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <input value="sk-af-••••••••••••••••••••3f8a" readonly style="flex:1;min-width:0;background:#181b23;border:1px solid #20242e;border-radius:8px;padding:9px 12px;font-size:12px;color:#959ba6;outline:none;font-family:'IBM Plex Mono',monospace">
+              <div style="flex-shrink:0;border:1px solid rgba(233,185,73,.5);color:#e9b949;border-radius:8px;display:flex;align-items:center;padding:0 14px;font-size:11px;font-weight:800;cursor:pointer">更换</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #181b23"><span style="font-size:11px;color:#959ba6">套餐(/status)</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace">Pro · 150,000 req/日</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #181b23"><span style="font-size:11px;color:#959ba6">今日已用</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:#2ecc8a">38,420(25.6%)</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #181b23"><span style="font-size:11px;color:#959ba6">最近自检</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace">06-11 06:00 · 39/39 通过</span></div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <div style="flex:1;background:linear-gradient(90deg,#e9b949,#d9a32e);color:#0a0b0f;border-radius:9px;text-align:center;padding:9px 0;font-size:12px;font-weight:800;cursor:pointer">运行 selftest(消耗约 45 req)</div>
+            </div>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:14px 16px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+              <span style="font-size:12px;font-weight:800">大模型密钥(AI 报告)</span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:#2ecc8a;font-weight:700"><span style="width:5px;height:5px;border-radius:50%;background:#2ecc8a"></span>已连接</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <span style="font-size:10px;color:#959ba6">服务商:API易(apiyi.com)聚合网关</span>
+              <span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:#2ecc8a">余额 $1,284.50</span>
+            </div>
+            <div style="font-size:10px;color:#959ba6;margin-bottom:6px">LLM_API_KEY(调用密钥)</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <input value="sk-••••••••••••••••••••9c2e" readonly style="flex:1;min-width:0;background:#181b23;border:1px solid #20242e;border-radius:8px;padding:9px 12px;font-size:12px;color:#959ba6;outline:none;font-family:'IBM Plex Mono',monospace">
+              <div style="flex-shrink:0;border:1px solid rgba(233,185,73,.5);color:#e9b949;border-radius:8px;display:flex;align-items:center;padding:0 14px;font-size:11px;font-weight:800;cursor:pointer">更换</div>
+            </div>
+            <div style="font-size:10px;color:#959ba6;margin-bottom:6px">BALANCE_QUERY_KEY(余额查询密钥 · 与调用密钥不同串)</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <input value="bq-••••••••••••••••••••71d4" readonly style="flex:1;min-width:0;background:#181b23;border:1px solid #20242e;border-radius:8px;padding:9px 12px;font-size:12px;color:#959ba6;outline:none;font-family:'IBM Plex Mono',monospace">
+              <div style="flex-shrink:0;border:1px solid rgba(233,185,73,.5);color:#e9b949;border-radius:8px;display:flex;align-items:center;padding:0 14px;font-size:11px;font-weight:800;cursor:pointer">更换</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #181b23"><span style="font-size:11px;color:#959ba6">报告模型</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace">claude-sonnet · 温度 0.3</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #181b23"><span style="font-size:11px;color:#959ba6">余额查询</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace">每小时轮询 · 低于 $100 告警</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #181b23"><span style="font-size:11px;color:#959ba6">日预算上限</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:#e9b949">10M tokens</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #181b23"><span style="font-size:11px;color:#959ba6">超额策略</span><span style="font-size:11px;font-weight:700">80% 告警 · 100% 降级模板报告</span></div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <div style="flex:1;background:linear-gradient(90deg,#e9b949,#d9a32e);color:#0a0b0f;border-radius:9px;text-align:center;padding:9px 0;font-size:12px;font-weight:800;cursor:pointer">发送测试请求</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;overflow:hidden;margin-top:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #20242e">
+            <span style="font-size:12px;font-weight:800">管理员与权限</span>
+            <span style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer">+ 邀请成员</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1.4fr 110px 1.6fr 70px 110px;padding:9px 14px;border-bottom:1px solid #20242e">
+            <span style="font-size:10px;color:#5c626e">成员</span><span style="font-size:10px;color:#5c626e">角色</span><span style="font-size:10px;color:#5c626e">权限范围</span><span style="font-size:10px;color:#5c626e;text-align:center">状态</span><span style="font-size:10px;color:#5c626e;text-align:right">操作</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1.4fr 110px 1.6fr 70px 110px;padding:9px 14px;align-items:center;border-bottom:1px solid #181b23" style-hover="background:#14161d">
+            <span style="font-size:11px;font-family:'IBM Plex Mono',monospace">{{ adEmail }}</span>
+            <span style="font-size:10px;font-weight:800;color:#e9b949">超级管理员</span>
+            <span style="font-size:10.5px;color:#959ba6">全部模块 · 密钥/封禁/补偿复核权</span>
+            <span style="font-size:10px;font-weight:700;text-align:center;color:#2ecc8a">启用</span>
+            <span style="font-size:10px;color:#5c626e;text-align:right">不可修改</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1.4fr 110px 1.6fr 70px 110px;padding:9px 14px;align-items:center;border-bottom:1px solid #181b23" style-hover="background:#14161d">
+            <span style="font-size:11px;font-family:'IBM Plex Mono',monospace">{{ emOps }}</span>
+            <span style="font-size:10px;font-weight:800;color:#5b9dff">运营</span>
+            <span style="font-size:10.5px;color:#959ba6">看板 / 赛事内容 / 营销配置 / 工单</span>
+            <span style="font-size:10px;font-weight:700;text-align:center;color:#2ecc8a">启用</span>
+            <span style="display:flex;gap:10px;justify-content:flex-end"><span style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer">改角色</span><span style="font-size:10px;font-weight:700;color:#f0434f;cursor:pointer">停用</span></span>
+          </div>
+          <div style="display:grid;grid-template-columns:1.4fr 110px 1.6fr 70px 110px;padding:9px 14px;align-items:center;border-bottom:1px solid #181b23" style-hover="background:#14161d">
+            <span style="font-size:11px;font-family:'IBM Plex Mono',monospace">{{ emCs }}</span>
+            <span style="font-size:10px;font-weight:800;color:#2ecc8a">客服</span>
+            <span style="font-size:10.5px;color:#959ba6">工单处理 · 订单只读 · 小额补偿(≤100分)</span>
+            <span style="font-size:10px;font-weight:700;text-align:center;color:#2ecc8a">启用</span>
+            <span style="display:flex;gap:10px;justify-content:flex-end"><span style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer">改角色</span><span style="font-size:10px;font-weight:700;color:#f0434f;cursor:pointer">停用</span></span>
+          </div>
+          <div style="display:grid;grid-template-columns:1.4fr 110px 1.6fr 70px 110px;padding:9px 14px;align-items:center;border-bottom:1px solid #181b23" style-hover="background:#14161d">
+            <span style="font-size:11px;font-family:'IBM Plex Mono',monospace">{{ emRisk }}</span>
+            <span style="font-size:10px;font-weight:800;color:#f0434f">风控</span>
+            <span style="font-size:10.5px;color:#959ba6">风控审计 / 用户封禁 / 邀请结算裁决</span>
+            <span style="font-size:10px;font-weight:700;text-align:center;color:#5c626e">停用</span>
+            <span style="display:flex;gap:10px;justify-content:flex-end"><span style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer">改角色</span><span style="font-size:10px;font-weight:700;color:#2ecc8a;cursor:pointer">启用</span></span>
+          </div>
+          <div style="padding:9px 14px;font-size:10px;color:#5c626e">RBAC 由后端控制;敏感操作(密钥更换 / 封禁 / 补偿 &gt;100 分)需超级管理员二次复核,全部写审计日志</div>
+        </div>
+      </sc-if>
+
+      <!-- ===== 用户管理 ===== -->
+      <sc-if value="{{ vUser }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="font-size:15px;font-weight:800">用户管理</span>
+          <input placeholder="搜索邮箱 / UID" style="width:220px;background:#12141a;border:1px solid #20242e;border-radius:8px;padding:7px 12px;font-size:11px;color:#eceef2;outline:none">
+          <span style="flex:1"></span>
+          <sc-for list="{{ userChips }}" as="c" hint-placeholder-count="5">
+            <div onClick="{{ c.onClick }}" style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+          </sc-for>
+        </div>
+        <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:1.6fr 70px 90px 90px 70px 70px 70px 130px;padding:9px 14px;border-bottom:1px solid #20242e">
+            <span style="font-size:10px;color:#5c626e">用户</span><span style="font-size:10px;color:#5c626e">注册</span><span style="font-size:10px;color:#5c626e;text-align:right">积分余额</span><span style="font-size:10px;color:#5c626e;text-align:right">累计充值</span><span style="font-size:10px;color:#5c626e;text-align:right">解锁</span><span style="font-size:10px;color:#5c626e;text-align:right">邀请</span><span style="font-size:10px;color:#5c626e;text-align:center">状态</span><span style="font-size:10px;color:#5c626e;text-align:right">操作</span>
+          </div>
+          <sc-for list="{{ users }}" as="u" hint-placeholder-count="8">
+            <div style="display:grid;grid-template-columns:1.6fr 70px 90px 90px 70px 70px 70px 130px;padding:9px 14px;align-items:center;border-bottom:1px solid #181b23" style-hover="background:#14161d">
+              <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ u.u }}</span>
+              <span style="font-size:10.5px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ u.reg }}</span>
+              <span style="font-size:11px;font-weight:700;text-align:right;font-family:'IBM Plex Mono',monospace;color:#e9b949">{{ u.pts }}</span>
+              <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ u.pay }}</span>
+              <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ u.un }}</span>
+              <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ u.iv }}</span>
+              <span style="font-size:10px;font-weight:800;text-align:center;color: {{ u.stC }}">{{ u.st }}</span>
+              <span style="display:flex;gap:10px;justify-content:flex-end"><span style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer">调积分</span><span style="font-size:10px;font-weight:700;color:#5b9dff;cursor:pointer">明细</span><span style="font-size:10px;font-weight:700;color:#f0434f;cursor:pointer">封禁</span></span>
+            </div>
+          </sc-for>
+          <div style="padding:9px 14px;font-size:10px;color:#5c626e">共 23,108 名用户 · 分页与导出由后端提供</div>
+        </div>
+      </sc-if>
+
+      <!-- ===== 赛事与内容 ===== -->
+      <sc-if value="{{ vMatch }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="font-size:15px;font-weight:800">赛事与内容</span>
+          <span style="flex:1"></span>
+          <span style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer;border:1px solid rgba(233,185,73,.5);border-radius:8px;padding:5px 12px">+ 设置明日免费场</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:14px;align-items:start">
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:1.4fr 70px 60px 100px 90px 60px 90px;padding:9px 14px;border-bottom:1px solid #20242e">
+              <span style="font-size:10px;color:#5c626e">比赛</span><span style="font-size:10px;color:#5c626e">联赛</span><span style="font-size:10px;color:#5c626e">开赛</span><span style="font-size:10px;color:#5c626e;text-align:center">免费场</span><span style="font-size:10px;color:#5c626e;text-align:right">预测定价</span><span style="font-size:10px;color:#5c626e;text-align:center">状态</span><span style="font-size:10px;color:#5c626e;text-align:right">操作</span>
+            </div>
+            <sc-for list="{{ mcfg }}" as="m" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:1.4fr 70px 60px 100px 90px 60px 90px;padding:9px 14px;align-items:center;border-bottom:1px solid #181b23" style-hover="background:#14161d">
+                <span style="font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.m }}</span>
+                <span style="font-size:10.5px;color:#959ba6">{{ m.lg }}</span>
+                <span style="font-size:10.5px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ m.t }}</span>
+                <span style="font-size:10px;font-weight:700;text-align:center;color: {{ m.freeC }}">{{ m.free }}</span>
+                <span style="font-size:10.5px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ m.price }}</span>
+                <span style="font-size:10px;font-weight:800;text-align:center;color: {{ m.stC }}">{{ m.st }}</span>
+                <span style="font-size:10px;font-weight:700;text-align:right;color:#e9b949;cursor:pointer">{{ m.op }}</span>
+              </div>
+            </sc-for>
+            <div style="padding:9px 14px;font-size:10px;color:#5c626e">免费场策略:每日 1 场,优先选 当日关注度最高 的焦点战;隐藏=列表不展示(数据仍归档)</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+              <div style="font-size:12px;font-weight:800;margin-bottom:10px">联赛开关</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <span style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(233,185,73,.14);color:#e9b949;border:1px solid rgba(233,185,73,.45)">英超 ✓</span>
+                <span style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(233,185,73,.14);color:#e9b949;border:1px solid rgba(233,185,73,.45)">西甲 ✓</span>
+                <span style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(233,185,73,.14);color:#e9b949;border:1px solid rgba(233,185,73,.45)">德甲 ✓</span>
+                <span style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(233,185,73,.14);color:#e9b949;border:1px solid rgba(233,185,73,.45)">意甲 ✓</span>
+                <span style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(233,185,73,.14);color:#e9b949;border:1px solid rgba(233,185,73,.45)">法甲 ✓</span>
+                <span style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(233,185,73,.14);color:#e9b949;border:1px solid rgba(233,185,73,.45)">世界杯 ✓ 置顶</span>
+                <span style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:600;background:#12141a;color:#5c626e;border:1px solid #20242e">英冠</span>
+                <span style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:600;background:#12141a;color:#5c626e;border:1px solid #20242e">J1 联赛</span>
+              </div>
+              <div style="font-size:10px;color:#5c626e;margin-top:10px">开关决定抓取与展示范围;新增联赛自动套用分层调度</div>
+            </div>
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+              <div style="font-size:12px;font-weight:800;margin-bottom:10px">公告 / Banner</div>
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #181b23"><span style="flex:1;font-size:11px;color:#c3c8d2">世界杯开幕 · 兑换码 WC2026 活动页</span><span style="font-size:10px;font-weight:700;color:#2ecc8a">上线中</span></div>
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #181b23"><span style="flex:1;font-size:11px;color:#c3c8d2">充值首充 +50% 弹层文案</span><span style="font-size:10px;font-weight:700;color:#2ecc8a">上线中</span></div>
+              <div style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer;margin-top:8px">+ 新建公告</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== 营销配置 ===== -->
+      <sc-if value="{{ vMkt }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:15px;font-weight:800;margin-bottom:12px">营销配置 <span style="font-size:10px;color:#5c626e;font-weight:400">· 改动需二次确认并写入审计日志</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+            <div style="font-size:12px;font-weight:800;margin-bottom:10px">充值档位</div>
+            <div style="display:grid;grid-template-columns:60px 1fr 70px 70px 60px;padding:6px 0;border-bottom:1px solid #20242e">
+              <span style="font-size:10px;color:#5c626e">金额</span><span style="font-size:10px;color:#5c626e">到账积分</span><span style="font-size:10px;color:#5c626e;text-align:right">加赠</span><span style="font-size:10px;color:#5c626e;text-align:center">标签</span><span style="font-size:10px;color:#5c626e;text-align:right">操作</span>
+            </div>
+            <div style="display:grid;grid-template-columns:60px 1fr 70px 70px 60px;padding:8px 0;border-bottom:1px solid #181b23;align-items:center"><span style="font-size:11px;font-family:'IBM Plex Mono',monospace">¥6</span><span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#e9b949">60</span><span style="font-size:10px;text-align:right;color:#959ba6">—</span><span style="font-size:10px;text-align:center;color:#5c626e">—</span><span style="font-size:10px;font-weight:700;text-align:right;color:#e9b949;cursor:pointer">编辑</span></div>
+            <div style="display:grid;grid-template-columns:60px 1fr 70px 70px 60px;padding:8px 0;border-bottom:1px solid #181b23;align-items:center"><span style="font-size:11px;font-family:'IBM Plex Mono',monospace">¥68</span><span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#e9b949">750</span><span style="font-size:10px;text-align:right;color:#2ecc8a">+10%</span><span style="font-size:10px;text-align:center;color:#5c626e">—</span><span style="font-size:10px;font-weight:700;text-align:right;color:#e9b949;cursor:pointer">编辑</span></div>
+            <div style="display:grid;grid-template-columns:60px 1fr 70px 70px 60px;padding:8px 0;border-bottom:1px solid #181b23;align-items:center"><span style="font-size:11px;font-family:'IBM Plex Mono',monospace">¥648</span><span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#e9b949">8,420</span><span style="font-size:10px;text-align:right;color:#2ecc8a">+30%</span><span style="font-size:10px;text-align:center;color:#e9b949">最划算</span><span style="font-size:10px;font-weight:700;text-align:right;color:#e9b949;cursor:pointer">编辑</span></div>
+            <div style="font-size:10px;color:#5c626e;margin-top:8px">其余 3 档略 · 首充加赠 50%(全局开关:开)</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+              <div style="font-size:12px;font-weight:800;margin-bottom:10px">解锁定价</div>
+              <div style="display:flex;gap:10px;margin-bottom:8px">
+                <div style="flex:1;background:#181b23;border-radius:8px;padding:9px 12px"><div style="font-size:9px;color:#5c626e;margin-bottom:2px">赛前价</div><div style="font-size:14px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#e9b949">38 积分</div></div>
+                <div style="flex:1;background:#181b23;border-radius:8px;padding:9px 12px"><div style="font-size:9px;color:#5c626e;margin-bottom:2px">滚球价</div><div style="font-size:14px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#e9b949">58 积分</div></div>
+              </div>
+              <div style="font-size:10px;color:#5c626e">开赛自动切换滚球价 · 已解锁用户不受影响</div>
+            </div>
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+              <div style="font-size:12px;font-weight:800;margin-bottom:10px">新人与邀请</div>
+              <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #181b23"><span style="font-size:11px;color:#959ba6">新人礼包</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:#e9b949">58 积分</span></div>
+              <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #181b23"><span style="font-size:11px;color:#959ba6">每次邀请</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:#e9b949">+1 积分</span></div>
+              <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #181b23"><span style="font-size:11px;color:#959ba6">上限(日 / 周 / 月)</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace">10 / 30 / 100</span></div>
+              <div style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer;margin-top:8px">编辑规则</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== 风控与审计 ===== -->
+      <sc-if value="{{ vRisk }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:15px;font-weight:800;margin-bottom:12px">风控与审计</div>
+        <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:14px;align-items:start">
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;overflow:hidden">
+            <div style="padding:11px 14px;border-bottom:1px solid #20242e;font-size:12px;font-weight:800">风控队列 <span style="font-size:9px;font-weight:800;background:rgba(240,67,79,.16);color:#f0434f;border-radius:8px;padding:1px 6px;margin-left:4px">4</span></div>
+            <sc-for list="{{ risks }}" as="r" hint-placeholder-count="4">
+              <div style="padding:10px 14px;border-bottom:1px solid #181b23">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <span style="font-size:10px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ r.t }}</span>
+                  <span style="font-size:10px;font-weight:800;color: {{ r.tpC }}">{{ r.tp }}</span>
+                  <span style="flex:1"></span>
+                  <span style="font-size:10px;color:#959ba6">风险分 <span style="font-weight:800;font-family:'IBM Plex Mono',monospace;color:#f0434f">{{ r.sc }}</span></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="flex:1;font-size:11px;color:#c3c8d2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.x }}</span>
+                  <span style="font-size:10px;font-weight:700;color:#f0434f;cursor:pointer;flex-shrink:0">{{ r.op1 }}</span>
+                  <span style="font-size:10px;font-weight:700;color:#2ecc8a;cursor:pointer;flex-shrink:0">{{ r.op2 }}</span>
+                </div>
+              </div>
+            </sc-for>
+            <div style="padding:9px 14px;font-size:10px;color:#5c626e">规则:同设备/同 IP 邀请、注册即大额充值、批量领码;命中即冻结待人工裁决</div>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;overflow:hidden">
+            <div style="padding:11px 14px;border-bottom:1px solid #20242e;font-size:12px;font-weight:800">操作审计日志</div>
+            <sc-for list="{{ audits }}" as="a" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #181b23">
+                <span style="font-size:10px;color:#5c626e;font-family:'IBM Plex Mono',monospace;flex-shrink:0">{{ a.t }}</span>
+                <span style="font-size:10px;color:#5b9dff;font-family:'IBM Plex Mono',monospace;flex-shrink:0">{{ a.a }}</span>
+                <span style="flex:1;font-size:11px;color:#c3c8d2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.x }}</span>
+              </div>
+            </sc-for>
+            <div style="padding:9px 14px;font-size:10px;color:#5c626e">所有后台写操作强制留痕,不可删除</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== 订单与积分 ===== -->
+      <sc-if value="{{ vOrder }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="font-size:15px;font-weight:800">订单与积分</span>
+          <span style="flex:1"></span>
+          <sc-for list="{{ odChips }}" as="c" hint-placeholder-count="5">
+            <div onClick="{{ c.onClick }}" style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+          </sc-for>
+        </div>
+        <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;overflow:hidden;margin-bottom:14px">
+          <div style="display:grid;grid-template-columns:110px 120px 80px 1fr 80px 80px 70px;padding:9px 14px;border-bottom:1px solid #20242e">
+            <span style="font-size:10px;color:#5c626e">时间</span><span style="font-size:10px;color:#5c626e">用户</span><span style="font-size:10px;color:#5c626e">类型</span><span style="font-size:10px;color:#5c626e">明细</span><span style="font-size:10px;color:#5c626e;text-align:right">金额</span><span style="font-size:10px;color:#5c626e;text-align:right">积分</span><span style="font-size:10px;color:#5c626e;text-align:center">状态</span>
+          </div>
+          <sc-for list="{{ orders }}" as="o" hint-placeholder-count="8">
+            <div style="display:grid;grid-template-columns:110px 120px 80px 1fr 80px 80px 70px;padding:9px 14px;align-items:center;border-bottom:1px solid #181b23" style-hover="background:#14161d">
+              <span style="font-size:10.5px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ o.t }}</span>
+              <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.u }}</span>
+              <span><span style="font-size:9px;font-weight:800;border-radius:4px;padding:2px 7px;background:#181b23;color: {{ o.tagC }}">{{ o.tag }}</span></span>
+              <span style="font-size:11px;color:#c3c8d2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.x }}</span>
+              <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ o.rmb }}</span>
+              <span style="font-size:11px;font-weight:700;text-align:right;font-family:'IBM Plex Mono',monospace;color: {{ o.ptsC }}">{{ o.pts }}</span>
+              <span style="font-size:10px;font-weight:700;text-align:center;color: {{ o.stC }}">{{ o.st }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+              <span style="font-size:12px;font-weight:800">兑换码批次</span>
+              <span style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer">+ 生成批次</span>
+            </div>
+            <sc-for list="{{ codes }}" as="c" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #181b23">
+                <span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:#e9b949">{{ c.code }}</span>
+                <span style="font-size:10px;color:#959ba6">{{ c.x }}</span>
+                <span style="flex:1"></span>
+                <span style="font-size:10px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ c.used }}</span>
+                <span style="font-size:10px;font-weight:700;color: {{ c.stC }}">{{ c.st }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+            <div style="font-size:12px;font-weight:800;margin-bottom:10px">邀请结算(今日)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+              <div style="background:#181b23;border-radius:8px;padding:9px 0;text-align:center"><div style="font-size:15px;font-weight:800;font-family:'IBM Plex Mono',monospace">312</div><div style="font-size:9px;color:#5c626e">有效邀请</div></div>
+              <div style="background:#181b23;border-radius:8px;padding:9px 0;text-align:center"><div style="font-size:15px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#e9b949">+312</div><div style="font-size:9px;color:#5c626e">发放积分</div></div>
+              <div style="background:#181b23;border-radius:8px;padding:9px 0;text-align:center"><div style="font-size:15px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#f0434f">27</div><div style="font-size:9px;color:#5c626e">触限拦截</div></div>
+            </div>
+            <div style="font-size:10px;color:#5c626e;line-height:1.7">结算口径:好友注册即计;超出 日10/周30/月100 自动拦截;疑似自邀(同设备/同IP)进风控队列。</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== 工单 ===== -->
+      <sc-if value="{{ vTicket }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="font-size:15px;font-weight:800">工单处理</span>
+          <span style="flex:1"></span>
+          <sc-for list="{{ tkChips }}" as="c" hint-placeholder-count="3">
+            <div onClick="{{ c.onClick }}" style="padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1.1fr;gap:14px;align-items:start">
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;overflow:hidden">
+            <sc-for list="{{ tickets }}" as="t" hint-placeholder-count="5">
+              <div onClick="{{ t.onClick }}" style="padding:11px 14px;border-bottom:1px solid #181b23;cursor:pointer;border-left:3px solid {{ t.selBar }};background: {{ t.selBg }}" style-hover="background:#14161d">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <span style="font-size:10px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ t.id }}</span>
+                  <span style="font-size:12px;font-weight:700;flex:1">{{ t.type }}</span>
+                  <span style="font-size:9px;font-weight:800;border-radius:4px;padding:2px 7px;background: {{ t.stBg }};color: {{ t.stC }}">{{ t.st }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:10px">
+                  <span style="font-size:11px;color:#959ba6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.x }}</span>
+                  <span style="font-size:9.5px;color:#5c626e;font-family:'IBM Plex Mono',monospace;flex-shrink:0">{{ t.t }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:10px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ selId }}</span>
+              <span style="font-size:13px;font-weight:800;flex:1">{{ selType }}</span>
+              <span style="font-size:10px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ selU }}</span>
+            </div>
+            <div style="background:#181b23;border-radius:9px;padding:11px 13px;font-size:12px;color:#c3c8d2;line-height:1.7;margin-bottom:12px">{{ selX }}</div>
+            <div style="font-size:10px;color:#959ba6;margin-bottom:6px">回复用户</div>
+            <textarea rows="4" placeholder="输入回复内容,将通过站内消息发送给用户…" style="width:100%;box-sizing:border-box;background:#181b23;border:1px solid #20242e;border-radius:9px;padding:11px;font-size:12px;color:#eceef2;outline:none;resize:none;font-family:inherit;line-height:1.6"></textarea>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <div style="flex:1;background:linear-gradient(90deg,#e9b949,#d9a32e);color:#0a0b0f;border-radius:9px;text-align:center;padding:10px 0;font-size:12px;font-weight:800;cursor:pointer">回复并标记已解决</div>
+              <div style="border:1px solid rgba(233,185,73,.5);color:#e9b949;border-radius:9px;text-align:center;padding:10px 16px;font-size:12px;font-weight:800;cursor:pointer">补偿积分</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== 数据与模型监控 ===== -->
+      <sc-if value="{{ vData }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:15px;font-weight:800;margin-bottom:12px">数据与模型监控 <span style="font-size:10px;color:#5c626e;font-weight:400">· 39 端点调度 · 快照归档 · AI 报告服务</span></div>
+        <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:14px;align-items:start">
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:1fr 90px 100px 64px 64px;padding:9px 14px;border-bottom:1px solid #20242e">
+              <span style="font-size:10px;color:#5c626e">端点</span><span style="font-size:10px;color:#5c626e">分层</span><span style="font-size:10px;color:#5c626e">上次抓取</span><span style="font-size:10px;color:#5c626e;text-align:right">耗时</span><span style="font-size:10px;color:#5c626e;text-align:center">状态</span>
+            </div>
+            <sc-for list="{{ eps }}" as="e" hint-placeholder-count="9">
+              <div style="display:grid;grid-template-columns:1fr 90px 100px 64px 64px;padding:8px 14px;align-items:center;border-bottom:1px solid #181b23">
+                <span style="font-size:11px;font-family:'IBM Plex Mono',monospace">{{ e.k }}</span>
+                <span style="font-size:10px;color:#959ba6">{{ e.tier }}</span>
+                <span style="font-size:10.5px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ e.last }}</span>
+                <span style="font-size:10.5px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ e.ms }}</span>
+                <span style="font-size:10px;font-weight:800;text-align:center;color: {{ e.stC }}">{{ e.st }}</span>
+              </div>
+            </sc-for>
+            <div style="padding:9px 14px;font-size:10px;color:#5c626e">其余 30 个端点运行正常 · 完整列表见 selftest 报告</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+              <div style="font-size:12px;font-weight:800;margin-bottom:10px">快照归档(今日)</div>
+              <sc-for list="{{ snaps }}" as="s" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #181b23">
+                  <span style="flex:1;font-size:11px;font-family:'IBM Plex Mono',monospace">{{ s.k }}</span>
+                  <span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace">{{ s.n }}</span>
+                  <span style="font-size:10px;font-weight:800;color: {{ s.stC }}">{{ s.st }}</span>
+                </div>
+              </sc-for>
+              <div style="font-size:10px;color:#5c626e;margin-top:8px">断档 &gt;30min 自动告警;盘路/战绩依赖归档连续性</div>
+            </div>
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+                <span style="font-size:12px;font-weight:800">AF 抓取频率配置</span>
+                <span style="font-size:10px;font-weight:700;color:#e9b949;cursor:pointer">编辑</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #181b23"><span style="font-size:10.5px;color:#959ba6">赛前 12 小时以上</span><span style="font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono',monospace">巡检 / 4h</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #181b23"><span style="font-size:10.5px;color:#959ba6">12 – 6 小时</span><span style="font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono',monospace">60 min</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #181b23"><span style="font-size:10.5px;color:#959ba6">6 – 1 小时</span><span style="font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono',monospace">30 min</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #181b23"><span style="font-size:10.5px;color:#959ba6">1 小时 – 30 分钟</span><span style="font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono',monospace">10 min</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #181b23"><span style="font-size:10.5px;color:#959ba6">30 – 5 分钟</span><span style="font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono',monospace">5 min</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #181b23"><span style="font-size:10.5px;color:#959ba6">5 分钟 – 开球 / 滚球</span><span style="font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:#e9b949">1 min(接口下限)</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 0">
+                <span style="font-size:10.5px;color:#959ba6">紧急降频模式(配额 &gt;85% 自动)</span>
+                <span style="font-size:10px;font-weight:800;color:#5c626e;border:1px solid #20242e;border-radius:999px;padding:2px 10px">关</span>
+              </div>
+              <div style="font-size:10px;color:#5c626e;margin-top:8px">改动即时下发调度器并写审计;1 min 为 API-SPORTS 速率下限,不可更低</div>
+            </div>
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+                <span style="font-size:12px;font-weight:800">AI 报告服务</span>
+                <span style="font-size:10px;font-weight:700;color:#2ecc8a">运行正常</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div style="background:#181b23;border-radius:8px;padding:9px 0;text-align:center"><div style="font-size:15px;font-weight:800;font-family:'IBM Plex Mono',monospace">412</div><div style="font-size:9px;color:#5c626e">今日生成</div></div>
+                <div style="background:#181b23;border-radius:8px;padding:9px 0;text-align:center"><div style="font-size:15px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#5b9dff">63%</div><div style="font-size:9px;color:#5c626e">缓存命中</div></div>
+                <div style="background:#181b23;border-radius:8px;padding:9px 0;text-align:center"><div style="font-size:15px;font-weight:800;font-family:'IBM Plex Mono',monospace">1.8M</div><div style="font-size:9px;color:#5c626e">tokens 已用</div></div>
+                <div style="background:#181b23;border-radius:8px;padding:9px 0;text-align:center"><div style="font-size:15px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#2ecc8a">0.5%</div><div style="font-size:9px;color:#5c626e">失败率</div></div>
+              </div>
+              <div style="font-size:10px;color:#5c626e;line-height:1.7">策略:同场报告生成一次全员复用,盘口变化超阈值才重生成;tokens 达预算 80% 触发告警并降级为模板报告。</div>
+            </div>
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+              <div style="font-size:12px;font-weight:800;margin-bottom:10px">急变事件(近1小时)</div>
+              <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #181b23">
+                  <span style="font-size:10px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ a.t }}</span>
+                  <span style="flex:1;font-size:11px;color:#c3c8d2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.x }}</span>
+                  <span style="font-size:10px;font-weight:800;font-family:'IBM Plex Mono',monospace;color: {{ a.c }}">{{ a.d }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1440, &quot;height&quot;: 900}}">
+class Component extends DCLogic {
+  state = { view: 'dash', odF: '全部', tkF: '处理中', selId: 'T4821', theme: '深色' };
+
+  static ORDERS = [
+    { t: '06-11 15:02', u: 'panyou9527', tag: '充值', tagC: '#2ecc8a', x: '微信支付 · ¥648 档(+30%)', rmb: '¥648', pts: '+8420', st: '成功', stC: '#2ecc8a' },
+    { t: '06-11 14:55', u: 'kim_bet88', tag: '解锁', tagC: '#e9b949', x: '解锁预测 · 拜仁 vs 莱比锡(赛前)', rmb: '—', pts: '-38', st: '成功', stC: '#2ecc8a' },
+    { t: '06-11 14:41', u: 'lucas_77', tag: '解锁', tagC: '#e9b949', x: '解锁预测 · 曼城 vs 阿森纳(滚球)', rmb: '—', pts: '-58', st: '成功', stC: '#2ecc8a' },
+    { t: '06-11 14:32', u: 'soraya_k', tag: '兑换', tagC: '#5b9dff', x: '兑换码 WC2026(世界杯开幕批次)', rmb: '—', pts: '+100', st: '成功', stC: '#2ecc8a' },
+    { t: '06-11 14:18', u: 'minho_22', tag: '邀请', tagC: '#959ba6', x: '邀请注册 · 用户 89**21', rmb: '—', pts: '+1', st: '成功', stC: '#2ecc8a' },
+    { t: '06-11 14:02', u: 'betpro_cn', tag: '充值', tagC: '#2ecc8a', x: '支付宝 · ¥30 档(+6%)', rmb: '¥30', pts: '+320', st: '成功', stC: '#2ecc8a' },
+    { t: '06-11 13:47', u: 'dragon_w', tag: '充值', tagC: '#2ecc8a', x: '微信支付 · ¥128 档(超时关闭)', rmb: '¥128', pts: '0', st: '失败', stC: '#f0434f' },
+    { t: '06-11 13:30', u: 'helen_z', tag: '邀请', tagC: '#959ba6', x: '邀请注册 · 触达每日上限,未发放', rmb: '—', pts: '0', st: '拦截', stC: '#e9b949' }
+  ];
+  static CODES = [
+    { code: 'WC2026', x: '世界杯开幕 · +100分 · 限1次/人', used: '1,204 / 5,000', st: '生效中', stC: '#2ecc8a' },
+    { code: 'FOOT58', x: '渠道投放 · +58分 · 限1次/人', used: '4,982 / 5,000', st: '即将售罄', stC: '#e9b949' },
+    { code: 'OPEN888', x: '开站纪念 · +88分', used: '3,000 / 3,000', st: '已结束', stC: '#5c626e' }
+  ];
+  static TKS = [
+    { id: 'T4821', type: '数据问题', u: 'kim_bet88', x: '拜仁这场的亚盘走势 14:30 后没有更新,异动也没推送,请核查。', t: '15:01', st: '处理中' },
+    { id: 'T4820', type: '充值问题', u: 'dragon_w', x: '微信支付扣款成功但积分没有到账,订单金额 ¥128,请尽快处理。', t: '13:52', st: '处理中' },
+    { id: 'T4818', type: '功能建议', u: 'lucas_77', x: '希望预测页可以按联赛筛选,世界杯期间场次太多不好找。', t: '12:10', st: '处理中' },
+    { id: 'T4815', type: '数据问题', u: 'soraya_k', x: '赫罗纳这场的滚球大小盘一直显示封盘中,是正常的吗?', t: '11:43', st: '已回复' },
+    { id: 'T4809', type: '其他', u: 'minho_22', x: '邀请了朋友注册,但我的邀请进度条没有变化。', t: '09:27', st: '已回复' }
+  ];
+  static EPS = [
+    { k: 'odds (bet 1/4/5)', tier: '临场 1min', last: '15:02:10', ms: '412ms', st: '正常', stC: '#2ecc8a' },
+    { k: 'odds.live', tier: '滚球 1min', last: '15:02:05', ms: '388ms', st: '正常', stC: '#2ecc8a' },
+    { k: 'fixtures', tier: '滚球 1min', last: '15:02:01', ms: '256ms', st: '正常', stC: '#2ecc8a' },
+    { k: 'fixtures.events', tier: '滚球 1min', last: '15:02:02', ms: '301ms', st: '正常', stC: '#2ecc8a' },
+    { k: 'fixtures.statistics', tier: '滚球 1min', last: '15:02:03', ms: '344ms', st: '正常', stC: '#2ecc8a' },
+    { k: 'fixtures.lineups', tier: 'T-60m 5min', last: '14:55:00', ms: '290ms', st: '正常', stC: '#2ecc8a' },
+    { k: 'predictions', tier: '开盘+T-1h', last: '14:00:00', ms: '702ms', st: '正常', stC: '#2ecc8a' },
+    { k: 'injuries', tier: '每 6h', last: '12:00:00', ms: '655ms', st: '慢', stC: '#e9b949' },
+    { k: 'players.topscorers', tier: '每日', last: '06:00:00', ms: '1.2s', st: '正常', stC: '#2ecc8a' }
+  ];
+  static SNAPS = [
+    { k: 'odds 快照', n: '4,182 条', st: '连续', stC: '#2ecc8a' },
+    { k: 'predictions 快照', n: '24 条', st: '连续', stC: '#2ecc8a' },
+    { k: '异动事件', n: '167 条', st: '连续', stC: '#2ecc8a' }
+  ];
+  static HOTM = [
+    { m: '曼城 vs 阿森纳', lg: '英超', pv: '18,402', un: '—', rate: '免费场', rateC: '#2ecc8a' },
+    { m: '拜仁 vs 莱比锡', lg: '德甲', pv: '9,317', un: '212', rate: '2.3%', rateC: '#e9b949' },
+    { m: '韩国 vs 智利', lg: '世界杯', pv: '8,854', un: '187', rate: '2.1%', rateC: '#e9b949' },
+    { m: '赫罗纳 vs 巴萨', lg: '西甲', pv: '7,206', un: '141', rate: '2.0%', rateC: '#e9b949' },
+    { m: '国米 vs 尤文', lg: '意甲', pv: '5,118', un: '83', rate: '1.6%', rateC: '#959ba6' }
+  ];
+  static REVMIX = [
+    { k: '¥648', v: '¥7,128', w: '57%' }, { k: '¥328', v: '¥2,624', w: '21%' }, { k: '¥128', v: '¥1,536', w: '12%' },
+    { k: '¥68', v: '¥748', w: '6%' }, { k: '¥30 + ¥6', v: '¥444', w: '4%' }
+  ];
+  static REG7 = [['05', 1102], ['06', 1376], ['07', 1180], ['08', 1654], ['09', 1521], ['10', 1738], ['今', 1842]];
+
+  static USERS = [
+    { u: 'panyou9527@koreamail.com', reg: '06-01', pts: '8,440', pay: '¥1,296', un: 23, iv: 86, st: '付费', stC: '#e9b949' },
+    { u: 'kim_bet88@gmail.com', reg: '05-28', pts: '142', pay: '¥98', un: 9, iv: 12, st: '付费', stC: '#e9b949' },
+    { u: 'lucas_77@naver.com', reg: '06-03', pts: '20', pay: '¥30', un: 3, iv: 2, st: '付费', stC: '#e9b949' },
+    { u: 'soraya_k@proton.me', reg: '06-10', pts: '158', pay: '¥0', un: 1, iv: 0, st: '免费', stC: '#959ba6' },
+    { u: 'minho_22@kakao.com', reg: '06-09', pts: '61', pay: '¥0', un: 1, iv: 41, st: '风控', stC: '#f0434f' },
+    { u: 'dragon_w@163.com', reg: '05-15', pts: '0', pay: '¥128', un: 6, iv: 3, st: '付费', stC: '#e9b949' },
+    { u: 'spam_4421@tmpmail.io', reg: '06-11', pts: '58', pay: '¥0', un: 0, iv: 0, st: '已封禁', stC: '#5c626e' },
+    { u: 'helen_z@outlook.com', reg: '06-08', pts: '37', pay: '¥0', un: 1, iv: 28, st: '免费', stC: '#959ba6' }
+  ];
+  static MCFG = [
+    { m: '曼城 vs 阿森纳', lg: '英超', t: '03:00', free: '今日免费场', freeC: '#2ecc8a', price: '滚球 58', st: '开盘', stC: '#2ecc8a', op: '取消免费' },
+    { m: '拜仁 vs 莱比锡', lg: '德甲', t: '02:30', free: '—', freeC: '#5c626e', price: '赛前 38', st: '开盘', stC: '#2ecc8a', op: '设为免费' },
+    { m: '赫罗纳 vs 巴萨', lg: '西甲', t: '02:00', free: '—', freeC: '#5c626e', price: '滚球 58', st: '开盘', stC: '#2ecc8a', op: '设为免费' },
+    { m: '韩国 vs 智利', lg: '世界杯', t: '11:00', free: '—', freeC: '#5c626e', price: '赛前 38', st: '开盘', stC: '#2ecc8a', op: '设为免费' },
+    { m: '美国 vs 摩洛哥', lg: '世界杯', t: '05:00', free: '—', freeC: '#5c626e', price: '赛前 38', st: '隐藏', stC: '#f0434f', op: '恢复展示' }
+  ];
+  static RISKS = [
+    { t: '14:50', tp: '自邀嫌疑', tpC: '#f0434f', x: 'minho_22 · 近 3 日 41 次邀请,28 次同设备指纹', sc: '92', op1: '拦截结算', op2: '放行' },
+    { t: '14:22', tp: '异常充值', tpC: '#e9b949', x: 'new_user_881 · 注册 10 分钟内充值 ¥648 ×2', sc: '71', op1: '冻结订单', op2: '放行' },
+    { t: '13:05', tp: '多账号', tpC: '#e9b949', x: '同 IP 段 5 个账号同时领取 FOOT58 兑换码', sc: '68', op1: '批量封禁', op2: '放行' },
+    { t: '11:40', tp: '自邀嫌疑', tpC: '#f0434f', x: 'helen_z · 邀请用户 12 人中 9 人零活跃', sc: '64', op1: '拦截结算', op2: '放行' }
+  ];
+  static AUDITS = [
+    { t: '15:10', a: 'admin@play.top', x: '将 曼城 vs 阿森纳 设为今日免费场' },
+    { t: '14:58', a: 'ops_li@play.top', x: '回复工单 T4815 并标记已解决' },
+    { t: '14:30', a: 'admin@play.top', x: '生成兑换码批次 WC2026(5,000 个,+100 分)' },
+    { t: '13:55', a: 'ops_li@play.top', x: '为 dragon_w 补偿积分 +1280(订单未到账)' },
+    { t: '12:02', a: 'admin@play.top', x: '封禁 spam_4421@tmpmail.io(批量注册)' },
+    { t: '10:40', a: 'risk_bot', x: '自动拦截 27 次超限邀请结算' }
+  ];
+  static ALERTS = [
+    { t: '14:55', x: '拜仁 vs 莱比锡 · 亚盘 一/球半→球半', d: '+0.25', c: '#f0434f' },
+    { t: '14:41', x: '曼城 vs 阿森纳 · 大小 两球半→两半/三', d: '+0.25', c: '#f0434f' },
+    { t: '14:32', x: '皇马 vs 塞维利亚 · 主水 0.85→0.92', d: '+0.07', c: '#e9b949' },
+    { t: '14:10', x: '巴黎 vs 摩纳哥 · 大小 三球→两半/三', d: '-0.25', c: '#2ecc8a' }
+  ];
+
+  renderVals() {
+    const st = this.state;
+    const chip = (label, active, onClick) => active
+      ? { label, onClick, bg: 'rgba(233,185,73,.14)', fg: '#e9b949', bd: 'rgba(233,185,73,.45)' }
+      : { label, onClick, bg: '#12141a', fg: '#959ba6', bd: '#20242e' };
+
+    const navs = [['dash', '运营看板'], ['user', '用户管理'], ['order', '订单与积分'], ['match', '赛事与内容'], ['mkt', '营销配置'], ['risk', '风控与审计'], ['ticket', '工单处理'], ['data', '数据与模型监控'], ['cfg', '系统设置']].map(([k, label]) => ({
+      label, onClick: () => this.setState({ view: k }),
+      bg: st.view === k ? 'rgba(233,185,73,.1)' : 'transparent',
+      fg: st.view === k ? '#e9b949' : '#959ba6',
+      badge: k === 'ticket', badgeTxt: '3'
+    }));
+
+    const kpis = [
+      { label: '今日收入', v: '¥12,480', c: '#e9b949', delta: '↑ 18% vs 昨日', dC: '#2ecc8a' },
+      { label: '充值订单', v: '287', c: '#eceef2', delta: '失败率 2.4%', dC: '#959ba6' },
+      { label: '付费用户', v: '271', c: '#eceef2', delta: '↑ 14% vs 昨日', dC: '#2ecc8a' },
+      { label: 'ARPPU', v: '¥46.1', c: '#e9b949', delta: '↑ ¥3.2 vs 7日均', dC: '#2ecc8a' },
+      { label: '付费转化率', v: '4.7%', c: '#eceef2', delta: '↓ 0.3pp vs 昨日', dC: '#f0434f' },
+      { label: '新注册', v: '1,842', c: '#eceef2', delta: '↑ 6% · 邀请占 17%', dC: '#2ecc8a' },
+      { label: 'DAU / 次日留存', v: '23.1k · 41%', c: '#eceef2', delta: '↑ 9% / ↑ 2pp', dC: '#2ecc8a' },
+      { label: '预测解锁', v: '693', c: '#e9b949', delta: '复购率 38%', dC: '#959ba6' },
+      { label: '积分负债(未消耗)', v: '412k', c: '#f0434f', delta: '≈ ¥41,200 · 周转 11 天', dC: '#959ba6' },
+      { label: '待处理工单', v: '3', c: '#eceef2', delta: '平均响应 26 分钟', dC: '#959ba6' }
+    ];
+    const revRaw = [['05', 8.2], ['06', 9.6], ['07', 7.8], ['08', 11.4], ['09', 10.1], ['10', 10.9], ['今', 12.5]];
+    const revBars = revRaw.map(r => ({ d: r[0], v: r[1] + 'k', h: Math.round(r[1] / 12.5 * 88) + 'px' }));
+    const funnel = [
+      { label: '访客', v: '31,420', pct: '100%', w: '100%', c: '#5b9dff' },
+      { label: '注册', v: '1,842', pct: '5.9%', w: '38%', c: '#5b9dff' },
+      { label: '解锁预测', v: '693', pct: '2.2%', w: '22%', c: '#e9b949' },
+      { label: '充值', v: '287', pct: '0.9%', w: '12%', c: '#e9b949' }
+    ];
+
+    const odChips = ['全部', '充值', '解锁', '兑换', '邀请'].map(l => chip(l, st.odF === l, () => this.setState({ odF: l })));
+    const orders = Component.ORDERS.filter(o => st.odF === '全部' || o.tag === st.odF)
+      .map(o => ({ ...o, ptsC: o.pts.startsWith('+') ? '#2ecc8a' : o.pts.startsWith('-') ? '#f0434f' : '#5c626e' }));
+
+    const tkChips = ['处理中', '已回复', '全部'].map(l => chip(l, st.tkF === l, () => this.setState({ tkF: l })));
+    const tkList = Component.TKS.filter(t => st.tkF === '全部' || t.st === st.tkF);
+    const sel = Component.TKS.find(t => t.id === st.selId) || tkList[0] || Component.TKS[0];
+    const tickets = tkList.map(t => ({
+      ...t,
+      stBg: t.st === '处理中' ? 'rgba(233,185,73,.14)' : 'rgba(46,204,138,.14)',
+      stC: t.st === '处理中' ? '#e9b949' : '#2ecc8a',
+      selBar: sel.id === t.id ? '#e9b949' : 'transparent',
+      selBg: sel.id === t.id ? 'rgba(233,185,73,.06)' : 'transparent',
+      onClick: () => this.setState({ selId: t.id })
+    }));
+
+    return {
+      navs,
+      vDash: st.view === 'dash', vOrder: st.view === 'order', vTicket: st.view === 'ticket', vData: st.view === 'data',
+      vUser: st.view === 'user', vMatch: st.view === 'match', vMkt: st.view === 'mkt', vRisk: st.view === 'risk',
+      vCfg: st.view === 'cfg',
+      themeFilter: st.theme === '浅色' ? 'invert(1) hue-rotate(180deg)' : 'none',
+      themeLabel: st.theme === '深色' ? '☀ 浅色模式' : '☾ 深色模式',
+      themeToggle: () => this.setState({ theme: this.state.theme === '深色' ? '浅色' : '深色' }),
+      adEmail: 'admin' + '@' + 'play.top',
+      emOps: 'ops_li' + '@' + 'play.top',
+      emCs: 'cs_zhang' + '@' + 'play.top',
+      emRisk: 'risk_chen' + '@' + 'play.top',
+      userChips: ['全部', '付费', '免费', '风控', '已封禁'].map(l => chip(l, (st.uF || '全部') === l, () => this.setState({ uF: l }))),
+      users: Component.USERS.filter(u => (st.uF || '全部') === '全部' || u.st === (st.uF === '付费' ? '付费' : st.uF === '免费' ? '免费' : st.uF === '风控' ? '风控' : '已封禁')),
+      mcfg: Component.MCFG, risks: Component.RISKS, audits: Component.AUDITS,
+      kpis, revBars, funnel,
+      hotm: Component.HOTM, revmix: Component.REVMIX,
+      reg7: Component.REG7.map(r => ({ d: r[0], v: (r[1] / 1000).toFixed(1) + 'k', h: Math.round(r[1] / 1842 * 64) + 'px' })),
+      odChips, orders, codes: Component.CODES,
+      tkChips, tickets,
+      selId: sel.id, selType: sel.type, selU: sel.u, selX: sel.x,
+      eps: Component.EPS, snaps: Component.SNAPS, alerts: Component.ALERTS
+    };
+  }
+}
+</script>
+</body>
+</html>

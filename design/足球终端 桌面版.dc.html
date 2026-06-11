@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0;background:#060709;}
+*{box-sizing:border-box;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:#20242e;border-radius:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes wcglow{0%,100%{box-shadow:0 0 4px rgba(233,185,73,.2)}50%{box-shadow:0 0 12px rgba(233,185,73,.55)}}
+.hidescroll{scrollbar-width:none}
+.hidescroll::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+
+<div style="position:relative;width:100%;height:100vh;min-width:1080px;display:flex;flex-direction:column;background:#0a0b0f;color:#eceef2;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased;filter: {{ themeFilter }}">
+
+  <!-- ===== 顶栏 ===== -->
+  <div style="flex-shrink:0;height:52px;display:flex;align-items:center;gap:18px;padding:0 20px;border-bottom:1px solid #20242e;background:#0e1015">
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <span style="font-size:18px;font-weight:800;letter-spacing:.5px">足球<span style="color:#e9b949">终端</span></span>
+      <span style="font-size:10px;color:#5c626e">亚盘 · 大小球 · 胜平负</span>
+    </div>
+    <span style="width:1px;height:20px;background:#20242e"></span>
+    <span style="font-size:11px;color:#959ba6;font-family:'IBM Plex Mono',monospace">6月11日 · UTC+8</span>
+    <span style="flex:1"></span>
+    <span onClick="{{ openRefresh }}" style="font-size:10px;color:#5c626e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex-shrink:1;cursor:pointer">⟳ {{ topFresh }} ›</span>
+    <sc-if value="{{ isLoggedTop }}" hint-placeholder-val="{{ false }}">
+      <span onClick="{{ openDrawer }}" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 10px;border-radius:8px;border:1px solid #20242e" style-hover="border-color:#343b49">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#959ba6" stroke-width="1.7" stroke-linecap="round"><circle cx="10" cy="6.5" r="3"></circle><path d="M3.5 17c1.3-3.2 3.7-4.8 6.5-4.8s5.2 1.6 6.5 4.8"></path></svg>
+        <span style="font-size:11px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ email }}</span>
+        <span style="font-size:10px;color:#5c626e">▾</span>
+      </span>
+    </sc-if>
+    <sc-if value="{{ isGuestTop }}" hint-placeholder-val="{{ true }}">
+      <span onClick="{{ openDrawer }}" style="background:linear-gradient(90deg,#e9b949,#d9a32e);color:#0a0b0f;border-radius:8px;padding:6px 16px;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap">登录 / 注册</span>
+    </sc-if>
+  </div>
+
+  <!-- ===== 三栏 ===== -->
+  <div style="flex:1;display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr) minmax(280px,360px);min-height:0">
+
+    <!-- 左栏 · 赛事列表 -->
+    <div style="display:flex;flex-direction:column;min-height:0;border-right:1px solid #20242e;background:#0c0d12">
+      <div style="flex-shrink:0;padding:12px 14px 8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:800;flex-shrink:0">今日赛事</span>
+          <input placeholder="搜索球队…" style="flex:1;min-width:0;background:#12141a;border:1px solid #20242e;border-radius:8px;padding:5px 10px;font-size:11px;color:#eceef2;outline:none">
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <sc-for list="{{ leagueChips }}" as="c" hint-placeholder-count="7">
+            <sc-if value="{{ c.std }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ c.onClick }}" style="padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+            </sc-if>
+            <sc-if value="{{ c.wc }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ c.onClick }}" style="padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:700;cursor:pointer;background: {{ c.bg }};color:#e9b949;border:1px solid rgba(233,185,73,.65);animation:wcglow 2.4s ease-in-out infinite">★ {{ c.label }}</div>
+            </sc-if>
+          </sc-for>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;min-height:0">
+        <sc-for list="{{ rows }}" as="m" hint-placeholder-count="8">
+          <div onClick="{{ m.open }}" style="display:flex;align-items:center;gap:10px;padding:10px 14px 10px 12px;cursor:pointer;border-bottom:1px solid #12141a;border-left:3px solid {{ m.selBar }};background: {{ m.selBg }}" style-hover="background:#14161d">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;white-space:nowrap;overflow:hidden">
+                <span style="width:5px;height:5px;border-radius:50%;flex-shrink:0;background: {{ m.dot }}"></span>
+                <span style="font-size:10px;color:#5c626e;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex-shrink:1">{{ m.league }}</span>
+                <span style="font-size:10px;color:#5c626e;font-family:'IBM Plex Mono',monospace;white-space:nowrap;flex-shrink:0">{{ m.time }}</span>
+                <sc-if value="{{ m.hasTag }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:8.5px;font-weight:800;border-radius:3px;padding:1px 5px;flex-shrink:0;white-space:nowrap;background: {{ m.tagBg }};color: {{ m.tagC }}">{{ m.tag }}</span>
+                </sc-if>
+                <sc-if value="{{ m.isLive }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:flex;align-items:center;gap:3px;font-size:9px;color:#f0434f;font-weight:700;flex-shrink:0;white-space:nowrap"><span style="width:4px;height:4px;border-radius:50%;background:#f0434f;animation:livepulse 1.5s infinite"></span>{{ m.liveMin }}</span>
+                </sc-if>
+              </div>
+              <div style="font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.home }} <span style="color:#5c626e;font-weight:400">vs</span> {{ m.away }}</div>
+            </div>
+            <div style="flex-shrink:0;text-align:right;width:56px">
+              <div style="font-size:11px;font-weight:700;color:#e9b949;white-space:nowrap">{{ m.ahText }}</div>
+              <div style="font-size:10px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ m.waters }}</div>
+            </div>
+            <div style="flex-shrink:0;text-align:right;width:40px">
+              <div style="font-size:11px;font-weight:700;color:#e9b949;font-family:'IBM Plex Mono',monospace">{{ m.ouLine }}</div>
+              <div style="font-size:10px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ m.ouWaters }}</div>
+            </div>
+            <div style="flex-shrink:0;width:34px;text-align:right">
+              <div style="font-size:11px;font-weight:700;color: {{ m.midC }};font-family:'IBM Plex Mono',monospace">{{ m.midText }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- 中栏 · 详情 -->
+    <div style="display:flex;flex-direction:column;min-height:0">
+      <div style="flex-shrink:0;padding:16px 22px 0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="width:6px;height:6px;border-radius:50%;background: {{ dDot }}"></span>
+          <span style="font-size:11.5px;color:#959ba6;font-weight:600;white-space:nowrap">{{ dLeague }} · {{ dRound }}</span>
+          <span style="font-size:10px;color: {{ dStatusC }};font-weight:700;white-space:nowrap">{{ dStatus }}</span>
+          <span style="flex:1"></span>
+          <span style="font-size:10px;color:#5c626e;white-space:nowrap">⟳ {{ dFresh }}</span>
+          <sc-if value="{{ shCopied }}" hint-placeholder-val="{{ false }}">
+            <span style="font-size:9px;color:#2ecc8a;font-weight:700;white-space:nowrap">链接已复制</span>
+          </sc-if>
+          <span onClick="{{ shareCopy }}" style="cursor:pointer;color:#959ba6;display:flex;align-items:center;flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="10" r="2.4"></circle><circle cx="15" cy="4.5" r="2.4"></circle><circle cx="15" cy="15.5" r="2.4"></circle><path d="M7.2 8.9l5.6-3.2M7.2 11.1l5.6 3.2"></path></svg>
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:22px;font-weight:800;white-space:nowrap">{{ dHome }}</span><span style="font-size:10px;font-weight:800;color:#5b9dff">主</span></div>
+          <span style="font-size:24px;font-weight:800;font-family:'IBM Plex Mono',monospace;color: {{ dScoreC }};white-space:nowrap">{{ dScore }}</span>
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:10px;font-weight:800;color:#e9b949">客</span><span style="font-size:22px;font-weight:800;color:#c3c8d2;white-space:nowrap">{{ dAway }}</span></div>
+          <span style="flex:1"></span>
+          <div style="display:flex;gap:8px">
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:8px;padding:6px 14px;text-align:center"><div style="font-size:9px;color:#5c626e;margin-bottom:2px">亚盘</div><div style="font-size:11px;white-space:nowrap"><span style="color:#e9b949;font-weight:700">{{ dAhText }}</span> <span style="font-family:'IBM Plex Mono',monospace;color:#c3c8d2">{{ dAhW }}</span></div></div>
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:8px;padding:6px 14px;text-align:center"><div style="font-size:9px;color:#5c626e;margin-bottom:2px">大小</div><div style="font-size:11px;white-space:nowrap"><span style="color:#e9b949;font-weight:700">{{ dOuText }}</span> <span style="font-family:'IBM Plex Mono',monospace;color:#c3c8d2">{{ dOuW }}</span></div></div>
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:8px;padding:6px 14px;text-align:center"><div style="font-size:9px;color:#5c626e;margin-bottom:2px">胜平负</div><div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#c3c8d2;white-space:nowrap">{{ dEuW }}</div></div>
+          </div>
+        </div>
+        <div class="hidescroll" style="display:flex;gap:4px;border-bottom:1px solid #20242e;overflow-x:auto">
+          <sc-for list="{{ dTabs }}" as="t" hint-placeholder-count="7">
+            <div onClick="{{ t.onClick }}" style="padding:8px 13px 9px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;color: {{ t.fg }};border-bottom:2px solid {{ t.bar }};margin-bottom:-1px">{{ t.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;min-height:0;padding:14px 22px 20px">
+
+        <sc-if value="{{ tOdds }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ dLiveOdds }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:14px;background:#12141a;border:1px solid rgba(240,67,79,.3);border-radius:10px;padding:10px 16px;margin-bottom:14px;flex-wrap:wrap">
+              <span style="display:flex;align-items:center;gap:5px;flex-shrink:0"><span style="width:5px;height:5px;border-radius:50%;background:#f0434f;animation:livepulse 1.5s infinite"></span><span style="font-size:10px;color:#f0434f;font-weight:700;font-family:'IBM Plex Mono',monospace;white-space:nowrap">滚球 LIVE</span></span>
+              <sc-for list="{{ liveOddsRows }}" as="r" hint-placeholder-count="3">
+                <span style="display:flex;align-items:center;gap:8px;white-space:nowrap"><span style="font-size:10px;font-weight:800;border-radius:4px;padding:2px 7px;background:#181b23;color:#959ba6;white-space:nowrap">{{ r.mk }}</span><span style="font-size:12px;font-weight:700;font-family:'IBM Plex Mono',monospace;color: {{ r.vc }};white-space:nowrap">{{ r.v }}</span></span>
+              </sc-for>
+            </div>
+          </sc-if>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+            <div>
+              <div style="font-size:12px;font-weight:700;margin:0 2px 8px">亚盘水位走势</div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:10px 8px 4px">{{ ahChart }}</div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;margin-top:8px;overflow:hidden">
+                <div style="display:grid;grid-template-columns:52px 1fr 48px 48px;padding:7px 12px;border-bottom:1px solid #20242e"><span style="font-size:9px;color:#5c626e">时间</span><span style="font-size:9px;color:#5c626e">盘口</span><span style="font-size:9px;color:#5c626e;text-align:right">主水</span><span style="font-size:9px;color:#5c626e;text-align:right">客水</span></div>
+                <sc-for list="{{ ahRowsD }}" as="r" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:52px 1fr 48px 48px;padding:6px 12px;align-items:center;border-bottom:1px solid #181b23">
+                    <span style="font-size:10px;color:#959ba6">{{ r.t }}</span>
+                    <span style="font-size:11px;font-weight:700;color: {{ r.textC }};white-space:nowrap">{{ r.text }}</span>
+                    <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace">{{ r.h }}</span>
+                    <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace">{{ r.a }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:12px;font-weight:700;margin:0 2px 8px">大小球水位走势</div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:10px 8px 4px">{{ ouChart }}</div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;margin-top:8px;overflow:hidden">
+                <div style="display:grid;grid-template-columns:52px 1fr 48px 48px;padding:7px 12px;border-bottom:1px solid #20242e"><span style="font-size:9px;color:#5c626e">时间</span><span style="font-size:9px;color:#5c626e">盘口</span><span style="font-size:9px;color:#5c626e;text-align:right">大水</span><span style="font-size:9px;color:#5c626e;text-align:right">小水</span></div>
+                <sc-for list="{{ ouRowsD }}" as="r" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:52px 1fr 48px 48px;padding:6px 12px;align-items:center;border-bottom:1px solid #181b23">
+                    <span style="font-size:10px;color:#959ba6">{{ r.t }}</span>
+                    <span style="font-size:11px;font-weight:700;color: {{ r.textC }};white-space:nowrap">{{ r.text }}</span>
+                    <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace">{{ r.h }}</span>
+                    <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace">{{ r.a }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:12px;font-weight:700;margin:0 2px 8px">胜平负赔率走势</div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:10px 8px 4px">{{ euChart }}</div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;margin-top:8px;overflow:hidden">
+                <div style="display:grid;grid-template-columns:52px 1fr 1fr 1fr;padding:7px 12px;border-bottom:1px solid #20242e"><span style="font-size:9px;color:#5c626e">时间</span><span style="font-size:9px;color:#5c626e;text-align:right">主胜</span><span style="font-size:9px;color:#5c626e;text-align:right">平局</span><span style="font-size:9px;color:#5c626e;text-align:right">客胜</span></div>
+                <sc-for list="{{ euRowsD }}" as="r" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:52px 1fr 1fr 1fr;padding:6px 12px;align-items:center;border-bottom:1px solid #181b23">
+                    <span style="font-size:10px;color:#959ba6">{{ r.t }}</span>
+                    <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace">{{ r.h }}</span>
+                    <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ r.d }}</span>
+                    <span style="font-size:11px;text-align:right;font-family:'IBM Plex Mono',monospace">{{ r.a }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:16px;justify-content:center;padding:12px 0 0">
+            <span style="font-size:10px;color:#959ba6;display:flex;align-items:center;gap:5px"><span style="width:10px;height:2px;background:#5b9dff;border-radius:2px"></span>主队 / 大球 / 主胜</span>
+            <span style="font-size:10px;color:#959ba6;display:flex;align-items:center;gap:5px"><span style="width:10px;height:2px;background:#e9b949;border-radius:2px"></span>客队 / 小球 / 客胜</span>
+            <span style="font-size:10px;color:#959ba6;display:flex;align-items:center;gap:5px"><span style="width:10px;height:2px;background:#959ba6;border-radius:2px"></span>平局</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tComp }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+            <div>
+              <div style="font-size:12px;font-weight:700;margin:0 2px 8px">亚盘 · 多公司</div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;overflow:hidden">
+                <sc-for list="{{ compRows }}" as="c" hint-placeholder-count="6">
+                  <div style="display:grid;grid-template-columns:64px 1fr 1fr;padding:8px 12px;align-items:center;border-bottom:1px solid #181b23">
+                    <span style="font-size:11px;font-weight:700">{{ c.co }}</span>
+                    <span><span style="display:block;font-size:10px;color:#959ba6">{{ c.iText }}</span><span style="font-size:10px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ c.iW }}</span></span>
+                    <span><span style="display:block;font-size:10px;font-weight:700;color: {{ c.nTextC }}">{{ c.nText }}</span><span style="font-size:10px;color:#c3c8d2;font-family:'IBM Plex Mono',monospace">{{ c.nW }}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:12px;font-weight:700;margin:0 2px 8px">大小球 · 多公司</div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;overflow:hidden">
+                <sc-for list="{{ compOuRows }}" as="c" hint-placeholder-count="6">
+                  <div style="display:grid;grid-template-columns:64px 1fr 1fr;padding:8px 12px;align-items:center;border-bottom:1px solid #181b23">
+                    <span style="font-size:11px;font-weight:700">{{ c.co }}</span>
+                    <span><span style="display:block;font-size:10px;color:#959ba6">{{ c.iText }}</span><span style="font-size:10px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ c.iW }}</span></span>
+                    <span><span style="display:block;font-size:10px;font-weight:700;color: {{ c.nTextC }}">{{ c.nText }}</span><span style="font-size:10px;color:#c3c8d2;font-family:'IBM Plex Mono',monospace">{{ c.nW }}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:12px;font-weight:700;margin:0 2px 8px">胜平负 · 多公司</div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;overflow:hidden">
+                <sc-for list="{{ compEuRows }}" as="c" hint-placeholder-count="6">
+                  <div style="display:grid;grid-template-columns:64px 1fr;padding:8px 12px;align-items:center;border-bottom:1px solid #181b23">
+                    <span style="font-size:11px;font-weight:700">{{ c.co }}</span>
+                    <span><span style="display:block;font-size:10px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ c.iW }}</span><span style="font-size:10px;color:#c3c8d2;font-family:'IBM Plex Mono',monospace">{{ c.nW }}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:10px;color:#5c626e;padding:10px 2px 0">上行为初盘,下行为即时盘;各公司变盘时间与幅度可横向比对。</div>
+        </sc-if>
+
+        <sc-if value="{{ tTech }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:12px 14px">
+              <div style="font-size:12px;font-weight:700;margin-bottom:10px">近况 · 最近 6 场</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:11.5px;font-weight:700">{{ dHome }}</span>
+                <div style="display:flex;gap:4px">
+                  <sc-for list="{{ formHome }}" as="f" hint-placeholder-count="6"><span style="width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;background: {{ f.bg }};color: {{ f.c }}">{{ f.ch }}</span></sc-for>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:11.5px;font-weight:700;color:#c3c8d2">{{ dAway }}</span>
+                <div style="display:flex;gap:4px">
+                  <sc-for list="{{ formAway }}" as="f" hint-placeholder-count="6"><span style="width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;background: {{ f.bg }};color: {{ f.c }}">{{ f.ch }}</span></sc-for>
+                </div>
+              </div>
+              <div style="border-top:1px solid #181b23;margin-top:12px;padding-top:10px">
+                <div style="font-size:12px;font-weight:700;margin-bottom:10px">盘路 · 近 10 场</div>
+                <sc-for list="{{ paluBars }}" as="b" hint-placeholder-count="4">
+                  <div style="margin-bottom:9px">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:10.5px;color:#959ba6">{{ b.label }}</span><span style="font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:#e9b949">{{ b.pctText }}</span></div>
+                    <div style="height:4px;background:#181b23;border-radius:2px;overflow:hidden"><div style="height:100%;background:linear-gradient(90deg,#8a6a1f,#e9b949);width: {{ b.w }}"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:12px 14px">
+              <div style="font-size:12px;font-weight:700;margin-bottom:10px">进球时段分布</div>
+              <sc-for list="{{ minuteRows }}" as="r" hint-placeholder-count="6">
+                <div style="display:grid;grid-template-columns:40px 1fr 34px;gap:8px;align-items:center;margin-bottom:6px">
+                  <span style="font-size:9.5px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ r.label }}</span>
+                  <span style="display:block">
+                    <span style="display:block;height:4px;background:#181b23;border-radius:2px;overflow:hidden;margin-bottom:2px"><span style="display:block;height:100%;background:#5b9dff;width: {{ r.hw }}"></span></span>
+                    <span style="display:block;height:4px;background:#181b23;border-radius:2px;overflow:hidden"><span style="display:block;height:100%;background:#e9b949;width: {{ r.aw }}"></span></span>
+                  </span>
+                  <span style="font-size:9.5px;color:#959ba6;font-family:'IBM Plex Mono',monospace;text-align:right">{{ r.v }}</span>
+                </div>
+              </sc-for>
+              <div style="font-size:9.5px;color:#5c626e;margin-top:4px">{{ minuteNote }}</div>
+            </div>
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:12px 14px;align-self:start">
+              <div>
+                <div style="font-size:12px;font-weight:700;margin-bottom:8px">历史交锋</div>
+                <sc-for list="{{ h2hRows }}" as="r" hint-placeholder-count="4">
+                  <div style="display:grid;grid-template-columns:56px 1fr 44px 40px 26px;padding:6px 0;align-items:center;border-bottom:1px solid #181b23">
+                    <span style="font-size:9.5px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ r.d }}</span>
+                    <span style="font-size:10px;color:#959ba6">{{ r.c }}</span>
+                    <span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;text-align:center">{{ r.s }}</span>
+                    <span style="font-size:9.5px;font-weight:700;text-align:center;color: {{ r.resC }}">{{ r.res }}</span>
+                    <span style="font-size:9.5px;font-weight:700;text-align:center;color: {{ r.ouC }}">{{ r.ou }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tReport }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ pLocked }}" hint-placeholder-val="{{ false }}">
+            <div style="background:linear-gradient(180deg,#1a1e29,#12141a);border:1px solid rgba(233,185,73,.35);border-radius:14px;padding:28px;max-width:520px;margin:24px auto 0;text-align:center">
+              <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="#e9b949" stroke-width="1.4" stroke-linecap="round" style="margin-bottom:8px"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>
+              <div style="font-size:14px;font-weight:800;margin-bottom:5px">AI 分析报告已锁定</div>
+              <div style="font-size:11px;color:#959ba6;line-height:1.7;margin-bottom:14px">包含盘口解读、状态盘路、进球模型、人员情报与结论<br>解锁本场预测后即可阅读全文</div>
+              <div onClick="{{ pUnlock }}" style="background:linear-gradient(90deg,#e9b949,#d9a32e);color:#0a0b0f;border-radius:10px;padding:11px 0;font-size:13px;font-weight:800;cursor:pointer">{{ pUnlockText }}</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ pOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:8px;background:#181b23;border:1px solid #20242e;border-radius:10px;padding:10px 14px;margin-bottom:14px">
+              <span style="font-size:9px;font-weight:700;color:#959ba6;background:#20242e;border-radius:4px;padding:2px 7px;flex-shrink:0">结论</span>
+              <span style="font-size:13px;font-weight:800;color:#e9b949">{{ pAdvice }}</span>
+              <span style="flex:1"></span>
+              <span style="font-size:10px;color:#5c626e;white-space:nowrap">{{ repGenAt }}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px">
+              <sc-for list="{{ repSections }}" as="sec" hint-placeholder-count="5">
+                <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:13px 14px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <span style="width:3px;height:13px;border-radius:2px;background:#e9b949"></span>
+                    <span style="font-size:12.5px;font-weight:800">{{ sec.h }}</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <sc-for list="{{ sec.ps }}" as="p2" hint-placeholder-count="2">
+                      <div style="font-size:11.5px;color:#c3c8d2;line-height:1.8">{{ p2.x }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="text-align:center;font-size:10px;color:#383d47;padding:12px 0 0">报告由 AI 基于本场赛前数据自动生成 · 仅供参考,不构成投注建议</div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ tLineup }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ luReady }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px">
+              <div>
+                <div style="font-size:12px;font-weight:700;margin:0 2px 8px"><span style="color:#5b9dff">{{ dHome }}</span> · <span style="font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ luHomeForm }}</span></div>
+                <div style="background:linear-gradient(180deg,#0f2018,#0c1812);border:1px solid #1b3023;border-radius:12px;padding:16px 8px;display:flex;flex-direction:column;justify-content:space-between;min-height:320px;height:100%;box-sizing:border-box">
+                  <sc-for list="{{ luHomeRows }}" as="row" hint-placeholder-count="5">
+                    <div style="display:flex;justify-content:space-evenly">
+                      <sc-for list="{{ row.ps }}" as="p" hint-placeholder-count="4">
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;width:64px">
+                          <span style="width:26px;height:26px;border-radius:50%;background:#5b9dff"></span>
+                          <span style="font-size:9.5px;color:#c3c8d2;white-space:nowrap">{{ p.name }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                  <div style="text-align:center;font-size:10px;color:#5c626e">主教练 · {{ luHomeCoach }}</div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:12px;font-weight:700;margin:0 2px 8px"><span style="color:#e9b949">{{ dAway }}</span> · <span style="font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ luAwayForm }}</span></div>
+                <div style="background:linear-gradient(180deg,#0f2018,#0c1812);border:1px solid #1b3023;border-radius:12px;padding:16px 8px;display:flex;flex-direction:column;justify-content:space-between;min-height:320px;height:100%;box-sizing:border-box">
+                  <sc-for list="{{ luAwayRows }}" as="row" hint-placeholder-count="4">
+                    <div style="display:flex;justify-content:space-evenly">
+                      <sc-for list="{{ row.ps }}" as="p" hint-placeholder-count="4">
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;width:64px">
+                          <span style="width:26px;height:26px;border-radius:50%;background:#e9b949"></span>
+                          <span style="font-size:9.5px;color:#c3c8d2;white-space:nowrap">{{ p.name }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                  <div style="text-align:center;font-size:10px;color:#5c626e">主教练 · {{ luAwayCoach }}</div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ luPending }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#12141a;border:1px dashed #272d3a;border-radius:12px;padding:44px 20px;text-align:center;max-width:560px;margin:20px auto 0">
+              <div style="font-size:13px;font-weight:700;color:#959ba6">官方首发尚未公布</div>
+              <div style="font-size:11px;color:#5c626e;margin-top:6px;line-height:1.7">通常于开赛前约 40 分钟公布,公布后自动更新并推送提醒</div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ tIntel }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px">
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:10px 14px 6px">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px"><span style="width:6px;height:6px;border-radius:50%;background:#5b9dff"></span><span style="font-size:12px;font-weight:700">{{ dHome }} · 主队情报</span></div>
+              <sc-for list="{{ intelHome }}" as="i" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #181b23">
+                  <span style="flex:1;font-size:12px;color:#c3c8d2">{{ i.x }}</span>
+                  <span style="flex-shrink:0;font-size:10px;font-weight:800;color: {{ i.tagC }}">{{ i.tag }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:10px 14px 6px">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px"><span style="width:6px;height:6px;border-radius:50%;background:#e9b949"></span><span style="font-size:12px;font-weight:700">{{ dAway }} · 客队情报</span></div>
+              <sc-for list="{{ intelAway }}" as="i" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #181b23">
+                  <span style="flex:1;font-size:12px;color:#c3c8d2">{{ i.x }}</span>
+                  <span style="flex-shrink:0;font-size:10px;font-weight:800;color: {{ i.tagC }}">{{ i.tag }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="font-size:10px;color:#5c626e;padding:10px 2px 0">缺阵 / 存疑 / 解禁 状态随官方发布实时更新;首发公布前请结合阵容页交叉确认。</div>
+        </sc-if>
+
+        <sc-if value="{{ tDeep }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px">
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:12px 14px">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px"><span style="font-size:12px;font-weight:700">球场因素</span><span style="font-size:10px;color:#5c626e">{{ vCity }}</span></div>
+                <div style="font-size:13px;font-weight:800;margin-bottom:8px">{{ vName }}</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+                  <div style="background:#181b23;border-radius:8px;padding:7px 0;text-align:center"><div style="font-size:12px;font-weight:800;font-family:'IBM Plex Mono',monospace">{{ vCap }}</div><div style="font-size:8.5px;color:#5c626e">容量</div></div>
+                  <div style="background:#181b23;border-radius:8px;padding:7px 0;text-align:center"><div style="font-size:12px;font-weight:800">{{ vSurface }}</div><div style="font-size:8.5px;color:#5c626e">草皮</div></div>
+                  <div style="background:#181b23;border-radius:8px;padding:7px 0;text-align:center"><div style="font-size:12px;font-weight:800">{{ vCountry }}</div><div style="font-size:8.5px;color:#5c626e">国家/地区</div></div>
+                </div>
+                <div style="font-size:10.5px;color:#959ba6">{{ vRec }}</div>
+              </div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:8px 14px 4px">
+                <div style="font-size:12px;font-weight:700;padding:4px 0 6px">射手依赖度</div>
+                <sc-for list="{{ scorerRows }}" as="s" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #181b23">
+                    <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background: {{ s.sideC }}"></span>
+                    <span style="flex:1;font-size:12px;font-weight:700">{{ s.name }}</span>
+                    <span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace">{{ s.goals }}</span>
+                    <span style="width:90px"><span style="display:block;height:4px;background:#181b23;border-radius:2px;overflow:hidden;margin-bottom:2px"><span style="display:block;height:100%;background:linear-gradient(90deg,#8a6a1f,#e9b949);width: {{ s.shareW }}"></span></span><span style="font-size:8.5px;color:#959ba6">占全队 <span style="color:#e9b949;font-weight:700;font-family:'IBM Plex Mono',monospace">{{ s.shareText }}</span></span></span>
+                  </div>
+                </sc-for>
+                <div style="height:6px"></div>
+              </div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:8px 14px 4px">
+                <div style="font-size:12px;font-weight:700;padding:4px 0 6px">教练 · 转会</div>
+                <sc-for list="{{ coachRows }}" as="c" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #181b23">
+                    <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background: {{ c.sideC }}"></span>
+                    <span style="flex:1;font-size:12px;font-weight:700">{{ c.name }}</span>
+                    <span style="font-size:10px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ c.meta }}</span>
+                  </div>
+                </sc-for>
+                <sc-for list="{{ transferRows }}" as="t" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #181b23">
+                    <span style="flex-shrink:0;font-size:9px;font-weight:800;border-radius:4px;padding:2px 6px;background:#181b23;color: {{ t.tagC }}">{{ t.tag }}</span>
+                    <span style="font-size:11px;font-weight:700;flex-shrink:0">{{ t.team }}</span>
+                    <span style="font-size:10.5px;color:#959ba6">{{ t.x }}</span>
+                  </div>
+                </sc-for>
+                <div style="height:6px"></div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:8px 14px 4px">
+                <div style="font-size:12px;font-weight:700;padding:4px 0 6px">联赛榜单</div>
+                <sc-for list="{{ lbRows }}" as="r" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #181b23">
+                    <span style="flex-shrink:0;width:44px;font-size:10px;font-weight:800;border-radius:4px;padding:2px 0;text-align:center;background:#181b23;color: {{ r.tagC }}">{{ r.tag }}</span>
+                    <span style="flex:1;font-size:12px;font-weight:700">{{ r.name }}</span>
+                    <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ r.v }}</span>
+                  </div>
+                </sc-for>
+                <div style="height:6px"></div>
+              </div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:8px 14px 4px">
+                <div style="font-size:12px;font-weight:700;padding:4px 0 6px">{{ ratingTitle }}</div>
+                <sc-for list="{{ ratingRows }}" as="r" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #181b23">
+                    <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background: {{ r.sideC }}"></span>
+                    <span style="flex:1;font-size:12px;font-weight:700">{{ r.name }}</span>
+                    <span style="font-size:9px;font-weight:700;color:#959ba6;background:#181b23;border-radius:4px;padding:2px 6px;font-family:'IBM Plex Mono',monospace">{{ r.pos }}</span>
+                    <span style="width:34px;text-align:center;font-size:11px;font-weight:800;font-family:'IBM Plex Mono',monospace;border-radius:5px;padding:3px 0;background: {{ r.rBg }};color: {{ r.rC }}">{{ r.r }}</span>
+                  </div>
+                </sc-for>
+                <div style="height:6px"></div>
+              </div>
+              <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:10px 14px">
+                <div style="font-size:12px;font-weight:700;margin-bottom:8px">教练荣誉</div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <sc-for list="{{ motivRows }}" as="mo" hint-placeholder-count="2">
+                    <div style="display:flex;gap:6px;font-size:11px;color:#959ba6;line-height:1.6"><span style="color:#e9b949">·</span><span>{{ mo.x }}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- 右栏 · 异动 + 预测 -->
+    <div style="display:flex;flex-direction:column;min-height:0;border-left:1px solid #20242e;background:#0c0d12">
+      <div style="flex:1.2;display:flex;flex-direction:column;min-height:0;border-bottom:1px solid #20242e">
+        <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px">
+          <span style="font-size:13px;font-weight:800">盘口异动</span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:#2ecc8a;font-weight:700"><span style="width:5px;height:5px;border-radius:50%;background:#2ecc8a;animation:livepulse 1.5s infinite"></span>实时</span>
+        </div>
+        <div style="flex-shrink:0;display:flex;gap:6px;padding:0 14px 8px">
+          <sc-for list="{{ monChips }}" as="c" hint-placeholder-count="4">
+            <div onClick="{{ c.onClick }}" style="padding:3px 10px;border-radius:999px;font-size:10px;font-weight:600;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+          </sc-for>
+        </div>
+        <div style="flex:1;overflow-y:auto;min-height:0;padding:0 10px 10px">
+          <sc-for list="{{ feed }}" as="f" hint-placeholder-count="6">
+            <div onClick="{{ f.open }}" style="background:#12141a;border:1px solid #181b23;border-radius:8px;margin-bottom:6px;padding:8px 10px;cursor:pointer" style-hover="border-color:#343b49">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <span style="font-size:9.5px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ f.t }}</span>
+                <span style="font-size:11px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.match }}</span>
+                <sc-if value="{{ f.sev }}" hint-placeholder-val="{{ false }}"><span style="font-size:8px;font-weight:800;color:#f0434f;background:rgba(240,67,79,.14);border-radius:3px;padding:1px 5px">急变</span></sc-if>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:9px;font-weight:700;color:#959ba6;background:#181b23;border-radius:3px;padding:1px 6px">{{ f.mk }}</span>
+                <span style="font-size:9.5px;font-weight:800;color: {{ f.typeC }}">{{ f.type }}</span>
+                <span style="font-size:10.5px;color:#959ba6;white-space:nowrap">{{ f.from }}</span>
+                <span style="font-size:9.5px;color: {{ f.typeC }}">→</span>
+                <span style="font-size:10.5px;font-weight:800;color: {{ f.typeC }};white-space:nowrap">{{ f.to }}</span>
+                <span style="flex:1"></span>
+                <span style="font-size:9px;color:#5c626e;font-family:'IBM Plex Mono',monospace;white-space:nowrap">{{ f.note }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <div style="flex-shrink:0;display:flex;align-items:baseline;justify-content:space-between;padding:12px 14px 8px">
+          <span style="font-size:13px;font-weight:800">官方预测 · 本场</span>
+          <span style="font-size:9px;color:#5c626e">唯一付费项</span>
+        </div>
+        <div style="flex:1;overflow-y:auto;min-height:0;padding:0 14px 14px">
+          <div onClick="{{ openRecord }}" style="display:flex;gap:8px;margin-bottom:10px;cursor:pointer">
+            <div style="flex:1;background:#12141a;border:1px solid #20242e;border-radius:8px;padding:7px 0;text-align:center"><div style="font-size:13px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#e9b949">64.7%</div><div style="font-size:8.5px;color:#5c626e">近30天命中</div></div>
+            <div style="flex:1;background:#12141a;border:1px solid #20242e;border-radius:8px;padding:7px 0;text-align:center"><div style="font-size:13px;font-weight:800;font-family:'IBM Plex Mono',monospace">4/5</div><div style="font-size:8.5px;color:#5c626e">昨日战绩</div></div>
+            <div style="flex:1;background:#12141a;border:1px solid #20242e;border-radius:8px;padding:7px 0;text-align:center"><div style="font-size:13px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#f0434f">4 连红</div><div style="font-size:8.5px;color:#5c626e">当前状态</div></div>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:12px 14px">
+            <div style="display:flex;align-items:center;gap:8px;background:#181b23;border-radius:8px;padding:8px 10px;margin-bottom:10px">
+              <span style="font-size:9px;font-weight:700;color:#959ba6;background:#20242e;border-radius:4px;padding:2px 6px;flex-shrink:0">建议</span>
+              <span style="font-size:12px;font-weight:800;color: {{ pAdviceC }}">{{ pAdvice }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:9.5px;color:#5b9dff;font-weight:700">主胜 <span style="font-family:'IBM Plex Mono',monospace">{{ pPH }}</span></span>
+              <span style="font-size:9.5px;color:#959ba6;font-weight:700">平 <span style="font-family:'IBM Plex Mono',monospace">{{ pPD }}</span></span>
+              <span style="font-size:9.5px;color:#e9b949;font-weight:700">客胜 <span style="font-family:'IBM Plex Mono',monospace">{{ pPA }}</span></span>
+            </div>
+            <div style="display:flex;height:5px;border-radius:3px;overflow:hidden;gap:2px;margin-bottom:10px">
+              <div style="background:#5b9dff;width: {{ pPH }}"></div>
+              <div style="background:#383d47;width: {{ pPD }}"></div>
+              <div style="background:#e9b949;width: {{ pPA }}"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+              <div style="background:#181b23;border-radius:6px;padding:6px 4px;text-align:center"><div style="font-size:8.5px;color:#5c626e;margin-bottom:2px">预测胜者</div><div style="font-size:10.5px;font-weight:800">{{ pWinner }}</div></div>
+              <div style="background:#181b23;border-radius:6px;padding:6px 4px;text-align:center"><div style="font-size:8.5px;color:#5c626e;margin-bottom:2px">大小球</div><div style="font-size:10.5px;font-weight:800">{{ pUo }}</div></div>
+              <div style="background:#181b23;border-radius:6px;padding:6px 4px;text-align:center"><div style="font-size:8.5px;color:#5c626e;margin-bottom:2px">进球上限</div><div style="font-size:10.5px;font-weight:800">{{ pGoals }}</div></div>
+            </div>
+            <sc-if value="{{ pLocked }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ pUnlock }}" style="background:linear-gradient(90deg,#e9b949,#d9a32e);color:#0a0b0f;border-radius:8px;text-align:center;padding:10px 0;font-size:12px;font-weight:800;cursor:pointer">{{ pUnlockText }}</div>
+              <div style="text-align:center;font-size:9px;color:#5c626e;margin-top:6px">解锁后含 AI 分析报告 · 永久可见</div>
+            </sc-if>
+            <sc-if value="{{ pOpen }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ goReport }}" style="border:1px solid rgba(233,185,73,.5);color:#e9b949;border-radius:8px;text-align:center;padding:9px 0;font-size:12px;font-weight:800;cursor:pointer">查看 AI 分析报告 ›</div>
+              <div style="text-align:center;font-size:9px;color:#5c626e;margin-top:6px">已解锁 · 永久可见</div>
+            </sc-if>
+          </div>
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:10px;padding:10px 12px;margin-top:10px">
+            <div style="font-size:11px;font-weight:800;margin-bottom:8px">近 7 日命中</div>
+            <div style="display:flex;gap:5px">
+              <sc-for list="{{ weekBars }}" as="b" hint-placeholder-count="7">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+                  <span style="font-size:7.5px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ b.txt }}</span>
+                  <div style="width:100%;height:26px;display:flex;align-items:flex-end"><div style="width:100%;border-radius:2px;background: {{ b.c }};height: {{ b.h }}"></div></div>
+                  <span style="font-size:7.5px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ b.d }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="border-top:1px solid #181b23;margin-top:9px;padding-top:8px">
+              <div style="font-size:11px;font-weight:800;margin-bottom:4px">昨日预测复盘</div>
+              <sc-for list="{{ ydayRows }}" as="y" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:7px;padding:4px 0">
+                  <span style="flex:1;font-size:10.5px;color:#c3c8d2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ y.match }}</span>
+                  <span style="font-size:10.5px;font-weight:700;color:#e9b949;flex-shrink:0;white-space:nowrap">{{ y.pick }}</span>
+                  <span style="font-size:10.5px;font-family:'IBM Plex Mono',monospace;color:#959ba6;width:26px;text-align:right;flex-shrink:0">{{ y.score }}</span>
+                  <span style="width:14px;text-align:center;font-size:11px;font-weight:800;flex-shrink:0;color: {{ y.c }}">{{ y.r }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="text-align:center;font-size:9px;color:#383d47;padding:10px 8px 0;line-height:1.6">预测由官方模型生成,仅供参考,不构成投注建议。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 登录 / 注册 ===== -->
+  <sc-if value="{{ showLogin }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:#0a0b0f">
+      <div style="width:400px">
+        <div style="font-size:30px;font-weight:800;letter-spacing:1px;text-align:center">足球<span style="color:#e9b949">终端</span></div>
+        <div style="text-align:center;font-size:11px;color:#5c626e;margin:6px 0 24px">亚盘 · 大小球 · 胜平负 · 专业数据</div>
+        <div style="background:rgba(233,185,73,.1);border:1px dashed rgba(233,185,73,.45);border-radius:10px;padding:10px 12px;margin-bottom:16px;display:flex;align-items:center;gap:9px">
+          <span style="flex-shrink:0;width:30px;height:30px;border-radius:8px;background:#e9b949;display:flex;align-items:center;justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#0a0b0f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="14" height="9" rx="1"></rect><path d="M3 8h14M10 8v9"></path><path d="M10 8C9 5.5 7.8 4 6.3 4 5.2 4 4.4 4.8 4.4 5.9 4.4 7.2 5.6 8 7 8zM10 8c1-2.5 2.2-4 3.7-4 1.1 0 1.9.8 1.9 1.9 0 1.3-1.2 2.1-2.6 2.1z"></path></svg>
+          </span>
+          <span style="font-size:11.5px;color:#c3c8d2;line-height:1.55">注册后全站盘口与异动<span style="color:#2ecc8a;font-weight:800">免费</span>查看;再送 <span style="color:#e9b949;font-weight:800">58 积分</span>,可解锁 1 场官方预测</span>
+        </div>
+        <input type="email" placeholder="邮箱" style="width:100%;box-sizing:border-box;background:#12141a;border:1px solid #20242e;border-radius:10px;padding:12px 14px;font-size:14px;color:#eceef2;outline:none;margin-bottom:10px">
+        <input type="password" placeholder="密码(至少 6 位)" style="width:100%;box-sizing:border-box;background:#12141a;border:1px solid #20242e;border-radius:10px;padding:12px 14px;font-size:14px;color:#eceef2;outline:none;margin-bottom:14px">
+        <div onClick="{{ doLogin }}" style="background:linear-gradient(90deg,#e9b949,#d9a32e);color:#0a0b0f;border-radius:10px;text-align:center;padding:12px 0;font-size:14px;font-weight:800;cursor:pointer">登录 / 注册</div>
+        <div style="text-align:center;font-size:10px;color:#5c626e;margin-top:10px">未注册的邮箱将自动创建账户,无需邮箱验证</div>
+        <div onClick="{{ doGuest }}" style="text-align:center;font-size:12px;color:#5c626e;margin-top:20px;cursor:pointer;text-decoration:underline;text-underline-offset:3px">暂不注册,返回浏览 ›</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== 账户抽屉 ===== -->
+  <sc-if value="{{ drawerOn }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:55;display:flex;justify-content:flex-end;background:rgba(4,5,9,.6)">
+      <div onClick="{{ closeDrawer }}" style="flex:1"></div>
+      <div style="width:390px;background:#0e1015;border-left:1px solid #20242e;display:flex;flex-direction:column;min-height:0">
+        <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #20242e">
+          <span style="font-size:14px;font-weight:800">账户中心</span>
+          <span onClick="{{ closeDrawer }}" style="font-size:14px;color:#5c626e;cursor:pointer">✕</span>
+        </div>
+        <div style="flex:1;overflow-y:auto;min-height:0;padding:14px 18px 20px">
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <span style="font-size:11px;color:#c3c8d2;font-family:'IBM Plex Mono',monospace">{{ email }}</span>
+            <span onClick="{{ logout }}" style="font-size:11px;color:#f0434f;font-weight:700;cursor:pointer">退出登录</span>
+          </div>
+
+          <div style="background:linear-gradient(135deg,#1a1e29,#12141a);border:1px solid rgba(233,185,73,.3);border-radius:12px;padding:14px;margin-bottom:12px">
+            <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:12px">
+              <span style="flex:1"><span style="display:block;font-size:10px;color:#959ba6;margin-bottom:3px">积分余额</span><span style="font-size:26px;line-height:1;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#e9b949">{{ ptsText }}</span></span>
+              <div onClick="{{ openRecharge }}" style="flex-shrink:0;width:64px;box-sizing:border-box;background:linear-gradient(90deg,#e9b949,#d9a32e);color:#0a0b0f;border-radius:8px;padding:9px 0;text-align:center;font-size:12px;font-weight:800;cursor:pointer">充值</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:stretch">
+              <input id="rd2" placeholder="输入兑换码,如 WC2026" style="flex:1;min-width:0;background:#181b23;border:1px solid #20242e;border-radius:8px;padding:9px 12px;font-size:12px;color:#eceef2;outline:none;font-family:'IBM Plex Mono',monospace">
+              <div onClick="{{ rdSubmit }}" style="flex-shrink:0;width:64px;box-sizing:border-box;border:1px solid rgba(233,185,73,.5);color:#e9b949;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;cursor:pointer">兑换</div>
+            </div>
+            <sc-if value="{{ rdMsgShow }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:10px;margin-top:6px;color: {{ rdMsgC }}">{{ rdMsg }}</div>
+            </sc-if>
+          </div>
+
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:12px 14px;margin-bottom:12px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:12px;font-weight:800">邀请好友 · 每人 +1 积分</span>
+              <span style="font-size:9px;color:#5c626e">日10 · 周30 · 月100</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;background:#181b23;border-radius:8px;padding:8px 10px;margin-bottom:8px">
+              <span style="flex:1;font-size:11px;font-weight:700;color:#e9b949;font-family:'IBM Plex Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">www.play.top/i/PAN9527</span>
+              <div onClick="{{ ivCopy }}" style="flex-shrink:0;font-size:10px;font-weight:800;color:#e9b949;cursor:pointer">复制</div>
+            </div>
+            <sc-if value="{{ ivCopied }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:9px;color:#2ecc8a;margin-bottom:6px">已复制,发给好友吧</div>
+            </sc-if>
+            <sc-for list="{{ ivBars }}" as="b" hint-placeholder-count="3">
+              <div style="display:grid;grid-template-columns:36px 1fr 52px;gap:10px;align-items:center;margin-bottom:6px">
+                <span style="font-size:10px;color:#959ba6">{{ b.label }}</span>
+                <div style="height:4px;background:#181b23;border-radius:2px;overflow:hidden"><div style="height:100%;background:linear-gradient(90deg,#8a6a1f,#e9b949);width: {{ b.w }}"></div></div>
+                <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:#959ba6;text-align:right">{{ b.txt }}</span>
+              </div>
+            </sc-for>
+            <div onClick="{{ openInvites }}" style="text-align:center;padding:8px 0 2px;font-size:11px;font-weight:700;color:#e9b949;cursor:pointer;border-top:1px solid #181b23;margin-top:4px">邀请记录 ›</div>
+          </div>
+
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:12px 14px;margin-bottom:12px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:12px;font-weight:800">充值 / 消费记录</span>
+              <sc-if value="{{ ledgerMore }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:9px;color:#5c626e">共 {{ ledgerCount }} 笔 · 显示最近 6 笔</span>
+              </sc-if>
+            </div>
+            <sc-if value="{{ ledgerEmpty }}" hint-placeholder-val="{{ true }}">
+              <div style="font-size:10px;color:#5c626e">暂无记录</div>
+            </sc-if>
+            <sc-for list="{{ ledgerRows }}" as="l" hint-placeholder-count="0">
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #181b23"><span style="font-size:11px;color:#959ba6">{{ l.x }}</span><span style="font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color: {{ l.vC }}">{{ l.v }}</span></div>
+            </sc-for>
+            <sc-if value="{{ ledgerMore }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ openLedgerModal }}" style="text-align:center;padding:8px 0 2px;font-size:11px;font-weight:700;color:#e9b949;cursor:pointer;border-top:1px solid #181b23;margin-top:4px">查看全部 {{ ledgerCount }} 笔历史记录 ›</div>
+            </sc-if>
+          </div>
+
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:12px 14px;margin-bottom:12px">
+            <div style="font-size:12px;font-weight:800;margin-bottom:10px">偏好设置</div>
+            <div style="font-size:10px;color:#959ba6;margin-bottom:6px">关注联赛</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+              <sc-for list="{{ followChips }}" as="c" hint-placeholder-count="6">
+                <div onClick="{{ c.onClick }}" style="padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+              </sc-for>
+            </div>
+            <div style="font-size:10px;color:#959ba6;margin-bottom:6px">涨跌配色</div>
+            <div style="display:flex;gap:6px;margin-bottom:12px">
+              <sc-for list="{{ schemeChips }}" as="c" hint-placeholder-count="2">
+                <div onClick="{{ c.onClick }}" style="flex:1;text-align:center;padding:6px 0;border-radius:8px;font-size:10.5px;font-weight:700;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+              </sc-for>
+            </div>
+            <div style="font-size:10px;color:#959ba6;margin-bottom:6px">界面语言</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+              <sc-for list="{{ langChips }}" as="c" hint-placeholder-count="7">
+                <div onClick="{{ c.onClick }}" style="padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+              </sc-for>
+            </div>
+            <div style="font-size:10px;color:#959ba6;margin-bottom:6px">时区</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+              <sc-for list="{{ tzChips }}" as="c" hint-placeholder-count="8">
+                <div onClick="{{ c.onClick }}" style="padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+              </sc-for>
+            </div>
+            <div style="font-size:10px;color:#959ba6;margin-bottom:6px">外观</div>
+            <div style="display:flex;gap:6px">
+              <sc-for list="{{ themeChips }}" as="c" hint-placeholder-count="2">
+                <div onClick="{{ c.onClick }}" style="flex:1;text-align:center;padding:6px 0;border-radius:8px;font-size:10.5px;font-weight:700;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background:#12141a;border:1px solid #20242e;border-radius:12px;padding:12px 14px">
+            <div style="font-size:12px;font-weight:800;margin-bottom:8px">系统工单</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+              <sc-for list="{{ tkChips }}" as="c" hint-placeholder-count="4">
+                <div onClick="{{ c.onClick }}" style="padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;background: {{ c.bg }};color: {{ c.fg }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+              </sc-for>
+            </div>
+            <textarea id="tk2" rows="3" placeholder="请描述你遇到的问题或建议…" style="width:100%;box-sizing:border-box;background:#181b23;border:1px solid #20242e;border-radius:8px;padding:10px;font-size:12px;color:#eceef2;outline:none;resize:none;font-family:inherit;line-height:1.6"></textarea>
+            <sc-if value="{{ tkErr }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:10px;color:#f0434f;margin-top:5px">请先填写问题描述</div>
+            </sc-if>
+            <div onClick="{{ tkSubmit }}" style="background:linear-gradient(90deg,#e9b949,#d9a32e);color:#0a0b0f;border-radius:8px;text-align:center;padding:9px 0;font-size:12px;font-weight:800;cursor:pointer;margin-top:8px">提交工单</div>
+            <sc-if value="{{ tkOk }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:10px;color:#2ecc8a;margin-top:6px;text-align:center">已提交,客服将在 24 小时内回复</div>
+            </sc-if>
+            <sc-for list="{{ ticketRows }}" as="t" hint-placeholder-count="0">
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #181b23;margin-top:6px">
+                <span style="font-size:9.5px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ t.id }}</span>
+                <span style="flex:1;font-size:11px;font-weight:700">{{ t.type }}</span>
+                <span style="font-size:8.5px;font-weight:800;border-radius:4px;padding:2px 6px;background:rgba(233,185,73,.14);color:#e9b949">{{ t.status }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== 邀请记录弹窗 ===== -->
+  <sc-if value="{{ mInvites }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(4,5,9,.72)">
+      <div onClick="{{ stop }}" style="width:420px;background:#14161d;border:1px solid #262a34;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;max-height:70vh">
+        <div style="flex-shrink:0;display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:15px;font-weight:800">邀请记录</span>
+          <span style="font-size:10px;color:#5c626e">累计 86 人 · +86 积分</span>
+        </div>
+        <div style="flex:1;overflow-y:auto;min-height:0">
+          <sc-for list="{{ ivLog }}" as="l" hint-placeholder-count="8">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid #181b23">
+              <span style="flex:1;font-size:12px;font-weight:600">{{ l.u }}</span>
+              <span style="font-size:9.5px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ l.t }}</span>
+              <span style="font-size:12px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#2ecc8a">+1</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex-shrink:0;font-size:9px;color:#5c626e;margin-top:8px">超出每日 10 / 每周 30 / 每月 100 上限的部分不计入</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== 异动详情弹窗 ===== -->
+  <sc-if value="{{ mMove }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(4,5,9,.72)">
+      <div onClick="{{ stop }}" style="width:460px;background:#14161d;border:1px solid #262a34;border-radius:14px;padding:18px 20px">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:2px">
+          <span style="width:6px;height:6px;border-radius:50%;background: {{ mvDot }}"></span>
+          <span style="font-size:11px;color:#959ba6;font-weight:600">{{ mvLeague }}</span>
+          <span style="flex:1"></span>
+          <sc-if value="{{ mvSev }}" hint-placeholder-val="{{ false }}">
+            <span style="font-size:9px;font-weight:800;color:#f0434f;background:rgba(240,67,79,.14);border-radius:4px;padding:2px 6px">急变</span>
+          </sc-if>
+        </div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:10px">{{ mvMatch }}</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <span style="font-size:10px;font-weight:700;color:#959ba6;background:#181b23;border-radius:4px;padding:3px 8px">{{ mvMk }}</span>
+          <span style="font-size:10px;font-weight:700;color:#959ba6;background:#181b23;border-radius:4px;padding:3px 8px">{{ mvBk }}</span>
+          <span style="font-size:10px;font-weight:800;border-radius:4px;padding:3px 8px;background:#181b23;color: {{ mvTypeC }}">{{ mvType }}</span>
+        </div>
+        <div style="background:#0e1117;border:1px solid #20242e;border-radius:10px;overflow:hidden;margin-bottom:12px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:8px 12px;border-bottom:1px solid #20242e">
+            <span style="font-size:10px;color:#5c626e"></span>
+            <span style="font-size:10px;color:#5c626e;text-align:right;font-family:'IBM Plex Mono',monospace">{{ mvT0 }} 快照</span>
+            <span style="font-size:10px;color:#e9b949;text-align:right;font-family:'IBM Plex Mono',monospace">{{ mvT1 }} 快照</span>
+          </div>
+          <sc-for list="{{ mvRows }}" as="r" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:9px 12px;border-bottom:1px solid #181b23;align-items:center">
+              <span style="font-size:11px;color:#959ba6">{{ r.k }}</span>
+              <span style="font-size:12.5px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ r.a }}</span>
+              <span style="font-size:12.5px;font-weight:800;text-align:right;font-family:'IBM Plex Mono',monospace;color: {{ r.bC }}">{{ r.b }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div onClick="{{ mvGo }}" style="background:linear-gradient(90deg,#e9b949,#d9a32e);color:#0a0b0f;border-radius:10px;text-align:center;padding:11px 0;font-size:13px;font-weight:800;cursor:pointer">查看本场盘口走势</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== 历史记录弹窗 ===== -->
+  <sc-if value="{{ mLedger }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(4,5,9,.72)">
+      <div onClick="{{ stop }}" style="width:460px;background:#14161d;border:1px solid #262a34;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;max-height:70vh">
+        <div style="flex-shrink:0;display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:15px;font-weight:800">充值 / 消费记录</span>
+          <span style="font-size:10px;color:#5c626e">共 {{ ledgerCount }} 笔</span>
+        </div>
+        <div style="flex:1;overflow-y:auto;min-height:0">
+          <sc-for list="{{ ledgerAll }}" as="l" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid #181b23">
+              <span style="flex:1;min-width:0"><span style="display:block;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ l.x }}</span><span style="font-size:9.5px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ l.t }}</span></span>
+              <span style="font-size:12.5px;font-weight:800;font-family:'IBM Plex Mono',monospace;flex-shrink:0;color: {{ l.vC }}">{{ l.v }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== 充值弹窗 ===== -->
+  <sc-if value="{{ mRecharge }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(4,5,9,.72)">
+      <div onClick="{{ stop }}" style="width:520px;background:#14161d;border:1px solid #262a34;border-radius:14px;padding:18px 20px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:15px;font-weight:800">充值积分</span>
+          <span style="font-size:10px;color:#e9b949;font-weight:700">首充任意档位 +50%</span>
+        </div>
+        <div style="font-size:11px;color:#959ba6;margin-bottom:14px">积分仅用于解锁比赛预测 · 1 元 = 10 积分起</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <sc-for list="{{ rTiers }}" as="r" hint-placeholder-count="6">
+            <div onClick="{{ r.onClick }}" style="position:relative;background:#181b23;border:1px solid {{ r.bd }};border-radius:10px;padding:12px 0 10px;text-align:center;cursor:pointer" style-hover="border-color:rgba(233,185,73,.5)">
+              <sc-if value="{{ r.hot }}" hint-placeholder-val="{{ false }}">
+                <span style="position:absolute;top:-7px;right:8px;background:#e9b949;color:#0a0b0f;font-size:8px;font-weight:800;border-radius:4px;padding:1px 5px">最划算</span>
+              </sc-if>
+              <div style="font-size:16px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#e9b949">{{ r.pts }}</div>
+              <div style="font-size:9px;color:#2ecc8a;font-weight:700;height:13px">{{ r.tag }}</div>
+              <div style="font-size:11px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ r.rmb }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="text-align:center;font-size:10px;color:#5c626e">演示环境:点击档位即模拟支付到账</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== 刷新规则弹窗 ===== -->
+  <sc-if value="{{ mRefresh }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(4,5,9,.72)">
+      <div onClick="{{ stop }}" style="width:440px;background:#14161d;border:1px solid #262a34;border-radius:14px;padding:18px 20px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
+          <span style="font-size:15px;font-weight:800">数据刷新规则</span>
+          <span style="font-size:10px;color:#5c626e">越临近开球,刷新越快</span>
+        </div>
+        <sc-for list="{{ rfRows }}" as="r" hint-placeholder-count="7">
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;margin-bottom:4px;background:#0e1117">
+            <span style="flex:1;font-size:12px;font-weight:600;color:#c3c8d2">{{ r.t }}</span>
+            <span style="font-size:11.5px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#959ba6">{{ r.f }}</span>
+          </div>
+        </sc-for>
+        <div style="font-size:10px;color:#5c626e;margin-top:8px;line-height:1.7">赔率、赛况与阵容数据来自官方接口,平台按上表频率自动抓取;滚球期为接口允许的最高刷新频率。</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== 模型战绩弹窗 ===== -->
+  <sc-if value="{{ mRecord }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(4,5,9,.72)">
+      <div onClick="{{ stop }}" style="width:480px;background:#14161d;border:1px solid #262a34;border-radius:14px;padding:18px 20px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
+          <span style="font-size:15px;font-weight:800">模型战绩</span>
+          <span style="font-size:10px;color:#5c626e">预测对照赛果自动统计</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:14px">
+          <sc-for list="{{ weekBars }}" as="b" hint-placeholder-count="7">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+              <span style="font-size:8px;color:#959ba6;font-family:'IBM Plex Mono',monospace">{{ b.txt }}</span>
+              <div style="width:100%;height:34px;display:flex;align-items:flex-end"><div style="width:100%;border-radius:3px;background: {{ b.c }};height: {{ b.h }}"></div></div>
+              <span style="font-size:8px;color:#5c626e;font-family:'IBM Plex Mono',monospace">{{ b.d }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="border-top:1px solid #20242e;padding-top:10px">
+          <div style="font-size:11px;font-weight:700;color:#959ba6;margin-bottom:5px">昨日预测复盘</div>
+          <sc-for list="{{ ydayRows }}" as="y" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+              <span style="flex:1;font-size:11px;color:#c3c8d2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ y.match }}</span>
+              <span style="font-size:11px;font-weight:700;color:#e9b949;flex-shrink:0">{{ y.pick }}</span>
+              <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:#959ba6;width:28px;text-align:right;flex-shrink:0">{{ y.score }}</span>
+              <span style="width:16px;text-align:center;font-size:12px;font-weight:800;flex-shrink:0;color: {{ y.c }}">{{ y.r }}</span>
+            </div>
+          </sc-for>
+          <div style="font-size:9px;color:#5c626e;margin-top:6px">战绩为模型历史预测对照赛果的统计,不构成投注建议</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1600, &quot;height&quot;: 900}}">
+class Component extends DCLogic {
+  state = { sel: 1, leagueF: '全部', tab: 'odds', pts: 58, unlocked: {}, modal: null, copied: false, drawer: false, logged: true, guest: true, ledger: [], redeemed: {}, rdMsg: '', rdOk: false, ivCopied: false, follows: { '英超': 1, '世界杯': 1 }, scheme: '红升绿降', lang: '简体中文', tz: 'UTC+8', theme: '深色', tickets: [], ticketType: '数据问题', tkOk: false, tkErr: false };
+
+  static LANGS = ['简体中文', '繁體中文', 'English', '한국어', '日本語', 'Tiếng Việt', 'ไทย'];
+  static TZS = ['北京 UTC+8', '首尔·东京 UTC+9', '曼谷 UTC+7', '伦敦 UTC+1', '中欧 UTC+2', '纽约 UTC-4', '洛杉矶 UTC-7', '悉尼 UTC+10'];
+
+  static TIERS = [{ rmb: 6, pts: 60 }, { rmb: 30, pts: 320, tag: '+6%' }, { rmb: 68, pts: 750, tag: '+10%' }, { rmb: 128, pts: 1480, tag: '+15%' }, { rmb: 328, pts: 3940, tag: '+20%' }, { rmb: 648, pts: 8420, tag: '+30%', hot: 1 }];
+  static YDAY = [
+    { match: '葡萄牙 vs 法国', pick: '主胜', score: '2-1', hit: 1 },
+    { match: '多特 vs 法兰克福', pick: '大 3.0', score: '3-1', hit: 1 },
+    { match: '那不勒斯 vs 拉齐奥', pick: '小 2.25', score: '1-0', hit: 1 },
+    { match: '马竞 vs 瓦伦西亚', pick: '马竞 -0.75', score: '1-1', hit: 0 },
+    { match: '里昂 vs 马赛', pick: '大 2.5', score: '2-2', hit: 1 }
+  ];
+  static WEEK = [['05', 3, 5], ['06', 4, 6], ['07', 3, 5], ['08', 5, 7], ['09', 4, 6], ['10', 4, 5], ['今', null, null]];
+
+  static AH_TEXT = { 0: '平手', 0.25: '平半', 0.5: '半球', 0.75: '半一', 1: '一球', 1.25: '一/球半', 1.5: '球半', 1.75: '球半/两', 2: '两球' };
+  static OU_TEXT = { 2: '两球', 2.25: '两/两半', 2.5: '两球半', 2.75: '两半/三', 3: '三球', 3.25: '三/三半', 3.5: '三球半' };
+  static DOTS = { '英超': '#8e6cf0', '西甲': '#f2a13b', '德甲': '#d4524f', '意甲': '#3f8cff', '法甲': '#38bdd4', '世界杯': '#4ad1a0' };
+  static COS = ['Bet365', '平博', '马拉松', 'Bwin', '1xBet', '必发'];
+  static RF = [['>12h', '低频巡检'], ['12–6h', '每 60 分钟'], ['6–1h', '每 30 分钟'], ['1h–30m', '每 10 分钟'], ['30–5m', '每 5 分钟'], ['5m–开球', '每 1 分钟'], ['滚球', '每 1 分钟']];
+  static LIVEODDS = {
+    1: [{ mk: '亚盘', v: '平半 · 0.85 / 1.01' }, { mk: '大小', v: '3.5 球 · 0.95 / 0.88' }, { mk: '胜平负', v: '1.30 / 5.20 / 9.00' }],
+    5: [{ mk: '亚盘', v: '受半球 · 0.90 / 0.96' }, { mk: '大小', v: '', susp: 1 }, { mk: '胜平负', v: '5.50 / 4.30 / 1.62' }]
+  };
+
+  MATCHES = [
+    { id: 1, lg: '英超', time: '03:00', live: 1, min: "67'", score: '2-1', home: '曼城', away: '阿森纳', ahFrom: 0.25, ah: { line: 0.5, h: 0.95, a: 0.93 }, ouFrom: 2.5, ou: { line: 2.75, o: 0.9, u: 0.98 }, eu: { h: 1.3, d: 5.2, a: 9.0 } },
+    { id: 5, lg: '西甲', time: '02:00', live: 1, min: "23'", score: '0-1', home: '赫罗纳', away: '巴萨', ahFrom: -0.75, ah: { line: -1, h: 0.88, a: 0.98 }, ouFrom: null, ou: { line: 3, o: 0.95, u: 0.91 }, eu: { h: 5.5, d: 4.3, a: 1.62 } },
+    { id: 3, lg: '英超', time: '01:30', live: 0, home: '纽卡斯尔', away: '热刺', ahFrom: null, ah: { line: -0.25, h: 0.9, a: 0.96 }, ouFrom: null, ou: { line: 2.75, o: 0.95, u: 0.91 }, eu: { h: 2.6, d: 3.45, a: 2.55 } },
+    { id: 6, lg: '德甲', time: '02:30', live: 0, home: '拜仁', away: '莱比锡', ahFrom: 1.25, ah: { line: 1.5, h: 0.85, a: 1.01 }, ouFrom: null, ou: { line: 3.5, o: 0.93, u: 0.93 }, eu: { h: 1.36, d: 5.25, a: 7.5 } },
+    { id: 9, lg: '意甲', time: '02:45', live: 0, home: 'AC米兰', away: '罗马', ahFrom: 0.5, ah: { line: 0.25, h: 0.96, a: 0.9 }, ouFrom: null, ou: { line: 2.5, o: 0.93, u: 0.93 }, eu: { h: 2.2, d: 3.3, a: 3.3 } },
+    { id: 2, lg: '英超', time: '03:00', live: 0, home: '利物浦', away: '切尔西', ahFrom: null, ah: { line: 0.75, h: 0.98, a: 0.88 }, ouFrom: null, ou: { line: 3, o: 0.93, u: 0.93 }, eu: { h: 1.95, d: 3.6, a: 3.7 } },
+    { id: 4, lg: '西甲', time: '03:30', live: 0, home: '皇马', away: '塞维利亚', ahFrom: null, ah: { line: 1.25, h: 0.92, a: 0.94 }, ouFrom: null, ou: { line: 3.25, o: 0.98, u: 0.88 }, eu: { h: 1.44, d: 4.6, a: 6.8 } },
+    { id: 7, lg: '意甲', time: '03:45', live: 0, home: '国米', away: '尤文', ahFrom: null, ah: { line: 0.5, h: 1.0, a: 0.86 }, ouFrom: 2.5, ou: { line: 2.25, o: 0.98, u: 0.88 }, eu: { h: 2.1, d: 3.1, a: 3.7 } },
+    { id: 8, lg: '法甲', time: '04:00', live: 0, home: '巴黎', away: '摩纳哥', ahFrom: null, ah: { line: 1, h: 0.9, a: 0.96 }, ouFrom: 2.75, ou: { line: 3, o: 0.88, u: 0.98 }, eu: { h: 1.5, d: 4.4, a: 6.0 } },
+    { id: 12, lg: '世界杯', time: '05:00', live: 0, home: '美国', away: '摩洛哥', ahFrom: null, ah: { line: 0.25, h: 0.97, a: 0.89 }, ouFrom: null, ou: { line: 2.5, o: 0.95, u: 0.91 }, eu: { h: 2.45, d: 3.1, a: 3.05 } },
+    { id: 10, lg: '世界杯', time: '08:00', live: 0, home: '墨西哥', away: '喀麦隆', ahFrom: null, ah: { line: 0.5, h: 0.93, a: 0.93 }, ouFrom: null, ou: { line: 2.25, o: 0.9, u: 0.96 }, eu: { h: 1.8, d: 3.4, a: 4.6 } },
+    { id: 11, lg: '世界杯', time: '11:00', live: 0, home: '韩国', away: '智利', ahFrom: -0.25, ah: { line: 0, h: 0.95, a: 0.91 }, ouFrom: null, ou: { line: 2.25, o: 0.93, u: 0.93 }, eu: { h: 2.3, d: 3.2, a: 3.2 } }
+  ];
+
+  FEED = [
+    { t: '14:55', t0: '14:32', bk: 'Bet365', mid: 6, match: '拜仁 vs 莱比锡', mk: '亚盘', type: '升盘', from: '一/球半', to: '球半', note: '+0.25', sev: 1, rows: [{ k: '盘口', a: '一/球半', b: '球半', chg: 1 }, { k: '主队水位', a: '0.90', b: '0.85' }, { k: '客队水位', a: '0.96', b: '1.01' }] },
+    { t: '14:41', t0: '14:18', bk: '平博', mid: 1, match: '曼城 vs 阿森纳', mk: '大小', type: '升盘', from: '两球半', to: '两半/三', note: '+0.25', sev: 0, rows: [{ k: '盘口', a: '两球半', b: '两半/三', chg: 1 }, { k: '大球水位', a: '0.95', b: '0.90' }, { k: '小球水位', a: '0.91', b: '0.96' }] },
+    { t: '14:32', t0: '13:55', bk: 'Bet365', mid: 4, match: '皇马 vs 塞维利亚', mk: '亚盘', type: '水位', from: '主 0.85', to: '主 0.92', note: '+0.07', sev: 0, rows: [{ k: '盘口', a: '一/球半', b: '一/球半', chg: 0 }, { k: '主队水位', a: '0.85', b: '0.92' }, { k: '客队水位', a: '1.01', b: '0.94' }] },
+    { t: '14:10', t0: '13:40', bk: '马拉松', mid: 8, match: '巴黎 vs 摩纳哥', mk: '大小', type: '降盘', from: '三球', to: '两半/三', note: '-0.25', sev: 0, rows: [{ k: '盘口', a: '三球', b: '两半/三', chg: 1 }, { k: '大球水位', a: '0.88', b: '0.95' }, { k: '小球水位', a: '0.98', b: '0.91' }] },
+    { t: '13:58', t0: '13:21', bk: '1xBet', mid: 2, match: '利物浦 vs 切尔西', mk: '亚盘', type: '水位', from: '主 0.93', to: '主 0.98', note: '+0.05', sev: 0, rows: [{ k: '盘口', a: '半一', b: '半一', chg: 0 }, { k: '主队水位', a: '0.93', b: '0.98' }, { k: '客队水位', a: '0.93', b: '0.88' }] },
+    { t: '13:30', t0: '13:02', bk: '必发', mid: 9, match: 'AC米兰 vs 罗马', mk: '亚盘', type: '降盘', from: '半球', to: '平半', note: '-0.25', sev: 1, rows: [{ k: '盘口', a: '半球', b: '平半', chg: 1 }, { k: '主队水位', a: '0.96', b: '0.90' }, { k: '客队水位', a: '0.90', b: '0.96' }] },
+    { t: '12:55', t0: '12:30', bk: 'Bwin', mid: 7, match: '国米 vs 尤文', mk: '大小', type: '降盘', from: '两球半', to: '两/两半', note: '-0.25', sev: 0, rows: [{ k: '盘口', a: '两球半', b: '两/两半', chg: 1 }, { k: '大球水位', a: '0.90', b: '0.98' }, { k: '小球水位', a: '0.96', b: '0.88' }] },
+    { t: '12:20', t0: '11:58', bk: '平博', mid: 11, match: '韩国 vs 智利', mk: '亚盘', type: '升盘', from: '受平半', to: '平手', note: '+0.25', sev: 0, rows: [{ k: '盘口', a: '受平半', b: '平手', chg: 1 }, { k: '主队水位', a: '0.91', b: '0.95' }, { k: '客队水位', a: '0.95', b: '0.91' }] },
+    { t: '11:48', t0: '11:20', bk: 'Bet365', mid: 3, match: '纽卡斯尔 vs 热刺', mk: '亚盘', type: '水位', from: '客 0.85', to: '客 0.96', note: '+0.11', sev: 0, rows: [{ k: '盘口', a: '受平半', b: '受平半', chg: 0 }, { k: '主队水位', a: '1.01', b: '0.90' }, { k: '客队水位', a: '0.85', b: '0.96' }] }
+  ];
+  static IVLOG = [
+    { u: '用户 89**21', t: '06-11 14:02' }, { u: '用户 33**08', t: '06-11 11:47' }, { u: '用户 75**90', t: '06-11 09:15' },
+    { u: '用户 02**66', t: '06-10 22:31' }, { u: '用户 18**42', t: '06-10 20:08' }, { u: '用户 56**13', t: '06-10 15:54' },
+    { u: '用户 91**77', t: '06-09 19:26' }, { u: '用户 44**05', t: '06-09 12:40' }
+  ];
+
+  TECH1 = {
+    formH: ['胜', '胜', '平', '胜', '胜', '负'], formA: ['胜', '平', '胜', '胜', '负', '胜'],
+    palu: [{ label: '曼城 · 赢盘率 (近10)', pct: 70 }, { label: '曼城 · 大球率 (近10)', pct: 70 }, { label: '阿森纳 · 赢盘率 (近10)', pct: 60 }, { label: '阿森纳 · 大球率 (近10)', pct: 65 }],
+    minH: [10, 13, 18, 15, 20, 24], minA: [8, 15, 15, 18, 19, 25],
+    h2h: [{ d: '25-12-20', c: '英超', s: '2-1', res: '赢盘', ou: '大' }, { d: '25-08-12', c: '社区盾', s: '1-1', res: '走盘', ou: '小' }, { d: '25-03-09', c: '英超', s: '0-0', res: '输盘', ou: '小' }, { d: '24-10-22', c: '英超', s: '3-1', res: '赢盘', ou: '大' }]
+  };
+  PRED1 = { pH: 58, pD: 22, pA: 20 };
+
+  static STAR = { '曼城': '哈兰德', '阿森纳': '萨卡', '利物浦': '萨拉赫', '切尔西': '帕尔默', '纽卡斯尔': '伊萨克', '热刺': '孙兴慜', '皇马': '姆巴佩', '塞维利亚': '卢克巴基奥', '赫罗纳': '斯图亚尼', '巴萨': '莱万多夫斯基', '拜仁': '凯恩', '莱比锡': '奥蓬达', 'AC米兰': '莱奥', '罗马': '迪巴拉', '国米': '劳塔罗', '尤文': '弗拉霍维奇', '巴黎': '登贝莱', '摩纳哥': '巴洛贡', '美国': '普利西奇', '摩洛哥': '恩内斯里', '墨西哥': '希门尼斯', '喀麦隆': '阿布巴卡尔', '韩国': '孙兴慜', '智利': '桑切斯' };
+  static COACH = { '曼城': ['瓜迪奥拉', '2016', '73%'], '阿森纳': ['阿尔特塔', '2019', '61%'], '利物浦': ['斯洛特', '2024', '64%'], '切尔西': ['马雷斯卡', '2024', '58%'], '纽卡斯尔': ['豪威', '2021', '54%'], '热刺': ['波斯特科格鲁', '2023', '52%'], '皇马': ['阿隆索', '2025', '70%'], '塞维利亚': ['皮米恩塔', '2024', '48%'], '赫罗纳': ['米歇尔', '2021', '50%'], '巴萨': ['弗里克', '2024', '69%'], '拜仁': ['孔帕尼', '2024', '68%'], '莱比锡': ['罗泽', '2022', '56%'], 'AC米兰': ['丰塞卡', '2024', '55%'], '罗马': ['拉涅利', '2024', '51%'], '国米': ['因扎吉', '2021', '62%'], '尤文': ['莫塔', '2024', '57%'], '巴黎': ['恩里克', '2023', '71%'], '摩纳哥': ['许特尔', '2023', '55%'], '美国': ['波切蒂诺', '2024', '60%'], '墨西哥': ['阿吉雷', '2024', '58%'], '韩国': ['洪明甫', '2024', '61%'], '智利': ['加雷卡', '2024', '45%'], '摩洛哥': ['雷格拉吉', '2022', '66%'], '喀麦隆': ['布里斯', '2024', '47%'] };
+  static CTRY = { '英超': '英格兰', '西甲': '西班牙', '德甲': '德国', '意甲': '意大利', '法甲': '法国', '世界杯': '北美' };
+  static LB = {
+    '英超': [['哈兰德', '31 球'], ['厄德高', '14 助攻'], ['赖斯', '11 黄'], ['若昂·戈麦斯', '2 红']],
+    '西甲': [['姆巴佩', '27 球'], ['拉菲尼亚', '12 助攻'], ['加维', '13 黄'], ['维尼修斯', '2 红']],
+    '德甲': [['凯恩', '29 球'], ['维尔茨', '13 助攻'], ['安东', '10 黄'], ['帕乔', '1 红']],
+    '意甲': [['劳塔罗', '24 球'], ['迪马尔科', '9 助攻'], ['麦肯尼', '12 黄'], ['卢卡库', '2 红']],
+    '法甲': [['登贝莱', '21 球'], ['格林伍德', '10 助攻'], ['富法纳', '12 黄'], ['巴尔德', '2 红']]
+  };
+  static LB_TAGS = [['射手王', '#e9b949'], ['助攻王', '#5b9dff'], ['黄牌王', '#e9b949'], ['红牌王', '#f0434f']];
+  static TR = [{ tag: '转入', x: '冬窗租借引进 1 名中场' }, { tag: '转入', x: '冬窗签入 1 名中卫(永久转会)' }, { tag: '转出', x: '夏窗出售 1 名主力边锋' }, { tag: '无变动', x: '近两个转会窗无一线队进出记录' }];
+  static INTEL_POOL = [
+    { tag: '缺阵', x: '主力中卫 · 累积黄牌停赛' }, { tag: '缺阵', x: '头号射手 · 大腿肌肉伤' },
+    { tag: '存疑', x: '主力门将 · 肌肉不适,赛前评估' }, { tag: '存疑', x: '边路主力 · 流感,赛前评估' },
+    { tag: '解禁', x: '主力中场 · 停赛期满' }, { tag: '解禁', x: '主力前锋 · 伤停期结束' }
+  ];
+  INTEL1 = [{ side: '主', tag: '缺阵', x: '斯通斯 · 腿筋拉伤' }, { side: '主', tag: '解禁', x: '德布劳内 · 伤停期结束' }, { side: '客', tag: '缺阵', x: '富安健洋 · 膝伤' }, { side: '客', tag: '解禁', x: '萨利巴 · 停赛期满' }];
+  LINEUPS = {
+    1: {
+      home: { form: '4-1-4-1', coach: '瓜迪奥拉', rows: [['埃德森'], ['沃克', '迪亚斯', '阿坎吉', '格瓦迪奥尔'], ['罗德里'], ['B席', '德布劳内', '科瓦契奇', '福登'], ['哈兰德']] },
+      away: { form: '4-3-3', coach: '阿尔特塔', rows: [['拉亚'], ['本怀特', '萨利巴', '加布里埃尔', '廷伯'], ['厄德高', '赖斯', '哈弗茨'], ['萨卡', '热苏斯', '马丁内利']] }
+    }
+  };
+
+  intelFor(m) {
+    if (m.id === 1) return this.INTEL1;
+    const P = Component.INTEL_POOL;
+    const S = k => Math.floor(this.seed(m.id, k) * P.length);
+    const pick = (k, side) => ({ side, tag: P[S(k)].tag, x: P[S(k)].x });
+    return [pick(130, '主'), pick(131, '主'), pick(132, '客'), pick(133, '客')];
+  }
+
+  deepFor(m) {
+    const S = k => this.seed(m.id, k);
+    const wc = m.lg === '世界杯';
+    const star = Component.STAR[m.home] || '头号射手', starA = Component.STAR[m.away] || '头号射手';
+    const ch = Component.COACH[m.home] || ['现任主帅', '2023', '52%'], ca = Component.COACH[m.away] || ['现任主帅', '2023', '52%'];
+    const w = 4 + Math.floor(S(150) * 5), dr = Math.floor(S(151) * 3), l = 10 - w - dr;
+    const venue = m.id === 1
+      ? ['伊蒂哈德球场', '曼彻斯特', '5.3 万', '天然草', '英格兰', '曼城近 10 个主场 8胜1平1负,场均总进球 3.1']
+      : wc ? ['北美世界杯球场 · 中立', '2026 世界杯', (4.5 + S(145) * 4).toFixed(1) + ' 万', '天然草', '北美', m.home + ' 近 10 场国际 A 级赛 ' + w + '胜' + dr + '平' + l + '负']
+        : [m.home + '主场', '主场作战', (3 + S(145) * 5).toFixed(1) + ' 万', '天然草', Component.CTRY[m.lg], m.home + ' 近 10 个主场 ' + w + '胜' + dr + '平' + l + '负'];
+    const mkS = (sideC, name, k1, k2) => {
+      const share = 25 + Math.floor(S(k2) * 20);
+      return { sideC, name, goals: ((wc ? 6 : 12) + Math.floor(S(k1) * (wc ? 10 : 16))) + ' 球', shareW: share + '%', shareText: share + '%' };
+    };
+    const rb = v => v >= 8 ? ['rgba(233,185,73,.16)', '#e9b949'] : v >= 7 ? ['rgba(46,204,138,.16)', '#2ecc8a'] : ['rgba(149,155,166,.16)', '#959ba6'];
+    const rats = m.id === 1
+      ? [['#5b9dff', '哈兰德', 'ST', 8.7], ['#5b9dff', '德布劳内', 'AM', 8.2], ['#5b9dff', '福登', 'RW', 7.6], ['#e9b949', '萨卡', 'RW', 7.9], ['#e9b949', '厄德高', 'AM', 7.4], ['#e9b949', '拉亚', 'GK', 6.8]]
+      : [['#5b9dff', star, 'FW', 6.9 + S(160) * 1.3], ['#e9b949', starA, 'FW', 6.9 + S(161) * 1.3]];
+    return {
+      vName: venue[0], vCity: venue[1], vCap: venue[2], vSurface: venue[3], vCountry: venue[4], vRec: venue[5],
+      scorerRows: [mkS('#5b9dff', star, 147, 148), mkS('#e9b949', starA, 157, 158)],
+      ratingTitle: m.live ? '实时评分 · 本场' : '赛季场均评分 · 关键球员',
+      ratingRows: rats.map(r => { const bc = rb(r[3]); return { sideC: r[0], name: r[1], pos: r[2], r: r[3].toFixed(1), rBg: bc[0], rC: bc[1] }; }),
+      coachRows: [
+        { sideC: '#5b9dff', name: ch[0], meta: ch[1] + ' 上任 · 胜率 ' + ch[2] },
+        { sideC: '#e9b949', name: ca[0], meta: ca[1] + ' 上任 · 胜率 ' + ca[2] }
+      ],
+      transferRows: [
+        { team: m.home, ...Component.TR[Math.floor(S(164) * Component.TR.length)] },
+        { team: m.away, ...Component.TR[Math.floor(S(165) * Component.TR.length)] }
+      ].map(t => ({ ...t, tagC: ({ '转入': '#2ecc8a', '转出': '#f0434f', '无变动': '#959ba6' })[t.tag] || '#959ba6' })),
+      motivRows: m.id === 1
+        ? [{ x: '瓜迪奥拉:执教生涯冠军 39 座(英超 ×6 · 欧冠 ×3)' }, { x: '阿尔特塔:执教冠军 3 座(足总杯 ×1 · 社区盾 ×2)' }]
+        : [{ x: ch[0] + ':执教生涯冠军 ' + (1 + Math.floor(S(170) * 12)) + ' 座' }, { x: ca[0] + ':执教生涯冠军 ' + Math.floor(S(171) * 8) + ' 座' }],
+      lbRows: (Component.LB[m.lg] || [['—', '小组赛开赛后生成'], ['—', '小组赛开赛后生成'], ['—', '小组赛开赛后生成'], ['—', '小组赛开赛后生成']]).map((r, i) => ({
+        tag: Component.LB_TAGS[i][0], tagC: Component.LB_TAGS[i][1], name: r[0], v: r[1]
+      }))
+    };
+  }
+
+  seed(a, b) { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); }
+  clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+  f2(v) { return v.toFixed(2); }
+  ahText(line) { const t = Component.AH_TEXT[Math.abs(line)] || String(Math.abs(line)); return (line < 0 ? '受' : '') + t; }
+  ouText(line) { return Component.OU_TEXT[line] || String(line); }
+
+  histAH(m) {
+    const labels = ['初盘', '-2天', '-1天', '今晨', '临场'];
+    const from = m.ahFrom != null ? m.ahFrom : m.ah.line;
+    const chg = m.ahFrom != null ? 3 : -1;
+    return labels.map((t, i) => {
+      const line = (chg >= 0 && i >= chg) ? m.ah.line : from;
+      const h = i === 4 ? m.ah.h : this.clamp(m.ah.h + (this.seed(m.id, i + 1) - 0.5) * 0.08, 0.8, 1.06);
+      const a = i === 4 ? m.ah.a : this.clamp(m.ah.a + (this.seed(m.id, i + 11) - 0.5) * 0.08, 0.8, 1.06);
+      return { t, text: this.ahText(line), h: this.f2(h), a: this.f2(a), chg: i === chg };
+    });
+  }
+  histOU(m) {
+    const labels = ['初盘', '-2天', '-1天', '今晨', '临场'];
+    const from = m.ouFrom != null ? m.ouFrom : m.ou.line;
+    const chg = m.ouFrom != null ? 3 : -1;
+    return labels.map((t, i) => {
+      const line = (chg >= 0 && i >= chg) ? m.ou.line : from;
+      const h = i === 4 ? m.ou.o : this.clamp(m.ou.o + (this.seed(m.id, i + 21) - 0.5) * 0.08, 0.8, 1.06);
+      const a = i === 4 ? m.ou.u : this.clamp(m.ou.u + (this.seed(m.id, i + 31) - 0.5) * 0.08, 0.8, 1.06);
+      return { t, text: this.ouText(line), h: this.f2(h), a: this.f2(a), chg: i === chg };
+    });
+  }
+  histEU(m) {
+    const labels = ['初盘', '-2天', '-1天', '今晨', '临场'];
+    return labels.map((t, i) => {
+      const j = (k, base) => i === 4 ? base : this.clamp(base * (1 + (this.seed(m.id, i + k) - 0.5) * 0.1), 1.05, 12);
+      return { t, h: j(201, m.eu.h).toFixed(2), d: j(211, m.eu.d).toFixed(2), a: j(221, m.eu.a).toFixed(2) };
+    });
+  }
+
+  chartEl(rows, key) {
+    const e = React.createElement;
+    const W = 320, H = 130, L = 34, R = 10, T = 14, B = 18;
+    const hasD = rows[0] && rows[0].d !== undefined;
+    const vals = [];
+    rows.forEach(r => { vals.push(parseFloat(r.h), parseFloat(r.a)); if (hasD) vals.push(parseFloat(r.d)); });
+    const min = Math.min(...vals) - 0.02, max = Math.max(...vals) + 0.02;
+    const x = i => L + i * (W - L - R) / (rows.length - 1);
+    const y = v => T + (max - v) * (H - T - B) / (max - min);
+    const pts = k => rows.map((r, i) => x(i) + ',' + y(parseFloat(r[k]))).join(' ');
+    const kids = [];
+    [0, 1, 2].forEach(g => {
+      const v = max - (max - min) * g / 2; const yy = y(v);
+      kids.push(e('line', { key: 'g' + g, x1: L, x2: W - R, y1: yy, y2: yy, stroke: '#20242e', strokeWidth: 1 }));
+      kids.push(e('text', { key: 'gt' + g, x: L - 5, y: yy + 3, fill: '#5c626e', fontSize: 8, textAnchor: 'end', fontFamily: 'IBM Plex Mono' }, v.toFixed(2)));
+    });
+    const ci = rows.findIndex(r => r.chg);
+    if (ci >= 0) {
+      kids.push(e('line', { key: 'cv', x1: x(ci), x2: x(ci), y1: T - 4, y2: H - B, stroke: '#e9b949', strokeDasharray: '3 3', strokeWidth: 1 }));
+      kids.push(e('text', { key: 'cvt', x: x(ci), y: T - 6, fill: '#e9b949', fontSize: 8, textAnchor: 'middle', fontWeight: 700 }, '变盘'));
+    }
+    kids.push(e('polyline', { key: 'l1', points: pts('h'), fill: 'none', stroke: '#5b9dff', strokeWidth: 2, strokeLinejoin: 'round', strokeLinecap: 'round' }));
+    kids.push(e('polyline', { key: 'l2', points: pts('a'), fill: 'none', stroke: '#e9b949', strokeWidth: 2, strokeLinejoin: 'round', strokeLinecap: 'round' }));
+    if (hasD) kids.push(e('polyline', { key: 'l3', points: pts('d'), fill: 'none', stroke: '#959ba6', strokeWidth: 1.6, strokeLinejoin: 'round', strokeLinecap: 'round' }));
+    rows.forEach((r, i) => {
+      kids.push(e('text', { key: 'x' + i, x: x(i), y: H - 5, fill: '#5c626e', fontSize: 8, textAnchor: i === 0 ? 'start' : i === rows.length - 1 ? 'end' : 'middle' }, r.t));
+    });
+    return e('svg', { key: 'ch' + key, viewBox: '0 0 ' + W + ' ' + H, style: { width: '100%', height: 'auto', display: 'block' } }, kids);
+  }
+
+  compFor(m, isOu) {
+    const from = isOu ? (m.ouFrom != null ? m.ouFrom : m.ou.line) : (m.ahFrom != null ? m.ahFrom : m.ah.line);
+    const cur = isOu ? m.ou.line : m.ah.line;
+    const bh = isOu ? m.ou.o : m.ah.h, ba = isOu ? m.ou.u : m.ah.a;
+    const txt = isOu ? (v => this.ouText(v)) : (v => this.ahText(v));
+    return Component.COS.map((co, i) => {
+      const lag = from !== cur && this.seed(m.id, i + (isOu ? 60 : 40)) > 0.7;
+      const nLine = lag ? from : cur;
+      const j = k => (this.seed(m.id, i * 7 + k) - 0.5) * 0.05;
+      const iH = this.clamp(bh + j(1), 0.8, 1.06), iA = this.clamp(ba + j(2), 0.8, 1.06);
+      const nH = this.clamp(bh + j(3) * 0.5, 0.8, 1.06), nA = this.clamp(ba + j(4) * 0.5, 0.8, 1.06);
+      const changed = nLine !== from;
+      return { co, iText: txt(from), iW: this.f2(iH) + ' / ' + this.f2(iA), nText: txt(nLine), nTextC: changed ? '#e9b949' : '#c3c8d2', nW: this.f2(nH) + ' / ' + this.f2(nA) };
+    });
+  }
+  compEuFor(m) {
+    return Component.COS.map((co, i) => {
+      const j = (k, base, mag) => this.clamp(base * (1 + (this.seed(m.id, i * 13 + k) - 0.5) * mag), 1.05, 12).toFixed(2);
+      return { co, iW: j(231, m.eu.h, 0.1) + ' / ' + j(232, m.eu.d, 0.1) + ' / ' + j(233, m.eu.a, 0.1), nW: j(234, m.eu.h, 0.04) + ' / ' + j(235, m.eu.d, 0.04) + ' / ' + j(236, m.eu.a, 0.04) };
+    });
+  }
+
+  techFor(m) {
+    const S = k => this.seed(m.id, k);
+    const mk = k => { const v = S(k); return v < 0.52 ? '胜' : v < 0.78 ? '平' : '负'; };
+    let formH, formA, palu, minH, minA, h2h;
+    if (m.id === 1) ({ formH, formA, palu, minH, minA, h2h } = this.TECH1);
+    else {
+      formH = [0, 1, 2, 3, 4, 5].map(i => mk(30 + i));
+      formA = [0, 1, 2, 3, 4, 5].map(i => mk(70 + i));
+      palu = [
+        { label: m.home + ' · 赢盘率 (近10)', pct: Math.round(40 + S(50) * 40) },
+        { label: m.home + ' · 大球率 (近10)', pct: Math.round(45 + S(51) * 30) },
+        { label: m.away + ' · 赢盘率 (近10)', pct: Math.round(40 + S(52) * 40) },
+        { label: m.away + ' · 大球率 (近10)', pct: Math.round(45 + S(53) * 30) }
+      ];
+      const raw = k => [0, 1, 2, 3, 4, 5].map(i => 0.5 + S(k + i));
+      const norm = a2 => { const s = a2.reduce((p, c) => p + c, 0); return a2.map(v => Math.round(v / s * 100)); };
+      minH = norm(raw(60)); minA = norm(raw(80));
+      h2h = ['25-11-30', '25-04-14', '24-12-02'].map((d, i) => {
+        const hg = Math.floor(S(90 + i) * 3), ag = Math.floor(S(95 + i) * 3);
+        const diff = hg - ag - Math.abs(m.ah.line);
+        return { d, c: m.lg, s: hg + '-' + ag, res: diff > 0 ? '赢盘' : diff < 0 ? '输盘' : '走盘', ou: hg + ag > 2.5 ? '大' : '小' };
+      });
+    }
+    const fs = ch => ch === '胜' ? { bg: 'rgba(46,204,138,.16)', c: '#2ecc8a' } : ch === '平' ? { bg: 'rgba(149,155,166,.16)', c: '#959ba6' } : { bg: 'rgba(240,67,79,.16)', c: '#f0434f' };
+    const labels = ['0-15', '16-30', '31-45', '46-60', '61-75', '76-90'];
+    let mi = 0; for (let i = 1; i < 6; i++) { if (minH[i] + minA[i] > minH[mi] + minA[mi]) mi = i; }
+    return {
+      formHome: formH.map(ch => ({ ch, ...fs(ch) })),
+      formAway: formA.map(ch => ({ ch, ...fs(ch) })),
+      paluBars: palu.map(b => ({ label: b.label, pctText: b.pct + '%', w: b.pct + '%' })),
+      minuteRows: labels.map((label, i) => ({ label, hw: minH[i] * 3 + '%', aw: minA[i] * 3 + '%', v: minH[i] + '/' + minA[i] })),
+      minuteNote: '双方合计进球占比最高时段:' + labels[mi] + '′ (' + (minH[mi] + minA[mi]) + '%)',
+      h2hRows: h2h.map(r => ({ ...r, resC: r.res === '赢盘' ? '#f0434f' : r.res === '输盘' ? '#2ecc8a' : '#959ba6', ouC: r.ou === '大' ? '#e9b949' : '#5b9dff' }))
+    };
+  }
+
+  predFor(m) {
+    const S = k => this.seed(m.id, k);
+    let pH, pD, pA;
+    if (m.id === 1) ({ pH, pD, pA } = this.PRED1);
+    else {
+      const line = m.ah.line;
+      pH = Math.round(this.clamp(37 + line * 16 + (S(300) - 0.5) * 6, 10, 74));
+      pA = Math.round(this.clamp(37 - line * 16 + (S(301) - 0.5) * 6, 10, 74));
+      pD = 100 - pH - pA;
+      if (pD < 14) { const cut = 14 - pD; pD = 14; pH -= Math.ceil(cut / 2); pA -= Math.floor(cut / 2); }
+    }
+    const winner = pH >= pA ? m.home : m.away;
+    const wod = Math.max(pH, pA) < 48;
+    const uo = m.ou.line <= 2.5 ? { v: '-2.5', t: '小于 2.5 球' } : { v: '+2.5', t: '大于 2.5 球' };
+    const gH = m.ah.line >= 0.75 ? '-3.5' : '-2.5', gA = m.ah.line >= 0.75 ? '-1.5' : '-2.5';
+    const advice = (wod ? '双重机会:' + winner + ' 或平局' : '单场:' + winner + ' 胜') + ',且' + uo.t;
+    return { pH, pD, pA, winner, wod, uo, gH, gA, advice };
+  }
+
+  freshFor(m) {
+    if (m.live) return '滚球 · 每 1 分钟刷新';
+    const p = m.time.split(':');
+    const mins = (parseInt(p[0], 10) * 60 + parseInt(p[1], 10)) + 24 * 60 - 15 * 60;
+    let idx;
+    if (mins > 720) idx = 0; else if (mins > 360) idx = 1; else if (mins > 60) idx = 2;
+    else if (mins > 30) idx = 3; else if (mins > 5) idx = 4; else idx = 5;
+    const label = mins >= 60 ? (Math.round(mins / 6) / 10) + ' 小时' : mins + ' 分钟';
+    return '距开赛约 ' + label + (idx === 0 ? ' · 低频巡检' : ' · ' + Component.RF[idx][1]);
+  }
+
+  isOpen(m) { return !this.state.guest && (m.id === 1 || !!this.state.unlocked[m.id]); }
+  nowStr() { const d = new Date(); const p = n => String(n).padStart(2, '0'); return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); }
+
+  reportFor(m) {
+    const p = this.predFor(m);
+    const t = this.techFor(m);
+    const fH = t.formHome.map(f => f.ch).join(' ');
+    const fA = t.formAway.map(f => f.ch).join(' ');
+    const hw = t.h2hRows.filter(r => r.res === '赢盘').length;
+    const big = t.h2hRows.filter(r => r.ou === '大').length;
+    const pa = t.paluBars;
+    const s1 = [];
+    if (m.ahFrom != null) {
+      const dir = Math.abs(m.ah.line) > Math.abs(m.ahFrom) ? '升' : '降';
+      s1.push('亚盘由初盘 ' + this.ahText(m.ahFrom) + ' ' + dir + '至 ' + this.ahText(m.ah.line) + ',临场水位 ' + this.f2(m.ah.h) + ' / ' + this.f2(m.ah.a) + '。' + (dir === '升' ? '让球加深,市场对让球方的信心有所增强。' : '盘口回撤,市场对让球方的态度趋于谨慎。'));
+    } else {
+      s1.push('亚盘自初盘维持 ' + this.ahText(m.ah.line) + ',临场水位 ' + this.f2(m.ah.h) + ' / ' + this.f2(m.ah.a) + ',市场分歧不大。');
+    }
+    s1.push('大小球' + (m.ouFrom != null ? '由 ' + this.ouText(m.ouFrom) + ' 调整至 ' + this.ouText(m.ou.line) : '维持 ' + this.ouText(m.ou.line)) + ',大水 ' + this.f2(m.ou.o) + ' / 小水 ' + this.f2(m.ou.u) + '。');
+    return [
+      { h: '盘口解读', ps: s1.map(x => ({ x })) },
+      { h: '状态与盘路', ps: [m.home + ' 近 6 场:' + fH + ';' + m.away + ' 近 6 场:' + fA + '。', '盘路:' + pa[0].label + ' ' + pa[0].pctText + ',' + pa[1].label + ' ' + pa[1].pctText + ';' + pa[2].label + ' ' + pa[2].pctText + ',' + pa[3].label + ' ' + pa[3].pctText + '。', '近 ' + t.h2hRows.length + ' 次交锋,' + m.home + ' 赢盘 ' + hw + ' 次,大球 ' + big + ' 次。'].map(x => ({ x })) },
+      { h: '进球模型', ps: ['进球上限:主队 ' + p.gH + ' / 客队 ' + p.gA + ',大小球建议「' + p.uo.t + '」。', t.minuteNote].map(x => ({ x })) },
+      { h: '人员情报', ps: this.intelFor(m).map(i => ({ x: (i.side === '主' ? m.home : m.away) + ':' + i.x + '(' + i.tag + ')' })) },
+      { h: '结论与风险', ps: ['综合盘口、状态与概率模型,本场倾向:' + p.advice + '。胜平负概率 主 ' + p.pH + '% / 平 ' + p.pD + '% / 客 ' + p.pA + '%。', '报告基于赛前数据快照生成;首发公布与临场资金可能改变盘口,请结合异动监控自行判断。'].map(x => ({ x })) }
+    ];
+  }
+  priceOf(m) { return m.live ? 58 : 38; }
+
+  renderVals() {
+    const st = this.state;
+    const chip = (label, active, onClick) => active
+      ? { label, onClick, bg: 'rgba(233,185,73,.14)', fg: '#e9b949', bd: 'rgba(233,185,73,.45)' }
+      : { label, onClick, bg: '#12141a', fg: '#959ba6', bd: '#20242e' };
+
+    const leagueChips = ['全部', '英超', '西甲', '德甲', '意甲', '法甲', '世界杯']
+      .map(l => {
+        const c = chip(l, st.leagueF === l, () => this.setState({ leagueF: l }));
+        if (l === '世界杯') { c.wc = true; if (st.leagueF !== l) c.bg = 'rgba(233,185,73,.08)'; } else { c.std = true; }
+        return c;
+      });
+    const monChips = ['全部', '升盘', '降盘', '水位'].map(l => chip(l, (st.monF || '全部') === l, () => this.setState({ monF: l })));
+
+    let list = this.MATCHES;
+    if (st.leagueF !== '全部') list = list.filter(m => m.lg === st.leagueF);
+
+    const rows = list.map((m, i) => {
+      const masked = st.guest && !m.live && i > 2;
+      const X = '-.--';
+      return {
+        hasTag: masked || (!st.guest && (m.id === 1 || !!st.unlocked[m.id])),
+        tag: masked ? '注册可见' : m.id === 1 ? '免费' : '已解锁',
+        tagBg: masked ? 'rgba(233,185,73,.12)' : m.id === 1 ? 'rgba(46,204,138,.12)' : 'rgba(233,185,73,.12)',
+        tagC: masked ? '#e9b949' : m.id === 1 ? '#2ecc8a' : '#e9b949',
+        key: m.id, league: m.lg, dot: Component.DOTS[m.lg], time: m.time,
+        isLive: !!m.live, liveMin: m.min || '',
+        home: m.home, away: m.away,
+        ahText: masked ? '●●' : this.ahText(m.ah.line),
+        waters: masked ? X : this.f2(m.ah.h) + '/' + this.f2(m.ah.a),
+        ouLine: masked ? X : m.ou.line.toFixed(2),
+        ouWaters: masked ? X : this.f2(m.ou.o) + '/' + this.f2(m.ou.u),
+        midText: m.live ? m.score : 'vs', midC: m.live ? '#e9b949' : '#383d47',
+        selBar: st.sel === m.id ? '#e9b949' : 'transparent',
+        selBg: st.sel === m.id ? 'rgba(233,185,73,.07)' : 'transparent',
+        open: masked ? () => this.setState({ logged: false }) : () => this.setState({ sel: m.id, copied: false })
+      };
+    });
+
+    const m = this.MATCHES.find(x => x.id === st.sel) || this.MATCHES[0];
+    const ahRows = this.histAH(m), ouRows = this.histOU(m), euRows = this.histEU(m);
+    const mkRows = rs => rs.map(r => ({ t: r.t, text: r.text, textC: r.chg ? '#e9b949' : '#c3c8d2', h: r.h, a: r.a }));
+    const tech = this.techFor(m);
+    const p = this.predFor(m);
+    const open = this.isOpen(m);
+
+    const dTabs = [['odds', '盘口走势'], ['comp', '百家对比'], ['tech', '技术面'], ['lineup', '阵容'], ['intel', '情报'], ['deep', '深挖'], ['report', 'AI 报告']].map(([k, label]) => ({
+      label, onClick: () => this.setState({ tab: k }),
+      fg: st.tab === k ? '#e9b949' : '#959ba6',
+      bar: st.tab === k ? '#e9b949' : 'transparent'
+    }));
+
+    const feed = this.FEED.filter(f => (st.monF || '全部') === '全部' || f.type === st.monF).map((f, i) => {
+      const lk = st.guest && i > 2;
+      return {
+        ...f, sev: !!f.sev && !lk,
+        from: lk ? '●●●' : f.from,
+        to: lk ? '●●●' : f.to,
+        note: lk ? '注册可见' : f.note,
+        typeC: f.type === '升盘' ? '#f0434f' : f.type === '降盘' ? '#2ecc8a' : '#e9b949',
+        open: lk ? () => this.setState({ logged: false }) : () => this.setState({ modal: 'move', moveSel: f })
+      };
+    });
+    const mv = st.moveSel || this.FEED[0];
+    const mvTypeC = mv.type === '升盘' ? '#f0434f' : mv.type === '降盘' ? '#2ecc8a' : '#e9b949';
+    const mvRows = (mv.rows || []).map(r => {
+      const na = parseFloat(r.a), nb = parseFloat(r.b);
+      let bC = '#eceef2';
+      if (r.k === '盘口') bC = r.chg ? mvTypeC : '#eceef2';
+      else if (!isNaN(na) && !isNaN(nb) && na !== nb) bC = nb > na ? '#f0434f' : '#2ecc8a';
+      return { k: r.k, a: r.a, b: r.b, bC };
+    });
+
+    return {
+      email: 'panyou9527' + '@' + 'koreamail.com',
+      ptsText: String(st.pts),
+      topFresh: '抓取分层:赛前 60/30/10/5/1 分钟 · 滚球 1 分钟',
+      leagueChips, rows,
+      dLeague: m.lg, dDot: Component.DOTS[m.lg],
+      dRound: m.lg === '世界杯' ? '小组赛 第 1 轮' : '第 ' + (28 + Math.floor(this.seed(m.id, 400) * 8)) + ' 轮',
+      dHome: m.home, dAway: m.away,
+      dScore: m.live ? m.score : 'VS', dScoreC: m.live ? '#e9b949' : '#383d47',
+      dStatus: m.live ? m.min + ' 进行中' : '今日 ' + m.time + ' 开赛',
+      dStatusC: m.live ? '#f0434f' : '#5c626e',
+      dFresh: this.freshFor(m),
+      dAhText: this.ahText(m.ah.line), dAhW: this.f2(m.ah.h) + '/' + this.f2(m.ah.a),
+      dOuText: this.ouText(m.ou.line), dOuW: this.f2(m.ou.o) + '/' + this.f2(m.ou.u),
+      dEuW: m.eu.h.toFixed(2) + '/' + m.eu.d.toFixed(2) + '/' + m.eu.a.toFixed(2),
+      dTabs,
+      tOdds: st.tab === 'odds', tComp: st.tab === 'comp', tTech: st.tab === 'tech',
+      tLineup: st.tab === 'lineup', tIntel: st.tab === 'intel', tDeep: st.tab === 'deep',
+      tReport: st.tab === 'report',
+      goReport: () => this.setState({ tab: 'report' }),
+      repSections: open ? this.reportFor(m) : [],
+      repGenAt: '由 AI 自动生成',
+      mRecharge: st.modal === 'recharge', mRefresh: st.modal === 'refresh', mRecord: st.modal === 'record',
+      openRecharge: () => this.setState({ modal: 'recharge' }),
+      openRefresh: () => this.setState({ modal: 'refresh' }),
+      openRecord: () => this.setState({ modal: 'record' }),
+      closeModal: () => this.setState({ modal: null }),
+      stop: e => { if (e && e.stopPropagation) e.stopPropagation(); },
+      rTiers: Component.TIERS.map(tr => ({
+        rmb: '¥' + tr.rmb, pts: tr.pts, tag: tr.tag || '', hot: !!tr.hot,
+        bd: tr.hot ? 'rgba(233,185,73,.55)' : '#20242e',
+        onClick: () => this.setState({ pts: this.state.pts + tr.pts, modal: null, ledger: [{ x: '充值 ¥' + tr.rmb, v: '+' + tr.pts, vC: '#2ecc8a', t: this.nowStr() }, ...this.state.ledger] })
+      })),
+      rfRows: Component.RF.map(r => ({ t: r[0], f: r[1] })),
+      weekBars: Component.WEEK.map(w => {
+        if (w[1] == null) return { d: w[0], txt: '—', h: '4px', c: '#383d47' };
+        const pct = w[1] / w[2];
+        return { d: w[0], txt: w[1] + '/' + w[2], h: Math.max(8, Math.round(pct * 34)) + 'px', c: pct >= 0.66 ? '#e9b949' : '#9a7b30' };
+      }),
+      ydayRows: Component.YDAY.map(y => ({ match: y.match, pick: y.pick, score: y.score, r: y.hit ? '✓' : '✗', c: y.hit ? '#f0434f' : '#2ecc8a' })),
+      shareCopy: () => { try { navigator.clipboard.writeText('https://www.play.top/m/' + m.id); } catch (e) { } this.setState({ copied: true }); },
+      shCopied: !!st.copied,
+      // ---- 账户抽屉 ----
+      drawerOn: st.drawer,
+      openDrawer: st.guest ? () => this.setState({ logged: false }) : () => this.setState({ drawer: true, rdMsg: '', ivCopied: false, tkOk: false, tkErr: false }),
+      isGuestTop: st.guest, isLoggedTop: !st.guest,
+      doGuest: () => this.setState({ logged: true }),
+      closeDrawer: () => this.setState({ drawer: false }),
+      logout: () => this.setState({ drawer: false, logged: false, guest: true, pts: 58, unlocked: {}, ledger: [], tickets: [] }),
+      showLogin: !st.logged,
+      doLogin: () => this.setState({ logged: true, guest: false }),
+      rdSubmit: () => {
+        const el = document.getElementById('rd2');
+        const code = el && el.value ? el.value.trim().toUpperCase() : '';
+        const CODES = { 'WC2026': 100, 'FOOT58': 58 };
+        if (!code) { this.setState({ rdMsg: '请输入兑换码', rdOk: false }); return; }
+        if (!CODES[code]) { this.setState({ rdMsg: '兑换码无效或已过期', rdOk: false }); return; }
+        if (this.state.redeemed[code]) { this.setState({ rdMsg: '该兑换码已使用', rdOk: false }); return; }
+        if (el) el.value = '';
+        this.setState({
+          pts: this.state.pts + CODES[code],
+          redeemed: { ...this.state.redeemed, [code]: 1 },
+          rdMsg: '兑换成功,+' + CODES[code] + ' 积分已到账', rdOk: true,
+          ledger: [{ x: '兑换码 ' + code, v: '+' + CODES[code], vC: '#2ecc8a', t: this.nowStr() }, ...this.state.ledger]
+        });
+      },
+      rdMsgShow: !!st.rdMsg, rdMsg: st.rdMsg || '', rdMsgC: st.rdOk ? '#2ecc8a' : '#f0434f',
+      ivCopy: () => { try { navigator.clipboard.writeText('https://www.play.top/i/PAN9527'); } catch (e) { } this.setState({ ivCopied: true }); },
+      ivCopied: st.ivCopied,
+      ivBars: [['今日', 3, 10], ['本周', 12, 30], ['本月', 41, 100]].map(b => ({ label: b[0], txt: b[1] + ' / ' + b[2], w: Math.round(b[1] / b[2] * 100) + '%' })),
+      ledgerRows: st.ledger.slice(0, 6), ledgerEmpty: st.ledger.length === 0,
+      ledgerMore: st.ledger.length > 6, ledgerCount: String(st.ledger.length),
+      ledgerAll: st.ledger, mLedger: st.modal === 'ledger',
+      openLedgerModal: () => this.setState({ modal: 'ledger' }),
+      mInvites: st.modal === 'invites',
+      openInvites: () => this.setState({ modal: 'invites' }),
+      ivLog: Component.IVLOG,
+      mMove: st.modal === 'move',
+      mvMatch: mv.match, mvLeague: (this.MATCHES.find(x => x.id === mv.mid) || {}).lg || '',
+      mvDot: Component.DOTS[(this.MATCHES.find(x => x.id === mv.mid) || {}).lg] || '#959ba6',
+      mvMk: mv.mk === '亚盘' ? '亚洲让球盘' : '大小球(进球数)',
+      mvBk: mv.bk || '', mvT0: mv.t0 || '', mvT1: mv.t,
+      mvType: mv.type, mvTypeC, mvRows, mvSev: !!mv.sev,
+      mvGo: () => this.setState({ modal: null, moveSel: null, sel: mv.mid, tab: 'odds' }),
+      followChips: ['英超', '西甲', '德甲', '意甲', '法甲', '世界杯'].map(l => chip(st.follows[l] ? l + ' ✓' : l, !!st.follows[l], () => this.setState({ follows: { ...this.state.follows, [l]: st.follows[l] ? 0 : 1 } }))),
+      schemeChips: ['红升绿降', '绿升红降'].map(s => chip(s, st.scheme === s, () => this.setState({ scheme: s }))),
+      langChips: Component.LANGS.map(l => chip(l, st.lang === l, () => this.setState({ lang: l }))),
+      tzChips: Component.TZS.map(z => chip(z, st.tz === z, () => this.setState({ tz: z }))),
+      themeChips: ['深色', '浅色'].map(t2 => chip(t2, st.theme === t2, () => this.setState({ theme: t2 }))),
+      themeFilter: st.theme === '浅色' ? 'invert(1) hue-rotate(180deg)' : 'none',
+      tkChips: ['数据问题', '充值问题', '功能建议', '其他'].map(t2 => chip(t2, st.ticketType === t2, () => this.setState({ ticketType: t2 }))),
+      tkSubmit: () => {
+        const ta = document.getElementById('tk2');
+        const txt = ta && ta.value.trim() ? ta.value.trim() : '';
+        if (!txt) { this.setState({ tkErr: true, tkOk: false }); return; }
+        if (ta) ta.value = '';
+        this.setState({ tickets: [{ id: 'T' + Math.floor(1000 + Math.random() * 9000), type: this.state.ticketType, status: '处理中' }, ...this.state.tickets], tkErr: false, tkOk: true });
+      },
+      tkOk: st.tkOk, tkErr: st.tkErr,
+      ticketRows: st.tickets,
+      ...this.deepFor(m),
+      intelHome: this.intelFor(m).filter(i => i.side === '主').map(i => ({ x: i.x, tag: i.tag, tagC: ({ '缺阵': '#f0434f', '存疑': '#e9b949', '解禁': '#2ecc8a' })[i.tag] || '#959ba6' })),
+      intelAway: this.intelFor(m).filter(i => i.side === '客').map(i => ({ x: i.x, tag: i.tag, tagC: ({ '缺阵': '#f0434f', '存疑': '#e9b949', '解禁': '#2ecc8a' })[i.tag] || '#959ba6' })),
+      luReady: !!this.LINEUPS[m.id], luPending: !this.LINEUPS[m.id],
+      luHomeForm: this.LINEUPS[m.id] ? this.LINEUPS[m.id].home.form : '',
+      luAwayForm: this.LINEUPS[m.id] ? this.LINEUPS[m.id].away.form : '',
+      luHomeCoach: this.LINEUPS[m.id] ? this.LINEUPS[m.id].home.coach : '',
+      luAwayCoach: this.LINEUPS[m.id] ? this.LINEUPS[m.id].away.coach : '',
+      luHomeRows: this.LINEUPS[m.id] ? this.LINEUPS[m.id].home.rows.map(ps => ({ ps: ps.map(name => ({ name })) })) : [],
+      luAwayRows: this.LINEUPS[m.id] ? this.LINEUPS[m.id].away.rows.map(ps => ({ ps: ps.map(name => ({ name })) })) : [],
+      dLiveOdds: !!m.live,
+      liveOddsRows: (Component.LIVEODDS[m.id] || []).map(r => ({ mk: r.mk, v: r.susp ? '封盘中' : r.v, vc: r.susp ? '#5c626e' : '#eceef2' })),
+      ahChart: this.chartEl(ahRows, 'ah' + m.id), ahRowsD: mkRows(ahRows),
+      ouChart: this.chartEl(ouRows, 'ou' + m.id), ouRowsD: mkRows(ouRows),
+      euChart: this.chartEl(euRows, 'eu' + m.id), euRowsD: euRows,
+      compRows: this.compFor(m, false), compOuRows: this.compFor(m, true), compEuRows: this.compEuFor(m),
+      ...tech,
+      feed,
+      pAdvice: open ? p.advice : '解锁后查看官方建议与方向',
+      pAdviceC: open ? '#e9b949' : '#5c626e',
+      pPH: p.pH + '%', pPD: p.pD + '%', pPA: p.pA + '%',
+      pWinner: open ? p.winner + (p.wod ? ' / 平' : '') : '●●●',
+      pUo: open ? p.uo.v + ' ' + p.uo.t : '●●●',
+      pGoals: open ? '主 ' + p.gH + ' 客 ' + p.gA : '●●●',
+      pLocked: !open, pOpen: open,
+      pUnlockText: st.guest ? '注册领 58 积分 · 免费解锁 1 场' : this.priceOf(m) + ' 积分 · 解锁本场预测',
+      pUnlock: () => {
+        if (this.state.guest) { this.setState({ logged: false }); return; }
+        const price = this.priceOf(m);
+        if (this.state.pts < price) { this.setState({ modal: 'recharge' }); return; }
+        this.setState({ pts: this.state.pts - price, unlocked: { ...this.state.unlocked, [m.id]: 1 }, ledger: [{ x: '解锁预测 ' + m.home + ' vs ' + m.away, v: '-' + price, vC: '#f0434f', t: this.nowStr() }, ...this.state.ledger] });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
