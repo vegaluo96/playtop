@@ -75,6 +75,16 @@ export async function collectMatch(
   };
   const isIntl = league?.code === INTERNATIONAL_LEAGUE_CODE || league?.code === "WC2026";
 
+  // ── 按维度新鲜度策略：一次性/慢变数据不重复调用（force 绕过）──────────────
+  // 盘口永远实时;首发只在临场窗口尝试、确认后停;裁判拿到即停;
+  // 名单 24h、积分榜 12h、伤停 6h、外部评级 24h、天气 3h。
+  const pre = latestSnapshots(matchId);
+  const ageOf = (kind: Parameters<typeof pre.get>[0]): number => {
+    const r = pre.get(kind);
+    return r ? now() - r.fetchedAt : Infinity;
+  };
+  const H = 3_600_000;
+
   // API-Football（付费主源）：按比赛日拉一次 fixtures、本场内存共享（odds/首发/伤停共用 fixtureId）
   const afUsable = apiFootballConfigured() && isSourceUsable("api_football", dsCfg.apiFootballEnabled);
   let afFixtureP: Promise<AfFixture | null> | null = null;
@@ -102,7 +112,7 @@ export async function collectMatch(
         for (const b of books) insertSnapshot(matchId, "odds", "api_football", b);
       }),
     );
-    networkTasks.push(
+    if (force || (pre.get("lineups")?.source !== "api_football" && match.kickoffAt - now() < 3 * H)) networkTasks.push(
       attempt("lineups:api_football", async () => {
         const fx = await getAfFixture();
         if (!fx) throw new Error("API-Football 未匹配到本场");
@@ -111,7 +121,7 @@ export async function collectMatch(
         insertSnapshot(matchId, "lineups", "api_football", lineups);
       }),
     );
-    networkTasks.push(
+    if (force || pre.get("injuries")?.source !== "api_football" || ageOf("injuries") >= 6 * H) networkTasks.push(
       attempt("injuries:api_football", async () => {
         const fx = await getAfFixture();
         if (!fx) throw new Error("API-Football 未匹配到本场");
@@ -120,14 +130,14 @@ export async function collectMatch(
         insertSnapshot(matchId, "injuries", "api_football", injuries);
       }),
     );
-    networkTasks.push(
+    if (force || pre.get("referee")?.source !== "api_football") networkTasks.push(
       attempt("referee:api_football", async () => {
         const fx = await getAfFixture();
         if (!fx?.referee) throw new Error("裁判未公布");
         insertSnapshot(matchId, "referee", "api_football", { name: fx.referee, note: "" });
       }),
     );
-    networkTasks.push(
+    if (force || pre.get("standings")?.source !== "api_football" || ageOf("standings") >= 12 * H) networkTasks.push(
       attempt("standings:api_football", async () => {
         const fx = await getAfFixture();
         if (!fx?.leagueId || !fx.season) throw new Error("API-Football 未匹配到本场");
@@ -172,7 +182,7 @@ export async function collectMatch(
   }
 
   // 外部评级：国家队 → eloratings.net；俱乐部 → ClubElo + Understat xG（展示/事实维度）
-  networkTasks.push(
+  if (force || ageOf("external_ratings") >= 24 * H) networkTasks.push(
     attempt("external_ratings", async () => {
     const items: z.infer<typeof externalRatingsPayloadSchema>["items"] = [];
     if (isIntl && isSourceUsable("eloratings", dsCfg.eloRatingsEnabled)) {
@@ -212,7 +222,7 @@ export async function collectMatch(
   );
 
   // 球员数据：API-Football 球队名单（位置/号码/年龄）；国际赛叠加真实射手榜/点球史（martj42）
-  networkTasks.push(
+  if (force || ageOf("player_stats") >= 24 * H) networkTasks.push(
     attempt("player_stats", async () => {
       type PsItem = z.infer<typeof playerStatsPayloadSchema>["items"][number];
       const items: PsItem[] = [];
@@ -315,8 +325,8 @@ export async function collectMatch(
     });
   });
 
-  // 天气（需坐标，预报范围 16 天内）
-  await attempt("weather", async () => {
+  // 天气（需坐标，预报范围 16 天内）：3h TTL，临场仍能反映突变
+  if (force || ageOf("weather") >= 3 * H) await attempt("weather", async () => {
     const fresh = getMatch(matchId);
     if (fresh.venueLat === null || fresh.venueLon === null) throw new Error("无场馆坐标，跳过天气");
     if (fresh.kickoffAt - now() > 16 * 86_400_000) throw new Error("开球时间超出预报范围");

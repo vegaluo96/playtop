@@ -121,7 +121,10 @@ export interface VersionInfo {
   analysisId: number;
   version: number;
   publishedAt: number | null;
+  createdAt: number;
   ensemble: { home: number; draw: number; away: number };
+  /** 该版观点指纹（市场/方向/线/参考赔率）——用于"较上版变化"派生 */
+  picks: { market: string; selection: string; line: number | null; odds: number | null }[];
   contentHash: string | null;
 }
 
@@ -138,10 +141,28 @@ export function versionHistory(matchId: number): VersionInfo[] {
         analysisId: a.id,
         version: a.version,
         publishedAt: a.publishedAt,
+        createdAt: a.createdAt,
         ensemble: engine.ensemble.probs,
+        picks: engine.picks.map((p) => ({ market: p.market, selection: p.selection, line: p.line, odds: p.odds })),
         contentHash: a.contentHash,
       };
     });
+}
+
+/** 相邻两版之间的人话变化摘要（派生，零存储） */
+export function versionDelta(cur: VersionInfo, prev: VersionInfo): string {
+  const parts: string[] = [];
+  const d = (cur.ensemble.home - prev.ensemble.home) * 100;
+  if (Math.abs(d) >= 0.05) parts.push(`主胜概率${d > 0 ? "+" : ""}${d.toFixed(1)}pp`);
+  const key = (v: VersionInfo) => v.picks.map((p) => `${p.market}:${p.selection}:${p.line}`).join("|");
+  if (key(cur) !== key(prev)) {
+    parts.push(cur.picks.length === 0 ? "转为观望" : prev.picks.length === 0 ? "由观望转出观点" : "观点方向调整");
+  } else if (cur.picks.length > 0) {
+    const o0 = prev.picks[0]?.odds;
+    const o1 = cur.picks[0]?.odds;
+    if (o0 && o1 && Math.abs(o1 - o0) >= 0.01) parts.push(`参考赔率 ${o0.toFixed(2)}→${o1.toFixed(2)}`);
+  }
+  return parts.length > 0 ? parts.join("，") : "数据更新，结论不变";
 }
 
 /** 赛前未发布场次的赛程视图（"研报准备中"页用）；非未发布状态返回 null */

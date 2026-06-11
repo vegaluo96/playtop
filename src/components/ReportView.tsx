@@ -3,6 +3,7 @@ import type { EngineOutput } from "@/server/engine/types";
 import type { LlmSections } from "@/server/llm/reportWriter";
 import { ratingStars, selectionLabel } from "@/server/llm/reportWriter";
 import type { MatchDetailView } from "@/server/services/views";
+import { versionDelta } from "@/server/services/views";
 import { Collapse, MARKET_LABEL, ProbBar, SectionTitle, Tag, fmtCn, pct } from "./ui";
 
 /**
@@ -17,6 +18,9 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
   const odds2 = (o: number | null | undefined) => (o == null ? "—" : o.toFixed(2));
   let sec = 0;
   const idx = () => String(++sec).padStart(2, "0");
+  // 更新可见性：最近更新时间 + 较上版变化（派生自版本历史，零存储）
+  const updatedAt = view.publishedAt ?? engine.computedAt;
+  const delta = view.versions.length >= 2 ? versionDelta(view.versions[0], view.versions[1]) : null;
 
   return (
     <div className="pb-8">
@@ -25,6 +29,14 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         <div className="flex items-center justify-between">
           <span className="font-display text-lg tracking-wide text-gold-bright">{stars}</span>
           <Tag tone="gold">第 {view.card.version} 版</Tag>
+        </div>
+        <div className="tabular mt-1 text-[10px] text-faint">
+          更新于 {fmtCn(updatedAt)}
+          {delta && (
+            <>
+              {" "}· 较上版：<span className="text-muted">{delta}</span>
+            </>
+          )}
         </div>
         {engine.picks.length > 0 ? (
           <>
@@ -399,27 +411,35 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
       </Collapse>
 
       {view.versions.length > 1 && (
-        <Collapse title="版本演化" hint={`${view.versions.length} 个版本的概率轨迹`}>
+        <Collapse title="更新记录" hint={`${view.versions.length} 个版本 · 每版改了什么`}>
+          <p className="mb-2 text-[11px] leading-5 text-muted">
+            赛前观点随盘口/阵容/天气持续重算改版，每一版都哈希存证、赛后可验——这里是完整的演化轨迹。
+          </p>
           <table className="tabular w-full text-[11px]">
             <thead>
               <tr className="text-left text-[10px] tracking-wider text-faint">
                 <th className="pb-1 font-normal">版本</th>
+                <th className="pb-1 font-normal">发布于</th>
+                <th className="pb-1 font-normal">较上版变化</th>
                 <th className="pb-1 text-right font-normal">主胜</th>
                 <th className="pb-1 text-right font-normal">平局</th>
                 <th className="pb-1 text-right font-normal">客胜</th>
-                <th className="pb-1 text-right font-normal">发布于</th>
               </tr>
             </thead>
             <tbody>
-              {view.versions.map((v) => (
-                <tr key={v.version} className="border-t border-hairline">
-                  <td className="py-1.5">V{v.version}</td>
-                  <td className="py-1.5 text-right">{pct(v.ensemble.home)}</td>
-                  <td className="py-1.5 text-right">{pct(v.ensemble.draw)}</td>
-                  <td className="py-1.5 text-right">{pct(v.ensemble.away)}</td>
-                  <td className="py-1.5 text-right text-muted">{v.publishedAt ? fmtCn(v.publishedAt) : "—"}</td>
-                </tr>
-              ))}
+              {view.versions.map((v, i) => {
+                const prev = view.versions[i + 1];
+                return (
+                  <tr key={v.version} className="border-t border-hairline">
+                    <td className="py-1.5">V{v.version}</td>
+                    <td className="py-1.5 text-muted">{fmtCn(v.publishedAt ?? v.createdAt)}</td>
+                    <td className="py-1.5 text-muted">{prev ? versionDelta(v, prev) : "首版发布"}</td>
+                    <td className="py-1.5 text-right">{pct(v.ensemble.home)}</td>
+                    <td className="py-1.5 text-right">{pct(v.ensemble.draw)}</td>
+                    <td className="py-1.5 text-right">{pct(v.ensemble.away)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </Collapse>
