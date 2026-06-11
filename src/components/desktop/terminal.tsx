@@ -37,6 +37,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   const { prefs, me, refreshMe } = useApp();
   const router = useRouter();
   const [league, setLeague] = useState("all");
+  const [search, setSearch] = useState("");
   const [rows, setRows] = useState<V[]>([]);
   const [sel, setSel] = useState<number | null>(initialMatchId ?? null);
   const [tab, setTab] = useState<DTab>(initialTab ?? "odds");
@@ -242,7 +243,15 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
         {/* 左栏 · 赛事列表 */}
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderRight: "1px solid var(--line)", background: "#0c0d12" }}>
           <div style={{ flexShrink: 0, padding: "12px 14px 8px" }}>
-            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>今日赛事</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, flexShrink: 0 }}>今日赛事</span>
+              <input
+                placeholder="搜索球队…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ flex: 1, minWidth: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "5px 10px", fontSize: 11, color: "var(--fg)", outline: "none" }}
+              />
+            </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {[{ id: "all", zh: "全部", color: "", wc: false }, ...LEAGUES.map((l) => ({ id: String(l.id), zh: l.zh, color: l.color, wc: !!l.wc }))].map((l) => {
                 const active = league === l.id;
@@ -259,8 +268,17 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
             </div>
           </div>
           <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-            {rows.length === 0 && <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 11, padding: "40px 12px" }}>该时段暂无已开盘赛事</div>}
-            {rows.map((m) => {
+            {(() => {
+              const kw = search.trim().toLowerCase();
+              const shown = kw ? rows.filter((m) => `${m.home}${m.away}`.toLowerCase().includes(kw)) : rows;
+              return (
+                <>
+                  {shown.length === 0 && (
+                    <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 11, padding: "40px 12px" }}>
+                      {kw ? "没有匹配的球队" : "该时段暂无已开盘赛事"}
+                    </div>
+                  )}
+                  {shown.map((m) => {
               const selected = sel === m.id;
               const tag = m.masked ? "注册可见" : m.free ? "免费" : m.unlocked ? "已解锁" : "";
               return (
@@ -301,7 +319,10 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   </div>
                 </div>
               );
-            })}
+                  })}
+                </>
+              );
+            })()}
           </div>
         </div>
 
