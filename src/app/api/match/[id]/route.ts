@@ -4,7 +4,7 @@ import { matchPanorama } from "@/server/af/panorama";
 import { detailView } from "@/server/views/detail";
 import { currentUser } from "@/server/platform/session";
 import { isUnlocked } from "@/server/platform/wallet";
-import { unlockPrice } from "@/server/platform/rules";
+import { cfgUnlockPrice } from "@/server/platform/config";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -23,6 +23,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     ...view,
     loggedIn: !!user,
     unlocked: user ? isUnlocked(user.id, fid, today) : false,
-    price: unlockPrice(p.fixture.kickoff_utc, Date.now()),
+    price: cfgUnlockPrice(p.fixture.kickoff_utc, Date.now()),
   });
 }

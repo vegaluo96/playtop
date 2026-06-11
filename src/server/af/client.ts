@@ -19,8 +19,15 @@ export interface AfEnvelope {
 }
 
 export function afKey(): string | null {
-  const k = process.env.API_FOOTBALL_KEY?.trim();
-  return k ? k : null;
+  // 后台可在「系统设置」更换密钥(kv 优先,env 兜底);延迟 require 避免构建期循环
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { cfgAfKey } = require("../platform/config") as { cfgAfKey: () => string | null };
+    return cfgAfKey();
+  } catch {
+    const k = process.env.API_FOOTBALL_KEY?.trim();
+    return k ? k : null;
+  }
 }
 
 export function afConfigured(): boolean {

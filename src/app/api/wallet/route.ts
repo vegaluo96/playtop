@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       : body.action === "recharge"
         ? recharge(u.id, Number(body.tier))
         : body.action === "redeem"
-          ? redeem(u.id, String(body.code ?? ""))
+          ? redeem(u.id, String(body.code ?? ""), (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || null)
           : ({ ok: false, error: "未知操作" } as const);
   return NextResponse.json(r, { status: r.ok ? 200 : 400 });
 }

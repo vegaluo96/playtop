@@ -144,7 +144,85 @@ CREATE TABLE IF NOT EXISTS kv (
   k TEXT PRIMARY KEY,
   v TEXT NOT NULL
 );
+
+-- ── 管理后台 ──
+CREATE TABLE IF NOT EXISTS admins (
+  email TEXT PRIMARY KEY,
+  role TEXT NOT NULL DEFAULT '运营',      -- 超级管理员 | 运营 | 客服 | 风控
+  status TEXT NOT NULL DEFAULT '启用',
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at INTEGER NOT NULL,
+  actor TEXT NOT NULL,
+  action TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
+CREATE TABLE IF NOT EXISTS announcements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  text TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT '上线中',
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS hidden_fixtures (
+  fixture_id INTEGER PRIMARY KEY
+);
+CREATE TABLE IF NOT EXISTS metrics_daily (
+  date TEXT NOT NULL,
+  k TEXT NOT NULL,
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (date, k)
+);
+CREATE TABLE IF NOT EXISTS endpoint_metrics (
+  k TEXT PRIMARY KEY,
+  tier TEXT NOT NULL DEFAULT '',
+  last_at INTEGER,
+  ms INTEGER,
+  status TEXT NOT NULL DEFAULT '—'
+);
+CREATE TABLE IF NOT EXISTS risk_queue (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  detail TEXT NOT NULL,
+  dedup TEXT NOT NULL UNIQUE,
+  user_email TEXT,
+  status TEXT NOT NULL DEFAULT '待裁决', -- 待裁决 | 拦截 | 放行
+  decided_by TEXT,
+  decided_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS report_cache (
+  fixture_id INTEGER PRIMARY KEY,
+  fingerprint TEXT NOT NULL,
+  content TEXT NOT NULL,
+  model TEXT NOT NULL DEFAULT '',
+  tokens INTEGER NOT NULL DEFAULT 0,
+  gen_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS llm_usage (
+  date TEXT PRIMARY KEY,
+  tokens INTEGER NOT NULL DEFAULT 0,
+  count INTEGER NOT NULL DEFAULT 0,
+  hits INTEGER NOT NULL DEFAULT 0,
+  fails INTEGER NOT NULL DEFAULT 0
+);
 `;
+
+/* 已存在库的增量列(无则加,有则忽略) */
+const COLUMN_MIGRATIONS: [string, string][] = [
+  ["users", "status TEXT NOT NULL DEFAULT '正常'"],
+  ["users", "last_seen INTEGER"],
+  ["users", "reg_ip TEXT"],
+  ["tickets", "reply TEXT"],
+  ["tickets", "replied_at INTEGER"],
+  ["tickets", "replied_by TEXT"],
+  ["ledger", "rmb REAL"],
+  ["invites", "ip TEXT"],
+  ["redemptions", "ip TEXT"],
+];
 
 let _db: DatabaseSync | null = null;
 
@@ -161,6 +239,13 @@ export function db(): DatabaseSync {
   _db = new DatabaseSync(path);
   if (path !== ":memory:") _db.exec("PRAGMA journal_mode = WAL;");
   _db.exec(SCHEMA);
+  for (const [table, col] of COLUMN_MIGRATIONS) {
+    try {
+      _db.exec(`ALTER TABLE ${table} ADD COLUMN ${col}`);
+    } catch {
+      /* 列已存在 */
+    }
+  }
   return _db;
 }
 

@@ -108,6 +108,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   useEffect(() => {
     setDetail(null);
     setPred(null);
+    if (sel != null) void fetch("/api/track", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ k: "match_view", id: sel }) });
     void loadDetail();
     void loadPred();
     const t = setInterval(() => {

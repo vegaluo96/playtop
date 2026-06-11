@@ -66,6 +66,10 @@ function MobileMatchDetail({ id }: { id: string }) {
   }, [load]);
 
   useEffect(() => {
+    void fetch("/api/track", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ k: "match_view", id: Number(id) }) });
+  }, [id]);
+
+  useEffect(() => {
     if (tab === "deep" && !deepV) {
       void fetch(`/api/match/${id}?tz=${encodeURIComponent(prefs.tz)}&deep=1`, { cache: "no-store" })
         .then((r) => r.json())

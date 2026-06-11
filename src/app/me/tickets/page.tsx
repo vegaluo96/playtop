@@ -12,6 +12,7 @@ interface Ticket {
   type: string;
   body: string;
   status: string;
+  reply?: string | null;
   created_at: number;
 }
 
@@ -103,6 +104,12 @@ function MobileTicketsPage() {
                   <span style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.body}</span>
                   <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)", flexShrink: 0 }}>{fmtT(t.created_at)}</span>
                 </div>
+                {t.reply && (
+                  <div style={{ marginTop: 6, background: "var(--inset)", borderRadius: 8, padding: "8px 10px", fontSize: 11, color: "var(--fg-mid)", lineHeight: 1.6 }}>
+                    <span style={{ fontSize: 9, fontWeight: 800, color: "#2ecc8a", marginRight: 6 }}>客服回复</span>
+                    {t.reply}
+                  </div>
+                )}
               </div>
             ))}
           </div>

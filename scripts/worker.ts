@@ -23,11 +23,46 @@ import {
   settleFixture,
   upsertFixture,
 } from "../src/server/af/store";
+import { cfgEmergencyThrottle, cfgFollowedIds, cfgTierIntervals } from "../src/server/platform/config";
+import { fetchLlmBalance } from "../src/server/llm/client";
+import { db } from "../src/server/db";
 
-const FOLLOWED = (process.env.FOLLOWED_LEAGUES || "39,140,78,135,61,2,3,1")
-  .split(",")
-  .map((s) => Number(s.trim()))
-  .filter(Boolean);
+/** 联赛范围:后台「联赛开关」动态配置(env 兜底) */
+function FOLLOWED(): number[] {
+  const ids = cfgFollowedIds();
+  if (ids.length > 0) return ids;
+  return (process.env.FOLLOWED_LEAGUES || "39,140,78,135,61,2,3,1").split(",").map((x) => Number(x.trim())).filter(Boolean);
+}
+
+/** 有效抓取间隔:后台可调分层 + 紧急降频(手动开关或配额>85% 自动,×2) */
+function effIntervalMs(tierIdx: number): number {
+  const base = cfgTierIntervals()[tierIdx];
+  let throttle = cfgEmergencyThrottle();
+  try {
+    const st = JSON.parse(kvGet("af_status") || "{}") as { current?: number; limit?: number };
+    if (st.limit && st.current && st.current / st.limit > 0.85) throttle = true;
+  } catch { /* ignore */ }
+  return throttle ? base * 2 : base;
+}
+
+/** 端点健康上报(后台「数据与模型监控」) */
+function recordEp(k: string, tier: string, ms: number, ok: boolean): void {
+  const status = !ok ? "异常" : ms > 600 ? "慢" : "正常";
+  db().prepare(
+    "INSERT INTO endpoint_metrics (k, tier, last_at, ms, status) VALUES (?,?,?,?,?) ON CONFLICT(k) DO UPDATE SET tier=excluded.tier, last_at=excluded.last_at, ms=excluded.ms, status=excluded.status",
+  ).run(k, tier, Date.now(), Math.round(ms), status);
+}
+async function tracked<T>(k: string, tier: string, fn: () => Promise<T>): Promise<T> {
+  const t0 = Date.now();
+  try {
+    const r = await fn();
+    recordEp(k, tier, Date.now() - t0, true);
+    return r;
+  } catch (e) {
+    recordEp(k, tier, Date.now() - t0, false);
+    throw e;
+  }
+}
 const DELAY = Number(process.env.AF_DELAY_MS || 300);
 const TICK_MS = 60_000;
 const H = 3_600_000;
@@ -52,12 +87,12 @@ async function refreshDayFixtures(date: string): Promise<void> {
   const key = `fixtures_day:${date}`;
   const last = Number(kvGet(key) ?? 0);
   if (Date.now() - last < 6 * H) return;
-  const env = await paced(() => afGetAllPages(`/fixtures?date=${date}`, 3, { force: true }));
+  const env = await paced(() => tracked("fixtures?date", "日表 6h", () => afGetAllPages(`/fixtures?date=${date}`, 3, { force: true })));
   const items = Array.isArray(env.response) ? env.response : [];
   let n = 0;
   for (const item of items) {
     const lg = Number((item as { league?: { id?: number } }).league?.id);
-    if (FOLLOWED.includes(lg) && upsertFixture(item)) n++;
+    if (FOLLOWED().includes(lg) && upsertFixture(item)) n++;
   }
   kvSet(key, String(Date.now()));
   log(`日表 ${date}:${n}/${items.length} 场(关注联赛)`);
@@ -69,7 +104,7 @@ async function tickLive(now: number): Promise<void> {
   );
   if (window.length === 0) return;
   try {
-    const env = await paced(() => afGet(`/fixtures?live=${FOLLOWED.join("-")}`, { force: true }));
+    const env = await paced(() => tracked("fixtures (live)", "滚球 1min", () => afGet(`/fixtures?live=${FOLLOWED().join("-")}`, { force: true })));
     const items = Array.isArray(env.response) ? env.response : [];
     for (const item of items) upsertFixture(item);
   } catch (e) {
@@ -78,7 +113,7 @@ async function tickLive(now: number): Promise<void> {
   // 滚球单场 bundle(events/statistics/players 同一请求带回)
   for (const f of fixturesBetween(now - 4 * H, now).filter((x) => isLive(x.status))) {
     try {
-      const env = await paced(() => afGet(`/fixtures?id=${f.fixture_id}`, { force: true }));
+      const env = await paced(() => tracked("fixtures?id (bundle)", "滚球 1min", () => afGet(`/fixtures?id=${f.fixture_id}`, { force: true })));
       const item = Array.isArray(env.response) ? env.response[0] : null;
       if (item) upsertFixture(item);
     } catch (e) {
@@ -86,7 +121,7 @@ async function tickLive(now: number): Promise<void> {
     }
     // 滚球实时盘
     try {
-      const env = await paced(() => afGet(`/odds/live?fixture=${f.fixture_id}`, { force: true }));
+      const env = await paced(() => tracked("odds.live", "滚球 1min", () => afGet(`/odds/live?fixture=${f.fixture_id}`, { force: true })));
       const item = Array.isArray(env.response) ? env.response[0] : null;
       kvSet(`fx:${f.fixture_id}:liveodds`, JSON.stringify({ at: Date.now(), data: item ?? null }));
     } catch {
@@ -100,10 +135,10 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
   if (!f || isFinished(f.status)) return;
   const tier = tierFor(f.kickoff_utc, now, f.status);
   const last = lastOdds.get(fxId) ?? 0;
-  if (now - last >= tier.intervalMs) {
+  if (now - last >= effIntervalMs(tier.idx)) {
     lastOdds.set(fxId, now);
     try {
-      const env = await paced(() => afGet(`/odds?fixture=${fxId}`, { force: true }));
+      const env = await paced(() => tracked("odds (bet 1/4/5)", tier.freq, () => afGet(`/odds?fixture=${fxId}`, { force: true })));
       const item = Array.isArray(env.response) ? env.response[0] : null;
       if (item) {
         const moves = archiveOdds(fxId, item);
@@ -118,7 +153,7 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
   if (!hasPrediction(fxId) || (minsTo <= 60 && minsTo > 0 && !predRefetched.has(fxId))) {
     if (minsTo <= 60) predRefetched.add(fxId);
     try {
-      const env = await paced(() => afGet(`/predictions?fixture=${fxId}`, { force: true }));
+      const env = await paced(() => tracked("predictions", "开盘+T-1h", () => afGet(`/predictions?fixture=${fxId}`, { force: true })));
       const item = Array.isArray(env.response) ? env.response[0] : null;
       if (item) archivePrediction(fxId, item);
     } catch (e) {
@@ -128,7 +163,7 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
   // 首发:T-60 起每 5min 拉 bundle,拿到即停
   if (minsTo <= 60 && minsTo > 0 && !lineupDone.has(fxId) && Math.floor(now / 300_000) !== Math.floor(last / 300_000)) {
     try {
-      const env = await paced(() => afGet(`/fixtures?id=${fxId}`, { force: true }));
+      const env = await paced(() => tracked("fixtures.lineups", "T-60m 5min", () => afGet(`/fixtures?id=${fxId}`, { force: true })));
       const item = Array.isArray(env.response) ? env.response[0] : null;
       if (item) {
         upsertFixture(item);
@@ -173,11 +208,24 @@ async function cycle(): Promise<void> {
   const horizon = fixturesBetween(now - 4 * H, now + 36 * H);
   for (const f of horizon) await tickFixture(f.fixture_id, now);
   settleAndDailyFree(now);
+  // 每小时:AF 配额(/status)与 LLM 余额(<\$100 由看板告警)
+  const hourKey = `hourly:${new Date(now).toISOString().slice(0, 13)}`;
+  if (!kvGet(hourKey)) {
+    kvSet(hourKey, "1");
+    try {
+      const env = await paced(() => tracked("status", "每小时", () => afGet("/status", { force: true })));
+      const r = (env.response ?? {}) as { subscription?: { plan?: string }; requests?: { current?: number; limit_day?: number } };
+      kvSet("af_status", JSON.stringify({ plan: r.subscription?.plan, current: r.requests?.current, limit: r.requests?.limit_day, at: Date.now() }));
+    } catch (e) {
+      log(`/status 失败:${msg(e)}`);
+    }
+    await fetchLlmBalance().catch(() => null);
+  }
   kvSet("worker_heartbeat", String(Date.now()));
 }
 
 async function main(): Promise<void> {
-  log(`worker 启动:联赛 ${FOLLOWED.join(",")} · 调用间隔 ${DELAY}ms`);
+  log(`worker 启动:联赛 ${FOLLOWED().join(",")} · 调用间隔 ${DELAY}ms`);
   for (;;) {
     const t0 = Date.now();
     try {

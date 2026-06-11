@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { parseTzOffset } from "@/lib/format";
-import { fixturesBetween, oddsSeries, dailyFreeFixtureToday, movedRecently } from "@/server/views/list-helpers";
+import { fixturesBetween, oddsSeries, dailyFreeFixtureToday, movedRecently, hiddenFixtureIds } from "@/server/views/list-helpers";
 import { marketCell } from "@/server/views/common";
 import { isLive, isFinished } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
     to = now + 5 * 60_000;
   }
 
-  let fixtures = fixturesBetween(from, to);
+  const hidden = hiddenFixtureIds();
+  let fixtures = fixturesBetween(from, to).filter((f) => !hidden.has(f.fixture_id));
   if (day === "live") fixtures = fixtures.filter((f) => isLive(f.status));
   if (league !== "all") fixtures = fixtures.filter((f) => f.league_id === Number(league));
   fixtures.sort((a, b) => a.kickoff_utc - b.kickoff_utc);

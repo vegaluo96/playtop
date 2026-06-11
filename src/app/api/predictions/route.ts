@@ -8,7 +8,7 @@ import { leagueZh } from "@/lib/leagues";
 import { fixtureById, fixturesBetween, latestPrediction, modelStats } from "@/server/af/store";
 import { isLive } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
-import { unlockPrice } from "@/server/platform/rules";
+import { cfgUnlockPrice } from "@/server/platform/config";
 import { dailyFreeFixture, isUnlocked } from "@/server/platform/wallet";
 import { predSummary } from "@/server/views/common";
 
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       const ps = predSummary(latestPrediction(f.fixture_id), f.home_id);
       if (!ps) return null;
       const unlocked = !!user && isUnlocked(user.id, f.fixture_id, today);
-      const price = unlockPrice(f.kickoff_utc, now);
+      const price = cfgUnlockPrice(f.kickoff_utc, now);
       return {
         id: f.fixture_id,
         match: `${f.home_name} vs ${f.away_name}`,

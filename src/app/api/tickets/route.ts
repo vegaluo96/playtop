@@ -6,7 +6,7 @@ export async function GET() {
   const u = await currentUser();
   if (!u) return NextResponse.json({ ok: false, error: "未登录" }, { status: 401 });
   const rows = db()
-    .prepare("SELECT id, type, body, status, created_at FROM tickets WHERE user_id = ? ORDER BY id DESC LIMIT 50")
+    .prepare("SELECT id, type, body, status, reply, replied_at, created_at FROM tickets WHERE user_id = ? ORDER BY id DESC LIMIT 50")
     .all(u.id);
   return NextResponse.json({ ok: true, tickets: rows });
 }

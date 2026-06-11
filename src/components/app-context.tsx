@@ -82,6 +82,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void refreshMe();
+    try {
+      if (!sessionStorage.getItem("pt_v")) {
+        sessionStorage.setItem("pt_v", "1");
+        void fetch("/api/track", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ k: "visit" }) });
+      }
+    } catch { /* 无痕模式等 */ }
   }, [refreshMe]);
 
   return <AppCtx.Provider value={{ prefs, setPrefs, me, refreshMe }}>{children}</AppCtx.Provider>;

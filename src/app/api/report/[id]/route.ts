@@ -5,8 +5,9 @@ import { leagueZh } from "@/lib/leagues";
 import { matchPanorama } from "@/server/af/panorama";
 import { isLive } from "@/server/af/schedule";
 import { buildReport } from "@/server/views/report";
+import { getLlmReport } from "@/server/llm/report";
 import { currentUser } from "@/server/platform/session";
-import { unlockPrice } from "@/server/platform/rules";
+import { cfgUnlockPrice } from "@/server/platform/config";
 import { isUnlocked } from "@/server/platform/wallet";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -20,6 +21,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
   const unlocked = !!user && isUnlocked(user.id, fid, today);
   const { ps, secs } = buildReport(p);
+  let sections = secs;
+  let genBy = "template";
+  if (unlocked) {
+    const llm = await getLlmReport(p, secs).catch(() => null);
+    if (llm) {
+      sections = llm.sections;
+      genBy = llm.by;
+    }
+  }
   const fx = p.fixture;
   return NextResponse.json({
     ok: true,
@@ -33,9 +43,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     homeName: fx.home_name,
     awayName: fx.away_name,
     advice: unlocked ? (ps?.advice ?? "样本不足") : null,
-    sections: unlocked ? secs : [],
+    sections: unlocked ? sections : [],
+    genBy,
     locked: !unlocked,
     loggedIn: !!user,
-    price: unlockPrice(fx.kickoff_utc, Date.now()),
+    price: cfgUnlockPrice(fx.kickoff_utc, Date.now()),
   });
 }

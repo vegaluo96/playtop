@@ -3,27 +3,27 @@
  * 解锁永久可见;每日免费场对登录用户视同已解锁(不落 unlocks 行)。
  */
 import { db, tx } from "../db";
-import {
-  GIFT_POINTS,
-  RECHARGE_TIERS,
-  inviteCredit,
-  rechargeCredit,
-  unlockPrice,
-} from "./rules";
+import { rechargeCredit } from "./rules";
+import { cfgFirstBonusOn, cfgGiftPoints, cfgInviteCaps, cfgInvitePoints, cfgRechargeTiers, cfgUnlockPrice } from "./config";
 
 export type WalletResult = { ok: true; pts: number; note?: string } | { ok: false; error: string };
 
-function append(userId: number, kind: string, delta: number, note: string): number {
+function append(userId: number, kind: string, delta: number, note: string, rmb: number | null = null): number {
   const d = db();
   const u = d.prepare("SELECT pts FROM users WHERE id = ?").get(userId) as { pts: number } | undefined;
   if (!u) throw new Error("用户不存在");
   const balance = u.pts + delta;
   if (balance < 0) throw new Error("余额不足");
   d.prepare("UPDATE users SET pts = ? WHERE id = ?").run(balance, userId);
-  d.prepare("INSERT INTO ledger (user_id, kind, delta, balance, note, created_at) VALUES (?,?,?,?,?,?)").run(
-    userId, kind, delta, balance, note, Date.now(),
+  d.prepare("INSERT INTO ledger (user_id, kind, delta, balance, note, created_at, rmb) VALUES (?,?,?,?,?,?,?)").run(
+    userId, kind, delta, balance, note, Date.now(), rmb,
   );
   return balance;
+}
+
+/** 后台调积分(补偿/扣减),由调用方做 RBAC 与审计 */
+export function adjustPoints(userId: number, delta: number, reason: string): WalletResult {
+  return tx(() => ({ ok: true as const, pts: append(userId, "adjust", delta, reason || "后台调整") }));
 }
 
 export function balanceOf(userId: number): number {
@@ -39,28 +39,28 @@ export function claimGift(userId: number): WalletResult {
     if (!u) return { ok: false as const, error: "用户不存在" };
     if (u.gift_claimed) return { ok: false as const, error: "礼包已领取" };
     d.prepare("UPDATE users SET gift_claimed = 1 WHERE id = ?").run(userId);
-    return { ok: true as const, pts: append(userId, "gift", GIFT_POINTS, "新人礼包") };
+    return { ok: true as const, pts: append(userId, "gift", cfgGiftPoints(), "新人礼包") };
   });
 }
 
 /** 充值(当前为演示支付:选档即到账;接入支付网关后在此校验回调) */
 export function recharge(userId: number, tierIndex: number): WalletResult {
-  const tier = RECHARGE_TIERS[tierIndex];
+  const tier = cfgRechargeTiers()[tierIndex];
   if (!tier) return { ok: false, error: "档位不存在" };
   return tx(() => {
     const d = db();
     const u = d.prepare("SELECT first_recharged FROM users WHERE id = ?").get(userId) as { first_recharged: number } | undefined;
     if (!u) return { ok: false as const, error: "用户不存在" };
-    const isFirst = !u.first_recharged;
+    const isFirst = !u.first_recharged && cfgFirstBonusOn();
     const credit = rechargeCredit(tier, isFirst);
     d.prepare("UPDATE users SET first_recharged = 1 WHERE id = ?").run(userId);
     const note = `充值 ¥${tier.rmb}` + (isFirst ? "(首充 +50%)" : "");
-    return { ok: true as const, pts: append(userId, "recharge", credit, note), note };
+    return { ok: true as const, pts: append(userId, "recharge", credit, note, tier.rmb), note };
   });
 }
 
 /** 兑换码:每码每用户限一次,码本身有总次数上限 */
-export function redeem(userId: number, codeRaw: string): WalletResult {
+export function redeem(userId: number, codeRaw: string, ip: string | null = null): WalletResult {
   const code = codeRaw.trim().toUpperCase();
   if (!code) return { ok: false, error: "请输入兑换码" };
   return tx(() => {
@@ -72,7 +72,7 @@ export function redeem(userId: number, codeRaw: string): WalletResult {
     if (c.used_count >= c.max_uses) return { ok: false as const, error: "兑换码已被领完" };
     if (d.prepare("SELECT 1 FROM redemptions WHERE code = ? AND user_id = ?").get(code, userId))
       return { ok: false as const, error: "该兑换码已使用" };
-    d.prepare("INSERT INTO redemptions (code, user_id, created_at) VALUES (?,?,?)").run(code, userId, Date.now());
+    d.prepare("INSERT INTO redemptions (code, user_id, created_at, ip) VALUES (?,?,?,?)").run(code, userId, Date.now(), ip);
     d.prepare("UPDATE redeem_codes SET used_count = used_count + 1 WHERE code = ?").run(code);
     return { ok: true as const, pts: append(userId, "redeem", c.points, `兑换码 ${code}`), note: `+${c.points}` };
   });
@@ -93,7 +93,7 @@ export function isUnlocked(userId: number, fixtureId: number, dateStr: string): 
 export function unlock(userId: number, fixtureId: number, kickoffUtcMs: number, matchName: string, dateStr: string): WalletResult {
   return tx(() => {
     if (isUnlocked(userId, fixtureId, dateStr)) return { ok: false as const, error: "本场已解锁" };
-    const price = unlockPrice(kickoffUtcMs, Date.now());
+    const price = cfgUnlockPrice(kickoffUtcMs, Date.now());
     if (balanceOf(userId) < price) return { ok: false as const, error: "余额不足" };
     db().prepare("INSERT INTO unlocks (user_id, fixture_id, price, created_at) VALUES (?,?,?,?)").run(
       userId, fixtureId, price, Date.now(),
@@ -115,17 +115,16 @@ export function ledgerOf(userId: number, limit = 200): { kind: string; delta: nu
 }
 
 /** 邀请记分(注册成功时由 auth 调用);超日/周/月上限部分不计 */
-export function creditInvite(inviterId: number, inviteeId: number): number {
+export function creditInvite(inviterId: number, inviteeId: number, ip: string | null = null): number {
   const d = db();
   const now = Date.now();
+  const caps = cfgInviteCaps();
   const count = (sinceMs: number) =>
     (d.prepare("SELECT COUNT(*) AS n FROM invites WHERE inviter_id = ? AND credited > 0 AND created_at >= ?").get(inviterId, sinceMs) as { n: number }).n;
-  const day = count(startOfDay(now));
-  const week = count(startOfWeek(now));
-  const month = count(startOfMonth(now));
-  const credit = inviteCredit({ day, week, month });
-  d.prepare("INSERT INTO invites (inviter_id, invitee_id, credited, created_at) VALUES (?,?,?,?)").run(
-    inviterId, inviteeId, credit, now,
+  const within = { day: count(startOfDay(now)), week: count(startOfWeek(now)), month: count(startOfMonth(now)) };
+  const credit = within.day >= caps.day || within.week >= caps.week || within.month >= caps.month ? 0 : cfgInvitePoints();
+  d.prepare("INSERT INTO invites (inviter_id, invitee_id, credited, created_at, ip) VALUES (?,?,?,?,?)").run(
+    inviterId, inviteeId, credit, now, ip,
   );
   if (credit > 0) append(inviterId, "invite", credit, "邀请好友注册");
   return credit;

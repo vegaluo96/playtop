@@ -9,6 +9,12 @@ export function dailyFreeFixtureToday(): number | null {
   return dailyFreeFixture(today);
 }
 
+/** 后台隐藏的场次(列表不展示,数据仍归档) */
+export function hiddenFixtureIds(): Set<number> {
+  const rows = db().prepare("SELECT fixture_id FROM hidden_fixtures").all() as unknown as { fixture_id: number }[];
+  return new Set(rows.map((r) => r.fixture_id));
+}
+
 /** 近 12h 内有异动记录 → 列表「异动」标 */
 export function movedRecently(fixtureId: number): boolean {
   return !!db()
