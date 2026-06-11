@@ -13,6 +13,7 @@ import { leagueColor } from "@/lib/leagues";
 import { Flash, HeartBeat, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
+import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any; // 视图模型由 /api/match/[id] 输出,字段见 src/server/views/detail.ts
@@ -92,7 +93,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       v1: v.summary.ah ? `${v.summary.ah.text} ${v.summary.ah.w.split("/")[0]}` : "—",
       v2: v.summary.ou ? `${v.summary.ou.text} ${v.summary.ou.w.split("/")[0]}` : "—",
       v3: v.summary.eu?.w ?? "—",
-      url: `www.play.top/match/${h.id}`,
+      url: `${SITE_HOST}/match/${h.id}`,
       inviteCode: me.inviteCode,
     });
 

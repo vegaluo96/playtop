@@ -12,6 +12,7 @@ import { nowStr } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
+import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -61,7 +62,7 @@ function MobileReportPage({ id }: { id: string }) {
               setShare({
                 title: v.match, sub: `${v.league} · ${v.time}`,
                 v1: `主胜 ${v.pH}%`, v2: `平 ${v.pD}%`, v3: `客胜 ${v.pA}%`,
-                url: `www.play.top/report/${v.id}`, inviteCode: me.inviteCode,
+                url: `${SITE_HOST}/report/${v.id}`, inviteCode: me.inviteCode,
               })
             }
             style={{ cursor: "pointer", color: "var(--fg-2)" }}

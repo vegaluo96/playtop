@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { currentUser } from "@/server/platform/session";
 import { inviteStats } from "@/server/platform/wallet";
 import { INVITE_CAPS, maskEmail } from "@/server/platform/rules";
+import { SITE_HOST } from "@/lib/site";
 
 export async function GET() {
   const u = await currentUser();
@@ -23,7 +24,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     code: u.invite_code,
-    url: `www.play.top/i/${u.invite_code}`,
+    url: `${SITE_HOST}/i/${u.invite_code}`,
     caps: INVITE_CAPS,
     log,
     ...s,

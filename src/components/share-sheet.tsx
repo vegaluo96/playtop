@@ -3,6 +3,7 @@
 /** 分享弹层 + canvas 海报(设计稿 genShareImg 移植;渠道按钮统一走复制链接) */
 import { useState } from "react";
 import { GoldBtn, Sheet } from "./ui";
+import { SITE_HOST } from "@/lib/site";
 
 export interface ShareData {
   title: string;
@@ -41,7 +42,7 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
     x.fillText("足球终端", 320, 110);
     x.fillStyle = "#959ba6";
     x.font = "22px monospace";
-    x.fillText("www.play.top", 320, 150);
+    x.fillText(SITE_HOST, 320, 150);
     x.fillStyle = "#eceef2";
     x.font = "800 40px sans-serif";
     x.fillText(data.title, 320, 270);
@@ -95,7 +96,7 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
           <span style={{ fontSize: 13, fontWeight: 800 }}>
             足球<span style={{ color: "var(--gold)" }}>终端</span>
           </span>
-          <span className="mono" style={{ fontSize: 9, color: "var(--fg-3)" }}>www.play.top</span>
+          <span className="mono" style={{ fontSize: 9, color: "var(--fg-3)" }}>{SITE_HOST}</span>
         </div>
         <div style={{ textAlign: "center", fontSize: 16, fontWeight: 800, margin: "12px 0 3px" }}>{data.title}</div>
         <div style={{ textAlign: "center", fontSize: 10, color: "var(--fg-2)", marginBottom: 10 }}>{data.sub}</div>

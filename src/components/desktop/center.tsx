@@ -8,6 +8,7 @@ import { Flash } from "@/components/live";
 import { hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
 import type { DTab } from "./terminal";
+import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -73,7 +74,7 @@ export function CenterPane({
   const h = v.header;
   const copyLink = () => {
     try {
-      void navigator.clipboard.writeText(`https://www.play.top/match/${h.id}`);
+      void navigator.clipboard.writeText(`https://${SITE_HOST}/match/${h.id}`);
     } catch { /* ignore */ }
     setCopied(true);
   };
