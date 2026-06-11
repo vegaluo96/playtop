@@ -1,44 +1,26 @@
 {
   "name": "playtop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "足球赛事 AI 预测平台（移动端 Web + 管理后台）",
+  "description": "PlayTop（play.top）— 平台重建中（清空旧实现，准备从头设计）",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/migrate.ts",
-    "seed": "tsx scripts/seed.ts",
-    "import-history": "tsx scripts/import-history.ts",
-    "backfill-elo": "tsx scripts/backfill-elo.ts",
-    "simulate": "tsx scripts/simulate-match.ts",
-    "demo:wc": "tsx scripts/demo-worldcup.ts",
-    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.10.0",
-    "drizzle-orm": "^0.45.2",
     "next": "^15.5.19",
-    "node-cron": "^4.2.1",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "zod": "^3.25.76"
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.2",
-    "@types/node-cron": "^3.0.11",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "drizzle-kit": "^0.31.10",
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.0",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "typescript": "^6.0.3"
   }
 }
