@@ -8,6 +8,8 @@ import { RefreshSheet } from "@/components/refresh-sheet";
 import { Chip } from "@/components/ui";
 import { f2, hhmm } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
+import { useIsDesktop } from "@/components/use-viewport";
+import { Terminal } from "@/components/desktop/terminal";
 
 interface Cell {
   text: string;
@@ -50,7 +52,13 @@ function ArrowVal({ v, d, masked }: { v: number | undefined; d: number | undefin
   );
 }
 
-export default function MatchesPage() {
+export default function MatchesRoute() {
+  const isDesktop = useIsDesktop();
+  if (isDesktop == null) return null;
+  return isDesktop ? <Terminal /> : <MobileMatchesPage />;
+}
+
+function MobileMatchesPage() {
   const [day, setDay] = useState("today");
   const [league, setLeague] = useState("all");
   const [rows, setRows] = useState<Row[]>([]);

@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { t } from "@/lib/i18n";
 import { useApp } from "./app-context";
+import { useIsDesktop } from "./use-viewport";
 
 /** 4 个 Tab 根路由显示底部导航;详情/报告/登录/二级页隐藏 */
 const TABS = [
@@ -34,8 +35,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { prefs } = useApp();
+  const isDesktop = useIsDesktop();
   const showNav = TABS.some((tab) => tab.path === pathname);
   void prefs;
+
+  // 桌面(≥1080):去掉移动壳与底部导航,页面自行渲染三栏终端
+  if (isDesktop) {
+    return (
+      <div className="app-shell desktop-root" style={{ width: "100%", height: "100dvh", background: "var(--bg)", color: "var(--fg)", overflow: "hidden" }}>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div

@@ -10,12 +10,20 @@ import { useUnlockFlow } from "@/components/unlock-flow";
 import { Card, GoldBtn, LockIcon, SubpageHeader, ShareIcon } from "@/components/ui";
 import { nowStr } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
+import { useIsDesktop } from "@/components/use-viewport";
+import { Terminal } from "@/components/desktop/terminal";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
 
-export default function ReportPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ReportRoute({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const isDesktop = useIsDesktop();
+  if (isDesktop == null) return null;
+  return isDesktop ? <Terminal initialMatchId={Number(id)} initialTab="report" /> : <MobileReportPage id={id} />;
+}
+
+function MobileReportPage({ id }: { id: string }) {
   const [v, setV] = useState<V | null>(null);
   const [share, setShare] = useState<ShareData | null>(null);
   const { prefs, me } = useApp();

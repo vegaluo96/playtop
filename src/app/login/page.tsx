@@ -48,7 +48,7 @@ export default function LoginPage() {
   } as const;
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px 30px", minHeight: 0 }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px 30px", minHeight: 0, width: "100%", maxWidth: 456, margin: "0 auto", height: "100%" }}>
       <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: 1, textAlign: "center" }}>
         足球<span style={{ color: "var(--gold)" }}>终端</span>
       </div>

@@ -91,6 +91,25 @@ textarea {
 .livepulse {
   animation: livepulse 1.5s infinite;
 }
+
+/* 桌面终端:8px 细滚动条(移动端全局隐藏不变) */
+.desktop-root ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.desktop-root ::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+.desktop-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hidescroll {
+  scrollbar-width: none;
+}
+.hidescroll::-webkit-scrollbar {
+  display: none;
+}
 .wcglow {
   animation: wcglow 2.4s ease-in-out infinite;
 }

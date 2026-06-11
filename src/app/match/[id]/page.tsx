@@ -10,6 +10,8 @@ import { ShareSheet, type ShareData } from "@/components/share-sheet";
 import { Card, Chip, EmptyBox, SectionTitle, ShareIcon } from "@/components/ui";
 import { hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
+import { useIsDesktop } from "@/components/use-viewport";
+import { Terminal } from "@/components/desktop/terminal";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any; // 视图模型由 /api/match/[id] 输出,字段见 src/server/views/detail.ts
@@ -24,8 +26,14 @@ const FORM_STYLE: Record<string, { bg: string; c: string }> = {
   负: { bg: "rgba(240,67,79,.16)", c: "#f0434f" },
 };
 
-export default function MatchDetail({ params }: { params: Promise<{ id: string }> }) {
+export default function MatchRoute({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const isDesktop = useIsDesktop();
+  if (isDesktop == null) return null;
+  return isDesktop ? <Terminal initialMatchId={Number(id)} /> : <MobileMatchDetail id={id} />;
+}
+
+function MobileMatchDetail({ id }: { id: string }) {
   const [v, setV] = useState<V | null>(null);
   const [tab, setTab] = useState("odds");
   const [deepV, setDeepV] = useState<V | null>(null);

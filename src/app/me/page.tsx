@@ -8,6 +8,8 @@ import { useUnlockFlow } from "@/components/unlock-flow";
 import { GoldBtn, Sheet, SheetTitle } from "@/components/ui";
 import { LANGS, type Lang } from "@/lib/i18n";
 import { LEAGUES } from "@/lib/leagues";
+import { useIsDesktop } from "@/components/use-viewport";
+import { Terminal } from "@/components/desktop/terminal";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -17,7 +19,13 @@ const TZS: [string, string][] = [
   ["UTC+2", "中欧 UTC+2"], ["UTC-4", "纽约 UTC-4"], ["UTC-7", "洛杉矶 UTC-7"], ["UTC+10", "悉尼 UTC+10"],
 ];
 
-export default function MePage() {
+export default function MeRoute() {
+  const isDesktop = useIsDesktop();
+  if (isDesktop == null) return null;
+  return isDesktop ? <Terminal initialDrawer /> : <MobileMePage />;
+}
+
+function MobileMePage() {
   const { prefs, setPrefs, me, refreshMe } = useApp();
   const router = useRouter();
   const flow = useUnlockFlow();

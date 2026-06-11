@@ -3,6 +3,8 @@
 /** 充值 / 消费记录(二级页) */
 import { useEffect, useState } from "react";
 import { useApp } from "@/components/app-context";
+import { useIsDesktop } from "@/components/use-viewport";
+import { Terminal } from "@/components/desktop/terminal";
 import { useUnlockFlow } from "@/components/unlock-flow";
 import { SubpageHeader } from "@/components/ui";
 import { nowStr } from "@/lib/format";
@@ -14,7 +16,13 @@ interface Row {
   created_at: number;
 }
 
-export default function LedgerPage() {
+export default function LedgerPageRoute() {
+  const isDesktop = useIsDesktop();
+  if (isDesktop == null) return null;
+  return isDesktop ? <Terminal initialDrawer /> : <MobileLedgerPage />;
+}
+
+function MobileLedgerPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loaded, setLoaded] = useState(false);
   const { me } = useApp();

@@ -6,11 +6,19 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { Chip, GoldBtn, Sheet } from "@/components/ui";
 import { leagueColor } from "@/lib/leagues";
+import { useIsDesktop } from "@/components/use-viewport";
+import { Terminal } from "@/components/desktop/terminal";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Move = any;
 
-export default function MovesPage() {
+export default function MovesRoute() {
+  const isDesktop = useIsDesktop();
+  if (isDesktop == null) return null;
+  return isDesktop ? <Terminal /> : <MobileMovesPage />;
+}
+
+function MobileMovesPage() {
   const [filter, setFilter] = useState("全部");
   const [rows, setRows] = useState<Move[]>([]);
   const [loggedIn, setLoggedIn] = useState(true);

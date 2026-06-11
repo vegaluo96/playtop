@@ -3,6 +3,8 @@
 /** 系统工单(二级页):类型 chips + 描述 + 我的工单列表 */
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/app-context";
+import { useIsDesktop } from "@/components/use-viewport";
+import { Terminal } from "@/components/desktop/terminal";
 import { Chip, EmptyBox, GoldBtn, SubpageHeader } from "@/components/ui";
 
 interface Ticket {
@@ -15,7 +17,13 @@ interface Ticket {
 
 const TYPES = ["数据问题", "充值问题", "功能建议", "其他"];
 
-export default function TicketsPage() {
+export default function TicketsPageRoute() {
+  const isDesktop = useIsDesktop();
+  if (isDesktop == null) return null;
+  return isDesktop ? <Terminal initialDrawer /> : <MobileTicketsPage />;
+}
+
+function MobileTicketsPage() {
   const [type, setType] = useState(TYPES[0]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
