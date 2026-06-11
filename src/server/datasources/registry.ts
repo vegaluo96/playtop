@@ -152,31 +152,6 @@ export const SOURCE_REGISTRY: SourceEntry[] = [
     },
   },
   {
-    key: "thesportsdb",
-    label: "TheSportsDB（备用）",
-    note: "赛果/赛程交叉核对备用源（公共共享 key，无需注册；暂不写快照）",
-    weightNote: "备用（未进管道）",
-    configKey: null,
-    probe: async () => {
-      const d = new Date().toISOString().slice(0, 10);
-      const { body } = await politeFetchText(`https://www.thesportsdb.com/api/v1/json/3/eventsday.php?d=${d}&s=Soccer`, true, UA);
-      const n = ((JSON.parse(body) as { events?: unknown[] | null }).events ?? []).length;
-      return `当日足球事件 ${n} 场`;
-    },
-  },
-  {
-    key: "openligadb",
-    label: "OpenLigaDB（备用）",
-    note: "德国联赛赛果备用源（暂不写快照）",
-    weightNote: "备用（未进管道）",
-    configKey: null,
-    probe: async () => {
-      const { body } = await politeFetchText("https://api.openligadb.de/getavailableleagues", true, UA);
-      const n = (JSON.parse(body) as unknown[]).length;
-      return `可用联赛 ${n} 个`;
-    },
-  },
-  {
     key: "open_meteo",
     label: "open-meteo（天气）",
     note: "场馆地理编码 + 开球时段天气 → 天气维度（进情境修正系数）",
