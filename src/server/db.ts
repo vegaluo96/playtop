@@ -238,6 +238,7 @@ export function db(): DatabaseSync {
   }
   _db = new DatabaseSync(path);
   if (path !== ":memory:") _db.exec("PRAGMA journal_mode = WAL;");
+  _db.exec("PRAGMA busy_timeout = 8000;"); // CLI(renorm/体检)与 worker 并发写时等锁而非报 database is locked
   _db.exec(SCHEMA);
   for (const [table, col] of COLUMN_MIGRATIONS) {
     try {
