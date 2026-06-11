@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../db";
-import { dataSnapshots } from "../db/schema";
+import { dataSnapshots, settings } from "../db/schema";
 import { now } from "../lib/time";
 import { advanceMatch } from "../services/automation";
 import { collectMatch } from "../services/collect";
@@ -104,13 +104,42 @@ export const JOBS: Record<string, () => Promise<unknown>> = {
 const g = globalThis as unknown as { __playtopCron?: boolean };
 const running = new Set<string>();
 
+export interface JobHeartbeat {
+  at: number;
+  ok: boolean;
+  note: string;
+}
+
+/** 任务心跳：每次执行落 settings（值班台据此回答"自动化还活着吗"）；心跳失败绝不影响任务本身 */
+function recordHeartbeat(name: string, ok: boolean, note: string): void {
+  try {
+    const key = "job_heartbeat";
+    const row = db.select().from(settings).where(eq(settings.key, key)).get();
+    const cur: Record<string, JobHeartbeat> = row ? JSON.parse(row.value) : {};
+    cur[name] = { at: now(), ok, note: note.slice(0, 200) };
+    db.insert(settings)
+      .values({ key, value: JSON.stringify(cur), updatedAt: now() })
+      .onConflictDoUpdate({ target: settings.key, set: { value: JSON.stringify(cur), updatedAt: now() } })
+      .run();
+  } catch {
+    /* noop */
+  }
+}
+
+export function readJobHeartbeats(): Record<string, JobHeartbeat> {
+  const row = db.select().from(settings).where(eq(settings.key, "job_heartbeat")).get();
+  return row ? (JSON.parse(row.value) as Record<string, JobHeartbeat>) : {};
+}
+
 async function guarded(name: string): Promise<void> {
   if (running.has(name)) return;
   running.add(name);
   try {
-    await JOBS[name]();
+    const r = await JOBS[name]();
+    recordHeartbeat(name, true, JSON.stringify(r ?? ""));
   } catch (e) {
     console.error(`[jobs] ${name} 异常:`, e);
+    recordHeartbeat(name, false, e instanceof Error ? e.message : String(e));
   } finally {
     running.delete(name);
   }
@@ -130,9 +159,16 @@ export function startScheduler(): void {
   console.log("[jobs] 调度器已启动（状态机 10m / 自动推进 30m / 赛果 2h / 赛程同步 6h；冷启动自动开跑）");
 }
 
-/** 管理端手动触发（演示/补偿） */
+/** 管理端手动触发（演示/补偿）——同样记心跳 */
 export async function runJobNow(name: string): Promise<unknown> {
   const job = JOBS[name];
   if (!job) throw new Error(`未知任务：${name}（可选：${Object.keys(JOBS).join("/")}）`);
-  return job();
+  try {
+    const r = await job();
+    recordHeartbeat(name, true, JSON.stringify(r ?? ""));
+    return r;
+  } catch (e) {
+    recordHeartbeat(name, false, e instanceof Error ? e.message : String(e));
+    throw e;
+  }
 }

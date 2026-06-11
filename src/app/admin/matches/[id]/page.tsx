@@ -512,7 +512,7 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
                         <th className="pb-1 text-right font-normal">赔率</th>
                         <th className="pb-1 text-right font-normal">出处</th>
                         <th className="pb-1 text-right font-normal">期望收益</th>
-                        <th className="pb-1 text-right font-normal">仓位</th>
+                        <th className="pb-1 text-right font-normal">模拟单位</th>
                         <th className="pb-1 text-right font-normal">信心</th>
                       </tr>
                     </thead>
