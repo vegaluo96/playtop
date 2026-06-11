@@ -33,7 +33,7 @@ export const SOURCE_REGISTRY: SourceEntry[] = [
   {
     key: "api_football",
     label: "API-Football（付费主源）",
-    note: "唯一主干：大书商盘口（bet365/Pinnacle/威廉希尔等，1X2/亚盘/大小/波胆）+ 官方首发 + 伤停 + 裁判 + 积分榜 + 球队名单 + 权威赛果",
+    note: "唯一主干：大书商盘口（bet365/Pinnacle/威廉希尔等，1X2/亚盘/大小/波胆）+ 官方首发 + 伤停 + 裁判 + 积分榜 + 球队名单 + 历史交锋 + 球队赛季统计 + 近期战绩 + 主教练 + 联赛射手榜 + 场馆 + 权威赛果",
     weightNote: "书商权重按各家名称走 bookWeights（bet365 1.2 / Pinnacle 1.3 / 威廉希尔 1.1）；赛果权威级",
     configKey: "apiFootballEnabled",
     probe: () => probeApiFootball(),

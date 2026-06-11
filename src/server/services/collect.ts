@@ -7,14 +7,19 @@ import { now } from "../lib/time";
 import { aiRetrieveSoftData } from "../datasources/aiRetrieval";
 import {
   apiFootballConfigured,
+  fetchAfCoach,
   fetchAfFixturesByDate,
+  fetchAfH2h,
   fetchAfInjuries,
   fetchAfLineups,
   fetchAfOdds,
   fetchAfSquad,
   fetchAfStandings,
+  fetchAfTeamStats,
+  fetchAfTopScorers,
   matchAfFixture,
   type AfFixture,
+  type AfScorer,
 } from "../datasources/apiFootball";
 import { fetchPolymarketOdds, normName } from "../datasources/polymarket";
 import { fetchClubElo, fetchEloRatings, findRating } from "../datasources/externalRatings";
@@ -163,6 +168,51 @@ export async function collectMatch(
         });
       }),
     );
+    // 历史交锋（权威，覆盖本地计算）：24h TTL
+    if (!oddsOnly && (force || pre.get("h2h")?.source !== "api_football" || ageOf("h2h") >= 24 * H)) networkTasks.push(
+      attempt("h2h:api_football", async () => {
+        const fx = await getAfFixture();
+        if (!fx) throw new Error("API-Football 未匹配到本场");
+        const h2h = await withSource("api_football", () => fetchAfH2h(fx.homeId, fx.awayId));
+        if (!h2h) throw new Error("无历史交锋记录");
+        insertSnapshot(matchId, "h2h", "api_football", h2h);
+      }),
+    );
+    // 球队赛季统计 + 近期战绩串（权威）：24h TTL，喂 team_stats 与 form 两个维度
+    if (!oddsOnly && (force || pre.get("team_stats")?.source !== "api_football" || ageOf("team_stats") >= 24 * H)) networkTasks.push(
+      attempt("team_stats:api_football", async () => {
+        const fx = await getAfFixture();
+        if (!fx?.leagueId || !fx.season) throw new Error("API-Football 未匹配到本场");
+        const [hs, as_] = await Promise.all([
+          withSource("api_football", () => fetchAfTeamStats(fx.homeId, fx.leagueId!, fx.season!)),
+          withSource("api_football", () => fetchAfTeamStats(fx.awayId, fx.leagueId!, fx.season!)),
+        ]);
+        if (!hs || !as_) throw new Error("球队赛季统计缺失");
+        insertSnapshot(matchId, "team_stats", "api_football", {
+          home: { matches: hs.matches, gfPerGame: hs.gfPerGame, gaPerGame: hs.gaPerGame, cleanSheetRate: hs.cleanSheetRate, homeGfPerGame: hs.homeGfPerGame, homeGaPerGame: hs.homeGaPerGame },
+          away: { matches: as_.matches, gfPerGame: as_.gfPerGame, gaPerGame: as_.gaPerGame, cleanSheetRate: as_.cleanSheetRate, awayGfPerGame: as_.awayGfPerGame, awayGaPerGame: as_.awayGaPerGame },
+        });
+        const formText = (label: string, s: typeof hs, formation: string | null) =>
+          `近${s.form.length}场战绩 ${s.form}${formation ? `，常用阵型 ${formation}` : ""}（场均进 ${s.gfPerGame.toFixed(2)} / 失 ${s.gaPerGame.toFixed(2)}）`;
+        insertSnapshot(matchId, "form", "api_football", {
+          home: { recent: [], summaryText: formText(homeName, hs, hs.formation) },
+          away: { recent: [], summaryText: formText(awayName, as_, as_.formation) },
+        });
+      }),
+    );
+    // 主教练（权威，覆盖 AI 检索）：48h TTL
+    if (!oddsOnly && (force || pre.get("coach")?.source !== "api_football" || ageOf("coach") >= 48 * H)) networkTasks.push(
+      attempt("coach:api_football", async () => {
+        const fx = await getAfFixture();
+        if (!fx) throw new Error("API-Football 未匹配到本场");
+        const [hc, ac] = await Promise.all([
+          withSource("api_football", () => fetchAfCoach(fx.homeId)),
+          withSource("api_football", () => fetchAfCoach(fx.awayId)),
+        ]);
+        if (!hc && !ac) throw new Error("无主教练记录");
+        insertSnapshot(matchId, "coach", "api_football", { home: { name: hc ?? "", note: "" }, away: { name: ac ?? "", note: "" } });
+      }),
+    );
   }
   if (oddsDue && match.source === "csv") {
     networkTasks.push(
@@ -239,18 +289,25 @@ export async function collectMatch(
         ? await withSource("github", () => intlPlayerStats(homeName, awayName, force)).catch(() => null)
         : null;
       const fx = afUsable ? await getAfFixture().catch(() => null) : null;
+      // 俱乐部联赛射手榜（AF）：按 teamId 给每队进球数，补 martj42 不覆盖的俱乐部赛
+      let afScorers: AfScorer[] = [];
+      if (fx?.leagueId && fx.season && !isIntl) {
+        afScorers = await withSource("api_football", () => fetchAfTopScorers(fx.leagueId!, fx.season!)).catch(() => []);
+      }
       let fromAf = false;
       if (fx) {
         for (const [side, teamId] of [["home", fx.homeId], ["away", fx.awayId]] as const) {
           const squad = await withSource("api_football", () => fetchAfSquad(teamId)).catch(() => []);
           for (const pl of squad.slice(0, 26)) {
-            // 名单叠加真实射手数据（按归一化名匹配）
+            // 名单叠加真实射手数据：国际赛用 martj42，俱乐部用 AF 射手榜（按归一化名匹配）
             const hit = scorers?.items.find((s) => s.team === side && normName(s.player) === normName(pl.name));
+            const afHit = afScorers.find((s) => s.teamId === teamId && normName(s.player) === normName(pl.name));
+            const goals = hit?.goals ?? afHit?.goals;
             items.push({
               team: side,
               player: pl.name,
               role: pl.role,
-              ...(hit?.goals !== undefined ? { goals: hit.goals } : {}),
+              ...(goals !== undefined ? { goals } : {}),
               note: [pl.number ? `${pl.number} 号` : null, pl.age ? `${pl.age} 岁` : null, hit?.note ?? null]
                 .filter(Boolean)
                 .join("·"),
@@ -272,14 +329,16 @@ export async function collectMatch(
   // 等全部网络源并发完成（墙钟时间 = 最慢一源，而非求和）
   await Promise.all(networkTasks);
 
-  // 本地历史库统计（确定性，零外部调用）
-  if (!oddsOnly) await attempt("h2h", () => {
+  // 本地历史库统计（确定性，零外部调用）——API-Football 权威数据存在时不覆盖
+  const post = latestSnapshots(matchId);
+  const afHas = (k: Parameters<typeof post.get>[0]) => post.get(k)?.source === "api_football";
+  if (!oddsOnly && !afHas("h2h")) await attempt("h2h", () => {
     insertSnapshot(matchId, "h2h", "local_stats", computeH2h(match.homeTeamId, match.awayTeamId));
   });
-  if (!oddsOnly) await attempt("form", () => {
+  if (!oddsOnly && !afHas("form")) await attempt("form", () => {
     insertSnapshot(matchId, "form", "local_stats", computeForm(match.homeTeamId, match.awayTeamId));
   });
-  if (!oddsOnly) await attempt("team_stats", () => {
+  if (!oddsOnly && !afHas("team_stats")) await attempt("team_stats", () => {
     insertSnapshot(
       matchId,
       "team_stats",
@@ -287,7 +346,7 @@ export async function collectMatch(
       computeTeamStats(match.leagueId, match.homeTeamId, match.awayTeamId),
     );
   });
-  if (!oddsOnly && league?.code !== INTERNATIONAL_LEAGUE_CODE && latestSnapshots(matchId).get("standings")?.source !== "api_football") {
+  if (!oddsOnly && league?.code !== INTERNATIONAL_LEAGUE_CODE && !afHas("standings")) {
     await attempt("standings", () => {
       insertSnapshot(
         matchId,
@@ -298,11 +357,13 @@ export async function collectMatch(
     });
   }
 
-  // 场馆坐标（一次性）：比赛字段 → 主队主场缺省 → 地理编码
+  // 场馆坐标（一次性）：比赛字段 → API-Football 场馆名/城市 → 主队主场缺省 → 地理编码
   if (!oddsOnly) await attempt("venue", async () => {
+    const fx = afUsable ? await getAfFixture().catch(() => null) : null;
     let lat = match.venueLat;
     let lon = match.venueLon;
-    let label = match.venue ?? "";
+    let label = match.venue || fx?.venueName || "";
+    const city = fx?.venueCity ?? "";
     if (lat === null || lon === null) {
       const homeTeam = db.select().from(teams).where(eq(teams.id, match.homeTeamId)).get();
       if (!match.neutral && homeTeam?.venueLat !== null && homeTeam?.venueLon !== null && homeTeam) {
@@ -310,7 +371,8 @@ export async function collectMatch(
         lon = homeTeam.venueLon;
         label = homeTeam.homeVenue ?? label;
       } else {
-        const query = match.venue || `${homeName}`;
+        // 优先用 AF 的场馆名+城市做地理编码（比纯队名更准 → 天气坐标更可靠）
+        const query = [fx?.venueName, fx?.venueCity].filter(Boolean).join(" ") || match.venue || homeName;
         const geo = await geocode(query);
         if (geo) {
           lat = geo.lat;
@@ -325,13 +387,7 @@ export async function collectMatch(
           .run();
       }
     }
-    insertSnapshot(matchId, "venue", "open_meteo", {
-      name: label,
-      city: "",
-      lat,
-      lon,
-      capacity: null,
-    });
+    insertSnapshot(matchId, "venue", "open_meteo", { name: label, city, lat, lon, capacity: null });
   });
 
   // 天气（需坐标，预报范围 16 天内）：3h TTL，临场仍能反映突变
@@ -356,18 +412,12 @@ export async function collectMatch(
       });
       // 官方源（API-Football）优先：已有官方数据的维度，AI 检索不再覆盖
       const OFFICIAL = ["api_football"];
-      const latestKind = (kind: "injuries" | "lineups") => latestSnapshots(matchId).get(kind);
-      if (result.injuries && !OFFICIAL.includes(latestKind("injuries")?.source ?? "")) {
-        insertSnapshot(matchId, "injuries", "llm", result.injuries);
-      }
+      const cur = (kind: "injuries" | "lineups" | "coach" | "referee") => latestSnapshots(matchId).get(kind)?.source ?? "";
+      if (result.injuries && !OFFICIAL.includes(cur("injuries"))) insertSnapshot(matchId, "injuries", "llm", result.injuries);
       if (result.suspensions) insertSnapshot(matchId, "suspensions", "llm", result.suspensions);
-      if (result.lineups && !OFFICIAL.includes(latestKind("lineups")?.source ?? "")) {
-        insertSnapshot(matchId, "lineups", "llm", result.lineups);
-      }
-      if (result.coach) insertSnapshot(matchId, "coach", "llm", result.coach);
-      if (result.referee && !OFFICIAL.includes(latestSnapshots(matchId).get("referee")?.source ?? "")) {
-        insertSnapshot(matchId, "referee", "llm", result.referee);
-      }
+      if (result.lineups && !OFFICIAL.includes(cur("lineups"))) insertSnapshot(matchId, "lineups", "llm", result.lineups);
+      if (result.coach && !OFFICIAL.includes(cur("coach"))) insertSnapshot(matchId, "coach", "llm", result.coach);
+      if (result.referee && !OFFICIAL.includes(cur("referee"))) insertSnapshot(matchId, "referee", "llm", result.referee);
       if (result.softInfo) insertSnapshot(matchId, "soft_info", "llm", result.softInfo);
     });
   }

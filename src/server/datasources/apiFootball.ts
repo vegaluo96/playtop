@@ -55,6 +55,8 @@ export interface AfFixture {
   leagueName: string;
   season: number | null;
   referee: string | null;
+  venueName: string | null;
+  venueCity: string | null;
   homeId: number;
   awayId: number;
   homeName: string;
@@ -69,6 +71,7 @@ const afFixtureSchema = z.object({
     id: z.number(),
     timestamp: z.number(),
     referee: z.string().nullable().default(null),
+    venue: z.object({ name: z.string().nullable().default(null), city: z.string().nullable().default(null) }).partial().default({}),
     status: z.object({ short: z.string() }).partial().default({}),
   }),
   league: z.object({ id: z.number(), name: z.string(), season: z.number() }).partial().default({}),
@@ -97,6 +100,8 @@ export function parseAfFixtures(json: unknown): AfFixture[] {
       leagueName: f.league.name ?? "",
       season: f.league.season ?? null,
       referee: f.fixture.referee,
+      venueName: f.fixture.venue?.name ?? null,
+      venueCity: f.fixture.venue?.city ?? null,
       homeId: f.teams.home.id,
       awayId: f.teams.away.id,
       homeName: f.teams.home.name,
@@ -426,6 +431,155 @@ export async function fetchAfStandings(leagueId: number, season: number, force =
   if (!force && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const data = parseAfStandings(await afGet(`/standings?league=${leagueId}&season=${season}`, force));
   standingsCache.set(key, { at: Date.now(), data });
+  return data;
+}
+
+// ── 历史交锋（fixtures/headtohead） ────────────────────────────────────────
+
+export interface AfH2h {
+  matches: { playedAt: number; homeTeam: string; awayTeam: string; homeGoals: number; awayGoals: number; competition?: string }[];
+  summary: { total: number; homeWins: number; draws: number; awayWins: number };
+}
+
+/** homeId/awayId 为本场主客，用于把历史结果归并到"本场主队胜/平/本场客队胜"口径 */
+export function parseAfH2h(json: unknown, homeId: number, awayId: number): AfH2h | null {
+  const fixtures = parseAfFixtures(json).filter((f) => f.ftHome !== null && f.ftAway !== null);
+  if (fixtures.length === 0) return null;
+  let homeWins = 0;
+  let draws = 0;
+  let awayWins = 0;
+  const matches = fixtures
+    .sort((a, b) => b.kickoffAt - a.kickoffAt)
+    .slice(0, 10)
+    .map((f) => {
+      // 该场谁是本场主队
+      const hg = f.ftHome!;
+      const ag = f.ftAway!;
+      const winnerTeamId = hg > ag ? f.homeId : hg < ag ? f.awayId : null;
+      if (winnerTeamId === homeId) homeWins++;
+      else if (winnerTeamId === awayId) awayWins++;
+      else draws++;
+      return { playedAt: f.kickoffAt, homeTeam: f.homeName, awayTeam: f.awayName, homeGoals: hg, awayGoals: ag, competition: f.leagueName || undefined };
+    });
+  return { matches, summary: { total: matches.length, homeWins, draws, awayWins } };
+}
+
+export async function fetchAfH2h(homeId: number, awayId: number, force = false): Promise<AfH2h | null> {
+  return parseAfH2h(await afGet(`/fixtures/headtohead?h2h=${homeId}-${awayId}&last=10`, force), homeId, awayId);
+}
+
+// ── 球队赛季统计（teams/statistics） ───────────────────────────────────────
+
+export interface AfTeamStats {
+  matches: number;
+  gfPerGame: number;
+  gaPerGame: number;
+  cleanSheetRate: number;
+  homeGfPerGame: number | null;
+  homeGaPerGame: number | null;
+  awayGfPerGame: number | null;
+  awayGaPerGame: number | null;
+  /** 近期战绩串（如 "WWDLW"）+ 主用阵型，喂研报事实 */
+  form: string;
+  formation: string | null;
+}
+
+const afTeamStatsSchema = z.object({
+  form: z.string().nullable().default(null),
+  fixtures: z.object({ played: z.object({ home: z.number(), away: z.number(), total: z.number() }).partial().default({}) }).partial().default({}),
+  goals: z
+    .object({
+      for: z.object({ average: z.object({ home: z.string(), away: z.string(), total: z.string() }).partial().default({}) }).partial().default({}),
+      against: z.object({ average: z.object({ home: z.string(), away: z.string(), total: z.string() }).partial().default({}) }).partial().default({}),
+    })
+    .partial()
+    .default({}),
+  clean_sheet: z.object({ total: z.number() }).partial().default({}),
+  lineups: z.array(z.object({ formation: z.string(), played: z.number() })).default([]),
+});
+
+function numOr(s: string | undefined, d: number | null): number | null {
+  if (s === undefined) return d;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : d;
+}
+
+export function parseAfTeamStats(json: unknown): AfTeamStats | null {
+  const resp = (json as { response?: unknown }).response;
+  const p = afTeamStatsSchema.safeParse(resp);
+  if (!p.success) return null;
+  const s = p.data;
+  const played = s.fixtures.played?.total ?? 0;
+  if (played === 0) return null;
+  const topFormation = [...s.lineups].sort((a, b) => b.played - a.played)[0]?.formation ?? null;
+  return {
+    matches: played,
+    gfPerGame: numOr(s.goals.for?.average?.total, 0) ?? 0,
+    gaPerGame: numOr(s.goals.against?.average?.total, 0) ?? 0,
+    cleanSheetRate: played > 0 ? (s.clean_sheet?.total ?? 0) / played : 0,
+    homeGfPerGame: numOr(s.goals.for?.average?.home, null),
+    homeGaPerGame: numOr(s.goals.against?.average?.home, null),
+    awayGfPerGame: numOr(s.goals.for?.average?.away, null),
+    awayGaPerGame: numOr(s.goals.against?.average?.away, null),
+    form: (s.form ?? "").slice(-6),
+    formation: topFormation,
+  };
+}
+
+export async function fetchAfTeamStats(teamId: number, leagueId: number, season: number, force = false): Promise<AfTeamStats | null> {
+  return parseAfTeamStats(await afGet(`/teams/statistics?team=${teamId}&league=${leagueId}&season=${season}`, force));
+}
+
+// ── 主教练（coachs） ───────────────────────────────────────────────────────
+
+const afCoachSchema = z.array(z.object({ name: z.string(), career: z.array(z.object({ team: z.object({ id: z.number() }).partial().default({}), end: z.string().nullable().default(null) })).default([]) }));
+
+/** 取该队当前主教练（career 中 end===null 的一段；缺则取首条） */
+export function parseAfCoach(json: unknown, teamId: number): string | null {
+  const p = afCoachSchema.safeParse((json as { response?: unknown }).response ?? []);
+  if (!p.success || p.data.length === 0) return null;
+  const current = p.data.find((c) => c.career.some((e) => e.team.id === teamId && e.end === null));
+  return (current ?? p.data[0]).name || null;
+}
+
+export async function fetchAfCoach(teamId: number, force = false): Promise<string | null> {
+  return parseAfCoach(await afGet(`/coachs?team=${teamId}`, force), teamId);
+}
+
+// ── 联赛射手榜（players/topscorers） ───────────────────────────────────────
+
+export interface AfScorer {
+  teamId: number;
+  player: string;
+  goals: number;
+}
+
+const afScorersSchema = z.array(
+  z.object({
+    player: z.object({ name: z.string() }),
+    statistics: z.array(z.object({ team: z.object({ id: z.number() }), goals: z.object({ total: z.number().nullable().default(null) }).partial().default({}) })).default([]),
+  }),
+);
+
+export function parseAfTopScorers(json: unknown): AfScorer[] {
+  const p = afScorersSchema.safeParse((json as { response?: unknown }).response ?? []);
+  if (!p.success) return [];
+  const out: AfScorer[] = [];
+  for (const row of p.data) {
+    const st = row.statistics[0];
+    if (!st) continue;
+    out.push({ teamId: st.team.id, player: row.player.name, goals: st.goals?.total ?? 0 });
+  }
+  return out;
+}
+
+const scorersCache = new Map<string, { at: number; data: AfScorer[] }>();
+export async function fetchAfTopScorers(leagueId: number, season: number, force = false): Promise<AfScorer[]> {
+  const key = `${leagueId}|${season}`;
+  const hit = scorersCache.get(key);
+  if (!force && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
+  const data = parseAfTopScorers(await afGet(`/players/topscorers?league=${leagueId}&season=${season}`, force));
+  scorersCache.set(key, { at: Date.now(), data });
   return data;
 }
 
