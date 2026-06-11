@@ -132,8 +132,19 @@ export function matchAfFixture(fixtures: AfFixture[], ref: AfMatchRef): AfFixtur
   return best;
 }
 
+/**
+ * 同日多场比赛共用一条 fixtures URL：进程内缓存（TTL 略长于 politeFetch 冷却），
+ * 既省配额，又避免第二场撞上冷却报错、连败计数误触发整源自动停用。
+ */
+const fixturesCache = new Map<string, { at: number; data: AfFixture[] }>();
+const CACHE_TTL_MS = 11 * 60_000;
+
 export async function fetchAfFixturesByDate(dateUtc: string, force = false): Promise<AfFixture[]> {
-  return parseAfFixtures(await afGet(`/fixtures?date=${dateUtc}&timezone=UTC`, force));
+  const hit = fixturesCache.get(dateUtc);
+  if (!force && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
+  const data = parseAfFixtures(await afGet(`/fixtures?date=${dateUtc}&timezone=UTC`, force));
+  fixturesCache.set(dateUtc, { at: Date.now(), data });
+  return data;
 }
 
 // ── 盘口（多书商） ────────────────────────────────────────────────────────
@@ -406,8 +417,16 @@ export function parseAfStandings(json: unknown): AfStandingRow[] {
   return out;
 }
 
+/** 同联赛多场比赛共用积分榜 URL：同样进程内缓存防冷却冲突 */
+const standingsCache = new Map<string, { at: number; data: AfStandingRow[] }>();
+
 export async function fetchAfStandings(leagueId: number, season: number, force = false): Promise<AfStandingRow[]> {
-  return parseAfStandings(await afGet(`/standings?league=${leagueId}&season=${season}`, force));
+  const key = `${leagueId}|${season}`;
+  const hit = standingsCache.get(key);
+  if (!force && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
+  const data = parseAfStandings(await afGet(`/standings?league=${leagueId}&season=${season}`, force));
+  standingsCache.set(key, { at: Date.now(), data });
+  return data;
 }
 
 // ── 体检 ────────────────────────────────────────────────────────────────
