@@ -279,7 +279,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         以下为模型明细与全部底层数据——结论如何算出来、依据是什么，每一项都可展开查证。
       </p>
 
-      <Collapse title="模型结果与集成权重" hint="市场去水 / Dixon-Coles / Elo 三路印证">
+      <Collapse title="模型结果与集成权重" hint="多书商去水共识 / Dixon-Coles+xG / Elo 三路印证">
         <table className="tabular w-full text-[11px]">
           <thead>
             <tr className="text-left text-[10px] tracking-wider text-faint">
@@ -311,7 +311,10 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
             )}
             {engine.dixonColes && (
               <tr className="border-t border-hairline">
-                <td className="py-1.5">Dixon-Coles 双泊松</td>
+                <td className="py-1.5">
+                  Dixon-Coles 双泊松
+                  {engine.trace.some((t) => t.includes("xG 融合")) && <span className="ml-1 text-[9px] text-gold-bright">+xG</span>}
+                </td>
                 <td className="py-1.5 text-right">{pct(engine.dixonColes.probs.home)}</td>
                 <td className="py-1.5 text-right">{pct(engine.dixonColes.probs.draw)}</td>
                 <td className="py-1.5 text-right">{pct(engine.dixonColes.probs.away)}</td>
@@ -575,6 +578,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
           <li>Dixon &amp; Coles (1997). Modelling Association Football Scores and Inefficiencies in the Football Betting Market. JRSS-C 46(2).</li>
           <li>Hvattum &amp; Arntzen (2010). Using ELO ratings for match result prediction in association football. IJF 26(3).</li>
           <li>Shin (1993). Measuring the Incidence of Insider Trading in a Market for State-Contingent Claims. EJ 103(420)；Štrumbelj (2014). IJF 30(4).</li>
+          <li>Wheatcroft (2020). Profitable over/under model（射门质量）；Brechot &amp; Flepp (2020). Expected Goals 的预测价值，Journal of Sports Economics（近期 xG 融合）。</li>
           <li>Wheatcroft (2020). A profitable model for predicting the over/under market in football. IJF 36(3).</li>
           <li>Genest &amp; Zidek (1986). Combining Probability Distributions. Statistical Science 1(1)；Kelly (1956). BSTJ 35(4).</li>
         </ul>

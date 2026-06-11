@@ -187,7 +187,7 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
         return {
           title: "阶段 1 · 数据采集",
           desc: a.autoCollect
-            ? "调度器每 30 分钟自动采集（盘口多源：竞彩 / Polymarket / AI 多家报价；CSV 联赛另有官方源）。可点「立即推进」加速。"
+            ? "调度器每 30 分钟自动采集（API-Football 主源：多家大书商盘口 1X2/亚盘/大小/波胆 + 首发/伤停/统计；临场加密刷新）。可点「立即推进」加速。"
             : "自动采集已关闭：点「采集」手动抓取。",
         };
       case "ready":
@@ -304,7 +304,7 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
           <div className="card p-4">
             <h2 className="font-display text-sm tracking-wide text-gold-bright">多书商盘口对照（{wb.oddsBooks.length} 家）</h2>
             {wb.oddsBooks.length === 0 ? (
-              <p className="mt-2 text-[11px] text-faint">尚无盘口数据。采集会自动拉取竞彩 / Polymarket / AI 多家报价。</p>
+              <p className="mt-2 text-[11px] text-faint">尚无盘口数据。采集会自动从 API-Football 拉取多家大书商盘口（亚盘/大小/胜平负/波胆）。</p>
             ) : (
               <table className="tabular mt-3 w-full text-[11.5px]">
                 <thead>

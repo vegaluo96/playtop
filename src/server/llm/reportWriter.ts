@@ -136,6 +136,7 @@ export function qualitativePhrases(ctx: ReportContext): string[] {
     phrases.push("所有点位的期望值均不足以覆盖水位成本，结论为观望");
   }
   for (const a of e.adjustments) phrases.push(`情境修正已计入：${a.reason}`);
+  if (e.trace.some((t) => t.includes("xG 融合"))) phrases.push("近期 xG（预期进球）已融入两队期望进球估计，比纯进球更早反映实力");
   if (ctx.match.neutral) phrases.push("本场为中立场地，模型未计入常规主场优势");
   {
     // 异动判定必须同一书商首末对比——跨家比较会把"换源"误读成"异动"
@@ -437,7 +438,7 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   L.push("- Dixon & Coles (1997). *Modelling Association Football Scores and Inefficiencies in the Football Betting Market.* JRSS Series C 46(2).");
   L.push("- Hvattum & Arntzen (2010). *Using ELO ratings for match result prediction in association football.* International Journal of Forecasting 26(3).");
   L.push("- Shin (1993). *Measuring the Incidence of Insider Trading in a Market for State-Contingent Claims.* Economic Journal 103(420)；Štrumbelj (2014). IJF 30(4).");
-  L.push("- Wheatcroft (2020). *A profitable model for predicting the over/under market in football.* IJF 36(3)（射门质量评分）。");
+  L.push("- Wheatcroft (2020). *A profitable model for predicting the over/under market in football.* IJF 36(3)（射门质量评分）；Brechot & Flepp (2020). *Dealing with Randomness in Football: xG.* Journal of Sports Economics（近期 xG 融合期望进球）。");
   L.push("- Genest & Zidek (1986). *Combining Probability Distributions.* Statistical Science 1(1)（对数意见池）；Kelly (1956). BSTJ 35(4)（仓位）。");
   L.push("");
   L.push("---");

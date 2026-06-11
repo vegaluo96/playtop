@@ -178,8 +178,9 @@ function LockedTeaser({
             "最低可接受赔率（价格边界线）",
             "核心论点 · 三向概率",
             "关键驱动因素",
-            "模型结果（市场去水 / Dixon-Coles / Elo / 集成）",
-            "比分分布 · 衍生市场（大小球 / 亚盘）",
+            "模型结果（市场去水 / Dixon-Coles + xG 融合 / Elo / 集成）",
+            "比分分布 · 衍生市场（亚盘 / 大小球）",
+            "比赛情报（首发 / 伤停 / 交锋 / 近期 xG / 球队赛季数据）",
             "价值扫描与模拟单位（风险刻度）",
             `数据基础（${view.snapshots.total} 份快照 · ${view.snapshots.perKind.length} 个维度）`,
             "风险提示 · 版本演化 · 审计轨迹",
@@ -208,7 +209,7 @@ function LockedTeaser({
         <li className="flex gap-2">
           <span className="text-gold">▸</span>
           <span>
-            确定性量化引擎（Dixon-Coles / Elo / Shin 去水 / 对数意见池），方法全部来自经同行评审的学术文献，AI 只负责措辞、不产生任何数字；赛前持续采集 {view.snapshots.perKind.length} 个维度数据并实时改版。
+            确定性量化引擎（Dixon-Coles 双泊松 + 近期 xG 融合 / 进球差 Elo / Shin 多书商去水共识 / 对数意见池），方法全部来自经同行评审的学术文献，AI 只负责措辞、不产生任何数字；赛前持续采集 {view.snapshots.perKind.length} 个维度数据并实时改版。
           </span>
         </li>
         <li className="flex gap-2">
