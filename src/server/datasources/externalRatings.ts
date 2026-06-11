@@ -1,5 +1,5 @@
 import { politeFetchText, parseCsv } from "./httpCache";
-import { normName } from "./polymarket";
+import { normName } from "./util";
 
 /**
  * 外部评级源（零 key）：

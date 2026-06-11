@@ -3,7 +3,7 @@ import type { NormalizedOdds } from "../engine/types";
 import { getConfig } from "../lib/config";
 import type { injuriesPayloadSchema, lineupsPayloadSchema } from "./types";
 import { politeFetchText } from "./httpCache";
-import { normName } from "./polymarket";
+import { normName } from "./util";
 
 /**
  * API-Football（api-sports.io v3）付费主源适配器：

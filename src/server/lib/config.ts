@@ -27,16 +27,10 @@ export const datasourcesConfigSchema = z.object({
   enabledLeagues: z.array(z.string()).default(["E0", "SP1", "I1", "D1", "F1"]),
   csvBase: z.string().default("https://www.football-data.co.uk"),
   aiRetrievalEnabled: z.boolean().default(true),
-  /** Polymarket 预测市场公开 API（零 key；价格即概率） */
-  polymarketEnabled: z.boolean().default(true),
   /** eloratings.net 国家队 Elo（世界杯外部评级维度） */
   eloRatingsEnabled: z.boolean().default(true),
   /** api.clubelo.com 俱乐部 Elo（联赛外部评级维度） */
   clubEloEnabled: z.boolean().default(true),
-  /** Smarkets 交易所盘口（锐价真实盘） */
-  smarketsEnabled: z.boolean().default(true),
-  /** Understat 球队 xG（五大联赛外部评级维度） */
-  understatEnabled: z.boolean().default(true),
   /** martj42 GitHub 数据集：国际赛射手榜/点球大战史 */
   githubIntlEnabled: z.boolean().default(true),
   /** API-Football 付费主源（盘口/首发/伤停/赛果）；key 未配置时自动缺席 */
@@ -94,17 +88,15 @@ export const engineConfigSchema = z.object({
   bookWeights: z
     .record(z.string(), z.number())
     .default({
-      "Smarkets（交易所）": 1.3,
       Pinnacle: 1.3,
       bet365: 1.2,
       "皇冠（Crown）": 1.1,
       威廉希尔: 1.1,
       "football-data.co.uk 综合": 1.0,
       人工录入: 1.0,
-      Polymarket: 0.9,
     }),
   /** 锐价真值锚（硬庄口径）：单独去水做市场真值，驱动价差监测/滞后偏离 */
-  sharpBooks: z.array(z.string()).default(["Pinnacle", "Smarkets（交易所）"]),
+  sharpBooks: z.array(z.string()).default(["Pinnacle"]),
   /** 射门质量混合系数 θ（Wheatcroft 2020），0 关闭 */
   shotsBlendTheta: z.number().min(0).max(1).default(0.35),
   kellyFraction: z.number().default(0.25),

@@ -23,10 +23,8 @@ import {
   type AfFormMatch,
   type AfScorer,
 } from "../datasources/apiFootball";
-import { fetchPolymarketOdds, normName } from "../datasources/polymarket";
+import { normName } from "../datasources/util";
 import { fetchClubElo, fetchEloRatings, findRating } from "../datasources/externalRatings";
-import { fetchSmarketsOdds } from "../datasources/predictionMarkets";
-import { UNDERSTAT_LEAGUE, fetchUnderstatXg, findTeamXg } from "../datasources/understat";
 import { intlPlayerStats } from "../datasources/githubIntl";
 import type { externalRatingsPayloadSchema, playerStatsPayloadSchema } from "../datasources/types";
 import { computeForm, computeH2h, computeStandings, computeTeamStats } from "../datasources/localStats";
@@ -237,26 +235,8 @@ export async function collectMatch(
       }),
     );
   }
-  if (oddsDue && isSourceUsable("polymarket", dsCfg.polymarketEnabled)) {
-    networkTasks.push(
-      attempt("odds:polymarket", async () => {
-        const payload = await withSource("polymarket", () => fetchPolymarketOdds(matchRef));
-        if (!payload) throw new Error("Polymarket 未匹配到本场市场");
-        insertSnapshot(matchId, "odds", "polymarket", payload);
-      }),
-    );
-  }
-  if (oddsDue && isSourceUsable("smarkets", dsCfg.smarketsEnabled)) {
-    networkTasks.push(
-      attempt("odds:smarkets", async () => {
-        const payload = await withSource("smarkets", () => fetchSmarketsOdds(matchRef));
-        if (!payload) throw new Error("Smarkets 未匹配到本场事件");
-        insertSnapshot(matchId, "odds", "smarkets", payload);
-      }),
-    );
-  }
 
-  // 外部评级：国家队 → eloratings.net；俱乐部 → ClubElo + Understat xG（展示/事实维度）
+  // 外部评级（AF 无 Elo/xG 的独立互证，稳定免注册源）：国家队 → eloratings.net；俱乐部 → ClubElo
   if (!oddsOnly && (force || ageOf("external_ratings") >= 24 * H)) networkTasks.push(
     attempt("external_ratings", async () => {
     const items: z.infer<typeof externalRatingsPayloadSchema>["items"] = [];
@@ -274,21 +254,6 @@ export async function collectMatch(
       for (const [side, names] of [["home", matchRef.homeNames], ["away", matchRef.awayNames]] as const) {
         const r = findRating(rows, names);
         if (r) items.push({ source: "ClubElo", team: side, name: r.name, rating: Math.round(r.rating), rank: r.rank });
-      }
-    }
-    if (!isIntl && isSourceUsable("understat", dsCfg.understatEnabled) && UNDERSTAT_LEAGUE[league?.code ?? ""]) {
-      const rows = await withSource("understat", () => fetchUnderstatXg(league!.code!, force));
-      for (const [side, names] of [["home", matchRef.homeNames], ["away", matchRef.awayNames]] as const) {
-        const r = findTeamXg(rows, names);
-        if (r) {
-          items.push({
-            source: "Understat xG",
-            team: side,
-            name: r.name,
-            rating: Number((r.xG / Math.max(1, r.matches)).toFixed(2)),
-            note: `赛季 xG ${r.xG.toFixed(1)} / xGA ${r.xGA.toFixed(1)}（${r.matches} 场）`,
-          });
-        }
       }
     }
     if (items.length === 0) throw new Error("外部评级源无匹配数据");

@@ -1,9 +1,7 @@
 import { getConfig, type DatasourcesConfig } from "../lib/config";
 import { probeApiFootball } from "./apiFootball";
 import { politeFetchText } from "./httpCache";
-import { parsePolymarketSearch } from "./polymarket";
 import { fetchClubElo, fetchEloRatings } from "./externalRatings";
-import { fetchUnderstatXg } from "./understat";
 import { parseGoalscorers } from "./githubIntl";
 
 /**
@@ -51,17 +49,6 @@ export const SOURCE_REGISTRY: SourceEntry[] = [
     },
   },
   {
-    key: "polymarket",
-    label: "Polymarket（预测市场）",
-    note: "真实资金预测市场三向价格（≈无水概率，书商维度）",
-    weightNote: "书商权重 0.9",
-    configKey: "polymarketEnabled",
-    probe: async () => {
-      const { body } = await politeFetchText("https://gamma-api.polymarket.com/public-search?q=world%20cup&limit_per_type=10", true, UA);
-      return `解析到 ${parsePolymarketSearch(body).length} 个市场`;
-    },
-  },
-  {
     key: "eloratings",
     label: "eloratings.net（国家队 Elo）",
     note: "国家队外部 Elo 评级 → 外部评级维度（研报事实+工作台对照，不进集成）",
@@ -76,30 +63,6 @@ export const SOURCE_REGISTRY: SourceEntry[] = [
     weightNote: "展示/事实维度",
     configKey: "clubEloEnabled",
     probe: async () => `解析到 ${(await fetchClubElo(new Date().toISOString().slice(0, 10), true)).length} 队`,
-  },
-  {
-    key: "smarkets",
-    label: "Smarkets（交易所）",
-    note: "交易所撮合锐价三向盘口（书商维度，低水位真实盘）",
-    weightNote: "书商权重 1.3（锐价基准）",
-    configKey: "smarketsEnabled",
-    probe: async () => {
-      const { body } = await politeFetchText(
-        "https://api.smarkets.com/v3/events/?state=upcoming&type_domain=football&limit=10&sort=start_datetime",
-        true,
-        UA,
-      );
-      const n = ((JSON.parse(body) as { events?: unknown[] }).events ?? []).length;
-      return `即将开赛事件 ${n} 个`;
-    },
-  },
-  {
-    key: "understat",
-    label: "Understat（xG）",
-    note: "五大联赛球队赛季 xG/xGA → 外部评级维度",
-    weightNote: "展示/事实维度",
-    configKey: "understatEnabled",
-    probe: async () => `EPL 解析到 ${(await fetchUnderstatXg("E0", true)).length} 队 xG`,
   },
   {
     key: "github",
