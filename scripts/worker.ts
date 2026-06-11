@@ -9,6 +9,8 @@
  *   完场 → 模型战绩结算;每日选定 1 场免费预测
  * 配额保护:相邻出网调用间隔 AF_DELAY_MS(默认 300ms),叠加 client 层 2s 同 URL 防抖。
  */
+import { loadEnvFile } from "../src/server/env-file";
+loadEnvFile();
 import { afGet, afGetAllPages } from "../src/server/af/client";
 import { isFinished, isLive, tierFor } from "../src/server/af/schedule";
 import {

@@ -18,8 +18,10 @@ import {
   summarize,
 } from "../src/server/selfcheck";
 import { kvSet } from "../src/server/af/store";
+import { loadEnvFile } from "../src/server/env-file";
 
 async function main() {
+  if (loadEnvFile()) console.log("已加载 /srv/playtop.env(与 pm2 同源)");
   const args = process.argv.slice(2);
   const baseIdx = args.indexOf("--base");
   const base = baseIdx >= 0 ? args[baseIdx + 1] : `http://127.0.0.1:${process.env.PORT || 3000}`;

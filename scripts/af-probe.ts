@@ -8,6 +8,8 @@
  *   npm run af -- selftest league=39 season=2023 delay=7000   # 限流套餐调大 delay
  * 需要服务器 env API_FOOTBALL_KEY。
  */
+import { loadEnvFile } from "../src/server/env-file";
+loadEnvFile();
 import { afConfigured } from "../src/server/af/client";
 import { AF_ENDPOINTS, afCatalogGrouped, runAfEndpoint } from "../src/server/af/catalog";
 import { runSelftest, formatSelftest } from "../src/server/af/selftest";
