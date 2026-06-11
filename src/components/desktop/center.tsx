@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LineChart, type ChartRow } from "@/components/charts";
+import { Flash } from "@/components/live";
 import { hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
 import type { DTab } from "./terminal";
@@ -194,7 +195,7 @@ export function CenterPane({
             <span style={{ fontSize: 10, fontWeight: 800, color: "var(--home)" }}>主</span>
           </div>
           <span className="mono" style={{ fontSize: 24, fontWeight: 800, color: h.live || h.finished ? "var(--gold)" : "var(--fg-4)", whiteSpace: "nowrap" }}>
-            {h.live || h.finished ? (h.score ?? "VS") : "VS"}
+            <Flash v={h.live || h.finished ? (h.score ?? "VS") : "VS"} />
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={{ fontSize: 10, fontWeight: 800, color: "var(--gold)" }}>客</span>
@@ -209,9 +210,9 @@ export function CenterPane({
             ].map(([k, t, w]) => (
               <div key={k as string} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 14px", textAlign: "center" }}>
                 <div style={{ fontSize: 9, color: "var(--fg-3)", marginBottom: 2 }}>{k as string}</div>
-                <div style={{ fontSize: 11, whiteSpace: "nowrap" }}>
-                  {t ? <span style={{ color: "var(--gold)", fontWeight: 700 }}>{t} </span> : null}
-                  <span className="mono" style={{ color: "var(--fg-mid)" }}>{w as string}</span>
+                <div style={{ fontSize: 11, whiteSpace: "nowrap", display: "flex", justifyContent: "center", gap: 3 }}>
+                  {t ? <Flash v={t as string} style={{ color: "var(--gold)", fontWeight: 700 }} /> : null}
+                  <Flash v={w as string} className="mono" style={{ color: "var(--fg-mid)" }} />
                 </div>
               </div>
             ))}
@@ -238,7 +239,8 @@ export function CenterPane({
                 {v.liveOdds.map((r: V) => (
                   <span key={r.mk} style={{ display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
                     <span style={{ fontSize: 10, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: "var(--inset)", color: "var(--fg-2)", whiteSpace: "nowrap" }}>{r.mk}</span>
-                    <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: r.susp ? "var(--fg-3)" : "var(--fg)", whiteSpace: "nowrap" }}>{r.susp ? "封盘中" : r.v}</span>
+                    {r.susp && <span style={{ fontSize: 8.5, fontWeight: 800, color: "var(--fg-3)", border: "1px solid var(--line)", borderRadius: 4, padding: "1px 5px" }}>封盘中</span>}
+                    <Flash v={r.v || "—"} className="mono" style={{ fontSize: 12, fontWeight: 700, color: r.susp ? "var(--fg-3)" : "var(--fg)", whiteSpace: "nowrap" }} />
                   </span>
                 ))}
               </div>

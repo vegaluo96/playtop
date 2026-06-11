@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { f2, hhmm } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
+import { Flash, HeartBeat, useNewIds, useWorkerBeat } from "@/components/live";
 import { TIERS } from "@/server/af/schedule";
 import { Modal, ModalTitle } from "./modal";
 import { CenterPane } from "./center";
@@ -48,6 +49,8 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   const [modal, setModal] = useState<DModal>(null);
   const [drawer, setDrawer] = useState(!!initialDrawer);
   const [busy, setBusy] = useState(false);
+  const [lastAt, setLastAt] = useState<number | null>(null);
+  const workerAt = useWorkerBeat();
   const selRef = useRef<number | null>(sel);
   selRef.current = sel;
 
@@ -63,7 +66,9 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           setSel((live ?? first ?? j.rows[0]).id);
         }
       }
-    } catch { /* 保留旧数据 */ }
+    } catch { /* 保留旧数据 */ } finally {
+      setLastAt(Date.now());
+    }
   }, [league, prefs.tz]);
 
   const loadDetail = useCallback(async () => {
@@ -97,7 +102,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
 
   useEffect(() => {
     void loadRows();
-    const t = setInterval(loadRows, 60_000);
+    const t = setInterval(loadRows, 10_000);
     return () => clearInterval(t);
   }, [loadRows]);
   useEffect(() => {
@@ -107,15 +112,22 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
     void loadPred();
     const t = setInterval(() => {
       void loadDetail();
+    }, 10_000);
+    const tp = setInterval(() => {
       void loadPred();
     }, 60_000);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      clearInterval(tp);
+    };
   }, [sel, loadDetail, loadPred]);
   useEffect(() => {
     void loadMoves();
-    const t = setInterval(loadMoves, 60_000);
+    const t = setInterval(loadMoves, 10_000);
     return () => clearInterval(t);
   }, [loadMoves]);
+
+  const freshMoveIds = useNewIds(moves.map((m) => m.id));
 
   /* ── 解锁/充值(与移动同一契约)── */
   const requestUnlock = (target: { id: number; match: string; price: number }) => {
@@ -204,6 +216,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
         >
           ⟳ {detail?.header?.fresh?.line ?? "数据刷新规则"} ›
         </span>
+        <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} showNext />
         {me.loggedIn ? (
           <span onClick={() => setDrawer(true)} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "5px 10px", borderRadius: 8, border: "1px solid var(--line)" }}>
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--fg-2)" strokeWidth="1.7" strokeLinecap="round">
@@ -275,15 +288,15 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                     </div>
                   </div>
                   <div style={{ flexShrink: 0, textAlign: "right", width: 56 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", whiteSpace: "nowrap" }}>{m.masked ? "●●" : (m.ah?.text ?? "—")}</div>
-                    <div className="mono" style={{ fontSize: 10, color: "var(--fg-2)" }}>{m.masked || !m.ah ? X : `${f2(m.ah.h)}/${f2(m.ah.a)}`}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked ? "●●" : (m.ah?.text ?? "—")} /></div>
+                    <div className="mono" style={{ fontSize: 10, color: "var(--fg-2)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ah ? X : `${f2(m.ah.h)}/${f2(m.ah.a)}`} /></div>
                   </div>
                   <div style={{ flexShrink: 0, textAlign: "right", width: 40 }}>
-                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>{m.masked || m.ou?.line == null ? X : m.ou.line.toFixed(2)}</div>
-                    <div className="mono" style={{ fontSize: 10, color: "var(--fg-2)" }}>{m.masked || !m.ou ? X : `${f2(m.ou.h)}/${f2(m.ou.a)}`}</div>
+                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || m.ou?.line == null ? X : m.ou.line.toFixed(2)} /></div>
+                    <div className="mono" style={{ fontSize: 10, color: "var(--fg-2)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ou ? X : `${f2(m.ou.h)}/${f2(m.ou.a)}`} /></div>
                   </div>
                   <div style={{ flexShrink: 0, width: 34, textAlign: "right" }}>
-                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: m.live ? "var(--gold)" : "var(--fg-4)" }}>{m.live || m.finished ? (m.score ?? "vs") : "vs"}</div>
+                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: m.live ? "var(--gold)" : "var(--fg-4)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} /></div>
                   </div>
                 </div>
               );
@@ -299,10 +312,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           <div style={{ flex: 1.2, display: "flex", flexDirection: "column", minHeight: 0, borderBottom: "1px solid var(--line)" }}>
             <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 8px" }}>
               <span style={{ fontSize: 13, fontWeight: 800 }}>盘口异动</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#2ecc8a", fontWeight: 700 }}>
-                <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "#2ecc8a" }} />
-                实时
-              </span>
+              <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} />
             </div>
             <div style={{ flexShrink: 0, display: "flex", gap: 6, padding: "0 14px 8px" }}>
               {["全部", "升盘", "降盘", "水位"].map((l) => (
@@ -316,6 +326,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
               {moves.map((f) => (
                 <div
                   key={f.id}
+                  className={freshMoveIds.has(f.id) ? "feed-in" : undefined}
                   onClick={() => (f.masked ? router.push("/login") : setModal({ kind: "move", data: f }))}
                   style={{ background: "var(--card)", border: "1px solid var(--line-soft)", borderRadius: 8, marginBottom: 6, padding: "8px 10px", cursor: "pointer" }}
                 >

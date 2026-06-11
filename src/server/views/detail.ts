@@ -372,7 +372,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       const x12 = find(/fulltime result|match winner|1x2/i);
       if (ahO) {
         const r = fmtAh(ahO);
-        if (r) rowsOut.push({ mk: "亚盘", v: r.susp ? "" : `${r.text} · ${r.v}`, susp: r.susp });
+        if (r) rowsOut.push({ mk: "亚盘", v: `${r.text} · ${r.v}`, susp: r.susp });
       }
       if (ouO) {
         const vals = arr(dig(ouO, "values"));
@@ -383,7 +383,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
           const hc = parseFloat(String(dig(over, "handicap") ?? ""));
           rowsOut.push({
             mk: "大小",
-            v: susp ? "" : `${Number.isFinite(hc) ? hc + " 球" : ""} · ${f2(parseFloat(String(dig(over, "odd"))) - 1)} / ${f2(parseFloat(String(dig(under, "odd"))) - 1)}`,
+            v: `${Number.isFinite(hc) ? hc + " 球" : ""} · ${f2(parseFloat(String(dig(over, "odd"))) - 1)} / ${f2(parseFloat(String(dig(under, "odd"))) - 1)}`,
             susp,
           });
         }
@@ -396,7 +396,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
         if (h && dd && a)
           rowsOut.push({
             mk: "胜平负",
-            v: susp ? "" : `${f2(parseFloat(String(dig(h, "odd"))))} / ${f2(parseFloat(String(dig(dd, "odd"))))} / ${f2(parseFloat(String(dig(a, "odd"))))}`,
+            v: `${f2(parseFloat(String(dig(h, "odd"))))} / ${f2(parseFloat(String(dig(dd, "odd"))))} / ${f2(parseFloat(String(dig(a, "odd"))))}`,
             susp,
           });
       }

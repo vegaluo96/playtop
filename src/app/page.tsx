@@ -8,6 +8,7 @@ import { RefreshSheet } from "@/components/refresh-sheet";
 import { Chip } from "@/components/ui";
 import { f2, hhmm } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
+import { Flash, HeartBeat, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 
@@ -46,7 +47,7 @@ function ArrowVal({ v, d, masked }: { v: number | undefined; d: number | undefin
   const ch = !masked && d ? (d > 0 ? "▲" : "▼") : "";
   return (
     <div style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
-      <span className="mono" style={{ fontSize: 12.5, fontWeight: 600 }}>{masked || v == null ? X : f2(v)}</span>
+      <Flash v={masked || v == null ? X : f2(v)} className="mono" style={{ fontSize: 12.5, fontWeight: 600 }} />
       <span style={{ fontSize: 8, color: d && d > 0 ? "var(--up)" : "var(--down)" }}>{ch}</span>
     </div>
   );
@@ -65,6 +66,8 @@ function MobileMatchesPage() {
   const [liveCount, setLiveCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [rfOpen, setRfOpen] = useState(false);
+  const [lastAt, setLastAt] = useState<number | null>(null);
+  const workerAt = useWorkerBeat();
   const { prefs } = useApp();
   const router = useRouter();
 
@@ -80,12 +83,13 @@ function MobileMatchesPage() {
       /* 网络抖动下保留旧数据 */
     } finally {
       setLoaded(true);
+      setLastAt(Date.now());
     }
   }, [day, league, prefs.tz]);
 
   useEffect(() => {
     void load();
-    const t = setInterval(load, 60_000);
+    const t = setInterval(load, 10_000);
     return () => clearInterval(t);
   }, [load]);
 
@@ -112,6 +116,7 @@ function MobileMatchesPage() {
           <div onClick={() => setRfOpen(true)} style={{ fontSize: 9, color: "var(--gold)", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
             ⟳ 数据刷新规则 ›
           </div>
+          <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} />
         </div>
       </div>
 
@@ -195,7 +200,7 @@ function MobileMatchesPage() {
                     <span style={{ fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
                   </div>
                   <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", fontSize: 11, color: m.live ? "var(--gold)" : "var(--fg-4)", paddingLeft: 1, whiteSpace: "nowrap" }}>
-                    {m.live || m.finished ? (m.score ?? "vs") : "vs"}
+                    <Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} />
                   </div>
                   <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
                     <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--gold)", background: "rgba(233,185,73,.12)", borderRadius: 3, padding: "1px 4px" }}>客</span>
@@ -205,21 +210,21 @@ function MobileMatchesPage() {
                 <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
                   <ArrowVal v={m.ah?.h} d={m.ah?.hd} masked={m.masked} />
                   <div style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700, color: "var(--gold)" }}>
-                    {m.masked ? "●●" : (m.ah?.text ?? "—")}
+                    <Flash v={m.masked ? "●●" : (m.ah?.text ?? "—")} />
                   </div>
                   <ArrowVal v={m.ah?.a} d={m.ah?.ad} masked={m.masked} />
                 </div>
                 <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
                   <ArrowVal v={m.ou?.h} d={m.ou?.hd} masked={m.masked} />
                   <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>
-                    {m.masked ? "●●" : m.ou?.line != null ? m.ou.line.toFixed(2) : "—"}
+                    <Flash v={m.masked ? "●●" : m.ou?.line != null ? m.ou.line.toFixed(2) : "—"} />
                   </div>
                   <ArrowVal v={m.ou?.a} d={m.ou?.ad} masked={m.masked} />
                 </div>
                 <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
                   {[m.eu?.h, m.eu?.d, m.eu?.a].map((v, i) => (
                     <div key={i} className="mono" style={{ height: i === 1 ? 16 : 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: i === 1 ? 11 : 12.5, fontWeight: i === 1 ? 700 : 600, color: i === 1 ? "var(--gold)" : undefined }}>
-                      {m.masked || v == null ? X : f2(v)}
+                      <Flash v={m.masked || v == null ? X : f2(v)} />
                     </div>
                   ))}
                 </div>

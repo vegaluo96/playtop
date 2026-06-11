@@ -92,6 +92,68 @@ textarea {
   animation: livepulse 1.5s infinite;
 }
 
+/* ── 行情终端微交互:仅变化字段闪动,布局零位移 ── */
+@keyframes flashUp {
+  0% {
+    background: color-mix(in srgb, var(--up) 26%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@keyframes flashDown {
+  0% {
+    background: color-mix(in srgb, var(--down) 26%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@keyframes flashGold {
+  0% {
+    background: rgba(233, 185, 73, 0.28);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.flash-up {
+  animation: flashUp 1.3s ease-out;
+}
+.flash-down {
+  animation: flashDown 1.3s ease-out;
+}
+.flash-gold {
+  animation: flashGold 1.3s ease-out;
+}
+@keyframes feedIn {
+  0% {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+.feed-in {
+  animation: feedIn 0.35s ease-out;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+.breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
+
 /* 桌面终端:8px 细滚动条(移动端全局隐藏不变) */
 .desktop-root ::-webkit-scrollbar {
   width: 8px;

@@ -10,6 +10,7 @@ import { ShareSheet, type ShareData } from "@/components/share-sheet";
 import { Card, Chip, EmptyBox, SectionTitle, ShareIcon } from "@/components/ui";
 import { hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
+import { Flash, HeartBeat, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 
@@ -40,6 +41,8 @@ function MobileMatchDetail({ id }: { id: string }) {
   const [rfOpen, setRfOpen] = useState(false);
   const [share, setShare] = useState<ShareData | null>(null);
   const [err, setErr] = useState("");
+  const [lastAt, setLastAt] = useState<number | null>(null);
+  const workerAt = useWorkerBeat();
   const { prefs, me } = useApp();
   const router = useRouter();
 
@@ -51,12 +54,14 @@ function MobileMatchDetail({ id }: { id: string }) {
       else setErr(j.error || "加载失败");
     } catch {
       setErr("网络异常");
+    } finally {
+      setLastAt(Date.now());
     }
   }, [id, prefs.tz]);
 
   useEffect(() => {
     void load();
-    const t = setInterval(load, 60_000);
+    const t = setInterval(load, 10_000);
     return () => clearInterval(t);
   }, [load]);
 
@@ -190,7 +195,7 @@ function MobileMatchDetail({ id }: { id: string }) {
         </div>
         <div style={{ textAlign: "center" }}>
           <div className="mono" style={{ fontSize: 20, fontWeight: 800, color: h.live || h.finished ? "var(--gold)" : "var(--fg-4)", whiteSpace: "nowrap" }}>
-            {h.live || h.finished ? (h.score ?? "VS") : "VS"}
+            <Flash v={h.live || h.finished ? (h.score ?? "VS") : "VS"} />
           </div>
           <div style={{ fontSize: 10, color: h.live ? "var(--red)" : "var(--fg-3)", fontWeight: 600, marginTop: 1, whiteSpace: "nowrap" }}>
             {h.live ? `${h.elapsed ?? ""}' 进行中` : h.finished ? "已完场" : `今日 ${hhmm(h.kickoff, prefs.tz)} 开赛`}
@@ -210,17 +215,18 @@ function MobileMatchDetail({ id }: { id: string }) {
         ].map(([k, t, w]) => (
           <Card key={k as string} style={{ borderRadius: 8, padding: "6px 2px", textAlign: "center" }}>
             <div style={{ fontSize: 9, color: "var(--fg-3)", marginBottom: 2 }}>{k}</div>
-            <div style={{ fontSize: 10.5 }}>
-              {t && <span style={{ color: "var(--gold)", fontWeight: 700 }}>{t} </span>}
-              <span className="mono" style={{ color: "var(--fg-mid)" }}>{w}</span>
+            <div style={{ fontSize: 10.5, display: "flex", justifyContent: "center", gap: 3 }}>
+              {t ? <Flash v={t} style={{ color: "var(--gold)", fontWeight: 700 }} /> : null}
+              <Flash v={w} className="mono" style={{ color: "var(--fg-mid)" }} />
             </div>
           </Card>
         ))}
       </div>
 
-      <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 8px", cursor: "pointer" }}>
+      <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 8px", cursor: "pointer", flexWrap: "wrap" }}>
         <span style={{ fontSize: 9.5, color: "var(--fg-3)" }}>⟳ {h.fresh.line}</span>
         <span style={{ fontSize: 9.5, color: "var(--gold)", fontWeight: 700 }}>规则 ›</span>
+        <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} showNext />
       </div>
 
       <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", overflowX: "auto", flexShrink: 0 }}>
@@ -245,8 +251,9 @@ function MobileMatchDetail({ id }: { id: string }) {
                   {v.liveOdds.map((r: V) => (
                     <div key={r.mk} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--line-soft)" }}>
                       <span style={{ flexShrink: 0, width: 48, fontSize: 10, fontWeight: 800, borderRadius: 4, padding: "2px 0", textAlign: "center", background: "var(--inset)", color: "var(--fg-2)" }}>{r.mk}</span>
-                      <span className="mono" style={{ flex: 1, textAlign: "right", fontSize: 12.5, fontWeight: 700, color: r.susp ? "var(--fg-3)" : "var(--fg)" }}>
-                        {r.susp ? "封盘中" : r.v}
+                      <span style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+                        {r.susp && <span style={{ fontSize: 8.5, fontWeight: 800, color: "var(--fg-3)", border: "1px solid var(--line)", borderRadius: 4, padding: "1px 5px" }}>封盘中</span>}
+                        <Flash v={r.v || "—"} className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: r.susp ? "var(--fg-3)" : "var(--fg)" }} />
                       </span>
                     </div>
                   ))}
