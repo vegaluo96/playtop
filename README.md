@@ -18,7 +18,13 @@ CLI 查数/排障（无需 UI）：
 npm run af                                   # 列出全部端点
 npm run af -- status                         # 验证 key 与配额
 npm run af -- fixtures date=2026-06-11 league=39
+npm run af -- selftest                       # 真机自检：39 端点各打一枪 + 净消耗配额
+npm run af -- selftest season=2023 delay=7000   # 限流套餐调大 delay（毫秒）
 ```
+
+`selftest` 会先解析一个真实上下文（联赛→赛季→一场已结束比赛→主客队→球员→教练），
+再把真 ID 喂给依赖型端点，逐一汇总「✓回数据 / ·空 / ✗报错 / —跳过」并算出本次净消耗
+的请求数——一份可复现的"数据确实接通"证据。
 
 产品层（页面/聚合/引擎）等新设计定稿后再叠加在这层之上。
 

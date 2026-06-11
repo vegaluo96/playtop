@@ -4,10 +4,13 @@
  *   npm run af -- status               # 账户与配额
  *   npm run af -- fixtures date=2026-06-11 league=39
  *   npm run af -- teams.statistics team=33 league=39 season=2025
+ *   npm run af -- selftest             # 真机自检：39 端点各打一枪 + 配额消耗
+ *   npm run af -- selftest league=39 season=2023 delay=7000   # 限流套餐调大 delay
  * 需要服务器 env API_FOOTBALL_KEY。
  */
 import { afConfigured } from "../src/server/af/client";
 import { AF_ENDPOINTS, afCatalogGrouped, runAfEndpoint } from "../src/server/af/catalog";
+import { runSelftest, formatSelftest } from "../src/server/af/selftest";
 
 async function main() {
   const [key, ...rest] = process.argv.slice(2);
@@ -33,6 +36,19 @@ async function main() {
     const i = arg.indexOf("=");
     if (i > 0) params[arg.slice(0, i)] = arg.slice(i + 1);
   }
+
+  if (key === "selftest") {
+    console.log("AF 真机自检中（按套餐限流，预计 1-2 分钟）…\n");
+    const rep = await runSelftest({
+      league: params.league,
+      season: params.season,
+      delayMs: params.delay ? Number(params.delay) : undefined,
+    });
+    console.log(formatSelftest(rep));
+    if (rep.summary.error > 0) process.exitCode = 2; // 有报错给非零退出码，便于 CI/脚本判断
+    return;
+  }
+
   const r = await runAfEndpoint(key, params);
   console.log(`GET ${r.path}`);
   console.log(`${r.ok ? "✓ OK" : "✗ ERRORS"} · 结果数 ${r.results} · 分页 ${r.paging.current}/${r.paging.total}`);
