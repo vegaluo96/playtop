@@ -17,6 +17,7 @@ interface Settings {
     aiRetrievalEnabled: boolean;
     aiOddsForCsvLeagues: boolean;
     sourceAutoDisableAfter: number;
+    apiFootballKey: string;
   } & Record<string, unknown>;
   engine: Record<string, unknown> & { ensembleWeights: { market: number; dc: number; elo: number } };
   pricing: { defaultPricePoints: number };
@@ -178,7 +179,31 @@ export default function SettingsPage() {
 
       {/* 数据源 */}
       <section className="card mt-4 p-4">
-        <h2 className="font-display text-sm tracking-wider text-gold-bright">数据源（全部免 API Key）</h2>
+        <h2 className="font-display text-sm tracking-wider text-gold-bright">数据源</h2>
+
+        {/* 付费主源：API-Football */}
+        <div className="mt-3 rounded border border-gold/30 bg-gold/5 p-3">
+          <div className="font-display text-[12px] tracking-wider text-gold-bright">API-Football（付费主源）</div>
+          <p className="mt-1 text-[10.5px] leading-4 text-faint">
+            大书商盘口（bet365 / Pinnacle / 威廉希尔等，含亚盘/波胆）+ 官方首发 + 伤停 + 权威赛果。
+            填入 key 保存后下一轮采集自动生效；留空则回落到服务器 env 的 API_FOOTBALL_KEY。
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input
+              className="tabular min-w-[280px] flex-1 rounded border border-hairline bg-overlay/50 px-2 py-1.5 text-[12px]"
+              placeholder="API-Football key（api-sports.io 控制台获取）"
+              value={s.datasources.apiFootballKey}
+              onChange={(e) => setS({ ...s, datasources: { ...s.datasources, apiFootballKey: e.target.value.trim() } })}
+            />
+            <button onClick={() => save("datasources", s.datasources)} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">
+              保存
+            </button>
+            <button onClick={runHealthCheck} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">
+              体检验证
+            </button>
+          </div>
+        </div>
+
         <div className="mt-3">
           <span className="text-[10px] tracking-wider text-faint">启用联赛（football-data.co.uk 代码）</span>
           <div className="mt-2 flex flex-wrap gap-1.5">

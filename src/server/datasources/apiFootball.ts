@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { NormalizedOdds } from "../engine/types";
+import { getConfig } from "../lib/config";
 import type { injuriesPayloadSchema, lineupsPayloadSchema } from "./types";
 import { politeFetchText } from "./httpCache";
 import { normName } from "./polymarket";
@@ -13,7 +14,14 @@ import { normName } from "./polymarket";
 
 export const API_FOOTBALL_BASE = "https://v3.football.api-sports.io";
 
+/** key 解析顺序：后台设置（settings.datasources.apiFootballKey）→ 服务器 env */
 export function apiFootballKey(): string | null {
+  try {
+    const cfg = getConfig("datasources").apiFootballKey?.trim();
+    if (cfg) return cfg;
+  } catch {
+    /* 设置表不可用时回落 env */
+  }
   const k = process.env.API_FOOTBALL_KEY?.trim();
   return k ? k : null;
 }
@@ -296,7 +304,7 @@ export async function fetchAfInjuries(fixtureId: number, homeId: number, awayId:
 
 export async function probeApiFootball(): Promise<string> {
   if (!apiFootballConfigured()) {
-    return "未配置：采购 api-sports.io key 后写入服务器 env 的 API_FOOTBALL_KEY 即自动生效";
+    return "未配置：在 系统设置→数据源 填入 API-Football key（或服务器 env API_FOOTBALL_KEY）即自动生效";
   }
   const raw = (await afGet("/status", true)) as {
     response?: { subscription?: { plan?: string; end?: string }; requests?: { current?: number; limit_day?: number } };
