@@ -15,7 +15,6 @@ interface Settings {
     enabledLeagues: string[];
     csvBase: string;
     aiRetrievalEnabled: boolean;
-    aiOddsForCsvLeagues: boolean;
     sourceAutoDisableAfter: number;
     apiFootballKey: string;
   } & Record<string, unknown>;
@@ -237,14 +236,6 @@ export default function SettingsPage() {
               onChange={(e) => setS({ ...s, datasources: { ...s.datasources, aiRetrievalEnabled: e.target.checked } })}
             />
             启用 AI 检索（伤停/教练/阵容/舆情等软维度，走 apiyi）
-          </label>
-          <label className="mt-2 flex items-center gap-2 text-[12px] text-muted">
-            <input
-              type="checkbox"
-              checked={s.datasources.aiOddsForCsvLeagues}
-              onChange={(e) => setS({ ...s, datasources: { ...s.datasources, aiOddsForCsvLeagues: e.target.checked } })}
-            />
-            CSV 联赛也走 AI 多家报价（联赛已有官方盘口，开启会增加 token 成本）
           </label>
         </div>
 

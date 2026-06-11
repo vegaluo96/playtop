@@ -1,11 +1,8 @@
 import { getConfig, type DatasourcesConfig } from "../lib/config";
 import { probeApiFootball } from "./apiFootball";
 import { politeFetchText } from "./httpCache";
-import { fetchSporttery } from "./sporttery";
 import { parsePolymarketSearch } from "./polymarket";
-import { fetchEspnScoreboard } from "./espn";
 import { fetchClubElo, fetchEloRatings } from "./externalRatings";
-import { parseManifoldSearch } from "./predictionMarkets";
 import { fetchUnderstatXg } from "./understat";
 import { parseGoalscorers } from "./githubIntl";
 
@@ -36,7 +33,7 @@ export const SOURCE_REGISTRY: SourceEntry[] = [
   {
     key: "api_football",
     label: "API-Football（付费主源）",
-    note: "大书商盘口（bet365/Pinnacle/威廉希尔等，1X2/亚盘/大小/波胆）+ 官方首发 + 伤停 + 权威赛果；key 由服务器 env API_FOOTBALL_KEY 提供",
+    note: "唯一主干：大书商盘口（bet365/Pinnacle/威廉希尔等，1X2/亚盘/大小/波胆）+ 官方首发 + 伤停 + 裁判 + 积分榜 + 球队名单 + 权威赛果",
     weightNote: "书商权重按各家名称走 bookWeights（bet365 1.2 / Pinnacle 1.3 / 威廉希尔 1.1）；赛果权威级",
     configKey: "apiFootballEnabled",
     probe: () => probeApiFootball(),
@@ -54,17 +51,6 @@ export const SOURCE_REGISTRY: SourceEntry[] = [
     },
   },
   {
-    key: "sporttery",
-    label: "中国竞彩（官方）",
-    note: "胜平负/让球/总进球/波胆四玩法盘口（书商维度+比分市场对照）",
-    weightNote: "书商权重 0.9（官方彩票水位较高）",
-    configKey: "sportteryEnabled",
-    probe: async () => {
-      const rows = await fetchSporttery();
-      return `在售 ${rows.length} 场，世界杯 ${rows.filter((r) => /世界杯/.test(r.league)).length} 场，波胆 ${rows.filter((r) => r.correctScores.length > 0).length} 场`;
-    },
-  },
-  {
     key: "polymarket",
     label: "Polymarket（预测市场）",
     note: "真实资金预测市场三向价格（≈无水概率，书商维度）",
@@ -73,17 +59,6 @@ export const SOURCE_REGISTRY: SourceEntry[] = [
     probe: async () => {
       const { body } = await politeFetchText("https://gamma-api.polymarket.com/public-search?q=world%20cup&limit_per_type=10", true, UA);
       return `解析到 ${parsePolymarketSearch(body).length} 个市场`;
-    },
-  },
-  {
-    key: "espn",
-    label: "ESPN（隐藏 API）",
-    note: "权威赛果（FT 分钟级，直接结算）+ 赛程核对 + ESPN BET 盘口（书商维度）",
-    weightNote: "赛果权威级（等同官方 CSV）；书商权重 1.0",
-    configKey: "espnEnabled",
-    probe: async () => {
-      const events = await fetchEspnScoreboard("fifa.world", undefined, true);
-      return `世界杯 scoreboard ${events.length} 场（含赔率 ${events.filter((e) => e.odds).length} 场）`;
     },
   },
   {
@@ -101,17 +76,6 @@ export const SOURCE_REGISTRY: SourceEntry[] = [
     weightNote: "展示/事实维度",
     configKey: "clubEloEnabled",
     probe: async () => `解析到 ${(await fetchClubElo(new Date().toISOString().slice(0, 10), true)).length} 队`,
-  },
-  {
-    key: "manifold",
-    label: "Manifold（模拟盘预测市场）",
-    note: "模拟资金预测市场三向价格（书商维度，标参考盘）",
-    weightNote: "书商权重 0.3；不进最优价/价值/Kelly 口径",
-    configKey: "manifoldEnabled",
-    probe: async () => {
-      const { body } = await politeFetchText("https://api.manifold.markets/v0/search-markets?term=world%20cup&limit=10", true, UA);
-      return `解析到 ${parseManifoldSearch(body).length} 个市场`;
-    },
   },
   {
     key: "smarkets",

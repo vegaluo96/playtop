@@ -9,7 +9,7 @@ import { importWorldCupFixtures } from "../services/importWorldCup";
 import { matchesByStatus, syncFixtures } from "../services/matchesService";
 import { autoConfirmDueOutcomes, lockFinalAnalysisAtKickoff, settleDueMatches } from "../services/settle";
 import { getConfig } from "../lib/config";
-import { fetchResultsFromApiFootball, fetchResultsFromCsv, fetchResultsFromEspn, fetchResultsViaAi } from "./fetchResults";
+import { fetchResultsFromApiFootball, fetchResultsFromCsv, fetchResultsViaAi } from "./fetchResults";
 
 /**
  * 进程内调度（单体部署，无外部队列）：
@@ -71,12 +71,11 @@ export async function tickLiveRevisions(): Promise<{ refreshed: number; advanced
   return { refreshed, advanced };
 }
 
-export async function tickResults(): Promise<{ apiFootball: number; csv: number; espn: number; ai: number }> {
+export async function tickResults(): Promise<{ apiFootball: number; csv: number; ai: number }> {
   const apiFootball = await fetchResultsFromApiFootball().catch(() => 0); // 付费主源，最先
   const csv = await fetchResultsFromCsv().catch(() => 0);
-  const espn = await fetchResultsFromEspn().catch(() => 0); // 权威级，先于 AI
-  const ai = await fetchResultsViaAi().catch(() => 0);
-  return { apiFootball, csv, espn, ai };
+  const ai = await fetchResultsViaAi().catch(() => 0); // 兜底
+  return { apiFootball, csv, ai };
 }
 
 /** 赛程同步：联赛 CSV 自动建赛 + 世界杯增量同步（淘汰赛对阵确定后自动补建） */

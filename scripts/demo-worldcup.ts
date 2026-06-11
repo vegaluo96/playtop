@@ -3,7 +3,7 @@
  * 真实赛程(openfootball) + 真实国际赛历史(martj42) + 真实射手数据集 →
  * 自动建赛 → 用户端可见 → 采集（网络受限源失败自动记健康账本）→ 多书商盘口
  * （沙箱注入同一写入口径；生产由适配器自动抓取）→ 自动建模（真实历史 DC 拟合 +
- * 加权共识）→ 自动发布 → 开赛锁定 → ESPN 口径赛果 → 自动结算公开 → 战绩 + 哈希校验。
+ * 加权共识）→ 自动发布 → 开赛锁定 → 权威赛果 → 自动结算公开 → 战绩 + 哈希校验。
  *
  * 运行：npm run demo:wc（需可访问 GitHub raw）
  */
@@ -119,9 +119,9 @@ async function main() {
   console.log(`  predictions 落库 ${preds.length} 条（含锁定与收盘赔率）`);
   assert(preds.length > 0 && preds.every((p) => p.closingOdds !== null), "收盘赔率应按书商口径取到");
 
-  step(9, "ESPN 口径赛果（生产由 fetchResultsFromEspn 自动抓取）→ 自动结算公开");
+  step(9, "权威赛果（生产由 fetchResultsFromApiFootball 自动抓取）→ 自动结算公开");
   process.env.FAKE_NOW = String(opener.kickoffAt + 2.5 * 3_600_000);
-  recordOutcome({ matchId: opener.id, homeGoals: 2, awayGoals: 1, source: "espn", provisional: false });
+  recordOutcome({ matchId: opener.id, homeGoals: 2, awayGoals: 1, source: "api_football", provisional: false });
   const settleRes = await tickStateMachine();
   console.log(`  结算 ${settleRes.settled} 场`);
   const final = db.select().from(matches).where(eq(matches.id, opener.id)).get()!;
@@ -144,7 +144,7 @@ async function main() {
   }
 
   console.log(
-    "\n✅ 世界杯闭环全部走通：真实赛程建赛→用户可见→采集→多书商加权共识建模→自动发布→锁定→ESPN 赛果→结算公开→战绩哈希校验；网络受限源全部软降级并记账。",
+    "\n✅ 世界杯闭环全部走通：真实赛程建赛→用户可见→采集→多书商加权共识建模→自动发布→锁定→权威赛果→结算公开→战绩哈希校验；网络受限源全部软降级并记账。",
   );
 }
 

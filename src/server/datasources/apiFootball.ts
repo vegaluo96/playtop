@@ -51,7 +51,10 @@ export interface AfFixture {
   fixtureId: number;
   kickoffAt: number;
   statusShort: string;
+  leagueId: number | null;
   leagueName: string;
+  season: number | null;
+  referee: string | null;
   homeId: number;
   awayId: number;
   homeName: string;
@@ -65,9 +68,10 @@ const afFixtureSchema = z.object({
   fixture: z.object({
     id: z.number(),
     timestamp: z.number(),
+    referee: z.string().nullable().default(null),
     status: z.object({ short: z.string() }).partial().default({}),
   }),
-  league: z.object({ name: z.string() }).partial().default({}),
+  league: z.object({ id: z.number(), name: z.string(), season: z.number() }).partial().default({}),
   teams: z.object({
     home: z.object({ id: z.number(), name: z.string() }),
     away: z.object({ id: z.number(), name: z.string() }),
@@ -89,7 +93,10 @@ export function parseAfFixtures(json: unknown): AfFixture[] {
       fixtureId: f.fixture.id,
       kickoffAt: f.fixture.timestamp * 1000,
       statusShort: f.fixture.status.short ?? "",
+      leagueId: f.league.id ?? null,
       leagueName: f.league.name ?? "",
+      season: f.league.season ?? null,
+      referee: f.fixture.referee,
       homeId: f.teams.home.id,
       awayId: f.teams.away.id,
       homeName: f.teams.home.name,
@@ -298,6 +305,109 @@ export function parseAfInjuries(json: unknown, homeId: number, awayId: number): 
 
 export async function fetchAfInjuries(fixtureId: number, homeId: number, awayId: number, force = false) {
   return parseAfInjuries(await afGet(`/injuries?fixture=${fixtureId}`, force), homeId, awayId);
+}
+
+// ── 球队名单（球员数据维度） ──────────────────────────────────────────────
+
+export interface AfPlayer {
+  name: string;
+  age: number | null;
+  number: number | null;
+  role: "goalkeeper" | "defender" | "midfielder" | "attacker" | "unknown";
+}
+
+const afSquadSchema = z.array(
+  z.object({
+    players: z
+      .array(
+        z.object({
+          name: z.string(),
+          age: z.number().nullable().default(null),
+          number: z.number().nullable().default(null),
+          position: z.string().nullable().default(null),
+        }),
+      )
+      .default([]),
+  }),
+);
+
+const POSITION_ROLE: Record<string, AfPlayer["role"]> = {
+  Goalkeeper: "goalkeeper",
+  Defender: "defender",
+  Midfielder: "midfielder",
+  Attacker: "attacker",
+};
+
+export function parseAfSquad(json: unknown): AfPlayer[] {
+  const p = afSquadSchema.safeParse((json as { response?: unknown }).response ?? []);
+  if (!p.success || p.data.length === 0) return [];
+  return p.data[0].players.map((x) => ({
+    name: x.name,
+    age: x.age,
+    number: x.number,
+    role: POSITION_ROLE[x.position ?? ""] ?? "unknown",
+  }));
+}
+
+export async function fetchAfSquad(teamId: number, force = false): Promise<AfPlayer[]> {
+  return parseAfSquad(await afGet(`/players/squads?team=${teamId}`, force));
+}
+
+// ── 积分榜 ───────────────────────────────────────────────────────────────
+
+export interface AfStandingRow {
+  rank: number;
+  teamId: number;
+  team: string;
+  played: number;
+  points: number;
+  gd: number;
+  group: string;
+}
+
+const afStandingsSchema = z.array(
+  z.object({
+    league: z.object({
+      standings: z
+        .array(
+          z.array(
+            z.object({
+              rank: z.number(),
+              team: z.object({ id: z.number(), name: z.string() }),
+              points: z.number(),
+              goalsDiff: z.number(),
+              group: z.string().nullable().default(null),
+              all: z.object({ played: z.number() }).partial().default({}),
+            }),
+          ),
+        )
+        .default([]),
+    }),
+  }),
+);
+
+export function parseAfStandings(json: unknown): AfStandingRow[] {
+  const p = afStandingsSchema.safeParse((json as { response?: unknown }).response ?? []);
+  if (!p.success || p.data.length === 0) return [];
+  const out: AfStandingRow[] = [];
+  for (const grp of p.data[0].league.standings) {
+    for (const r of grp) {
+      out.push({
+        rank: r.rank,
+        teamId: r.team.id,
+        team: r.team.name,
+        played: r.all.played ?? 0,
+        points: r.points,
+        gd: r.goalsDiff,
+        group: r.group ?? "",
+      });
+    }
+  }
+  return out;
+}
+
+export async function fetchAfStandings(leagueId: number, season: number, force = false): Promise<AfStandingRow[]> {
+  return parseAfStandings(await afGet(`/standings?league=${leagueId}&season=${season}`, force));
 }
 
 // ── 体检 ────────────────────────────────────────────────────────────────

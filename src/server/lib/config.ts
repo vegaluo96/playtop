@@ -27,20 +27,12 @@ export const datasourcesConfigSchema = z.object({
   enabledLeagues: z.array(z.string()).default(["E0", "SP1", "I1", "D1", "F1"]),
   csvBase: z.string().default("https://www.football-data.co.uk"),
   aiRetrievalEnabled: z.boolean().default(true),
-  /** 竞彩官方盘口接口（零 key；境外 IP 可能被拦，设置页可测试连通性） */
-  sportteryEnabled: z.boolean().default(true),
   /** Polymarket 预测市场公开 API（零 key；价格即概率） */
   polymarketEnabled: z.boolean().default(true),
-  /** CSV 联赛是否也走 AI 多家报价（成本闸：联赛已有 football-data 盘口，默认关） */
-  aiOddsForCsvLeagues: z.boolean().default(false),
-  /** ESPN 隐藏 API：权威赛果（分钟级结算）+ 赛程核对 + 顺带 odds */
-  espnEnabled: z.boolean().default(true),
   /** eloratings.net 国家队 Elo（世界杯外部评级维度） */
   eloRatingsEnabled: z.boolean().default(true),
   /** api.clubelo.com 俱乐部 Elo（联赛外部评级维度） */
   clubEloEnabled: z.boolean().default(true),
-  /** Manifold 预测市场（模拟盘，进共识低权重、不进价值口径） */
-  manifoldEnabled: z.boolean().default(true),
   /** Smarkets 交易所盘口（锐价真实盘） */
   smarketsEnabled: z.boolean().default(true),
   /** Understat 球队 xG（五大联赛外部评级维度） */
@@ -108,11 +100,8 @@ export const engineConfigSchema = z.object({
       "皇冠（Crown）": 1.1,
       威廉希尔: 1.1,
       "football-data.co.uk 综合": 1.0,
-      "ESPN BET": 1.0,
       人工录入: 1.0,
-      "中国竞彩（官方）": 0.9,
       Polymarket: 0.9,
-      "Manifold（模拟盘）": 0.3,
     }),
   /** 射门质量混合系数 θ（Wheatcroft 2020），0 关闭 */
   shotsBlendTheta: z.number().min(0).max(1).default(0.35),

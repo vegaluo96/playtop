@@ -7,6 +7,8 @@ import {
   parseAfInjuries,
   parseAfLineups,
   parseAfOddsBooks,
+  parseAfSquad,
+  parseAfStandings,
 } from "@/server/datasources/apiFootball";
 
 const T0 = Date.UTC(2026, 5, 11, 18, 0);
@@ -14,8 +16,8 @@ const T0 = Date.UTC(2026, 5, 11, 18, 0);
 const fixturesJson = {
   response: [
     {
-      fixture: { id: 1001, timestamp: T0 / 1000, status: { short: "NS" } },
-      league: { name: "World Cup" },
+      fixture: { id: 1001, timestamp: T0 / 1000, status: { short: "NS" }, referee: "F. Rapallini" },
+      league: { id: 1, name: "World Cup", season: 2026 },
       teams: { home: { id: 33, name: "Mexico" }, away: { id: 44, name: "South Africa" } },
       score: { fulltime: { home: null, away: null } },
     },
@@ -36,6 +38,9 @@ describe("API-Football 赛程/赛果解析", () => {
     const hit = matchAfFixture(fixtures, { homeNames: ["Mexico", "墨西哥"], awayNames: ["South Africa"], kickoffAt: T0 + 60_000 });
     expect(hit?.fixtureId).toBe(1001);
     expect(hit?.homeId).toBe(33);
+    expect(hit?.referee).toBe("F. Rapallini");
+    expect(hit?.leagueId).toBe(1);
+    expect(hit?.season).toBe(2026);
     // 队名不符不匹配
     expect(matchAfFixture(fixtures, { homeNames: ["Ghana"], awayNames: ["South Africa"], kickoffAt: T0 })).toBeNull();
   });
@@ -138,5 +143,48 @@ describe("API-Football 首发/伤停解析", () => {
     expect(parsed.items).toHaveLength(2);
     expect(parsed.items[0]).toMatchObject({ team: "home", player: "P1", status: "Missing Fixture", note: "Knee Injury" });
     expect(parsed.items[1]).toMatchObject({ team: "away", player: "P2", status: "伤停" });
+  });
+});
+
+describe("API-Football 名单/积分榜解析", () => {
+  it("球队名单：位置映射与防御", () => {
+    const squad = {
+      response: [
+        {
+          players: [
+            { name: "G One", age: 30, number: 1, position: "Goalkeeper" },
+            { name: "D Two", age: 25, number: 4, position: "Defender" },
+            { name: "X Three", age: null, number: null, position: "Coach?" },
+          ],
+        },
+      ],
+    };
+    const players = parseAfSquad(squad);
+    expect(players).toHaveLength(3);
+    expect(players[0]).toMatchObject({ name: "G One", role: "goalkeeper", number: 1 });
+    expect(players[2].role).toBe("unknown");
+    expect(parseAfSquad({})).toEqual([]);
+  });
+
+  it("积分榜：分组扁平化，按 teamId 找排名", () => {
+    const standings = {
+      response: [
+        {
+          league: {
+            standings: [
+              [
+                { rank: 1, team: { id: 33, name: "Mexico" }, points: 6, goalsDiff: 3, group: "Group A", all: { played: 2 } },
+                { rank: 2, team: { id: 44, name: "South Africa" }, points: 4, goalsDiff: 1, group: "Group A", all: { played: 2 } },
+              ],
+              [{ rank: 1, team: { id: 99, name: "Brazil" }, points: 6, goalsDiff: 5, group: "Group B", all: { played: 2 } }],
+            ],
+          },
+        },
+      ],
+    };
+    const rows = parseAfStandings(standings);
+    expect(rows).toHaveLength(3);
+    expect(rows.find((r) => r.teamId === 44)).toMatchObject({ rank: 2, points: 4, group: "Group A", played: 2 });
+    expect(parseAfStandings({ response: [] })).toEqual([]);
   });
 });

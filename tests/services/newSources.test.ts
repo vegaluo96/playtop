@@ -1,98 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { americanToDecimal, matchEspnEvent, parseEspnScoreboard } from "@/server/datasources/espn";
 import { parseClubEloCsv, parseEloRatingsTsv, findRating } from "@/server/datasources/externalRatings";
-import { buildOddsFromManifold, buildSmarketsQuotes, parseManifoldSearch, smarketsToOneXTwo } from "@/server/datasources/predictionMarkets";
+import { buildSmarketsQuotes, smarketsToOneXTwo } from "@/server/datasources/predictionMarkets";
 import { parseUnderstatTeams } from "@/server/datasources/understat";
 import { buildIntlPlayerStats, parseGoalscorers, parseShootouts } from "@/server/datasources/githubIntl";
 import { consensusProbs, devigBooks, bestOneXTwo } from "@/server/engine/consensus";
 
 const KICKOFF = Date.UTC(2026, 5, 11, 19, 0);
-
-describe("ESPN 适配器", () => {
-  const sample = JSON.stringify({
-    events: [
-      {
-        date: "2026-06-11T19:00Z",
-        status: { type: { completed: true } },
-        competitions: [
-          {
-            competitors: [
-              { homeAway: "home", score: "2", team: { displayName: "Mexico", shortDisplayName: "MEX", abbreviation: "MEX" } },
-              { homeAway: "away", score: "1", team: { displayName: "South Africa", shortDisplayName: "RSA" } },
-            ],
-            odds: [
-              {
-                provider: { name: "ESPN BET" },
-                homeTeamOdds: { moneyLine: -150 },
-                awayTeamOdds: { moneyLine: 450 },
-                drawOdds: { moneyLine: 280 },
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  });
-
-  it("美式赔率换算", () => {
-    expect(americanToDecimal(-150)).toBeCloseTo(1.6667, 3);
-    expect(americanToDecimal(450)).toBeCloseTo(5.5, 6);
-    expect(americanToDecimal(0)).toBeNull();
-  });
-
-  it("scoreboard 解析：队名/完场比分/odds", () => {
-    const events = parseEspnScoreboard(sample, 7);
-    expect(events).toHaveLength(1);
-    const e = events[0];
-    expect(e.completed).toBe(true);
-    expect(e.homeScore).toBe(2);
-    expect(e.awayScore).toBe(1);
-    expect(e.odds!.bookmaker).toBe("ESPN BET");
-    expect(e.odds!.oneXTwo!.home).toBeCloseTo(1.6667, 3);
-  });
-
-  it("事件匹配：别名 + ±3h 时间窗", () => {
-    const events = parseEspnScoreboard(sample, 0);
-    expect(matchEspnEvent(events, { homeNames: ["Mexico"], awayNames: ["South Africa"], kickoffAt: KICKOFF })).not.toBeNull();
-    expect(matchEspnEvent(events, { homeNames: ["Mexico"], awayNames: ["South Africa"], kickoffAt: KICKOFF + 5 * 3_600_000 })).toBeNull();
-    expect(matchEspnEvent(events, { homeNames: ["Japan"], awayNames: ["South Africa"], kickoffAt: KICKOFF })).toBeNull();
-  });
-});
-
-describe("ESPN 球员名单与首发阵容", () => {
-  it("roster 防御解析 + 位置→角色映射", async () => {
-    const { parseEspnRoster, positionToRole } = await import("@/server/datasources/espn");
-    const sample = JSON.stringify({
-      athletes: [
-        { fullName: "Guillermo Ochoa", position: { abbreviation: "G" }, jersey: "13", age: 40 },
-        { fullName: "Raúl Jiménez", position: { name: "Forward" }, jersey: "9", age: 35 },
-        { fullName: "Edson Álvarez", position: { abbreviation: "M" }, jersey: "4" },
-      ],
-    });
-    const roster = parseEspnRoster(sample);
-    expect(roster).toHaveLength(3);
-    expect(positionToRole(roster[0].position)).toBe("goalkeeper");
-    expect(positionToRole(roster[1].position)).toBe("attacker");
-    expect(roster[2].age).toBeNull();
-  });
-
-  it("summary 首发解析：双方 ≥7 人才算公布，否则 null", async () => {
-    const { parseEspnSummaryLineups } = await import("@/server/datasources/espn");
-    const mk = (n: number) => Array.from({ length: n }, (_, i) => ({ starter: true, athlete: { displayName: `P${i}` } }));
-    const full = JSON.stringify({
-      rosters: [
-        { homeAway: "home", roster: [...mk(11), { starter: false, athlete: { displayName: "Sub" } }] },
-        { homeAway: "away", roster: mk(11) },
-      ],
-    });
-    const lineups = parseEspnSummaryLineups(full)!;
-    expect(lineups.confirmed).toBe(true);
-    expect(lineups.home.starters).toHaveLength(11);
-    const partial = JSON.stringify({ rosters: [{ homeAway: "home", roster: mk(3) }, { homeAway: "away", roster: mk(11) }] });
-    expect(parseEspnSummaryLineups(partial)).toBeNull();
-  });
-});
 
 describe("外部评级解析", () => {
   it("eloratings TSV 防御解析 + 队名匹配", () => {
@@ -113,25 +27,6 @@ describe("外部评级解析", () => {
 });
 
 describe("预测市场与交易所", () => {
-  it("Manifold：三向市场 → indicative 盘口", () => {
-    const markets = parseManifoldSearch(
-      JSON.stringify([
-        {
-          question: "Mexico vs South Africa (World Cup)",
-          closeTime: KICKOFF,
-          answers: [
-            { text: "Mexico", probability: 0.55 },
-            { text: "Draw", probability: 0.25 },
-            { text: "South Africa", probability: 0.2 },
-          ],
-        },
-      ]),
-    );
-    const odds = buildOddsFromManifold(markets, { homeNames: ["Mexico"], awayNames: ["South Africa"], kickoffAt: KICKOFF }, 9)!;
-    expect(odds.indicative).toBe(true);
-    expect(odds.bookmaker).toBe("Manifold（模拟盘）");
-    expect(odds.oneXTwo!.home).toBeCloseTo(1 / 0.55, 4);
-  });
 
   it("Smarkets：万分数报价 → 十进制赔率（最低 offer = 最高可买赔率）", () => {
     const contracts = JSON.stringify({
@@ -155,11 +50,11 @@ describe("预测市场与交易所", () => {
 
   it("indicative 书商进共识（低权重）但不进最优价", () => {
     const real = { bookmaker: "bet365", oneXTwo: { home: 2.0, draw: 3.4, away: 3.8 }, ou: [], ah: [], capturedAt: 0 };
-    const sim = { bookmaker: "Manifold（模拟盘）", oneXTwo: { home: 2.6, draw: 3.4, away: 3.0 }, ou: [], ah: [], indicative: true, capturedAt: 0 };
+    const sim = { bookmaker: "参考盘（模拟）", oneXTwo: { home: 2.6, draw: 3.4, away: 3.0 }, ou: [], ah: [], indicative: true, capturedAt: 0 };
     const best = bestOneXTwo([real, sim])!;
     expect(best.home.bookmaker).toBe("bet365"); // 模拟盘 2.6 更高但不可成交
-    const consensus = consensusProbs(devigBooks([real, sim]), { "Manifold（模拟盘）": 0.3 })!;
-    expect(consensus.detail.find((d) => d.bookmaker === "Manifold（模拟盘）")!.weight).toBeCloseTo(0.3);
+    const consensus = consensusProbs(devigBooks([real, sim]), { "参考盘（模拟）": 0.3 })!;
+    expect(consensus.detail.find((d) => d.bookmaker === "参考盘（模拟）")!.weight).toBeCloseTo(0.3);
     const sum = consensus.probs.home + consensus.probs.draw + consensus.probs.away;
     expect(sum).toBeCloseTo(1, 10);
   });
