@@ -161,9 +161,12 @@ const BOOK_NAME_MAP: Record<string, string> = {
   "William Hill": "威廉希尔",
 };
 
-/** 大书商优先序（拿不满时按出现顺序补足） */
-const PREFERRED_BOOKS = ["Bet365", "Pinnacle", "William Hill", "Bwin", "Marathonbet", "1xBet", "Unibet", "Betfair"];
-const MAX_BOOKS = 8;
+/** 展示优先序（锐盘/大盘排前，便于价差监测识别）；不截断，全量入库 */
+const PREFERRED_BOOKS = ["Pinnacle", "Bet365", "William Hill", "Bwin", "Marathonbet", "1xBet", "Unibet", "Betfair", "888sport", "Betsson", "Betano"];
+/** 安全上限（防御异常巨量 payload；AF 实际一场约 20-30 家，全收） */
+const MAX_BOOKS = 60;
+/** 每市场盘口线安全上限（亚盘/大小球梯度可达十余条，全收） */
+const MAX_LINES = 25;
 
 const afOddsSchema = z.object({
   bookmakers: z
@@ -198,7 +201,7 @@ export function parseAfOddsBooks(json: unknown, capturedAt: number): NormalizedO
   if (!first) return [];
   const p = afOddsSchema.safeParse(first);
   if (!p.success) return [];
-  // 大书商优先 + 截断，避免长尾小庄刷快照
+  // 锐盘/大盘排前（仅排序，不截断）——全量入库，多书商让共识与价差监测更准
   const ranked = [...p.data.bookmakers].sort((a, b) => {
     const ia = PREFERRED_BOOKS.indexOf(a.name);
     const ib = PREFERRED_BOOKS.indexOf(b.name);
@@ -230,7 +233,7 @@ export function parseAfOddsBooks(json: unknown, capturedAt: number): NormalizedO
           .filter(([, v]) => v.over && v.under)
           .map(([line, v]) => ({ line, over: v.over!, under: v.under! }))
           .sort((a, b) => a.line - b.line)
-          .slice(0, 6);
+          .slice(0, MAX_LINES);
       } else if (bet.name === "Asian Handicap") {
         const byLine = new Map<number, { home?: number; away?: number }>();
         for (const v of bet.values) {
@@ -245,7 +248,7 @@ export function parseAfOddsBooks(json: unknown, capturedAt: number): NormalizedO
           .filter(([, v]) => v.home && v.away)
           .map(([line, v]) => ({ line, home: v.home!, away: v.away! }))
           .sort((a, b) => a.line - b.line)
-          .slice(0, 6);
+          .slice(0, MAX_LINES);
       } else if (bet.name === "Exact Score" || bet.name === "Correct Score") {
         const cs: { score: string; odds: number }[] = [];
         for (const v of bet.values) {
@@ -253,7 +256,14 @@ export function parseAfOddsBooks(json: unknown, capturedAt: number): NormalizedO
           const odd = oddNum(v.odd);
           if (m && odd) cs.push({ score: `${m[1]}:${m[2]}`, odds: odd });
         }
-        if (cs.length >= 8) book.correctScores = cs.slice(0, 30);
+        if (cs.length >= 8) book.correctScores = cs.slice(0, 40);
+      } else if (bet.name === "Goals Over/Under (3-way)" || /handicap result/i.test(bet.name)) {
+        // 让球胜平负（竞彩口径，3 向让球）→ hhad
+        const get = (v: string) => oddNum(bet.values.find((x) => String(x.value).toLowerCase().startsWith(v))?.odd ?? "");
+        const home = get("home");
+        const draw = get("draw");
+        const away = get("away");
+        if (home && draw && away) book.hhad = { line: 0, home, draw, away };
       }
     }
     if (book.oneXTwo || book.ou.length > 0 || book.ah.length > 0) out.push(book);
@@ -261,8 +271,21 @@ export function parseAfOddsBooks(json: unknown, capturedAt: number): NormalizedO
   return out;
 }
 
+/** odds 分页：AF 一场盘口可能多页（每页 10 家书商），全部取回再合并 */
 export async function fetchAfOdds(fixtureId: number, capturedAt: number, force = false): Promise<NormalizedOdds[]> {
-  return parseAfOddsBooks(await afGet(`/odds?fixture=${fixtureId}`, force), capturedAt);
+  const first = (await afGet(`/odds?fixture=${fixtureId}`, force)) as { paging?: { total?: number }; response?: unknown[] };
+  const books = parseAfOddsBooks(first, capturedAt);
+  const totalPages = Math.min(first.paging?.total ?? 1, 5); // 安全上限 5 页（≈50 家）
+  const seen = new Set(books.map((b) => b.bookmaker));
+  for (let pg = 2; pg <= totalPages; pg++) {
+    try {
+      const more = parseAfOddsBooks(await afGet(`/odds?fixture=${fixtureId}&page=${pg}`, force), capturedAt);
+      for (const b of more) if (!seen.has(b.bookmaker)) (seen.add(b.bookmaker), books.push(b));
+    } catch {
+      break; // 分页失败不影响已取到的
+    }
+  }
+  return books;
 }
 
 // ── 官方首发 ─────────────────────────────────────────────────────────────
@@ -448,24 +471,27 @@ export function parseAfH2h(json: unknown, homeId: number, awayId: number): AfH2h
   let homeWins = 0;
   let draws = 0;
   let awayWins = 0;
-  const matches = fixtures
-    .sort((a, b) => b.kickoffAt - a.kickoffAt)
-    .slice(0, 10)
-    .map((f) => {
-      // 该场谁是本场主队
-      const hg = f.ftHome!;
-      const ag = f.ftAway!;
-      const winnerTeamId = hg > ag ? f.homeId : hg < ag ? f.awayId : null;
-      if (winnerTeamId === homeId) homeWins++;
-      else if (winnerTeamId === awayId) awayWins++;
-      else draws++;
-      return { playedAt: f.kickoffAt, homeTeam: f.homeName, awayTeam: f.awayName, homeGoals: hg, awayGoals: ag, competition: f.leagueName || undefined };
-    });
-  return { matches, summary: { total: matches.length, homeWins, draws, awayWins } };
+  // 全部已完赛交锋纳入胜平负统计；展示保留最近 15 场
+  const sorted = fixtures.sort((a, b) => b.kickoffAt - a.kickoffAt);
+  for (const f of sorted) {
+    const winnerTeamId = f.ftHome! > f.ftAway! ? f.homeId : f.ftHome! < f.ftAway! ? f.awayId : null;
+    if (winnerTeamId === homeId) homeWins++;
+    else if (winnerTeamId === awayId) awayWins++;
+    else draws++;
+  }
+  const matches = sorted.slice(0, 15).map((f) => ({
+    playedAt: f.kickoffAt,
+    homeTeam: f.homeName,
+    awayTeam: f.awayName,
+    homeGoals: f.ftHome!,
+    awayGoals: f.ftAway!,
+    competition: f.leagueName || undefined,
+  }));
+  return { matches, summary: { total: sorted.length, homeWins, draws, awayWins } };
 }
 
 export async function fetchAfH2h(homeId: number, awayId: number, force = false): Promise<AfH2h | null> {
-  return parseAfH2h(await afGet(`/fixtures/headtohead?h2h=${homeId}-${awayId}&last=10`, force), homeId, awayId);
+  return parseAfH2h(await afGet(`/fixtures/headtohead?h2h=${homeId}-${awayId}&last=20`, force), homeId, awayId);
 }
 
 // ── 球队赛季统计（teams/statistics） ───────────────────────────────────────
@@ -649,8 +675,8 @@ async function fetchAfFixtureStats(fixtureId: number, teamId: number, force = fa
   return parseAfFixtureStats(await afGet(`/fixtures/statistics?fixture=${fixtureId}&team=${teamId}`, force), teamId);
 }
 
-/** 球队近 N 场状态（含射门质量）：1 次 fixtures + N 次 statistics。Ultra 配额下成本可忽略 */
-export async function fetchAfTeamForm(teamId: number, last = 5, force = false): Promise<AfFormMatch[]> {
+/** 球队近 N 场状态（含射门质量）：1 次 fixtures + N 次 statistics。Ultra 配额下取满 10 场 */
+export async function fetchAfTeamForm(teamId: number, last = 10, force = false): Promise<AfFormMatch[]> {
   const recent = parseAfTeamFixtures(await afGet(`/fixtures?team=${teamId}&last=${last}`, force), teamId);
   const enriched = await Promise.all(
     recent.map(async ({ fixtureId, m }) => {

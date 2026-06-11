@@ -295,3 +295,33 @@ describe("API-Football 近期状态（fixtures/statistics：射门质量）", ()
     expect(parseAfFixtureStats({ response: [] }, 33)).toEqual({});
   });
 });
+
+describe("API-Football 盘口全量拉取（不截断）", () => {
+  it("全部书商入库（远超旧 8 家上限），锐盘排前", () => {
+    const mk = (name: string, h: string) => ({
+      name,
+      bets: [{ name: "Match Winner", values: [{ value: "Home", odd: h }, { value: "Draw", odd: "3.40" }, { value: "Away", odd: "3.80" }] }],
+    });
+    const names = ["B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "B12", "Pinnacle", "Bet365"];
+    const json = { response: [{ bookmakers: names.map((n, i) => mk(n, (1.9 + i * 0.01).toFixed(2))) }] };
+    const books = parseAfOddsBooks(json, 0);
+    expect(books.length).toBe(14); // 14 家全收，不再砍到 8
+    expect(books[0].bookmaker).toBe("Pinnacle"); // 锐盘排最前
+    expect(books[1].bookmaker).toBe("bet365");
+  });
+
+  it("亚盘/大小球多线全收（不再砍到 6 条）", () => {
+    const ouVals = [];
+    const ahVals = [];
+    for (let i = 0; i < 12; i++) {
+      const line = (0.5 + i * 0.5).toFixed(1);
+      ouVals.push({ value: `Over ${line}`, odd: "1.90" }, { value: `Under ${line}`, odd: "1.90" });
+      const ah = (i - 6) * 0.5;
+      ahVals.push({ value: `Home ${ah >= 0 ? "+" : ""}${ah}`, odd: "1.95" }, { value: `Away ${-ah >= 0 ? "+" : ""}${-ah}`, odd: "1.95" });
+    }
+    const json = { response: [{ bookmakers: [{ name: "Bet365", bets: [{ name: "Goals Over/Under", values: ouVals }, { name: "Asian Handicap", values: ahVals }] }] }] };
+    const book = parseAfOddsBooks(json, 0)[0];
+    expect(book.ou.length).toBe(12); // 12 条线全收
+    expect(book.ah.length).toBeGreaterThanOrEqual(11);
+  });
+});
