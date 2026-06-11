@@ -5,6 +5,7 @@ import { audit, canWrite, currentAdmin } from "@/server/admin/auth";
 import { fixturesBetween, kvGet } from "@/server/af/store";
 import { cfgLeagues, cfgSet, cfgUnlockPrice } from "@/server/platform/config";
 import { dailyFreeFixture } from "@/server/platform/wallet";
+import { runAfEndpoint } from "@/server/af/catalog";
 import { hhmm } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
 import { isFinished, isLive } from "@/server/af/schedule";
@@ -50,6 +51,30 @@ export async function POST(req: NextRequest) {
   } else if (b.action === "show") {
     d.prepare("DELETE FROM hidden_fixtures WHERE fixture_id=?").run(Number(b.fixtureId));
     audit(admin.email, "恢复展示场次", String(b.fixtureId));
+  } else if (b.action === "league_search") {
+    // /leagues 端点:按名搜索可添加的联赛(当季有赔率覆盖优先展示)
+    try {
+      const r = await runAfEndpoint("leagues", { search: String(b.text ?? "").trim() });
+      const list = (Array.isArray(r.response) ? r.response : []).slice(0, 10).map((it) => {
+        const lg = (it as { league?: { id?: number; name?: string; type?: string }; country?: { name?: string } });
+        return { id: lg.league?.id, name: lg.league?.name, type: lg.league?.type, country: lg.country?.name };
+      });
+      return NextResponse.json({ ok: true, list });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "搜索失败" }, { status: 502 });
+    }
+  } else if (b.action === "league_add") {
+    const id = Number(b.id);
+    const name = String(b.text ?? "").trim();
+    if (!id || !name) return NextResponse.json({ ok: false, error: "联赛 id/名称缺失" }, { status: 400 });
+    const ls = cfgLeagues();
+    if (!ls.some((l) => l.id === id)) {
+      const palette = ["#8e6cf0", "#f2a13b", "#d4524f", "#3f8cff", "#38bdd4", "#e98049", "#7aa7ff", "#4ad1a0", "#c66fd1", "#6fd1a8"];
+      ls.push({ id, zh: name, color: palette[id % palette.length], on: true });
+      cfgSet("leagues", ls);
+      audit(admin.email, "添加联赛", `${name}(${id})`);
+    }
+    return NextResponse.json({ ok: true });
   } else if (b.action === "league") {
     const ls = cfgLeagues().map((l) => (l.id === Number(b.id) ? { ...l, on: !!b.on } : l));
     cfgSet("leagues", ls);

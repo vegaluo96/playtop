@@ -10,6 +10,8 @@ import type { Panorama } from "../af/panorama";
 import { formZh, predSummary } from "./common";
 import type { SnapRow } from "../af/store";
 
+const H = 3_600_000;
+
 function dig(obj: unknown, ...path: (string | number)[]): unknown {
   let cur: unknown = obj;
   for (const k of path) {
@@ -129,10 +131,25 @@ function minutesView(pred: Record<string, unknown> | null) {
   return { rows, note: `双方合计进球占比最高时段:${slots[mi]}′(${rows[mi].h + rows[mi].a}%)` };
 }
 
-function h2hView(pred: Record<string, unknown> | null, homeId: number | null, tz: string) {
-  if (!pred) return [];
-  return arr(dig(pred, "h2h"))
-    .slice(0, 6)
+/** 历史交锋:优先 fixtures/headtohead 专用端点(满拉 10 场,12h 缓存),回退 predictions 子集 */
+async function h2hRows(homeId: number | null, awayId: number | null, pred: Record<string, unknown> | null): Promise<unknown[]> {
+  if (homeId && awayId) {
+    try {
+      const rows = await kvCached<unknown[]>(`h2h:${homeId}-${awayId}`, 12 * H, async () => {
+        const r = await runAfEndpoint("fixtures.headtohead", { h2h: `${homeId}-${awayId}`, last: "10", status: "FT-AET-PEN" });
+        return Array.isArray(r.response) ? r.response : [];
+      });
+      if (rows.length > 0) return rows;
+    } catch {
+      /* 回退 predictions 子集 */
+    }
+  }
+  return arr(dig(pred, "h2h"));
+}
+
+function h2hView(games: unknown[], homeId: number | null, tz: string) {
+  return games
+    .slice(0, 10)
     .map((g) => {
       const gh = Number(dig(g, "goals", "home"));
       const ga = Number(dig(g, "goals", "away"));
@@ -283,18 +300,64 @@ async function deepView(p: Panorama) {
       });
   const scorers = [...scorersOf(fx.home_id, "h"), ...scorersOf(fx.away_id, "a")];
 
-  const ratingsOf = (teamId: number | null, side: "h" | "a") =>
-    d.topscorers
-      .filter((it) => Number(dig(it, "statistics", 0, "team", "id")) === teamId)
-      .slice(0, 3)
-      .map((it) => ({
+  // 评分:滚球 → bundle.players 实时评分;赛前 → /players?team&season 全队赛季评分(回退射手榜)
+  const liveRatings = (teamId: number | null, side: "h" | "a") => {
+    const blocks = Array.isArray(p.bundle.players) ? (p.bundle.players as unknown[]) : [];
+    const team = blocks.find((b) => Number(dig(b, "team", "id")) === teamId);
+    return (Array.isArray(dig(team, "players")) ? (dig(team, "players") as unknown[]) : [])
+      .map((pl) => ({
         side,
-        name: statName(it),
-        pos: String(stat0(it, "games", "position") ?? "").slice(0, 2).toUpperCase(),
-        r: Number(parseFloat(String(stat0(it, "games", "rating") ?? ""))) || null,
+        name: String(dig(pl, "player", "name") ?? ""),
+        pos: String(dig(pl, "statistics", 0, "games", "position") ?? "").slice(0, 2).toUpperCase(),
+        r: Number(parseFloat(String(dig(pl, "statistics", 0, "games", "rating") ?? ""))) || null,
       }))
-      .filter((r) => r.r != null);
-  const ratings = [...ratingsOf(fx.home_id, "h"), ...ratingsOf(fx.away_id, "a")];
+      .filter((r) => r.r != null)
+      .sort((x, y) => (y.r ?? 0) - (x.r ?? 0))
+      .slice(0, 3);
+  };
+  const seasonRatings = async (teamId: number | null, side: "h" | "a") => {
+    if (!teamId) return [];
+    const players = await kvCached<unknown[]>(`team:${teamId}:${fx.season}:ratings`, 24 * H, async () => {
+      const out: unknown[] = [];
+      for (let page = 1; page <= 2; page++) {
+        const r = await runAfEndpoint("players", { team: String(teamId), season: String(fx.season), page: String(page) });
+        const arr2 = Array.isArray(r.response) ? r.response : [];
+        out.push(...arr2);
+        if (arr2.length === 0 || r.paging.current >= r.paging.total) break;
+      }
+      return out;
+    }).catch(() => [] as unknown[]);
+    return players
+      .map((pl) => ({
+        side,
+        name: String(dig(pl, "player", "name") ?? ""),
+        pos: String(dig(pl, "statistics", 0, "games", "position") ?? "").slice(0, 2).toUpperCase(),
+        r: Number(parseFloat(String(dig(pl, "statistics", 0, "games", "rating") ?? ""))) || null,
+        apps: Number(dig(pl, "statistics", 0, "games", "appearences")) || 0,
+      }))
+      .filter((r) => r.r != null && r.apps >= 3) // 出场太少的评分没有参考意义
+      .sort((x, y) => (y.r ?? 0) - (x.r ?? 0))
+      .slice(0, 3);
+  };
+  const isLiveNow = !["NS", "TBD", "PST", "FT", "AET", "PEN", "AWD", "WO", "CANC"].includes(fx.status);
+  let ratings = isLiveNow ? [...liveRatings(fx.home_id, "h"), ...liveRatings(fx.away_id, "a")] : [];
+  if (ratings.length === 0) {
+    ratings = [...(await seasonRatings(fx.home_id, "h")), ...(await seasonRatings(fx.away_id, "a"))];
+  }
+  if (ratings.length === 0) {
+    const fromTop = (teamId: number | null, side: "h" | "a") =>
+      d.topscorers
+        .filter((it) => Number(dig(it, "statistics", 0, "team", "id")) === teamId)
+        .slice(0, 3)
+        .map((it) => ({
+          side,
+          name: statName(it),
+          pos: String(stat0(it, "games", "position") ?? "").slice(0, 2).toUpperCase(),
+          r: Number(parseFloat(String(stat0(it, "games", "rating") ?? ""))) || null,
+        }))
+        .filter((r) => r.r != null);
+    ratings = [...fromTop(fx.home_id, "h"), ...fromTop(fx.away_id, "a")];
+  }
 
   const coachView = (c: unknown, trophies: unknown[], side: "h" | "a") => {
     if (!c) return null;
@@ -325,14 +388,28 @@ async function deepView(p: Panorama) {
   };
   const transfers = [transferView(d.transfersHome, fx.home_name, fx.home_id), transferView(d.transfersAway, fx.away_name, fx.away_id)];
 
-  const depthOf = (squad: unknown, team: string) => {
-    const players = arr(dig(squad, "players"));
-    if (players.length === 0) return { team, x: "名单数据积累中" };
-    const ages = players.map((pl) => Number(dig(pl, "age"))).filter(Boolean);
-    const avg = ages.length > 0 ? (ages.reduce((s, v) => s + v, 0) / ages.length).toFixed(1) : "—";
-    return { team, x: `一线队 ${players.length} 人 · 平均年龄 ${avg} 岁` };
+  const favFormation = async (teamId: number | null) => {
+    if (!teamId) return null;
+    return kvCached<string | null>(`team:${teamId}:${fx.league_id}:${fx.season}:formation`, 24 * H, async () => {
+      const r = await runAfEndpoint("teams.statistics", { league: String(fx.league_id), season: String(fx.season), team: String(teamId) });
+      const lineups = arr(dig(r.response, "lineups"));
+      const top = lineups.sort((x, y) => Number(dig(y, "played")) - Number(dig(x, "played")))[0];
+      return top ? `${dig(top, "formation")}(${dig(top, "played")} 场)` : null;
+    }).catch(() => null);
   };
-  const depth = [depthOf(d.squadHome, fx.home_name), depthOf(d.squadAway, fx.away_name)];
+  const depthOf = (squad: unknown, team: string, formation: string | null) => {
+    const players = arr(dig(squad, "players"));
+    const base = players.length === 0 ? "名单数据积累中" : (() => {
+      const ages = players.map((pl) => Number(dig(pl, "age"))).filter(Boolean);
+      const avg = ages.length > 0 ? (ages.reduce((s, v) => s + v, 0) / ages.length).toFixed(1) : "—";
+      return `一线队 ${players.length} 人 · 平均年龄 ${avg} 岁`;
+    })();
+    return { team, x: formation ? `${base} · 惯用 ${formation}` : base };
+  };
+  const depth = [
+    depthOf(d.squadHome, fx.home_name, await favFormation(fx.home_id)),
+    depthOf(d.squadAway, fx.away_name, await favFormation(fx.away_id)),
+  ];
 
   const motiv = coaches.map((c) => `${c.name}:执教生涯冠军 ${c.trophies} 座`);
 
@@ -464,7 +541,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       stats: liveStats(p.bundle, fx.home_id),
       formHome: ps ? formZh(ps.formHome) : [],
       formAway: ps ? formZh(ps.formAway) : [],
-      h2h: h2hView(pred, fx.home_id, tz),
+      h2h: h2hView(await h2hRows(fx.home_id, fx.away_id, pred), fx.home_id, tz),
       minutes: minutesView(pred),
       standings: await standingsView(fx.league_id, fx.season, fx.home_id, fx.away_id),
     },

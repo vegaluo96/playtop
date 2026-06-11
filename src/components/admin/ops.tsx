@@ -197,7 +197,20 @@ export function MatchesView() {
           <div style={{ padding: "9px 14px", fontSize: 10, color: "var(--fg-3)" }}>免费场策略:每日 1 场(worker 自动选,可在此覆盖);隐藏=列表不展示(数据仍归档)</div>
         </ACard>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <ACard title="联赛开关">
+          <ACard title="联赛开关" right={<ABtn small kind="line" label="+ 添加联赛" onClick={async () => {
+            const q = prompt("搜索联赛名(英文,如 Championship / J1):");
+            if (!q) return;
+            const r = await post("/api/admin/matches", { action: "league_search", text: q });
+            if (!r.ok) return alert(r.error);
+            const list = (r.list ?? []) as { id: number; name: string; type: string; country: string }[];
+            if (list.length === 0) return alert("没有搜到联赛");
+            const pick = prompt("输入要添加的联赛 id:\n" + list.map((l) => `${l.id} · ${l.name}(${l.country} · ${l.type})`).join("\n"));
+            const sel = list.find((l) => String(l.id) === pick?.trim());
+            if (!sel) return;
+            const j = await post("/api/admin/matches", { action: "league_add", id: sel.id, text: sel.name });
+            if (!j.ok) alert(j.error);
+            void load();
+          }} />}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {(data?.leagues ?? []).map((l: V) => (
                 <span

@@ -150,7 +150,7 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
     lastOdds.set(fxId, now);
     try {
       // 拉满全部分页:AF /odds 按页返回,书商一个不漏;并做身份校验防串场
-      const env = await paced(() => tracked("odds (bet 1/4/5)", tier.freq, () => afGetAllPages(`/odds?fixture=${fxId}`, 5, { force: true })));
+      const env = await paced(() => tracked("odds (bet 1/4/5)", tier.freq, () => afGetAllPages(`/odds?fixture=${fxId}`, 10, { force: true })));
       const items = (Array.isArray(env.response) ? env.response : []).filter(
         (it) => Number((it as { fixture?: { id?: number } }).fixture?.id) === fxId,
       );
