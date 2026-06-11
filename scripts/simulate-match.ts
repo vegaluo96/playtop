@@ -44,6 +44,9 @@ async function main() {
   const step = (msg: string) => console.log(`\n■ ${msg}`);
 
   step("0. 准备账号与确定性历史样本（8 队 × 双循环 × 4 轮 = 224 场）");
+  // 模拟覆盖付费链路（锁定态/解锁/退款），显式关闭免费公测
+  const { setConfig } = await import("../src/server/lib/config");
+  setConfig("pricing", { freeBeta: false });
   const adminId = db
     .insert(users)
     .values({ username: "admin", passwordHash: await hashPassword("admin123456"), role: "admin", points: 0, createdAt: now() })

@@ -134,6 +134,8 @@ export type EngineConfig = z.infer<typeof engineConfigSchema>;
 
 export const pricingConfigSchema = z.object({
   defaultPricePoints: z.number().int().min(0).default(10),
+  /** 免费公测：全部赛前观点免费公开（冷启动先攒可验战绩）；战绩起量后关闭即恢复积分解锁 */
+  freeBeta: z.boolean().default(true),
 });
 export type PricingConfig = z.infer<typeof pricingConfigSchema>;
 

@@ -28,6 +28,8 @@ export interface MatchCard {
   version: number | null;
   snapshotTotal: number;
   unlocked: boolean;
+  /** 免费公测：赛前观点全量公开（pricing.freeBeta） */
+  freeBeta: boolean;
   outcome: { homeGoals: number; awayGoals: number } | null;
 }
 
@@ -47,6 +49,7 @@ function latestVisibleAnalysis(matchId: number) {
 export const UPCOMING_STATUSES = ["scheduled", "collecting", "ready", "analyzed"] as const;
 
 export function listMatchCards(userId: number | null): MatchCard[] {
+  const freeBeta = getConfig("pricing").freeBeta;
   const rows = db
     .select({ m: matches, league: leagues.name, homeName: home.name, awayName: away.name })
     .from(matches)
@@ -89,7 +92,7 @@ export function listMatchCards(userId: number | null): MatchCard[] {
       const engine = engineOutputSchema.parse(JSON.parse(analysis.engineOutput));
       const r = ratingStars(engine);
       stars = r.stars;
-      verdict = m.status === "settled" || unlockedSet.has(m.id) ? r.verdict : null;
+      verdict = m.status === "settled" || unlockedSet.has(m.id) || freeBeta ? r.verdict : null;
       version = analysis.version;
     }
     const outcome = db.select().from(outcomes).where(eq(outcomes.matchId, m.id)).get() ?? null;
@@ -108,6 +111,7 @@ export function listMatchCards(userId: number | null): MatchCard[] {
       version,
       snapshotTotal: snapshotStats(m.id).total,
       unlocked: unlockedSet.has(m.id),
+      freeBeta,
       outcome: outcome && outcome.finalStatus === "finished" ? { homeGoals: outcome.homeGoals, awayGoals: outcome.awayGoals } : null,
     };
   });
@@ -166,6 +170,7 @@ export function getUpcomingFixture(matchId: number): MatchCard | null {
     version: null,
     snapshotTotal: snapshotStats(row.m.id).total,
     unlocked: false,
+    freeBeta: getConfig("pricing").freeBeta,
     outcome: null,
   };
 }
@@ -219,6 +224,7 @@ export function getMatchDetail(matchId: number, userId: number | null, isAdmin =
       version: null,
       snapshotTotal: 0,
       unlocked: false,
+      freeBeta: getConfig("pricing").freeBeta,
       outcome:
         outcome && outcome.finalStatus === "finished"
           ? { homeGoals: outcome.homeGoals, awayGoals: outcome.awayGoals }
@@ -228,7 +234,8 @@ export function getMatchDetail(matchId: number, userId: number | null, isAdmin =
   const analysis = latestVisibleAnalysis(matchId);
   if (!analysis) return null;
   const isPublic = card.status === "settled";
-  const unlocked = card.unlocked || isAdmin;
+  // 免费公测：赛前观点对所有人可读（含匿名）；关闭后恢复积分解锁
+  const unlocked = card.unlocked || isAdmin || card.freeBeta;
   const access: MatchAccess = isPublic ? "public" : unlocked ? "unlocked" : "locked";
   const engine = engineOutputSchema.parse(JSON.parse(analysis.engineOutput));
   const stats = snapshotStats(matchId);

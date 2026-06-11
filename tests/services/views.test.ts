@@ -40,6 +40,46 @@ describe("用户端赛程可见性（世界杯冷启动场景）", () => {
     expect(card.stars).toBeNull(); // 未发布无评级
   });
 
+  it("免费公测：匿名访客可读全文；关闭后回到锁定态", async () => {
+    const { setConfig } = await import("@/server/lib/config");
+    const { insertSnapshot } = await import("@/server/services/snapshots");
+    const { transitionMatch } = await import("@/server/services/matchesService");
+    const { analyzeMatch, latestAnalysis } = await import("@/server/services/analyze");
+    const { publishAnalysisRow } = await import("@/server/services/publish");
+    const { getMatchDetail } = await import("@/server/services/views");
+
+    const id = createManualMatch({
+      leagueCode: "WC2026",
+      homeName: "Brazil",
+      awayName: "Chile",
+      kickoffAt: T0 + 6 * 3_600_000,
+      neutral: true,
+    });
+    insertSnapshot(id, "odds", "manual", {
+      bookmaker: "bet365",
+      oneXTwo: { home: 1.7, draw: 3.8, away: 5.2 },
+      ou: [],
+      ah: [],
+      capturedAt: T0,
+    });
+    transitionMatch(id, "collecting");
+    transitionMatch(id, "ready");
+    await analyzeMatch(id);
+    publishAnalysisRow(latestAnalysis(id)!.id, {});
+
+    setConfig("pricing", { freeBeta: true });
+    const open = getMatchDetail(id, null)!;
+    expect(open.access).toBe("unlocked");
+    expect(open.engine).not.toBeNull();
+    expect(open.card.verdict).not.toBeNull();
+
+    setConfig("pricing", { freeBeta: false });
+    const locked = getMatchDetail(id, null)!;
+    expect(locked.access).toBe("locked");
+    expect(locked.engine).toBeNull();
+    setConfig("pricing", { freeBeta: true });
+  });
+
   it("getUpcomingFixture：未发布场次返回赛程视图，含默认解锁价", () => {
     const id = createManualMatch({
       leagueCode: "WC2026",

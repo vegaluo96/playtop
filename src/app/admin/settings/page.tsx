@@ -20,7 +20,7 @@ interface Settings {
     apiFootballKey: string;
   } & Record<string, unknown>;
   engine: Record<string, unknown> & { ensembleWeights: { market: number; dc: number; elo: number } };
-  pricing: { defaultPricePoints: number };
+  pricing: { defaultPricePoints: number; freeBeta: boolean };
   automation: {
     autoCollect: boolean;
     autoAnalyze: boolean;
@@ -375,9 +375,17 @@ export default function SettingsPage() {
           </label>
           <label className="block">
             <span className="text-[10px] tracking-wider text-faint">默认解锁价（积分）</span>
-            <input type="number" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.pricing.defaultPricePoints} onChange={(e) => setS({ ...s, pricing: { defaultPricePoints: Number(e.target.value) } })} />
+            <input type="number" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.pricing.defaultPricePoints} onChange={(e) => setS({ ...s, pricing: { ...s.pricing, defaultPricePoints: Number(e.target.value) } })} />
           </label>
         </div>
+        <label className="mt-3 flex items-center gap-2 text-[12px] text-muted">
+          <input
+            type="checkbox"
+            checked={s.pricing.freeBeta}
+            onChange={(e) => setS({ ...s, pricing: { ...s.pricing, freeBeta: e.target.checked } })}
+          />
+          免费公测模式：全部赛前观点免费公开（冷启动先攒可验战绩；战绩起量后取消勾选即恢复积分解锁）
+        </label>
         <label className="mt-3 block">
           <span className="text-[10px] tracking-wider text-faint">
             书商因子权重（JSON：书商名 → 权重。未列出默认 1，模拟盘默认 0.3；离群报价引擎自动再降权 80%。改完失焦生效，再点保存）

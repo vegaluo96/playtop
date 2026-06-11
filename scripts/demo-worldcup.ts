@@ -43,6 +43,8 @@ async function main() {
   const { teamNameById } = await import("../src/server/services/teamResolver");
   const { engineOutputSchema } = await import("../src/server/engine/types");
 
+  const { setConfig } = await import("../src/server/lib/config");
+  setConfig("pricing", { freeBeta: false }); // 演示付费链路
   step(1, "真实历史底座：martj42 国际赛 2022 起 + Elo 全量回放");
   const hist = await importInternationalHistory(2022, true);
   console.log(`  导入历史 ${hist.inserted} 场`);

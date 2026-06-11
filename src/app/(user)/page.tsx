@@ -3,6 +3,7 @@ import { count } from "drizzle-orm";
 import { db } from "@/server/db";
 import { dataSnapshots, historyMatches } from "@/server/db/schema";
 import { currentUser } from "@/server/auth/guards";
+import { getConfig } from "@/server/lib/config";
 import { listMatchCards, UPCOMING_STATUSES, type MatchCard } from "@/server/services/views";
 import { recordSummary } from "@/server/services/stats";
 import { Stat, fmtDateCn, pct } from "@/components/ui";
@@ -16,6 +17,7 @@ export default async function HomePage() {
   const snapshotCount = db.select({ n: count() }).from(dataSnapshots).get()?.n ?? 0;
   const historyCount = db.select({ n: count() }).from(historyMatches).get()?.n ?? 0;
   const summary = recordSummary(30);
+  const freeBeta = getConfig("pricing").freeBeta;
 
   // 玩家动线：有观点可看的场次在前（按日分组），"研报准备中"沉底
   const active = cards.filter((c) => !(UPCOMING_STATUSES as readonly string[]).includes(c.status));
@@ -67,7 +69,12 @@ export default async function HomePage() {
         <Stat label="覆盖赛事" value={cards.length} sub="赛后全部免费公开" />
       </div>
 
-      <p className="mt-4 rounded-lg border border-gold/20 bg-gold/5 px-3 py-2 text-[11px] leading-5 text-muted">
+      {freeBeta && (
+        <p className="mt-3 rounded-lg border border-up/30 bg-up/5 px-3 py-2 text-[11px] leading-5 text-muted">
+          <b className="text-up">公测期免费</b>：全部赛前观点免费公开——每条观点开赛锁定、赛后公开验证、观望也计入战绩。先看我们准不准，再谈别的。
+        </p>
+      )}
+      <p className="mt-3 rounded-lg border border-gold/20 bg-gold/5 px-3 py-2 text-[11px] leading-5 text-muted">
         每条观点给出<b className="text-gold-bright">方向与最低可接受赔率</b>（价格边界线）——拿你看到的实际价格一对照即可；
         数字全部由量化模型计算（AI 不参与任何计算），赛前自动改版、开赛锁定存证、赛后免费公开。
       </p>

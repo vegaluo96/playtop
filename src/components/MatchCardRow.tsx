@@ -43,6 +43,8 @@ export default function MatchCardRow({ card }: { card: MatchCard }) {
             <Tag tone="info">待发布</Tag>
           ) : free ? (
             <Tag tone="up">免费</Tag>
+          ) : card.freeBeta ? (
+            <Tag tone="up">公测免费</Tag>
           ) : card.unlocked ? (
             <Tag tone="up">已解锁</Tag>
           ) : (

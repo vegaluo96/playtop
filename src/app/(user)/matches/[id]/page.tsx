@@ -90,6 +90,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         <div className="tabular mt-2 text-[11px] text-muted">开球 {fmtCn(card.kickoffAt)}</div>
         <div className="mt-2 flex items-center justify-center gap-2">
           <Tag tone={s.tone}>{s.text}</Tag>
+          {card.freeBeta && card.status === "published" && <Tag tone="up">公测免费</Tag>}
           {card.version !== null && <Tag>第 {card.version} 版</Tag>}
           <Tag>{card.snapshotTotal} 份数据快照</Tag>
         </div>
