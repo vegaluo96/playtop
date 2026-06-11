@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { Chip, GoldBtn, Sheet } from "@/components/ui";
 import { leagueColor } from "@/lib/leagues";
-import { HeartBeat, useNewIds, usePoll, useWorkerBeat } from "@/components/live";
+import { useNewIds, usePoll, useWorkerBeat } from "@/components/live";
+import { PageHeader } from "@/components/page-header";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 
@@ -55,19 +56,7 @@ function MobileMovesPage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 10px" }}>
-        <div>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>盘口异动</div>
-          <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 1 }}>升降盘 · 水位 · 实时刷新</div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#2ecc8a", fontWeight: 700 }}>
-            <span className="livepulse" style={{ width: 6, height: 6, borderRadius: "50%", background: "#2ecc8a" }} />
-            实时
-          </div>
-          <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} />
-        </div>
-      </div>
+      <PageHeader title="盘口异动" lastAt={lastAt} workerAt={workerAt} intervalMs={5_000} />
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
         {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
           <Chip key={l} label={l} active={filter === l} onClick={() => setFilter(l)} />

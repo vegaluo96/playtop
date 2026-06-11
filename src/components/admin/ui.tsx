@@ -61,9 +61,9 @@ export function ABtn({ label, onClick, kind = "gold", small }: { label: string; 
   const styles: Record<string, CSSProperties> = {
     gold: { background: "linear-gradient(90deg,var(--gold),var(--gold-2))", color: "#0a0b0f" },
     line: { border: "1px solid rgba(233,185,73,.5)", color: "var(--gold)" },
-    red: { color: "#f0434f" },
+    red: { color: "var(--red)" },
     blue: { color: "var(--home)" },
-    green: { color: "#2ecc8a" },
+    green: { color: "var(--green)" },
   };
   return (
     <span

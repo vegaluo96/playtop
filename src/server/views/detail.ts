@@ -234,23 +234,45 @@ function halfStats(fixtureId: number, homeId: number | null) {
 }
 
 /* ── 阵容 ── */
-function lineupSide(lu: unknown) {
-  const rowsMap = new Map<number, { col: number; name: string }[]>();
+interface LineupPlayer {
+  n: string;
+  num: number | null;
+  pos: string;
+  id: number | null;
+}
+/** mirror=true(客队)列序反转:两卡上下排布时同一行左右对应同一路,贴近观赛习惯 */
+function lineupSide(lu: unknown, mirror = false) {
+  const rowsMap = new Map<number, { col: number; p: LineupPlayer }[]>();
   for (const p of arr(dig(lu, "startXI"))) {
     const grid = String(dig(p, "player", "grid") ?? "");
     const [row, col] = grid.split(":").map(Number);
     const name = String(dig(p, "player", "name") ?? "");
     if (!Number.isFinite(row)) continue;
     if (!rowsMap.has(row)) rowsMap.set(row, []);
-    rowsMap.get(row)!.push({ col: col || 0, name });
+    rowsMap.get(row)!.push({
+      col: col || 0,
+      p: {
+        n: name,
+        num: (Number(dig(p, "player", "number")) || null) as number | null,
+        pos: String(dig(p, "player", "pos") ?? ""),
+        id: (Number(dig(p, "player", "id")) || null) as number | null,
+      },
+    });
   }
   const rows = [...rowsMap.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([, ps]) => ps.sort((x, y) => x.col - y.col).map((p) => p.name));
+    .map(([, ps]) => ps.sort((x, y) => (mirror ? y.col - x.col : x.col - y.col)).map((c) => c.p));
+  const subs: LineupPlayer[] = arr(dig(lu, "substitutes")).map((p) => ({
+    n: String(dig(p, "player", "name") ?? ""),
+    num: (Number(dig(p, "player", "number")) || null) as number | null,
+    pos: String(dig(p, "player", "pos") ?? ""),
+    id: (Number(dig(p, "player", "id")) || null) as number | null,
+  }));
   return {
     form: String(dig(lu, "formation") ?? ""),
     coach: String(dig(lu, "coach", "name") ?? ""),
     rows,
+    subs,
   };
 }
 
@@ -267,7 +289,7 @@ function lineupsView(bundle: Record<string, unknown>, homeId: number | null, hom
   const awayOk = Number(dig(away, "team", "id")) !== homeId && String(dig(away, "team", "name") ?? "") !== homeName;
   if (!awayOk) return { ready: false as const };
   void awayName;
-  return { ready: true as const, home: lineupSide(home), away: lineupSide(away) };
+  return { ready: true as const, home: lineupSide(home), away: lineupSide(away, true) };
 }
 
 /* ── 情报 ── */
@@ -298,7 +320,7 @@ async function deepView(p: Panorama) {
     { tag: "射手王", tagC: "#e9b949", it: d.topscorers[0], v: (it: unknown) => `${stat0(it, "goals", "total") ?? 0} 球` },
     { tag: "助攻王", tagC: "#5b9dff", it: d.topassists[0], v: (it: unknown) => `${stat0(it, "goals", "assists") ?? 0} 助攻` },
     { tag: "黄牌王", tagC: "#e9b949", it: d.topyellow[0], v: (it: unknown) => `${stat0(it, "cards", "yellow") ?? 0} 黄` },
-    { tag: "红牌王", tagC: "#f0434f", it: d.topred[0], v: (it: unknown) => `${stat0(it, "cards", "red") ?? 0} 红` },
+    { tag: "红牌王", tagC: "var(--red)", it: d.topred[0], v: (it: unknown) => `${stat0(it, "cards", "red") ?? 0} 红` },
   ].map((r) => ({ tag: r.tag, tagC: r.tagC, name: r.it ? statName(r.it) : "—", v: r.it ? r.v(r.it) : "数据积累中" }));
 
   // 球场:fixture payload 自带 venue 名称/城市;容量等取 /venues?id=
@@ -542,6 +564,8 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       round: roundZh(fx.round),
       home: fx.home_name,
       away: fx.away_name,
+      homeId: fx.home_id,
+      awayId: fx.away_id,
       live,
       finished: isFinished(fx.status),
       score: fx.goals_home != null ? `${fx.goals_home}-${fx.goals_away}` : null,

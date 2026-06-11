@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp, type Scheme } from "@/components/app-context";
+import { PageHeader } from "@/components/page-header";
 import { useUnlockFlow } from "@/components/unlock-flow";
 import { GoldBtn, Sheet, SheetTitle } from "@/components/ui";
 import { LANGS, type Lang } from "@/lib/i18n";
@@ -125,10 +126,7 @@ function MobileMePage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <div style={{ padding: "14px 16px 10px" }}>
-        <div style={{ fontSize: 17, fontWeight: 800 }}>我</div>
-        <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 1 }}>账户 · 积分 · 偏好</div>
-      </div>
+      <PageHeader title="我" />
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 16px", minHeight: 0 }}>
         {me.loggedIn ? (
           <div style={{ background: "linear-gradient(135deg,#1a1e29,#12141a)", border: "1px solid rgba(233,185,73,.3)", borderRadius: 14, padding: "16px 16px 15px", marginBottom: 12 }}>

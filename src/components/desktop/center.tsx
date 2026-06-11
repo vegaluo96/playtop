@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { type ChartRow } from "@/components/charts";
 import { IndexChart } from "@/components/index-chart";
+import { PlayerAvatar, TeamLogo } from "@/components/img";
 import { Flash } from "@/components/live";
 import { ahText, dayLabel, hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
@@ -19,9 +20,9 @@ const TAB_DEFS: [DTab, string][] = [
 ];
 
 const FORM_STYLE: Record<string, { bg: string; c: string }> = {
-  胜: { bg: "rgba(46,204,138,.16)", c: "#2ecc8a" },
+  胜: { bg: "rgba(46,204,138,.16)", c: "var(--green)" },
   平: { bg: "rgba(139,148,168,.16)", c: "#959ba6" },
-  负: { bg: "rgba(240,67,79,.16)", c: "#f0434f" },
+  负: { bg: "rgba(240,67,79,.16)", c: "var(--red)" },
 };
 
 export function CenterPane({
@@ -153,17 +154,29 @@ export function CenterPane({
 
   const pitch = (side: V, color: string) => (
     <div style={{ background: "linear-gradient(180deg,#0f2018,#0c1812)", border: "1px solid #1b3023", borderRadius: 12, padding: "16px 8px", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 320, height: "100%", boxSizing: "border-box" }}>
-      {side.rows.map((row: string[], i: number) => (
+      {side.rows.map((row: V[], i: number) => (
         <div key={i} style={{ display: "flex", justifyContent: "space-evenly" }}>
-          {row.map((name) => (
-            <div key={name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 64 }}>
-              <span className="mono" style={{ width: 26, height: 26, borderRadius: "50%", background: color, color: "#0a0b0f", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800 }}>{name.slice(0, 1)}</span>
-              <span style={{ fontSize: 9.5, color: "var(--fg-mid)", whiteSpace: "nowrap" }}>{name}</span>
+          {row.map((p: V) => (
+            <div key={p.n} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 64 }}>
+              <PlayerAvatar id={p.id} name={p.n} num={p.num} size={28} ring={color} />
+              <span style={{ fontSize: 9.5, color: "var(--fg-mid)", whiteSpace: "nowrap" }}>{p.n}</span>
             </div>
           ))}
         </div>
       ))}
       <div style={{ textAlign: "center", fontSize: 10, color: "var(--fg-3)" }}>主教练 · {side.coach}</div>
+      {side.subs?.length > 0 && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+          <div style={{ fontSize: 9.5, color: "var(--fg-3)", marginBottom: 5 }}>替补席</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            {side.subs.map((p: V) => (
+              <span key={p.n} className="mono" style={{ fontSize: 9.5, color: "var(--fg-mid)", background: "rgba(255,255,255,.05)", borderRadius: 5, padding: "2px 7px" }}>
+                {p.num != null ? `${p.num} ` : ""}{p.n}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -177,7 +190,7 @@ export function CenterPane({
       {items.map((i: V, idx: number) => (
         <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: "1px solid var(--line-soft)" }}>
           <span style={{ flex: 1, fontSize: 12, color: "var(--fg-mid)" }}>{i.x}</span>
-          <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, color: i.tag === "缺阵" ? "var(--red)" : i.tag === "解禁" ? "#2ecc8a" : "var(--gold)" }}>{i.tag}</span>
+          <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, color: i.tag === "缺阵" ? "var(--red)" : i.tag === "解禁" ? "var(--green)" : "var(--gold)" }}>{i.tag}</span>
         </div>
       ))}
     </Card>
@@ -203,7 +216,8 @@ export function CenterPane({
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 14, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <TeamLogo id={h.homeId} name={h.home} size={26} />
             <span style={{ fontSize: 22, fontWeight: 800, whiteSpace: "nowrap" }}>{h.home}</span>
             <span style={{ fontSize: 10, fontWeight: 800, color: "var(--home)" }}>主</span>
           </div>
@@ -212,7 +226,7 @@ export function CenterPane({
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={{ fontSize: 10, fontWeight: 800, color: "var(--gold)" }}>客</span>
-            <span style={{ fontSize: 22, fontWeight: 800, color: "var(--fg-mid)", whiteSpace: "nowrap" }}>{h.away}</span>
+            <TeamLogo id={h.awayId} name={h.away} size={26} /><span style={{ fontSize: 22, fontWeight: 800, color: "var(--fg-mid)", whiteSpace: "nowrap" }}>{h.away}</span>
           </div>
           <span style={{ flex: 1 }} />
           <div style={{ display: "flex", gap: 8 }}>
@@ -321,10 +335,11 @@ export function CenterPane({
                   </div>
                 </div>
               ))}
-              {h.live && v.tech.half && (
+              {h.live && (
                 <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 12, paddingTop: 10 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>半场拆分 · 上半场</div>
-                  {v.tech.half.map((b: V) => (
+                  {!v.tech.half && <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "6px 0" }}>暂无半场拆分数据</div>}
+                  {(v.tech.half ?? []).map((b: V) => (
                     <div key={b.label} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                       <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: "var(--home)" }}>{b.lv}</span>
                       <span style={{ fontSize: 9.5, color: "var(--fg-2)" }}>{b.label}</span>
@@ -333,10 +348,11 @@ export function CenterPane({
                   ))}
                 </div>
               )}
-              {h.live && v.tech.stats && (
+              {h.live && (
                 <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 12, paddingTop: 10 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10 }}>实时技术统计</div>
-                  {v.tech.stats.map((b: V) => (
+                  {!v.tech.stats && <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "6px 0" }}>暂无技术统计,随官方接口实时更新</div>}
+                  {(v.tech.stats ?? []).map((b: V) => (
                     <div key={b.label} style={{ marginBottom: 9 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
                         <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: "var(--home)" }}>{b.lv}</span>
@@ -374,7 +390,7 @@ export function CenterPane({
                 </div>
               ))}
               {v.tech.minutes && <div style={{ fontSize: 9.5, color: "var(--fg-3)", marginTop: 4 }}>{v.tech.minutes.note}</div>}
-              {h.live && v.tech.events && (
+              {h.live && (
                 <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 10, paddingTop: 8 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>实时事件</div>
                   {v.tech.events.slice(0, 8).map((e: V, i: number) => (
@@ -555,7 +571,7 @@ export function CenterPane({
                   ))}
                   {deepV.transfers?.map((t: V) => (
                     <div key={t.team} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                      <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "2px 6px", background: "var(--inset)", color: t.tag === "转入" ? "#2ecc8a" : t.tag === "转出" ? "#f0434f" : "#959ba6" }}>{t.tag}</span>
+                      <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "2px 6px", background: "var(--inset)", color: t.tag === "转入" ? "var(--green)" : t.tag === "转出" ? "var(--red)" : "#959ba6" }}>{t.tag}</span>
                       <span style={{ fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{t.team}</span>
                       <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{t.x}</span>
                     </div>
@@ -579,7 +595,7 @@ export function CenterPane({
                   <div style={{ fontSize: 12, fontWeight: 700, padding: "4px 0 6px" }}>赛季场均评分 · 关键球员</div>
                   {(deepV.ratings ?? []).length === 0 && <div style={{ fontSize: 10.5, color: "var(--fg-3)", padding: "7px 0" }}>评分数据积累中</div>}
                   {deepV.ratings?.map((r: V) => {
-                    const bc = r.r >= 8 ? ["rgba(233,185,73,.16)", "#e9b949"] : r.r >= 7 ? ["rgba(46,204,138,.16)", "#2ecc8a"] : ["rgba(149,155,166,.16)", "#959ba6"];
+                    const bc = r.r >= 8 ? ["rgba(233,185,73,.16)", "#e9b949"] : r.r >= 7 ? ["rgba(46,204,138,.16)", "var(--green)"] : ["rgba(149,155,166,.16)", "#959ba6"];
                     return (
                       <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
                         <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: r.side === "h" ? "var(--home)" : "var(--gold)" }} />

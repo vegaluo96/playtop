@@ -16,6 +16,8 @@ import { CenterPane } from "./center";
 import { AccountDrawer } from "./drawer";
 import { useRechargeTiers } from "@/components/unlock-flow";
 import { AnnouncementBar } from "@/components/announcement-bar";
+import { TeamLogo } from "@/components/img";
+import { useSiteConfig } from "@/components/site-config";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -60,6 +62,8 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   const { tiers: rechargeTiers, maintenance: rechargeMaintenance } = useRechargeTiers(modal?.kind === "recharge");
   const selRef = useRef<number | null>(sel);
   selRef.current = sel;
+  const siteCfg = useSiteConfig();
+  const leagueChips = siteCfg?.leagues ?? LEAGUES.map((l) => ({ id: l.id, zh: l.zh, color: l.color, on: true, wc: l.wc }));
 
   /* ── 取数 ── */
   const loadRows = useCallback(async () => {
@@ -262,7 +266,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
               />
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {[{ id: "all", zh: "全部", color: "", wc: false }, ...LEAGUES.map((l) => ({ id: String(l.id), zh: l.zh, color: l.color, wc: !!l.wc }))].map((l) => {
+              {[{ id: "all", zh: "全部", color: "", wc: false }, ...leagueChips.map((l) => ({ id: String(l.id), zh: l.zh, color: l.color, wc: !!l.wc }))].map((l) => {
                 const active = league === l.id;
                 return l.wc ? (
                   <div key={l.id} onClick={() => setLeague(l.id)} className={active ? "wcglow" : undefined} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 10.5, fontWeight: 700, cursor: "pointer", background: active ? "rgba(233,185,73,.16)" : "var(--card)", color: active ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${active ? "rgba(233,185,73,.65)" : "rgba(233,185,73,.28)"}` }}>
@@ -309,11 +313,12 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                       )}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+                      <TeamLogo id={m.homeId} name={m.home} size={14} />
                       <span style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
                         {m.home} <span style={{ color: "var(--fg-3)", fontWeight: 400 }}>vs</span> {m.away}
                       </span>
                       {tag && (
-                        <span style={{ fontSize: 8.5, fontWeight: 800, borderRadius: 3, padding: "1px 5px", flexShrink: 0, whiteSpace: "nowrap", background: m.free && !m.masked ? "rgba(46,204,138,.12)" : "rgba(233,185,73,.12)", color: m.free && !m.masked ? "#2ecc8a" : "var(--gold)" }}>{tag}</span>
+                        <span style={{ fontSize: 8.5, fontWeight: 800, borderRadius: 3, padding: "1px 5px", flexShrink: 0, whiteSpace: "nowrap", background: m.free && !m.masked ? "rgba(46,204,138,.12)" : "rgba(233,185,73,.12)", color: m.free && !m.masked ? "var(--green)" : "var(--gold)" }}>{tag}</span>
                       )}
                     </div>
                   </div>

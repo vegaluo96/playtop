@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
+import { PageHeader } from "@/components/page-header";
 import { ProbBar } from "@/components/charts";
 import { useUnlockFlow } from "@/components/unlock-flow";
 import { Chip, EmptyBox, LockIcon, Sheet } from "@/components/ui";
@@ -59,10 +60,7 @@ function MobilePredictionsPage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <div style={{ padding: "14px 16px 10px" }}>
-        <div style={{ fontSize: 17, fontWeight: 800 }}>赛事预测</div>
-        <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 1 }}>官方模型 · 覆盖今日全部赛事 · 唯一付费项</div>
-      </div>
+      <PageHeader title="赛事预测" />
       <div style={{ display: "flex", gap: 8, padding: "0 12px 10px", flexShrink: 0 }}>
         {["全部", "已解锁"].map((l) => (
           <Chip key={l} label={l === "已解锁" ? `已解锁 ${unlockedCount}` : l} active={filter === l} onClick={() => setFilter(l)} />

@@ -275,7 +275,7 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
               <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderTop: "1px solid var(--line-soft)", marginTop: 6 }}>
                 <span className="mono" style={{ fontSize: 9.5, color: "var(--fg-3)" }}>T{t.id}</span>
                 <span style={{ flex: 1, fontSize: 11, fontWeight: 700 }}>{t.type}</span>
-                <span style={{ fontSize: 8.5, fontWeight: 800, borderRadius: 4, padding: "2px 6px", background: t.status === "处理中" ? "rgba(233,185,73,.14)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "#2ecc8a" }}>{t.status}</span>
+                <span style={{ fontSize: 8.5, fontWeight: 800, borderRadius: 4, padding: "2px 6px", background: t.status === "处理中" ? "rgba(233,185,73,.14)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
               </div>
             ))}
           </div>

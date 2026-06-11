@@ -17,7 +17,7 @@ export function DashView() {
   }, []);
   if (!v) return <div style={{ color: "var(--fg-3)", fontSize: 12, padding: 40, textAlign: "center" }}>加载中…</div>;
 
-  const kpiColor = (c?: string) => (c === "gold" ? "var(--gold)" : c === "red" ? "#f0434f" : "var(--fg)");
+  const kpiColor = (c?: string) => (c === "gold" ? "var(--gold)" : c === "red" ? "var(--red)" : "var(--fg)");
   const maxRev = Math.max(...v.week.map((w: V) => w.rev), 1);
   const maxReg = Math.max(...v.week.map((w: V) => w.reg), 1);
   const afPct = v.af?.limit ? Math.round((v.af.current / v.af.limit) * 100) : null;
@@ -41,7 +41,7 @@ export function DashView() {
           <div key={k.label} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "13px 14px" }}>
             <div style={{ fontSize: 10, color: "var(--fg-2)", marginBottom: 6 }}>{k.label}</div>
             <div className="mono" style={{ fontSize: 20, fontWeight: 800, color: kpiColor(k.c), whiteSpace: "nowrap" }}>{k.v}</div>
-            <div style={{ fontSize: 9.5, marginTop: 4, color: k.delta?.startsWith("↑") ? "#2ecc8a" : k.delta?.startsWith("↓") ? "#f0434f" : "var(--fg-2)", minHeight: 12 }}>{k.delta}</div>
+            <div style={{ fontSize: 9.5, marginTop: 4, color: k.delta?.startsWith("↑") ? "var(--green)" : k.delta?.startsWith("↓") ? "var(--red)" : "var(--fg-2)", minHeight: 12 }}>{k.delta}</div>
           </div>
         ))}
       </div>
@@ -73,12 +73,12 @@ export function DashView() {
             {v.af?.current?.toLocaleString() ?? "—"} <span style={{ fontSize: 10, color: "var(--fg-3)", fontWeight: 400 }}>/ {v.af?.limit?.toLocaleString() ?? "—"} req</span>
           </div>
           <div style={{ height: 7, background: "var(--inset)", borderRadius: 4, overflow: "hidden", margin: "8px 0" }}>
-            <div style={{ height: "100%", background: afPct != null && afPct > 85 ? "#f0434f" : "#2ecc8a", width: `${afPct ?? 0}%` }} />
+            <div style={{ height: "100%", background: afPct != null && afPct > 85 ? "var(--red)" : "var(--green)", width: `${afPct ?? 0}%` }} />
           </div>
           <div style={{ fontSize: 10, color: "var(--fg-2)", lineHeight: 1.7 }}>{afPct != null ? `已用 ${afPct}%` : "等待 worker 上报 /status"}</div>
           <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 9, paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
             <span style={{ fontSize: 10, color: "var(--fg-2)" }}>快照归档(今日)</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: "#2ecc8a" }}>{v.snapsToday.toLocaleString()} 条</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "var(--green)" }}>{v.snapsToday.toLocaleString()} 条</span>
           </div>
         </ACard>
         <ACard title="大模型配额" right={<span className="mono" style={{ fontSize: 9, color: "var(--fg-3)" }}>AI 报告生成</span>}>
@@ -86,14 +86,14 @@ export function DashView() {
             {(v.llm.tokens / 1e6).toFixed(2)}M <span style={{ fontSize: 10, color: "var(--fg-3)", fontWeight: 400 }}>/ {(v.llm.budget / 1e6).toFixed(0)}M tokens</span>
           </div>
           <div style={{ height: 7, background: "var(--inset)", borderRadius: 4, overflow: "hidden", margin: "8px 0" }}>
-            <div style={{ height: "100%", background: llmPct > 80 ? "#f0434f" : "var(--home)", width: `${Math.min(100, llmPct)}%` }} />
+            <div style={{ height: "100%", background: llmPct > 80 ? "var(--red)" : "var(--home)", width: `${Math.min(100, llmPct)}%` }} />
           </div>
           <div style={{ fontSize: 10, color: "var(--fg-2)", lineHeight: 1.7 }}>
             {v.llm.configured ? `今日生成 ${v.llm.count} 份 · 缓存命中 ${v.llm.count + v.llm.hits > 0 ? Math.round((v.llm.hits / (v.llm.count + v.llm.hits)) * 100) : 0}% · 失败 ${v.llm.fails}` : "未接入 · 模板模式"}
           </div>
           <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 9, paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
             <span style={{ fontSize: 10, color: "var(--fg-2)" }}>网关余额</span>
-            <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: v.llm.balance != null && v.llm.balance < 100 ? "#f0434f" : "#2ecc8a" }}>
+            <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: v.llm.balance != null && v.llm.balance < 100 ? "var(--red)" : "var(--green)" }}>
               {v.llm.balance != null ? `$${v.llm.balance}` : "—"}
             </span>
           </div>
@@ -111,7 +111,7 @@ export function DashView() {
               <span style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.m}</span>
               <span className="mono" style={{ fontSize: 10.5, textAlign: "right", color: "var(--fg-2)" }}>{h.pv.toLocaleString()}</span>
               <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, textAlign: "right", color: "var(--gold)" }}>{h.free ? "—" : h.un}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, textAlign: "right", color: h.free ? "#2ecc8a" : "var(--gold)" }}>{h.rate}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, textAlign: "right", color: h.free ? "var(--green)" : "var(--gold)" }}>{h.rate}</span>
             </AGrid>
           ))}
         </ACard>
@@ -132,14 +132,14 @@ export function DashView() {
         <ACard title="积分流水(今日)">
           <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
             <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>发放</span>
-            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "#2ecc8a" }}>+{v.flow.grant.toLocaleString()}</span>
+            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--green)" }}>+{v.flow.grant.toLocaleString()}</span>
           </div>
           <div style={{ fontSize: 9.5, color: "var(--fg-3)", padding: "4px 0 7px", borderBottom: "1px solid var(--line-soft)" }}>
             {v.flow.grantMix.map((g: V) => `${({ recharge: "充值", gift: "礼包", invite: "邀请", redeem: "兑换", adjust: "调整" } as V)[g.kind] ?? g.kind} ${g.v.toLocaleString()}`).join(" · ") || "—"}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
             <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>消耗(解锁预测)</span>
-            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "#f0434f" }}>-{v.flow.consume.toLocaleString()}</span>
+            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--red)" }}>-{v.flow.consume.toLocaleString()}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0" }}>
             <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>净增负债</span>

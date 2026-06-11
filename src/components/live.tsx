@@ -68,7 +68,7 @@ export function HeartBeat({ lastAt, intervalMs, workerAt, showNext = false, styl
   const workerDown = workerAt != null && now - workerAt > 3 * 60_000;
   const stale = lastAt != null && now - lastAt > intervalMs * 3;
   const nextS = lastAt != null ? Math.max(0, Math.ceil((lastAt + intervalMs - now) / 1000)) : null;
-  const color = workerDown ? "var(--fg-3)" : stale ? "var(--gold)" : "#2ecc8a";
+  const color = workerDown ? "var(--fg-3)" : stale ? "var(--gold)" : "var(--green)";
   const label = workerDown ? "盯盘暂停" : stale ? "数据延迟" : `Live · ${Math.round(intervalMs / 1000)}s`;
   return (
     <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 9, color: "var(--fg-3)", whiteSpace: "nowrap", ...style }}>

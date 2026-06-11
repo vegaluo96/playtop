@@ -2,6 +2,7 @@
 
 /** 平台公告条(后台「赛事与内容」发布,上线中即显示):取最新一条,可关闭,关闭记忆到该条 id */
 import { useEffect, useState } from "react";
+import { useSiteConfig } from "./site-config";
 
 interface Ann {
   id: number;
@@ -12,18 +13,14 @@ const SEEN_KEY = "playtop.ann.dismissed";
 
 export function AnnouncementBar({ compact = false }: { compact?: boolean }) {
   const [ann, setAnn] = useState<Ann | null>(null);
+  const cfg = useSiteConfig();
 
   useEffect(() => {
-    fetch("/api/config")
-      .then((r) => r.json())
-      .then((j) => {
-        if (!j.ok || !Array.isArray(j.announcements) || j.announcements.length === 0) return;
-        const latest = j.announcements[0] as Ann;
-        const dismissed = Number(localStorage.getItem(SEEN_KEY) ?? 0);
-        if (latest.id > dismissed) setAnn(latest);
-      })
-      .catch(() => {});
-  }, []);
+    const latest = cfg?.announcements?.[0];
+    if (!latest) return;
+    const dismissed = Number(localStorage.getItem(SEEN_KEY) ?? 0);
+    if (latest.id > dismissed) setAnn(latest);
+  }, [cfg]);
 
   if (!ann) return null;
   const close = () => {

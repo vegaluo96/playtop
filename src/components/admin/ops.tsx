@@ -7,7 +7,7 @@ import { ABtn, ACard, AChip, AGrid, AInput, Th, confirm2, fmtT, post, val } from
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
 
-const ST_COLOR: Record<string, string> = { 正常: "#959ba6", 付费: "#e9b949", 免费: "#959ba6", 风控: "#f0434f", 已封禁: "#5c626e" };
+const ST_COLOR: Record<string, string> = { 正常: "#959ba6", 付费: "#e9b949", 免费: "#959ba6", 风控: "var(--red)", 已封禁: "#5c626e" };
 
 export function UsersView() {
   const [data, setData] = useState<V | null>(null);
@@ -89,7 +89,7 @@ export function OrdersView() {
     void load();
     void loadCodes();
   }, [load, loadCodes]);
-  const TAGC: Record<string, string> = { 充值: "#2ecc8a", 解锁: "#e9b949", 兑换: "#5b9dff", 邀请: "#959ba6", 礼包: "#e9b949", 调整: "#f0434f" };
+  const TAGC: Record<string, string> = { 充值: "var(--green)", 解锁: "#e9b949", 兑换: "#5b9dff", 邀请: "#959ba6", 礼包: "#e9b949", 调整: "var(--red)" };
 
   return (
     <>
@@ -111,8 +111,8 @@ export function OrdersView() {
             <span><span style={{ fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: "var(--inset)", color: TAGC[o.tag] ?? "#959ba6" }}>{o.tag}</span></span>
             <span style={{ fontSize: 11, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.x}</span>
             <span className="mono" style={{ fontSize: 11, textAlign: "right", color: "var(--fg-2)" }}>{o.rmb}</span>
-            <span className="mono" style={{ fontSize: 11, fontWeight: 700, textAlign: "right", color: o.pts.startsWith("+") ? "#2ecc8a" : o.pts.startsWith("-") ? "#f0434f" : "var(--fg-3)" }}>{o.pts}</span>
-            <span style={{ fontSize: 10, fontWeight: 700, textAlign: "center", color: o.st === "成功" ? "#2ecc8a" : "var(--gold)" }}>{o.st}</span>
+            <span className="mono" style={{ fontSize: 11, fontWeight: 700, textAlign: "right", color: o.pts.startsWith("+") ? "var(--green)" : o.pts.startsWith("-") ? "var(--red)" : "var(--fg-3)" }}>{o.pts}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, textAlign: "center", color: o.st === "成功" ? "var(--green)" : "var(--gold)" }}>{o.st}</span>
           </AGrid>
         ))}
       </ACard>
@@ -137,13 +137,13 @@ export function OrdersView() {
               <span style={{ fontSize: 10, color: "var(--fg-2)" }}>+{c.points} 分 · 限 1 次/人</span>
               <span style={{ flex: 1 }} />
               <span className="mono" style={{ fontSize: 10, color: "var(--fg-2)" }}>{c.used_count.toLocaleString()} / {c.max_uses.toLocaleString()}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: c.st === "生效中" ? "#2ecc8a" : c.st === "即将售罄" ? "var(--gold)" : "var(--fg-3)" }}>{c.st}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: c.st === "生效中" ? "var(--green)" : c.st === "即将售罄" ? "var(--gold)" : "var(--fg-3)" }}>{c.st}</span>
             </div>
           ))}
         </ACard>
         <ACard title="邀请结算(今日)">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
-            {[[data?.invite?.ok ?? 0, "有效邀请", undefined], [`+${data?.invite?.pts ?? 0}`, "发放积分", "var(--gold)"], [data?.invite?.blocked ?? 0, "触限拦截", "#f0434f"]].map(([v, label, c]) => (
+            {[[data?.invite?.ok ?? 0, "有效邀请", undefined], [`+${data?.invite?.pts ?? 0}`, "发放积分", "var(--gold)"], [data?.invite?.blocked ?? 0, "触限拦截", "var(--red)"]].map(([v, label, c]) => (
               <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "9px 0", textAlign: "center" }}>
                 <div className="mono" style={{ fontSize: 15, fontWeight: 800, color: c as string | undefined }}>{v as string}</div>
                 <div style={{ fontSize: 9, color: "var(--fg-3)" }}>{label as string}</div>
@@ -185,9 +185,9 @@ export function MatchesView() {
               <span style={{ fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.m}</span>
               <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{m.lg}</span>
               <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{m.t}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, textAlign: "center", color: m.free ? "#2ecc8a" : "var(--fg-3)" }}>{m.free ? "今日免费场" : "—"}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, textAlign: "center", color: m.free ? "var(--green)" : "var(--fg-3)" }}>{m.free ? "今日免费场" : "—"}</span>
               <span className="mono" style={{ fontSize: 10.5, textAlign: "right", color: "var(--fg-2)" }}>{m.price}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, textAlign: "center", color: m.st === "隐藏" ? "#f0434f" : m.st === "滚球" ? "var(--gold)" : "#2ecc8a" }}>{m.st}</span>
+              <span style={{ fontSize: 10, fontWeight: 800, textAlign: "center", color: m.st === "隐藏" ? "var(--red)" : m.st === "滚球" ? "var(--gold)" : "var(--green)" }}>{m.st}</span>
               <span style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <ABtn small kind="line" label={m.free ? "取消免费" : "设为免费"} onClick={() => void act({ action: m.free ? "unfree" : "free", fixtureId: m.id })} />
                 <ABtn small kind={m.st === "隐藏" ? "green" : "red"} label={m.st === "隐藏" ? "恢复" : "隐藏"} onClick={() => void act({ action: m.st === "隐藏" ? "show" : "hide", fixtureId: m.id })} />
@@ -211,22 +211,21 @@ export function MatchesView() {
             if (!j.ok) alert(j.error);
             void load();
           }} />}>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {(data?.leagues ?? []).map((l: V) => (
-                <span
-                  key={l.id}
-                  onClick={() => void act({ action: "league", id: l.id, on: !l.on })}
-                  style={{
-                    padding: "4px 11px", borderRadius: 999, fontSize: 10.5, fontWeight: l.on ? 700 : 600, cursor: "pointer",
-                    background: l.on ? "rgba(233,185,73,.14)" : "var(--card)", color: l.on ? "var(--gold)" : "var(--fg-3)",
-                    border: `1px solid ${l.on ? "rgba(233,185,73,.45)" : "var(--line)"}`,
-                  }}
-                >
-                  {l.zh} {l.on ? "✓" : ""}{l.wc && l.on ? " 置顶" : ""}
-                </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {(data?.leagues ?? []).map((l: V, i: number, all: V[]) => (
+                <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderRadius: 8, background: "var(--inset)" }}>
+                  <span
+                    onClick={() => void act({ action: "league", id: l.id, on: !l.on })}
+                    style={{ flex: 1, fontSize: 11, fontWeight: l.on ? 700 : 600, cursor: "pointer", color: l.on ? "var(--gold)" : "var(--fg-3)" }}
+                  >
+                    {l.zh} {l.on ? "✓" : "(已关闭)"}{l.wc ? " ★" : ""}
+                  </span>
+                  <span onClick={() => i > 0 && void act({ action: "league_up", id: l.id })} style={{ cursor: i > 0 ? "pointer" : "default", fontSize: 12, color: i > 0 ? "var(--fg-2)" : "var(--fg-4)", padding: "0 4px" }}>↑</span>
+                  <span onClick={() => i < all.length - 1 && void act({ action: "league_down", id: l.id })} style={{ cursor: i < all.length - 1 ? "pointer" : "default", fontSize: 12, color: i < all.length - 1 ? "var(--fg-2)" : "var(--fg-4)", padding: "0 4px" }}>↓</span>
+                </div>
               ))}
             </div>
-            <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 10 }}>开关决定抓取与展示范围;worker 下一轮自动套用分层调度</div>
+            <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 10 }}>开关决定抓取与展示范围;↑↓ 调整用户端 chips 顺序,保存即生效;worker 下一轮自动套用分层调度</div>
           </ACard>
           <ACard title="公告 / Banner" right={<ABtn small kind="line" label="+ 新建公告" onClick={async () => {
             const text = prompt("公告内容:");
@@ -241,7 +240,7 @@ export function MatchesView() {
                 <span style={{ flex: 1, fontSize: 11, color: "var(--fg-mid)" }}>{a.text}</span>
                 <span
                   onClick={() => void act({ action: "ann_toggle", id: a.id })}
-                  style={{ fontSize: 10, fontWeight: 700, cursor: "pointer", color: a.status === "上线中" ? "#2ecc8a" : "var(--fg-3)" }}
+                  style={{ fontSize: 10, fontWeight: 700, cursor: "pointer", color: a.status === "上线中" ? "var(--green)" : "var(--fg-3)" }}
                 >
                   {a.status}
                 </span>
@@ -283,7 +282,7 @@ export function MktView() {
             <AGrid key={i} cols="70px 1fr 70px 70px">
               <span className="mono" style={{ fontSize: 11 }}>¥{t.rmb}</span>
               <span className="mono" style={{ fontSize: 11, color: "var(--gold)" }}>{t.pts.toLocaleString()}</span>
-              <span style={{ fontSize: 10, textAlign: "right", color: t.tag ? "#2ecc8a" : "var(--fg-2)" }}>{t.tag ?? "—"}</span>
+              <span style={{ fontSize: 10, textAlign: "right", color: t.tag ? "var(--green)" : "var(--fg-2)" }}>{t.tag ?? "—"}</span>
               <span style={{ fontSize: 10, textAlign: "center", color: t.hot ? "var(--gold)" : "var(--fg-3)" }}>{t.hot ? "最划算" : "—"}</span>
             </AGrid>
           ))}

@@ -71,6 +71,8 @@ export async function GET(req: NextRequest) {
       score: f.goals_home != null && f.goals_away != null ? `${f.goals_home}-${f.goals_away}` : null,
       home: f.home_name,
       away: f.away_name,
+      homeId: f.home_id,
+      awayId: f.away_id,
       moved: !masked && movedRecently(f.fixture_id),
       masked,
       free: freeSet.has(f.fixture_id),

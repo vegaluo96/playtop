@@ -6,10 +6,13 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { RefreshSheet } from "@/components/refresh-sheet";
 import { AnnouncementBar } from "@/components/announcement-bar";
+import { PageHeader } from "@/components/page-header";
+import { TeamLogo } from "@/components/img";
+import { useSiteConfig } from "@/components/site-config";
 import { Chip } from "@/components/ui";
-import { f2, hhmm, mdLabel, parseTzOffset } from "@/lib/format";
+import { f2, hhmm, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
-import { Flash, HeartBeat, usePoll, useWorkerBeat } from "@/components/live";
+import { Flash, usePoll, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 
@@ -34,6 +37,8 @@ interface Row {
   score: string | null;
   home: string;
   away: string;
+  homeId: number | null;
+  awayId: number | null;
   moved: boolean;
   masked: boolean;
   free: boolean;
@@ -72,6 +77,9 @@ function MobileMatchesPage() {
   const workerAt = useWorkerBeat();
   const { prefs } = useApp();
   const router = useRouter();
+  // 联赛 chips:后台配置(含顺序)优先,静态表兜底
+  const siteCfg = useSiteConfig();
+  const leagueChips = siteCfg?.leagues ?? LEAGUES.map((l) => ({ id: l.id, zh: l.zh, color: l.color, on: true, wc: l.wc }));
 
   const load = useCallback(async () => {
     try {
@@ -96,7 +104,6 @@ function MobileMatchesPage() {
   const hasLive = day === "live" || rows.some((r) => r.live);
   usePoll(load, hasLive ? 3_000 : 10_000);
 
-  const dateLabel = `${mdLabel(Date.now(), prefs.tz)} · ${prefs.tz}`;
   // 14 天日期带:直播 | 今日 | 明日 | 周X 日期…(worker 提前 14 天归档赛程与赔率)
   const off = parseTzOffset(prefs.tz);
   const dateChips = [
@@ -113,21 +120,16 @@ function MobileMatchesPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <AnnouncementBar />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 8px" }}>
-        <div>
-          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: 0.5 }}>
-            足球<span style={{ color: "var(--gold)" }}>终端</span>
-          </div>
-          <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 1 }}>亚盘 · 大小球 · 胜平负</div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-          <div className="mono" style={{ fontSize: 9, color: "var(--fg-3)", whiteSpace: "nowrap" }}>{dateLabel}</div>
+      <PageHeader
+        title={<>足球<span style={{ color: "var(--gold)" }}>终端</span></>}
+        lastAt={lastAt}
+        workerAt={workerAt}
+        right={
           <div onClick={() => setRfOpen(true)} style={{ fontSize: 9, color: "var(--gold)", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
             ⟳ 数据刷新规则 ›
           </div>
-          <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} />
-        </div>
-      </div>
+        }
+      />
 
       <div style={{ display: "flex", gap: 8, padding: "6px 16px 8px", overflowX: "auto", flexShrink: 0 }}>
         {dateChips.map((c) => (
@@ -136,7 +138,7 @@ function MobileMatchesPage() {
       </div>
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
         <Chip label="全部" active={league === "all"} onClick={() => setLeague("all")} style={{ padding: "5px 12px", fontSize: 11 }} />
-        {LEAGUES.map((l) =>
+        {leagueChips.map((l) =>
           l.wc ? (
             // 世界杯:仅以 ★ 与微弱描边突出,未选中态不得与「选中」混淆(选中=金底填充,与其他 chip 同语义)
             <div
@@ -198,7 +200,7 @@ function MobileMatchesPage() {
                     style={{
                       fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "1px 6px",
                       background: m.masked ? "rgba(233,185,73,.12)" : m.free ? "rgba(46,204,138,.12)" : "var(--inset)",
-                      color: m.masked ? "var(--gold)" : m.free ? "#2ecc8a" : "var(--fg-2)",
+                      color: m.masked ? "var(--gold)" : m.free ? "var(--green)" : "var(--fg-2)",
                       border: `1px solid ${m.masked ? "rgba(233,185,73,.4)" : m.free ? "rgba(46,204,138,.4)" : "var(--line)"}`,
                     }}
                   >
@@ -210,6 +212,7 @@ function MobileMatchesPage() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
                     <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--home)", background: "rgba(91,157,255,.12)", borderRadius: 3, padding: "1px 4px" }}>主</span>
+                    <TeamLogo id={m.homeId} name={m.home} size={16} />
                     <span style={{ fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
                   </div>
                   <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", fontSize: 11, color: m.live ? "var(--gold)" : "var(--fg-4)", paddingLeft: 1, whiteSpace: "nowrap" }}>
@@ -217,6 +220,7 @@ function MobileMatchesPage() {
                   </div>
                   <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
                     <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--gold)", background: "rgba(233,185,73,.12)", borderRadius: 3, padding: "1px 4px" }}>客</span>
+                    <TeamLogo id={m.awayId} name={m.away} size={16} />
                     <span style={{ fontSize: 14, fontWeight: 600, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.away}</span>
                   </div>
                 </div>

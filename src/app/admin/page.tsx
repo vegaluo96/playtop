@@ -67,7 +67,7 @@ export default function AdminPage() {
           <div style={{ textAlign: "center", fontSize: 10, color: "var(--fg-3)", marginBottom: 20 }}>仅管理员账号可进入 · 操作全程审计</div>
           <input id="ad-email" type="email" placeholder="管理员邮箱" style={{ width: "100%", boxSizing: "border-box", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px", fontSize: 13, color: "var(--fg)", outline: "none", marginBottom: 10 }} />
           <input id="ad-pass" type="password" placeholder="密码" onKeyDown={(e) => e.key === "Enter" && void login()} style={{ width: "100%", boxSizing: "border-box", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px", fontSize: 13, color: "var(--fg)", outline: "none", marginBottom: 12 }} />
-          {err && <div style={{ fontSize: 11, color: "#f0434f", marginBottom: 10 }}>{err}</div>}
+          {err && <div style={{ fontSize: 11, color: "var(--red)", marginBottom: 10 }}>{err}</div>}
           <div onClick={() => void login()} style={{ background: "linear-gradient(90deg,var(--gold),var(--gold-2))", color: "#0a0b0f", borderRadius: 10, textAlign: "center", padding: "12px 0", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>登录后台</div>
         </div>
       </div>
@@ -91,8 +91,8 @@ export default function AdminPage() {
         >
           {prefs.theme === "深色" ? "☀ 浅色模式" : "☾ 深色模式"}
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: workerOk ? "#2ecc8a" : "#f0434f", fontWeight: 700 }}>
-          <span className={workerOk ? "livepulse" : undefined} style={{ width: 5, height: 5, borderRadius: "50%", background: workerOk ? "#2ecc8a" : "#f0434f" }} />
+        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: workerOk ? "var(--green)" : "var(--red)", fontWeight: 700 }}>
+          <span className={workerOk ? "livepulse" : undefined} style={{ width: 5, height: 5, borderRadius: "50%", background: workerOk ? "var(--green)" : "var(--red)" }} />
           {workerOk ? "调度运行中" : `调度离线(${agoText(workerAt, now)})`}
         </span>
         <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{me.email}</span>
@@ -108,7 +108,7 @@ export default function AdminPage() {
               <span style={{ fontSize: 12.5, fontWeight: 700 }}>{label}</span>
               <span style={{ flex: 1 }} />
               {k === "ticket" && openTickets > 0 && (
-                <span style={{ fontSize: 9, fontWeight: 800, background: "rgba(240,67,79,.16)", color: "#f0434f", borderRadius: 8, padding: "1px 6px" }}>{openTickets}</span>
+                <span style={{ fontSize: 9, fontWeight: 800, background: "rgba(240,67,79,.16)", color: "var(--red)", borderRadius: 8, padding: "1px 6px" }}>{openTickets}</span>
               )}
             </div>
           ))}

@@ -52,6 +52,16 @@ export async function POST(req: NextRequest) {
   } else if (b.action === "show") {
     d.prepare("DELETE FROM hidden_fixtures WHERE fixture_id=?").run(Number(b.fixtureId));
     audit(admin.email, "恢复展示场次", String(b.fixtureId));
+  } else if (b.action === "league_up" || b.action === "league_down") {
+    // 联赛排序:数组顺序即用户端 chips 顺序
+    const ls = cfgLeagues();
+    const i = ls.findIndex((l) => l.id === Number(b.id));
+    const j = b.action === "league_up" ? i - 1 : i + 1;
+    if (i >= 0 && j >= 0 && j < ls.length) {
+      [ls[i], ls[j]] = [ls[j], ls[i]];
+      cfgSet("leagues", ls);
+      audit(admin.email, "联赛排序", `${ls[j].zh} ${b.action === "league_up" ? "上移" : "下移"}`);
+    }
   } else if (b.action === "league_search") {
     // /leagues 端点:按名搜索可添加的联赛(当季有赔率覆盖优先展示)
     try {
