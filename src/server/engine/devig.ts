@@ -20,7 +20,7 @@ export function shinDevig(odds: ThreeWay): ShinResult {
   const B = pi.home + pi.draw + pi.away;
   const overround = B - 1;
   if (overround <= 0) {
-    // 无水位（或套利盘）：直接归一化
+    // 无水位（隐含概率和 ≤1 的异常报价）：直接归一化
     return {
       probs: { home: pi.home / B, draw: pi.draw / B, away: pi.away / B },
       overround,

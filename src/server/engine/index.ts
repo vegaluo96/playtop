@@ -312,6 +312,73 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
       : "无盘口赔率，跳过价值扫描",
   );
 
+  // ---------- 7c. 价差监测：锐价真值锚 + 各家滞后偏离 + 市场失效指数 ----------
+  // 第一性原理（玩家动线第④步）："这个价相对真值是贵还是便宜、哪家在让利"。
+  // 硬庄/锐价单独去水做真值锚（赔率本身是最强预测模型），各家对锚的正偏离 = 滞后让利方向。
+  let spread: EngineOutput["spread"] = null;
+  if (bookDevigs.length > 0) {
+    const sharpSet = new Set(params.sharpBooks);
+    const sharps = bookDevigs.filter((b) => sharpSet.has(b.bookmaker) && !b.indicative);
+    let anchorProbs: ThreeWay;
+    let anchorSource: "sharp" | "consensus";
+    let anchorBooks: string[];
+    if (sharps.length > 0) {
+      const acc = { home: 0, draw: 0, away: 0 };
+      for (const s of sharps) {
+        acc.home += s.devigged.home;
+        acc.draw += s.devigged.draw;
+        acc.away += s.devigged.away;
+      }
+      anchorProbs = { home: acc.home / sharps.length, draw: acc.draw / sharps.length, away: acc.away / sharps.length };
+      anchorSource = "sharp";
+      anchorBooks = sharps.map((s) => s.bookmaker);
+    } else {
+      anchorProbs = (market?.devigged ?? bookDevigs[0].devigged) as ThreeWay;
+      anchorSource = "consensus";
+      anchorBooks = bookDevigs.map((b) => b.bookmaker);
+    }
+    const deviations: NonNullable<EngineOutput["spread"]>["deviations"] = [];
+    for (const b of books) {
+      if (!b.oneXTwo || b.indicative) continue;
+      for (const sel of ["home", "draw", "away"] as const) {
+        const fairOdds = 1 / anchorProbs[sel];
+        const deviationPct = b.oneXTwo[sel] / fairOdds - 1;
+        if (Math.abs(deviationPct) >= 0.01) {
+          deviations.push({ bookmaker: b.bookmaker ?? "未知来源", market: "1x2", line: null, selection: sel, odds: b.oneXTwo[sel], fairOdds, deviationPct });
+        }
+      }
+    }
+    // 亚盘主盘水位偏离：锐价该线两向去水做锚（玩家第一视角是让球盘）
+    const sharpRaw = books.filter((b) => sharpSet.has(b.bookmaker ?? "") && !b.indicative);
+    const sharpAh = sharpRaw.flatMap((b) => b.ah.map((a) => ({ ...a, bookmaker: b.bookmaker ?? "" })));
+    if (sharpAh.length > 0) {
+      // 主盘 = 锐价各线中两边水位最均衡的一条
+      const main = [...sharpAh].sort((a, b) => Math.abs(a.home - a.away) - Math.abs(b.home - b.away))[0];
+      const pHomeFair = twoWayDevig(main.home, main.away);
+      for (const b of books) {
+        if (b.indicative || (b.bookmaker ?? "") === main.bookmaker) continue;
+        const line = b.ah.find((a) => a.line === main.line);
+        if (!line) continue;
+        for (const side of ["home", "away"] as const) {
+          const fairOdds = 1 / (side === "home" ? pHomeFair : 1 - pHomeFair);
+          const deviationPct = line[side] / fairOdds - 1;
+          if (Math.abs(deviationPct) >= 0.01) {
+            deviations.push({ bookmaker: b.bookmaker ?? "未知来源", market: "ah", line: main.line, selection: side, odds: line[side], fairOdds, deviationPct });
+          }
+        }
+      }
+    }
+    deviations.sort((a, b) => b.deviationPct - a.deviationPct);
+    const top = deviations.slice(0, 8);
+    const inefficiencyIndex = best1x2 ? 1 / best1x2.home.odds + 1 / best1x2.draw.odds + 1 / best1x2.away.odds : null;
+    spread = { anchor: { source: anchorSource, books: anchorBooks, probs: anchorProbs }, deviations: top, inefficiencyIndex };
+    trace.push(
+      `价差监测：真值锚=${anchorSource === "sharp" ? `锐价（${anchorBooks.join("、")}）` : "加权共识"}，` +
+        `偏离≥1% 的报价 ${deviations.length} 项` +
+        (inefficiencyIndex !== null ? `，跨家组合隐含概率 ${fmtPct(inefficiencyIndex)}${inefficiencyIndex < 1 ? "（出现定价失效现象）" : ""}` : ""),
+    );
+  }
+
   // ---------- 7b. 比分市场对照：波胆赔率 power 去水 vs 模型比分分布 ----------
   let scoreMarket: EngineOutput["scoreMarket"] = [];
   const csBook = books.find((b) => (b.correctScores?.length ?? 0) >= 8);
@@ -332,9 +399,9 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
     );
   }
 
-  // ---------- 8. 生成 picks ----------
+  // ---------- 8. 生成 picks（亚盘优先：玩家第一视角是让球盘） ----------
   const picks: EngineOutput["picks"] = [];
-  for (const mkt of ["1x2", "ou", "ah"] as const) {
+  for (const mkt of ["ah", "1x2", "ou"] as const) {
     const candidates = value
       .filter((v) => v.market === mkt && v.ev >= params.evThreshold && v.modelProb >= params.minProbForPick)
       .sort((a, b) => b.ev - a.ev);
@@ -410,6 +477,7 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
       oneXTwo: o.oneXTwo ?? null,
       bookmaker: o.bookmaker,
     })),
+    spread,
     trace,
   };
   return engineOutputSchema.parse(output);

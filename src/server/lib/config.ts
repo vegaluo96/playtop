@@ -103,6 +103,8 @@ export const engineConfigSchema = z.object({
       人工录入: 1.0,
       Polymarket: 0.9,
     }),
+  /** 锐价真值锚（硬庄口径）：单独去水做市场真值，驱动价差监测/滞后偏离 */
+  sharpBooks: z.array(z.string()).default(["Pinnacle", "Smarkets（交易所）"]),
   /** 射门质量混合系数 θ（Wheatcroft 2020），0 关闭 */
   shotsBlendTheta: z.number().min(0).max(1).default(0.35),
   kellyFraction: z.number().default(0.25),

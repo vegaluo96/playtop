@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ENGINE_MODEL_VERSION = "engine-1.1.0";
+export const ENGINE_MODEL_VERSION = "engine-1.2.0";
 
 /** 三向概率/赔率 */
 export const threeWaySchema = z.object({
@@ -70,6 +70,8 @@ export interface EngineParams {
   ensembleWeights: { market: number; dc: number; elo: number };
   /** 书商权重（量化因子口径）：加权共识用；未列出的书商权重 1，离群报价自动降权 */
   bookWeights: Record<string, number>;
+  /** 锐价真值锚书商（硬庄口径）：单独去水做"市场真值"，用于价差监测/滞后偏离 */
+  sharpBooks: string[];
   kellyFraction: number;
   kellyCap: number;
   evThreshold: number;
@@ -217,6 +219,30 @@ export const engineOutputSchema = z.object({
       }),
     )
     .default([]),
+  /**
+   * 价差监测（玩家动线第④步："这个价相对真值贵还是便宜"）：
+   * 锐价子集（硬庄）单独去水做真值锚；各家报价对锚的偏离即"滞后让利"研究信号；
+   * 失效指数 = Σ(1/各方向跨家最优价)，<1 即市场出现定价失效现象。旧版输出无此字段。
+   */
+  spread: z
+    .object({
+      anchor: z.object({ source: z.enum(["sharp", "consensus"]), books: z.array(z.string()), probs: threeWaySchema }),
+      deviations: z.array(
+        z.object({
+          bookmaker: z.string(),
+          market: z.enum(["1x2", "ah"]).default("1x2"),
+          line: z.number().nullable().default(null),
+          selection: z.enum(["home", "draw", "away"]),
+          odds: z.number(),
+          fairOdds: z.number(),
+          /** 报价相对锚定公允价的偏离（正 = 高于公允 = 滞后让利方向） */
+          deviationPct: z.number(),
+        }),
+      ),
+      inefficiencyIndex: z.number().nullable(),
+    })
+    .nullable()
+    .default(null),
   trace: z.array(z.string()),
 });
 export type EngineOutput = z.infer<typeof engineOutputSchema>;

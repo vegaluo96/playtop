@@ -55,7 +55,9 @@ export async function withSource<T>(source: string, fn: () => Promise<T>): Promi
     reportSourceOk(source);
     return r;
   } catch (e) {
-    reportSourceFail(source, e instanceof Error ? e.message : String(e));
+    const msg = e instanceof Error ? e.message : String(e);
+    // 进程内礼貌冷却 ≠ 源故障：不计成败，避免多任务撞冷却误触发自动停用
+    if (!/抓取过于频繁/.test(msg)) reportSourceFail(source, msg);
     throw e;
   }
 }

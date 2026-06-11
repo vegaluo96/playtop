@@ -12,6 +12,7 @@ const params: EngineParams = {
   eloCalib: { b: 0.0044, c1: -0.45, c2: 0.55 },
   ensembleWeights: { market: 0.55, dc: 0.3, elo: 0.15 },
   bookWeights: {},
+  sharpBooks: ["Pinnacle", "Smarkets（交易所）"],
   kellyFraction: 0.25,
   kellyCap: 0.05,
   evThreshold: 0.03,

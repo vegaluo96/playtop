@@ -33,11 +33,24 @@ function latestLlmSnapshotAge(matchId: number): number {
   return row ? now() - row.fetchedAt : Infinity;
 }
 
-export async function tickStateMachine(): Promise<{ confirmed: number; locked: number; settled: number }> {
+export async function tickStateMachine(): Promise<{ confirmed: number; locked: number; settled: number; nearRefreshed: number }> {
   const confirmed = autoConfirmDueOutcomes(); // delay 策略的自动确认（double_check 在赛果抓取时即时处理）
   const locked = lockFinalAnalysisAtKickoff();
   const settled = settleDueMatches();
-  return { confirmed, locked, settled };
+  // 临场加密刷新：开球前 6h 内已发布场次，10 分钟级只刷盘口+官方首发——
+  // 价差监测/边界线的时效窗口；其余维度仍走 30 分钟主循环
+  let nearRefreshed = 0;
+  const near = matchesByStatus(["published"]).filter((m) => m.kickoffAt > now() && m.kickoffAt - now() < 6 * 3_600_000);
+  for (const m of near) {
+    try {
+      await collectMatch(m.id, { oddsOnly: true, skipAi: true });
+      await advanceMatch(m.id);
+      nearRefreshed++;
+    } catch (e) {
+      console.warn(`[jobs] 临场刷新失败 match=${m.id}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return { confirmed, locked, settled, nearRefreshed };
 }
 
 /** 全自动核心循环：采集 → 建模 → 发布 → 改版，全链路由 advanceMatch 推进（断头修复点） */

@@ -23,6 +23,8 @@ const BANNED = [
   "收益承诺",
   "投注平台",
   "开户",
+  "套利",
+  "对冲仓位",
 ];
 const SCAN_DIRS = ["src/app", "src/components", "src/server/llm", "src/server/engine"];
 /** 否定式声明（"不构成投注建议/不提供投注平台"）是合规要求本身，放行 */

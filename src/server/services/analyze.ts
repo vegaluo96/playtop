@@ -59,6 +59,7 @@ export function engineParamsFromConfig(): EngineParams {
     eloCalib: cfg.eloCalib,
     ensembleWeights: cfg.ensembleWeights,
     bookWeights: cfg.bookWeights,
+    sharpBooks: cfg.sharpBooks,
     kellyFraction: cfg.kellyFraction,
     kellyCap: cfg.kellyCap,
     evThreshold: cfg.evThreshold,

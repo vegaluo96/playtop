@@ -343,6 +343,22 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
     if (valuable.length === 0) L.push("*全部点位 EV 为负——市场定价充分，本场观望。*");
     L.push("");
   }
+  if (e.spread && e.spread.deviations.length > 0) {
+    L.push("### 价差监测（锐价真值锚）");
+    L.push("");
+    L.push(`真值锚：${e.spread.anchor.source === "sharp" ? `锐价（${e.spread.anchor.books.join("、")}）` : "加权共识"}；正偏离 = 报价高于锚定公允价（滞后让利现象，市场效率研究信号）。`);
+    L.push("");
+    L.push("| 盘口来源 | 方向 | 报价 | 锚定公允 | 概率偏离 |");
+    L.push("|---|---|---|---|---|");
+    for (const d of e.spread.deviations.slice(0, 6)) {
+      L.push(`| ${d.bookmaker} | ${MARKET_LABEL[d.market]}·${selectionLabel(d.market, d.selection, d.line)} | ${fmtOdds(d.odds)} | ${fmtOdds(d.fairOdds)} | ${d.deviationPct >= 0 ? "+" : ""}${pct(d.deviationPct)} |`);
+    }
+    if (e.spread.inefficiencyIndex !== null) {
+      L.push("");
+      L.push(`跨家组合隐含概率 **${pct(e.spread.inefficiencyIndex)}**${e.spread.inefficiencyIndex < 1 ? "（市场出现定价失效现象）" : ""}。`);
+    }
+    L.push("");
+  }
   if (e.oddsMovement.length >= 2) {
     L.push("## 七、盘口异动（1X2）");
     L.push("");

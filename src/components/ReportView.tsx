@@ -21,6 +21,12 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
   // 更新可见性：最近更新时间 + 较上版变化（派生自版本历史，零存储）
   const updatedAt = view.publishedAt ?? engine.computedAt;
   const delta = view.versions.length >= 2 ? versionDelta(view.versions[0], view.versions[1]) : null;
+  // 亚盘主盘看板（玩家第一视角）：模型赢盘概率最接近五五开的让球线 + 跨家最优水位
+  const ahHome = engine.value.filter((v) => v.market === "ah" && v.selection === "home");
+  const mainAh = ahHome.length
+    ? ahHome.reduce((b, v) => (Math.abs(v.modelProb - 0.5) < Math.abs(b.modelProb - 0.5) ? v : b))
+    : null;
+  const mainAhAway = mainAh ? engine.value.find((v) => v.market === "ah" && v.line === mainAh.line && v.selection === "away") : null;
 
   return (
     <div className="pb-8">
@@ -77,6 +83,20 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
               （开赛锁定时若收盘价低于边界，按观望处理、不计入战绩）。模拟单位：¼ Kelly 风险刻度（上限
               5%），仅为风险量化展示。
             </p>
+            {mainAh && (
+              <div className="tabular mt-3 rounded border border-gold/25 bg-gold/5 px-3 py-2 text-[11px]">
+                <span className="text-[10px] tracking-wider text-faint">亚盘主盘</span>{" "}
+                <b className="text-ink">{selectionLabel("ah", "home", mainAh.line)}</b>
+                <span className="ml-2 text-muted">
+                  主 {mainAh.odds.toFixed(2)}
+                  {mainAh.bookmaker ? `（${mainAh.bookmaker}）` : ""}
+                  {mainAhAway ? ` / 客 ${mainAhAway.odds.toFixed(2)}${mainAhAway.bookmaker ? `（${mainAhAway.bookmaker}）` : ""}` : ""}
+                </span>
+                <span className="ml-2">
+                  模型主赢盘 <b className="text-gold-bright">{pct(mainAh.modelProb)}</b>
+                </span>
+              </div>
+            )}
             <div className="mt-3">
               <ProbBar home={engine.ensemble.probs.home} draw={engine.ensemble.probs.draw} away={engine.ensemble.probs.away} />
             </div>
@@ -87,12 +107,71 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
               本场结论：<b className="text-ink">观望</b>——模型认为当前所有价格都不值得参与（观望场次不计入战绩分母）。
             </div>
             <p className="mt-2 border-l-2 border-hairline pl-3 text-[12px] leading-6 text-ink/85">{sections.thesis}</p>
+            {mainAh && (
+              <div className="tabular mt-3 rounded border border-hairline bg-overlay/40 px-3 py-2 text-[11px]">
+                <span className="text-[10px] tracking-wider text-faint">亚盘主盘</span>{" "}
+                <b className="text-ink">{selectionLabel("ah", "home", mainAh.line)}</b>
+                <span className="ml-2 text-muted">
+                  主 {mainAh.odds.toFixed(2)}
+                  {mainAhAway ? ` / 客 ${mainAhAway.odds.toFixed(2)}` : ""}
+                </span>
+                <span className="ml-2 text-muted">
+                  模型主赢盘 <b className="text-ink">{pct(mainAh.modelProb)}</b>
+                </span>
+              </div>
+            )}
             <div className="mt-3">
               <ProbBar home={engine.ensemble.probs.home} draw={engine.ensemble.probs.draw} away={engine.ensemble.probs.away} />
             </div>
           </>
         )}
       </div>
+
+      {/* 价差监测：锐价真值锚 vs 各家报价——"这个价相对真值贵还是便宜、哪家在让利" */}
+      {engine.spread && engine.spread.deviations.length > 0 && (
+        <div className="card mt-3 p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-[13px] tracking-wider text-ink">价差监测</h2>
+            <span className="text-[10px] text-faint">
+              真值锚：{engine.spread.anchor.source === "sharp" ? `锐价（${engine.spread.anchor.books.join("、")}）` : "加权共识"}
+            </span>
+          </div>
+          <table className="tabular mt-3 w-full text-[11px]">
+            <thead>
+              <tr className="text-left text-[10px] tracking-wider text-faint">
+                <th className="pb-1 font-normal">盘口来源</th>
+                <th className="pb-1 font-normal">方向</th>
+                <th className="pb-1 text-right font-normal">报价</th>
+                <th className="pb-1 text-right font-normal">锚定公允</th>
+                <th className="pb-1 text-right font-normal">概率偏离</th>
+              </tr>
+            </thead>
+            <tbody>
+              {engine.spread.deviations.slice(0, 6).map((d, i) => (
+                <tr key={i} className="border-t border-hairline">
+                  <td className="py-1.5">{d.bookmaker}</td>
+                  <td className="py-1.5">{MARKET_LABEL[d.market]}·{selectionLabel(d.market, d.selection, d.line)}</td>
+                  <td className="py-1.5 text-right">{d.odds.toFixed(2)}</td>
+                  <td className="py-1.5 text-right text-muted">{d.fairOdds.toFixed(2)}</td>
+                  <td className={`py-1.5 text-right ${d.deviationPct > 0 ? "text-up" : "text-down/80"}`}>
+                    {d.deviationPct >= 0 ? "+" : ""}
+                    {pct(d.deviationPct)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {engine.spread.inefficiencyIndex !== null && (
+            <p className="tabular mt-2 text-[10.5px] text-muted">
+              跨家组合隐含概率 <b className={engine.spread.inefficiencyIndex < 1 ? "text-up" : "text-ink"}>{pct(engine.spread.inefficiencyIndex)}</b>
+              {engine.spread.inefficiencyIndex < 1 && " —— 市场出现定价失效现象"}
+            </p>
+          )}
+          <p className="mt-2 text-[10px] leading-4 text-faint">
+            正偏离 = 该来源报价高于锐价锚定的公允价（滞后让利现象）。本表为市场效率研究信号，仅反映各来源定价差异，不构成任何参与建议。
+          </p>
+        </div>
+      )}
 
       <SectionTitle index={idx()}>关键驱动因素</SectionTitle>
       <ul className="space-y-2 text-[12.5px] leading-6 text-ink/85">
