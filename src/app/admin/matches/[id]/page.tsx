@@ -93,7 +93,11 @@ const KIND_CN: Record<string, string> = {
 function selLabel(market: string, selection: string, line: number | null): string {
   if (market === "1x2") return { home: "主胜", draw: "平局", away: "客胜" }[selection] ?? selection;
   if (market === "ou") return `${selection === "over" ? "大" : "小"} ${line ?? ""}`;
-  if (market === "ah") return `${selection === "home" ? "主" : "客"} ${line !== null && line > 0 ? `+${line}` : (line ?? "")}`;
+  if (market === "ah") {
+    const isHome = selection === "home";
+    const l = (line ?? 0) * (isHome ? 1 : -1); // 客队侧显示其自身盘口（主队让球线取反）
+    return `${isHome ? "主" : "客"} ${l > 0 ? `+${l}` : l}`;
+  }
   return selection;
 }
 

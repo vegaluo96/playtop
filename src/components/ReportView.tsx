@@ -342,7 +342,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
               <table className="tabular w-full text-[11px]">
                 <thead>
                   <tr className="text-left text-[10px] tracking-wider text-faint">
-                    <th className="pb-1 font-normal">亚盘</th>
+                    <th className="pb-1 font-normal">亚盘（主让）</th>
                     <th className="pb-1 text-right font-normal">主赢盘</th>
                     <th className="pb-1 text-right font-normal">客赢盘</th>
                   </tr>

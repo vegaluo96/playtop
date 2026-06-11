@@ -82,9 +82,10 @@ export function selectionLabel(market: string, selection: string, line: number |
   if (market === "1x2") return SEL_LABEL[selection] ?? selection;
   if (market === "ou") return `${SEL_LABEL[selection] ?? selection} ${line ?? ""}`.trim();
   if (market === "ah") {
-    const side = selection === "home" ? "主队" : "客队";
-    const l = line ?? 0;
-    return `${side}盘口 ${l > 0 ? `+${l}` : l}`;
+    const isHome = selection === "home";
+    // line 全站统一为主队让球口径；客队侧展示其自身盘口（取反）：主让 -1.5 的客队侧 = 客队 +1.5
+    const l = (line ?? 0) * (isHome ? 1 : -1);
+    return `${isHome ? "主队" : "客队"}盘口 ${l > 0 ? `+${l}` : l}`;
   }
   return selection;
 }
