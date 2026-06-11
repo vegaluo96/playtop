@@ -588,6 +588,67 @@ export async function fetchAfTeamStats(teamId: number, leagueId: number, season:
   return parseAfTeamStats(await afGet(`/teams/statistics?team=${teamId}&league=${leagueId}&season=${season}`, force));
 }
 
+// ── 预测（predictions：AF 蒸馏概率 + 期望进球，引擎主源） ────────────────────
+
+export interface AfPrediction {
+  /** 1X2 概率（已归一） */
+  home: number;
+  draw: number;
+  away: number;
+  /** AF 预测的两队期望进球（驱动比分矩阵 → 亚盘/大小球派生）；缺则 null */
+  expGoalsHome: number | null;
+  expGoalsAway: number | null;
+  advice: string | null;
+}
+
+const afPredictionSchema = z.array(
+  z.object({
+    predictions: z
+      .object({
+        percent: z.object({ home: z.string(), draw: z.string(), away: z.string() }).partial().default({}),
+        goals: z.object({ home: z.union([z.string(), z.number()]).nullable(), away: z.union([z.string(), z.number()]).nullable() }).partial().default({}),
+        advice: z.string().nullable().default(null),
+      })
+      .partial()
+      .default({}),
+  }),
+);
+
+const pctNum = (s: string | undefined): number => {
+  if (!s) return 0;
+  const n = Number(s.replace("%", ""));
+  return Number.isFinite(n) ? n : 0;
+};
+const goalNum = (v: string | number | null | undefined): number | null => {
+  if (v === null || v === undefined) return null;
+  // AF goals 形如 "-1.5"/"2.3"（相对/绝对），取绝对值作期望进球粗估；负号表示弱于对手，用 abs 不合适
+  const n = typeof v === "string" ? Number(v) : v;
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+
+export function parseAfPrediction(json: unknown): AfPrediction | null {
+  const p = afPredictionSchema.safeParse((json as { response?: unknown }).response ?? []);
+  if (!p.success || p.data.length === 0) return null;
+  const pr = p.data[0].predictions;
+  const h = pctNum(pr.percent?.home);
+  const d = pctNum(pr.percent?.draw);
+  const a = pctNum(pr.percent?.away);
+  const sum = h + d + a;
+  if (sum <= 0) return null;
+  return {
+    home: h / sum,
+    draw: d / sum,
+    away: a / sum,
+    expGoalsHome: goalNum(pr.goals?.home),
+    expGoalsAway: goalNum(pr.goals?.away),
+    advice: pr.advice ?? null,
+  };
+}
+
+export async function fetchAfPrediction(fixtureId: number, force = false): Promise<AfPrediction | null> {
+  return parseAfPrediction(await afGet(`/predictions?fixture=${fixtureId}`, force));
+}
+
 // ── 主教练（coachs） ───────────────────────────────────────────────────────
 
 const afCoachSchema = z.array(z.object({ name: z.string(), career: z.array(z.object({ team: z.object({ id: z.number() }).partial().default({}), end: z.string().nullable().default(null) })).default([]) }));

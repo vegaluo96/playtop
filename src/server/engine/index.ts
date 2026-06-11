@@ -210,13 +210,24 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
     mu = Math.min(6, Math.max(0.05, mu));
   }
 
+  // ---------- 3b. AF 预测期望进球（存在时驱动比分矩阵：亚盘/大小球派生的根基） ----------
+  const afp = bundle.afPrediction ?? null;
+  const afExpValid = !!afp && afp.expGoalsHome !== null && afp.expGoalsAway !== null && afp.expGoalsHome > 0 && afp.expGoalsAway > 0;
+  if (afExpValid) {
+    lambda = Math.min(6, Math.max(0.05, afp!.expGoalsHome!));
+    mu = Math.min(6, Math.max(0.05, afp!.expGoalsAway!));
+    rho = params.rho;
+    if (fallbackLevel === 4) fallbackLevel = 3; // AF 期望进球可建矩阵，脱离纯退化
+    trace.push(`AF 预测期望进球驱动比分矩阵：λ=${lambda.toFixed(3)}，μ=${mu.toFixed(3)}`);
+  }
+
   let baseMatrix: number[][] | null = null;
   if (fallbackLevel < 4) {
     baseMatrix = dcScoreMatrix(lambda, mu, rho);
     dcProbs = matrixToThreeWay(baseMatrix);
     trace.push(
       `比分分布：λ=${lambda.toFixed(3)}，μ=${mu.toFixed(3)}，ρ=${rho.toFixed(3)}；` +
-        `DC 三向 主${fmtPct(dcProbs.home)}/平${fmtPct(dcProbs.draw)}/客${fmtPct(dcProbs.away)}`,
+        `三向 主${fmtPct(dcProbs.home)}/平${fmtPct(dcProbs.draw)}/客${fmtPct(dcProbs.away)}`,
     );
   }
 
@@ -235,20 +246,46 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
     trace.push("Elo 样本不足（任一队 <10 场），该模型缺席");
   }
 
-  // ---------- 5. 对数意见池集成 ----------
-  // 市场反推得到的 DC 不是独立信息源，集成时其权重并入市场，避免重复计票
+  // ---------- 5. 集成（AF 蒸馏主导；缺 AF 时回落自建模型链路） ----------
   const w = params.ensembleWeights;
-  const members = [
-    { probs: market?.devigged ?? null, weight: dcIsMarketDerived ? w.market + w.dc : w.market },
-    { probs: dcIsMarketDerived ? null : dcProbs, weight: w.dc },
-    { probs: elo?.probs ?? null, weight: w.elo },
-  ];
-  const pool = logOpinionPool(members);
-  const ensembleProbs = pool.probs;
-  trace.push(
-    `对数意见池集成（市场${pool.effectiveWeights[0].toFixed(2)}/DC${pool.effectiveWeights[1].toFixed(2)}/Elo${pool.effectiveWeights[2].toFixed(2)}）：` +
-      `主${fmtPct(ensembleProbs.home)}/平${fmtPct(ensembleProbs.draw)}/客${fmtPct(ensembleProbs.away)}`,
-  );
+  const afProbs = afp ? { home: afp.home, draw: afp.draw, away: afp.away } : null;
+  let ensembleProbs: ThreeWay;
+  let ensWeights: { market: number; dc: number; elo: number };
+  let afModel: EngineOutput["afModel"] = null;
+  if (afProbs) {
+    // AF 蒸馏（全量数据库）优于自建统计模型：AF 主导 + 市场共识做对照，自建 DC/Elo 让位
+    const pool = logOpinionPool([
+      { probs: afProbs, weight: params.afWeight },
+      { probs: market?.devigged ?? null, weight: 1 - params.afWeight },
+    ]);
+    ensembleProbs = pool.probs;
+    ensWeights = { market: pool.effectiveWeights[1], dc: 0, elo: 0 };
+    afModel = {
+      probs: afProbs,
+      expGoalsHome: afp!.expGoalsHome,
+      expGoalsAway: afp!.expGoalsAway,
+      advice: afp!.advice,
+      weight: pool.effectiveWeights[0],
+    };
+    trace.push(
+      `集成（AF 蒸馏${afModel.weight.toFixed(2)} + 市场共识${ensWeights.market.toFixed(2)}）：` +
+        `主${fmtPct(ensembleProbs.home)}/平${fmtPct(ensembleProbs.draw)}/客${fmtPct(ensembleProbs.away)}` +
+        (afp!.advice ? `；AF 建议「${afp!.advice}」（仅参考）` : ""),
+    );
+  } else {
+    // 无 AF 预测：回落对数意见池（市场/DC/Elo）
+    const pool = logOpinionPool([
+      { probs: market?.devigged ?? null, weight: dcIsMarketDerived ? w.market + w.dc : w.market },
+      { probs: dcIsMarketDerived ? null : dcProbs, weight: w.dc },
+      { probs: elo?.probs ?? null, weight: w.elo },
+    ]);
+    ensembleProbs = pool.probs;
+    ensWeights = { market: pool.effectiveWeights[0], dc: pool.effectiveWeights[1], elo: pool.effectiveWeights[2] };
+    trace.push(
+      `对数意见池集成（市场${ensWeights.market.toFixed(2)}/DC${ensWeights.dc.toFixed(2)}/Elo${ensWeights.elo.toFixed(2)}）：` +
+        `主${fmtPct(ensembleProbs.home)}/平${fmtPct(ensembleProbs.draw)}/客${fmtPct(ensembleProbs.away)}`,
+    );
+  }
 
   // ---------- 6. 最终比分矩阵与衍生市场 ----------
   const finalMatrix = baseMatrix ? rescaleMatrixTo1x2(baseMatrix, ensembleProbs) : null;
@@ -502,12 +539,9 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
         : null,
     elo,
     adjustments,
+    afModel,
     ensemble: {
-      weights: {
-        market: pool.effectiveWeights[0],
-        dc: pool.effectiveWeights[1],
-        elo: pool.effectiveWeights[2],
-      },
+      weights: ensWeights,
       probs: ensembleProbs,
     },
     markets: { ou: ouOut, ah: ahOut },

@@ -101,6 +101,8 @@ export const engineConfigSchema = z.object({
   shotsBlendTheta: z.number().min(0).max(1).default(0.35),
   /** xG 融合系数 θ_xg（近期 xG 推算期望进球与 DC 估计融合），0 关闭 */
   xgBlend: z.number().min(0).max(1).default(0.3),
+  /** AF 蒸馏预测权重 w_af：AF 用全量库蒸馏优于自建模型，存在时主导集成（市场做对照）。缺 AF 时自动回落自建链路 */
+  afWeight: z.number().min(0).max(1).default(0.7),
   kellyFraction: z.number().default(0.25),
   kellyCap: z.number().default(0.05),
   /** EV 超过该阈值才标记价值偏差/生成 pick */

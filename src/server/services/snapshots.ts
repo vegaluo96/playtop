@@ -155,6 +155,7 @@ export const KIND_LABELS: Record<SnapshotKind, string> = {
   referee: "裁判",
   soft_info: "软信息",
   external_ratings: "外部评级",
+  af_prediction: "AF 模型预测",
   manual_override: "手动覆盖",
 };
 

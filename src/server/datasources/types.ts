@@ -211,8 +211,19 @@ export const softInfoPayloadSchema = z.object({
   ),
 });
 
+/** AF /predictions：蒸馏 1X2 概率 + 期望进球（引擎主概率源） */
+export const afPredictionPayloadSchema = z.object({
+  home: z.number(),
+  draw: z.number(),
+  away: z.number(),
+  expGoalsHome: z.number().nullable(),
+  expGoalsAway: z.number().nullable(),
+  advice: z.string().nullable(),
+});
+
 export const PAYLOAD_SCHEMAS = {
   odds: oddsPayloadSchema,
+  af_prediction: afPredictionPayloadSchema,
   injuries: injuriesPayloadSchema,
   suspensions: suspensionsPayloadSchema,
   lineups: lineupsPayloadSchema,

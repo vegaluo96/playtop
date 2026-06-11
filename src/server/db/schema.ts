@@ -212,6 +212,7 @@ export const SNAPSHOT_KINDS = [
   "referee",
   "soft_info",
   "external_ratings",
+  "af_prediction",
   "manual_override",
 ] as const;
 export type SnapshotKind = (typeof SNAPSHOT_KINDS)[number];

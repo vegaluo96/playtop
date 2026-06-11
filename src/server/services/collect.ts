@@ -14,6 +14,7 @@ import {
   fetchAfLineups,
   fetchAfOdds,
   fetchAfSquad,
+  fetchAfPrediction,
   fetchAfStandings,
   fetchAfTeamForm,
   fetchAfTeamStats,
@@ -218,6 +219,16 @@ export async function collectMatch(
           home: { recent: hForm, summaryText: formText(hs, hs.formation, hForm) },
           away: { recent: aForm, summaryText: formText(as_, as_.formation, aForm) },
         });
+      }),
+    );
+    // AF 模型预测（引擎主概率源）：临场前 6h 刷新更勤，否则 6h TTL
+    if (force || hot || pre.get("af_prediction") === undefined || ageOf("af_prediction") >= 6 * H) networkTasks.push(
+      attempt("af_prediction", async () => {
+        const fx = await getAfFixture();
+        if (!fx) throw new Error("API-Football 未匹配到本场");
+        const pred = await withSource("api_football", () => fetchAfPrediction(fx.fixtureId));
+        if (!pred) throw new Error("AF 暂无本场预测");
+        insertSnapshot(matchId, "af_prediction", "api_football", pred);
       }),
     );
     // 主教练（权威，覆盖 AI 检索）：48h TTL

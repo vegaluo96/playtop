@@ -14,6 +14,7 @@ const params: EngineParams = {
   bookWeights: {},
   sharpBooks: ["Pinnacle"],
   xgBlend: 0.3,
+  afWeight: 0.7,
   kellyFraction: 0.25,
   kellyCap: 0.05,
   evThreshold: 0.03,

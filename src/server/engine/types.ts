@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ENGINE_MODEL_VERSION = "engine-1.3.0";
+export const ENGINE_MODEL_VERSION = "engine-2.0.0";
 
 /** 三向概率/赔率 */
 export const threeWaySchema = z.object({
@@ -77,6 +77,11 @@ export interface EngineParams {
    * xG 比进球更早反映实力（短期更稳）；0 = 关闭；缺 xG 数据时自动跳过。
    */
   xgBlend: number;
+  /**
+   * AF 预测权重 w_af∈[0,1]：AF 蒸馏概率在集成中的占比（与市场共识对数池融合）。
+   * 默认高（AF 优于自建模型）；缺 AF 预测时自动让位给自建模型链路。
+   */
+  afWeight: number;
   kellyFraction: number;
   kellyCap: number;
   evThreshold: number;
@@ -108,6 +113,18 @@ export interface EngineBundle {
   xg?: {
     home: { forAvg: number; againstAvg: number; n: number };
     away: { forAvg: number; againstAvg: number; n: number };
+  };
+  /**
+   * AF 蒸馏预测（/predictions）：1X2 概率 + 期望进球。引擎主概率源——
+   * AF 用全量数据库蒸馏，优于自建统计模型；存在时主导集成，期望进球驱动比分矩阵。
+   */
+  afPrediction?: {
+    home: number;
+    draw: number;
+    away: number;
+    expGoalsHome: number | null;
+    expGoalsAway: number | null;
+    advice: string | null;
   };
   oddsSeries?: NormalizedOdds[];
   injuries?: InjuryItem[];
@@ -176,6 +193,17 @@ export const engineOutputSchema = z.object({
       muFactor: z.number(),
     }),
   ),
+  /** AF 蒸馏预测（存在时为主概率源）；旧版输出无此字段 */
+  afModel: z
+    .object({
+      probs: threeWaySchema,
+      expGoalsHome: z.number().nullable(),
+      expGoalsAway: z.number().nullable(),
+      advice: z.string().nullable(),
+      weight: z.number(),
+    })
+    .nullable()
+    .default(null),
   ensemble: z.object({
     weights: z.object({ market: z.number(), dc: z.number(), elo: z.number() }),
     probs: threeWaySchema,

@@ -291,6 +291,20 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
             </tr>
           </thead>
           <tbody>
+            {engine.afModel && (
+              <tr className="border-t border-hairline font-semibold text-gold-bright">
+                <td className="py-1.5">
+                  AF 模型预测（全量库蒸馏）
+                  {engine.afModel.expGoalsHome !== null && (
+                    <span className="ml-1 text-[9px] font-normal text-faint">xG {engine.afModel.expGoalsHome.toFixed(1)}:{engine.afModel.expGoalsAway?.toFixed(1)}</span>
+                  )}
+                </td>
+                <td className="py-1.5 text-right">{pct(engine.afModel.probs.home)}</td>
+                <td className="py-1.5 text-right">{pct(engine.afModel.probs.draw)}</td>
+                <td className="py-1.5 text-right">{pct(engine.afModel.probs.away)}</td>
+                <td className="py-1.5 text-right">{pct(engine.afModel.weight)}</td>
+              </tr>
+            )}
             {engine.market?.books.map((b) => (
               <tr key={b.bookmaker} className="border-t border-hairline text-muted">
                 <td className="py-1.5">「{b.bookmaker}」Shin 去水（水位 {pct(b.overround)}）</td>

@@ -8,6 +8,7 @@ const base: EngineParams = {
   eloCalib: { b: 0.0044, c1: -0.45, c2: 0.55 },
   ensembleWeights: { market: 0.55, dc: 0.3, elo: 0.15 },
   bookWeights: {}, sharpBooks: ["Pinnacle"], xgBlend: 0.5,
+  afWeight: 0.7,
   kellyFraction: 0.25, kellyCap: 0.05, evThreshold: 0.03, minProbForPick: 0.3,
   adjustmentsEnabled: false, shotsBlendTheta: 0,
 };

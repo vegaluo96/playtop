@@ -16,6 +16,7 @@ import { getConfig } from "../lib/config";
 import { hashObject } from "../lib/hash";
 import { now } from "../lib/time";
 import {
+  afPredictionPayloadSchema,
   externalRatingsPayloadSchema,
   formPayloadSchema,
   h2hPayloadSchema,
@@ -61,6 +62,7 @@ export function engineParamsFromConfig(): EngineParams {
     bookWeights: cfg.bookWeights,
     sharpBooks: cfg.sharpBooks,
     xgBlend: cfg.xgBlend,
+    afWeight: cfg.afWeight,
     kellyFraction: cfg.kellyFraction,
     kellyCap: cfg.kellyCap,
     evThreshold: cfg.evThreshold,
@@ -155,6 +157,7 @@ export async function analyzeMatch(
   const snaps = latestSnapshots(matchId);
 
   const odds = snapshotPayload<NormalizedOdds>(snaps.get("odds"));
+  const afPrediction = snapshotPayload<z.infer<typeof afPredictionPayloadSchema>>(snaps.get("af_prediction")) ?? undefined;
   const formPayload = snapshotPayload<z.infer<typeof formPayloadSchema>>(snaps.get("form"));
   // 近期 xG 聚合（AF fixtures/statistics）：场均进攻 xG 与被创造 xG（防守失），喂引擎 xG 融合
   const xgAgg = (side: "home" | "away") => {
@@ -188,6 +191,7 @@ export async function analyzeMatch(
     books: latestOddsBooks(matchId),
     oddsSeries: oddsSeries(matchId),
     xg: xgHome && xgAway ? { home: xgHome, away: xgAway } : undefined,
+    afPrediction,
     injuries,
     weather: weather
       ? {
