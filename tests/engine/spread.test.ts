@@ -79,6 +79,46 @@ describe("价差监测：锐价真值锚 + 滞后偏离 + 失效指数", () => {
     expect(out.spread!.deviations.every((d) => d.bookmaker !== "参考盘")).toBe(true);
   });
 
+  it("亚盘/大小球全线对锚偏离：亚盘排最前，模拟盘排除", () => {
+    const out = runEngine(
+      bundleWith([
+        {
+          bookmaker: "Pinnacle",
+          oneXTwo: { home: 2.0, draw: 3.5, away: 4.0 },
+          ou: [{ line: 2.5, over: 1.95, under: 1.95 }],
+          ah: [{ line: -0.5, home: 1.95, away: 1.95 }],
+          capturedAt: T,
+        },
+        {
+          // 软盘：亚盘主队水位与大球水位都明显高于锐价口径 → 正偏离入榜
+          bookmaker: "慢盘甲",
+          oneXTwo: { home: 2.05, draw: 3.45, away: 3.95 },
+          ou: [{ line: 2.5, over: 2.15, under: 1.78 }],
+          ah: [{ line: -0.5, home: 2.12, away: 1.8 }],
+          capturedAt: T,
+        },
+      ]),
+      params,
+    );
+    const devs = out.spread!.deviations;
+    expect(devs.length).toBeGreaterThan(0);
+    // 展示顺序：亚盘 → 大小球 → 胜平负
+    const order = devs.map((d) => d.market);
+    expect(order[0]).toBe("ah");
+    const firstOu = order.indexOf("ou");
+    const first1x2 = order.indexOf("1x2");
+    if (firstOu !== -1 && first1x2 !== -1) expect(firstOu).toBeLessThan(first1x2);
+    // 亚盘主队让利方向被正确标出
+    const ahDev = devs.find((d) => d.market === "ah" && d.selection === "home")!;
+    expect(ahDev.bookmaker).toBe("慢盘甲");
+    expect(ahDev.line).toBe(-0.5);
+    expect(ahDev.deviationPct).toBeGreaterThan(0.05);
+    // 大小球大球方向同理
+    const ouDev = devs.find((d) => d.market === "ou" && d.selection === "over")!;
+    expect(ouDev.deviationPct).toBeGreaterThan(0.05);
+    expect(out.trace.some((t) => t.includes("亚盘") && t.includes("大小球"))).toBe(true);
+  });
+
   it("无盘口时 spread 为 null", () => {
     const out = runEngine(bundleWith([]), params);
     expect(out.spread).toBeNull();

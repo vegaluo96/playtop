@@ -147,7 +147,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
               </tr>
             </thead>
             <tbody>
-              {engine.spread.deviations.slice(0, 6).map((d, i) => (
+              {engine.spread.deviations.slice(0, 10).map((d, i) => (
                 <tr key={i} className="border-t border-hairline">
                   <td className="py-1.5">{d.bookmaker}</td>
                   <td className="py-1.5">{MARKET_LABEL[d.market]}·{selectionLabel(d.market, d.selection, d.line)}</td>

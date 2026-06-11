@@ -230,9 +230,9 @@ export const engineOutputSchema = z.object({
       deviations: z.array(
         z.object({
           bookmaker: z.string(),
-          market: z.enum(["1x2", "ah"]).default("1x2"),
+          market: z.enum(["1x2", "ah", "ou"]).default("1x2"),
           line: z.number().nullable().default(null),
-          selection: z.enum(["home", "draw", "away"]),
+          selection: z.enum(["home", "draw", "away", "over", "under"]),
           odds: z.number(),
           fairOdds: z.number(),
           /** 报价相对锚定公允价的偏离（正 = 高于公允 = 滞后让利方向） */

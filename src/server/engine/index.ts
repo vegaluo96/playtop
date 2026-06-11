@@ -348,33 +348,50 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
         }
       }
     }
-    // 亚盘主盘水位偏离：锐价该线两向去水做锚（玩家第一视角是让球盘）
-    const sharpRaw = books.filter((b) => sharpSet.has(b.bookmaker ?? "") && !b.indicative);
-    const sharpAh = sharpRaw.flatMap((b) => b.ah.map((a) => ({ ...a, bookmaker: b.bookmaker ?? "" })));
-    if (sharpAh.length > 0) {
-      // 主盘 = 锐价各线中两边水位最均衡的一条
-      const main = [...sharpAh].sort((a, b) => Math.abs(a.home - a.away) - Math.abs(b.home - b.away))[0];
-      const pHomeFair = twoWayDevig(main.home, main.away);
+    // 两向市场（亚盘全线 + 大小球全线）：锐价逐线两向去水做锚——赌盘玩家第一视角是亚盘
+    const sharpBooksRaw = books.filter((b) => sharpSet.has(b.bookmaker ?? "") && !b.indicative);
+    const twoWayDeviations = (mkt: "ah" | "ou") => {
+      // 锐价各线公允概率（同线多家锐价取平均）
+      const fairByLine = new Map<number, number[]>();
+      for (const b of sharpBooksRaw) {
+        const lines = mkt === "ah" ? b.ah.map((a) => ({ line: a.line, x: a.home, y: a.away })) : b.ou.map((o) => ({ line: o.line, x: o.over, y: o.under }));
+        for (const l of lines) fairByLine.set(l.line, [...(fairByLine.get(l.line) ?? []), twoWayDevig(l.x, l.y)]);
+      }
+      if (fairByLine.size === 0) return;
+      const sides = (mkt === "ah" ? ["home", "away"] : ["over", "under"]) as ("home" | "away" | "over" | "under")[];
       for (const b of books) {
-        if (b.indicative || (b.bookmaker ?? "") === main.bookmaker) continue;
-        const line = b.ah.find((a) => a.line === main.line);
-        if (!line) continue;
-        for (const side of ["home", "away"] as const) {
-          const fairOdds = 1 / (side === "home" ? pHomeFair : 1 - pHomeFair);
-          const deviationPct = line[side] / fairOdds - 1;
-          if (Math.abs(deviationPct) >= 0.01) {
-            deviations.push({ bookmaker: b.bookmaker ?? "未知来源", market: "ah", line: main.line, selection: side, odds: line[side], fairOdds, deviationPct });
+        if (b.indicative) continue;
+        const lines = mkt === "ah" ? b.ah : b.ou;
+        for (const l of lines) {
+          const samples = fairByLine.get(l.line);
+          if (!samples) continue;
+          const pFirst = samples.reduce((a, x) => a + x, 0) / samples.length; // P(主赢盘) / P(大球)
+          for (const side of sides) {
+            const isFirst = side === "home" || side === "over";
+            const fairOdds = 1 / (isFirst ? pFirst : 1 - pFirst);
+            const odds = (l as Record<string, number>)[side];
+            const deviationPct = odds / fairOdds - 1;
+            if (Math.abs(deviationPct) >= 0.01) {
+              deviations.push({ bookmaker: b.bookmaker ?? "未知来源", market: mkt, line: l.line, selection: side as "home" | "draw" | "away" | "over" | "under", odds, fairOdds, deviationPct });
+            }
           }
         }
       }
-    }
-    deviations.sort((a, b) => b.deviationPct - a.deviationPct);
-    const top = deviations.slice(0, 8);
+    };
+    twoWayDeviations("ah");
+    twoWayDeviations("ou");
+    // 展示顺序：亚盘 → 大小球 → 胜平负（玩家优先级），各市场内按让利幅度降序、限量防刷屏
+    const MKT_ORDER: Record<string, number> = { ah: 0, ou: 1, "1x2": 2 };
+    const MKT_CAP: Record<string, number> = { ah: 5, ou: 4, "1x2": 4 };
+    deviations.sort((a, b) => MKT_ORDER[a.market] - MKT_ORDER[b.market] || b.deviationPct - a.deviationPct);
+    const counts: Record<string, number> = {};
+    const top = deviations.filter((d) => (counts[d.market] = (counts[d.market] ?? 0) + 1) <= MKT_CAP[d.market]).slice(0, 12);
     const inefficiencyIndex = best1x2 ? 1 / best1x2.home.odds + 1 / best1x2.draw.odds + 1 / best1x2.away.odds : null;
     spread = { anchor: { source: anchorSource, books: anchorBooks, probs: anchorProbs }, deviations: top, inefficiencyIndex };
+    const nBy = (m: string) => deviations.filter((d) => d.market === m).length;
     trace.push(
       `价差监测：真值锚=${anchorSource === "sharp" ? `锐价（${anchorBooks.join("、")}）` : "加权共识"}，` +
-        `偏离≥1% 的报价 ${deviations.length} 项` +
+        `偏离≥1% 的报价 ${deviations.length} 项（亚盘 ${nBy("ah")} / 大小球 ${nBy("ou")} / 胜平负 ${nBy("1x2")}）` +
         (inefficiencyIndex !== null ? `，跨家组合隐含概率 ${fmtPct(inefficiencyIndex)}${inefficiencyIndex < 1 ? "（出现定价失效现象）" : ""}` : ""),
     );
   }
