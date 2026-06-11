@@ -338,8 +338,9 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
       anchorBooks = bookDevigs.map((b) => b.bookmaker);
     }
     const deviations: NonNullable<EngineOutput["spread"]>["deviations"] = [];
+    // 锚自身（锐价书商）不进偏离榜——锚对自己恒为微小负偏离（水位），是噪音不是信号
     for (const b of books) {
-      if (!b.oneXTwo || b.indicative) continue;
+      if (!b.oneXTwo || b.indicative || (anchorSource === "sharp" && sharpSet.has(b.bookmaker ?? ""))) continue;
       for (const sel of ["home", "draw", "away"] as const) {
         const fairOdds = 1 / anchorProbs[sel];
         const deviationPct = b.oneXTwo[sel] / fairOdds - 1;
@@ -360,7 +361,7 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
       if (fairByLine.size === 0) return;
       const sides = (mkt === "ah" ? ["home", "away"] : ["over", "under"]) as ("home" | "away" | "over" | "under")[];
       for (const b of books) {
-        if (b.indicative) continue;
+        if (b.indicative || sharpSet.has(b.bookmaker ?? "")) continue;
         const lines = mkt === "ah" ? b.ah : b.ou;
         for (const l of lines) {
           const samples = fairByLine.get(l.line);

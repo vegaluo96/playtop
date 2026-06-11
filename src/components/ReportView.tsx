@@ -21,11 +21,13 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
   // 更新可见性：最近更新时间 + 较上版变化（派生自版本历史，零存储）
   const updatedAt = view.publishedAt ?? engine.computedAt;
   const delta = view.versions.length >= 2 ? versionDelta(view.versions[0], view.versions[1]) : null;
-  // 亚盘主盘看板（玩家第一视角）：模型赢盘概率最接近五五开的让球线 + 跨家最优水位
+  // 亚盘主盘看板（玩家第一视角）：有亚盘观点时与观点同线（避免"观点一条线、看板另一条线"的表观冲突），
+  // 否则取模型赢盘概率最接近五五开的让球线 + 跨家最优水位
   const ahHome = engine.value.filter((v) => v.market === "ah" && v.selection === "home");
-  const mainAh = ahHome.length
-    ? ahHome.reduce((b, v) => (Math.abs(v.modelProb - 0.5) < Math.abs(b.modelProb - 0.5) ? v : b))
-    : null;
+  const ahPick = engine.picks.find((p) => p.market === "ah" && p.line !== null);
+  const mainAh =
+    (ahPick ? ahHome.find((v) => v.line === ahPick.line) : undefined) ??
+    (ahHome.length ? ahHome.reduce((b, v) => (Math.abs(v.modelProb - 0.5) < Math.abs(b.modelProb - 0.5) ? v : b)) : null);
   const mainAhAway = mainAh ? engine.value.find((v) => v.market === "ah" && v.line === mainAh.line && v.selection === "away") : null;
 
   return (
@@ -269,7 +271,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
             ))}
             {engine.market && (
               <tr className="border-t border-hairline">
-                <td className="py-1.5">市场共识（{engine.market.books.length > 1 ? `${engine.market.books.length} 家中位数` : "Shin 去水"}）</td>
+                <td className="py-1.5">市场加权共识（{engine.market.books.length > 1 ? `${engine.market.books.length} 家` : "Shin 去水"}）</td>
                 <td className="py-1.5 text-right">{pct(engine.market.devigged.home)}</td>
                 <td className="py-1.5 text-right">{pct(engine.market.devigged.draw)}</td>
                 <td className="py-1.5 text-right">{pct(engine.market.devigged.away)}</td>

@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { runMigrations } from "@/server/db/migrate";
 import { createManualMatch } from "@/server/services/matchesService";
@@ -48,5 +48,32 @@ describe("盘口快照：多书商并存与去重", () => {
     const books = latestOddsBooks(matchId);
     const b365 = books.find((b) => b.bookmaker === "bet365")!;
     expect(b365.oneXTwo!.home).toBe(1.6); // 取到改价后的最新
+  });
+});
+
+describe("盘口一致性窗口：死源残留剔除", () => {
+  afterAll(() => {
+    delete process.env.FAKE_NOW;
+  });
+
+  it("某家最新快照比全场最新旧 6h+ → 不再进入各家最新口径", () => {
+    const T0 = Date.now();
+    process.env.FAKE_NOW = String(T0);
+    const id = createManualMatch({
+      leagueCode: "WC2026",
+      homeName: "Ghana",
+      awayName: "Uruguay",
+      kickoffAt: T0 + 86_400_000,
+      neutral: true,
+    });
+    insertSnapshot(id, "odds", "manual", odds("已停更源", 2.4, T0));
+    insertSnapshot(id, "odds", "manual", odds("bet365", 2.0, T0));
+    expect(latestOddsBooks(id).map((b) => b.bookmaker).sort()).toEqual(["bet365", "已停更源"]);
+    // 7 小时后只有 bet365 更新了 → 停更源被一致性窗口剔除
+    process.env.FAKE_NOW = String(T0 + 7 * 3_600_000);
+    insertSnapshot(id, "odds", "manual", odds("bet365", 1.9, T0 + 7 * 3_600_000));
+    const books = latestOddsBooks(id);
+    expect(books.map((b) => b.bookmaker)).toEqual(["bet365"]);
+    expect(books[0].oneXTwo!.home).toBe(1.9);
   });
 });

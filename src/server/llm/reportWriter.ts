@@ -109,7 +109,7 @@ export function qualitativePhrases(ctx: ReportContext): string[] {
     const dir = diff > 0.03 ? "明显高于" : diff > 0.01 ? "略高于" : diff < -0.03 ? "明显低于" : diff < -0.01 ? "略低于" : "基本贴合";
     phrases.push(`模型对主胜的评估${dir}市场去水定价`);
     if (e.market.books.length > 1) {
-      phrases.push(`市场参照覆盖 ${e.market.books.length} 家盘口来源（${e.market.books.map((b) => b.bookmaker).join("、")}），共识取各家去水中位数`);
+      phrases.push(`市场参照覆盖 ${e.market.books.length} 家盘口来源（${e.market.books.map((b) => b.bookmaker).join("、")}），共识为各家去水后的因子加权平均`);
     }
   } else {
     phrases.push("本场缺乏盘口数据，结论基于纯模型概率，置信度相应下调");
@@ -228,7 +228,7 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   L.push("");
   L.push(`- 集成概率：主胜 **${pct(e.ensemble.probs.home)}** / 平局 **${pct(e.ensemble.probs.draw)}** / 客胜 **${pct(e.ensemble.probs.away)}**`);
   if (e.market) {
-    const label = e.market.books.length > 1 ? `市场共识（${e.market.books.length} 家 Shin 去水中位数）` : "市场去水（Shin）";
+    const label = e.market.books.length > 1 ? `市场加权共识（${e.market.books.length} 家 Shin 去水）` : "市场去水（Shin）";
     L.push(
       `- ${label}：主 ${pct(e.market.devigged.home)} / 平 ${pct(e.market.devigged.draw)} / 客 ${pct(e.market.devigged.away)}（主参考家水位 ${pct(e.market.overround)}）`,
     );

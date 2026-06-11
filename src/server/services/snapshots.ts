@@ -104,7 +104,16 @@ export function oddsSeries(matchId: number): NormalizedOdds[] {
   return rows.map((r) => normalizedOddsSchema.parse(JSON.parse(r.payload)));
 }
 
-/** 每家书商各自最新的一份 odds 快照（按书商名排序保证确定性） */
+/**
+ * 盘口一致性窗口：某家书商的"最新"快照若比全场最新一份旧 6 小时以上，
+ * 或绝对年龄超过 48 小时，视为停更死源残留——剔出引擎/最优价/收盘/展示口径。
+ * 否则已退役源的旧价会与临场新价同台：污染共识与 EV、把"停更"误报成"让利"。
+ * 静默期（全场盘口同批采集）天然同窗，不受影响。
+ */
+const BOOK_COHERENCE_MS = 6 * 3_600_000;
+const BOOK_ABSOLUTE_STALE_MS = 48 * 3_600_000;
+
+/** 每家书商各自最新的一份 odds 快照（按书商名排序保证确定性；含一致性窗口过滤） */
 export function latestOddsBookRows(matchId: number): { bookmaker: string; row: SnapshotRow }[] {
   const rows = db
     .select()
@@ -117,7 +126,10 @@ export function latestOddsBookRows(matchId: number): { bookmaker: string; row: S
     const bm = (JSON.parse(r.payload) as { bookmaker?: string }).bookmaker ?? r.source;
     map.set(bm, r); // 升序遍历，后者覆盖 → 每家最新
   }
-  return [...map.entries()]
+  const entries = [...map.entries()];
+  const newest = Math.max(...entries.map(([, row]) => row.fetchedAt), 0);
+  return entries
+    .filter(([, row]) => newest - row.fetchedAt <= BOOK_COHERENCE_MS && now() - row.fetchedAt <= BOOK_ABSOLUTE_STALE_MS)
     .map(([bookmaker, row]) => ({ bookmaker, row }))
     .sort((a, b) => a.bookmaker.localeCompare(b.bookmaker));
 }
