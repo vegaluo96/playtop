@@ -185,6 +185,8 @@ export interface MatchDetailView {
   versions: VersionInfo[];
   snapshots: SnapshotStats;
   hoursBeforeKickoffPublished: number | null;
+  /** 最低可接受赔率安全垫（决策卡渲染边界线用） */
+  boundaryMargin: number;
 }
 
 export function getMatchDetail(matchId: number, userId: number | null, isAdmin = false): MatchDetailView | null {
@@ -256,6 +258,7 @@ export function getMatchDetail(matchId: number, userId: number | null, isAdmin =
     hoursBeforeKickoffPublished: firstPublished?.publishedAt
       ? (card.kickoffAt - firstPublished.publishedAt) / 3_600_000
       : null,
+    boundaryMargin: getConfig("engine").boundaryMargin,
   };
 }
 

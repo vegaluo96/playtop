@@ -1,3 +1,4 @@
+import { minAcceptableOdds } from "@/server/engine/boundary";
 import type { EngineOutput } from "@/server/engine/types";
 import type { LlmSections } from "@/server/llm/reportWriter";
 import { ratingStars, selectionLabel } from "@/server/llm/reportWriter";
@@ -5,9 +6,9 @@ import type { MatchDetailView } from "@/server/services/views";
 import { Collapse, MARKET_LABEL, ProbBar, SectionTitle, Tag, fmtCn, pct } from "./ui";
 
 /**
- * 投行风格研报正文（解锁/公开态）。
- * 信息分层：结论与人话内容直接展示；模型明细全部收进"专业附录"折叠区，
- * 普通用户三屏读完结论，进阶用户展开可查证每一个数字。
+ * 玩家视角的研报正文（解锁/公开态）。
+ * 决策卡 10 秒回答三个问题：买什么方向、什么价以下不要、可信度多高；
+ * 论据按重要性下沉，模型明细全部收进"专业附录"折叠区供查证。
  */
 export default function ReportView({ view }: { view: MatchDetailView }) {
   const engine = view.engine as EngineOutput;
@@ -19,62 +20,67 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
 
   return (
     <div className="pb-8">
-      {/* 摘要卡：星级 + 结论 + 三向概率 + 观点表，一屏看懂 */}
+      {/* 决策卡：方向 + 边界线 + 评级 + 一句话论点，10 秒看懂 */}
       <div className="card mt-4 p-4">
         <div className="flex items-center justify-between">
           <span className="font-display text-lg tracking-wide text-gold-bright">{stars}</span>
           <Tag tone="gold">第 {view.card.version} 版</Tag>
         </div>
-        <div className="mt-1 text-[13px] text-ink">{verdict}</div>
-        <div className="mt-4">
-          <ProbBar home={engine.ensemble.probs.home} draw={engine.ensemble.probs.draw} away={engine.ensemble.probs.away} />
-        </div>
         {engine.picks.length > 0 ? (
           <>
+            <div className="mt-1 text-[15px] font-semibold tracking-wide text-ink">{verdict}</div>
+            <p className="mt-2 border-l-2 border-gold/50 pl-3 text-[12px] leading-6 text-ink/85">{sections.thesis}</p>
             <table className="tabular mt-4 w-full text-[11px]">
               <thead>
                 <tr className="text-left text-[10px] tracking-wider text-faint">
                   <th className="pb-1 font-normal">观点</th>
-                  <th className="pb-1 text-right font-normal">模型概率</th>
-                  <th className="pb-1 text-right font-normal">最优赔率</th>
-                  <th className="pb-1 text-right font-normal">出处</th>
-                  <th className="pb-1 text-right font-normal">期望收益</th>
-                  <th className="pb-1 text-right font-normal">建议仓位</th>
+                  <th className="pb-1 text-right font-normal">参考赔率</th>
+                  <th className="pb-1 text-right font-normal">最低可接受</th>
+                  <th className="pb-1 text-right font-normal">模拟单位</th>
                   <th className="pb-1 text-right font-normal">信心</th>
                 </tr>
               </thead>
               <tbody>
-                {engine.picks.map((p, i) => (
-                  <tr key={i} className="border-t border-hairline">
-                    <td className="py-1.5 text-ink">
-                      {MARKET_LABEL[p.market]}·{selectionLabel(p.market, p.selection, p.line)}
-                    </td>
-                    <td className="py-1.5 text-right">{pct(p.modelProb)}</td>
-                    <td className="py-1.5 text-right">{odds2(p.odds)}</td>
-                    <td className="py-1.5 text-right text-muted">{p.bookmaker ?? "—"}</td>
-                    <td className={`py-1.5 text-right ${p.ev !== null && p.ev > 0 ? "text-up" : "text-muted"}`}>
-                      {p.ev === null ? "—" : `${p.ev >= 0 ? "+" : ""}${pct(p.ev)}`}
-                    </td>
-                    <td className="py-1.5 text-right">{p.kelly ? pct(p.kelly) : "—"}</td>
-                    <td className="py-1.5 text-right text-gold-bright">{p.confidence}</td>
-                  </tr>
-                ))}
+                {engine.picks.map((p, i) => {
+                  const boundary = minAcceptableOdds(p.modelProb, view.boundaryMargin);
+                  return (
+                    <tr key={i} className="border-t border-hairline">
+                      <td className="py-1.5 text-ink">
+                        {MARKET_LABEL[p.market]}·{selectionLabel(p.market, p.selection, p.line)}
+                      </td>
+                      <td className="py-1.5 text-right">
+                        {odds2(p.odds)}
+                        {p.bookmaker && <span className="ml-1 text-[9px] text-faint">{p.bookmaker}</span>}
+                      </td>
+                      <td className="py-1.5 text-right font-semibold text-gold-bright">{boundary > 0 ? boundary.toFixed(2) : "—"}</td>
+                      <td className="py-1.5 text-right">{p.kelly ? pct(p.kelly) : "—"}</td>
+                      <td className="py-1.5 text-right text-gold-bright">{p.confidence}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             <p className="mt-2 text-[10px] leading-4 text-faint">
-              期望收益：按模型概率计算的每注理论盈亏（正值代表模型认为该价格偏高）；建议仓位：¼ Kelly
-              公式给出的资金占比（上限 5%），仅为风险刻度、非投注建议。
+              <b className="text-ink">最低可接受赔率</b>：本观点的价格边界——你看到的实际价格低于该值时，观点即失去参考价值
+              （开赛锁定时若收盘价低于边界，按观望处理、不计入战绩）。模拟单位：¼ Kelly 风险刻度（上限
+              5%），仅为风险量化展示。
             </p>
+            <div className="mt-3">
+              <ProbBar home={engine.ensemble.probs.home} draw={engine.ensemble.probs.draw} away={engine.ensemble.probs.away} />
+            </div>
           </>
         ) : (
-          <div className="mt-3 rounded border border-hairline bg-overlay/50 px-3 py-2 text-[11px] text-muted">
-            本场结论：<b className="text-ink">观望</b>——模型认为当前所有价格都不值得参与（观望场次不计入战绩分母）。
-          </div>
+          <>
+            <div className="mt-3 rounded border border-hairline bg-overlay/50 px-3 py-2 text-[11px] text-muted">
+              本场结论：<b className="text-ink">观望</b>——模型认为当前所有价格都不值得参与（观望场次不计入战绩分母）。
+            </div>
+            <p className="mt-2 border-l-2 border-hairline pl-3 text-[12px] leading-6 text-ink/85">{sections.thesis}</p>
+            <div className="mt-3">
+              <ProbBar home={engine.ensemble.probs.home} draw={engine.ensemble.probs.draw} away={engine.ensemble.probs.away} />
+            </div>
+          </>
         )}
       </div>
-
-      <SectionTitle index={idx()}>核心论点</SectionTitle>
-      <p className="report-prose border-l-2 border-gold/50 pl-3 text-[13px] leading-7 text-ink/90">{sections.thesis}</p>
 
       <SectionTitle index={idx()}>关键驱动因素</SectionTitle>
       <ul className="space-y-2 text-[12.5px] leading-6 text-ink/85">
@@ -300,7 +306,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
       )}
 
       {engine.value.length > 0 && (
-        <Collapse title="价值扫描全表" hint="所有点位的期望收益与仓位">
+        <Collapse title="价值扫描全表" hint="所有可评估点位的期望收益与模拟单位">
           <table className="tabular w-full text-[11px]">
             <thead>
               <tr className="text-left text-[10px] tracking-wider text-faint">
@@ -308,7 +314,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
                 <th className="pb-1 text-right font-normal">赔率</th>
                 <th className="pb-1 text-right font-normal">模型概率</th>
                 <th className="pb-1 text-right font-normal">期望收益</th>
-                <th className="pb-1 text-right font-normal">仓位</th>
+                <th className="pb-1 text-right font-normal">模拟单位</th>
               </tr>
             </thead>
             <tbody>

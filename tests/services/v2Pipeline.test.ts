@@ -32,9 +32,9 @@ beforeAll(async () => {
   runMigrations();
   seedProviders();
   // 测试无历史库 → 模型≈市场 → EV 全为负水位。放开阈值强制产出观点（确定性），
-  // 以便验证结算/ROI/Brier 全链路。
+  // 以便验证结算/ROI/Brier 全链路；负 EV 观点的收盘价必然低于边界线，故关闭边界（margin=0）。
   const { setConfig } = await import("@/server/lib/config");
-  setConfig("engine", { evThreshold: -1, minProbForPick: 0 });
+  setConfig("engine", { evThreshold: -1, minProbForPick: 0, boundaryMargin: 0 });
 });
 
 afterAll(() => {

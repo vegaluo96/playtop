@@ -29,7 +29,7 @@ export default function MatchCardRow({ card }: { card: MatchCard }) {
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Tag tone={s.tone}>{s.text}</Tag>
-            {card.stars && <Tag tone="gold">{card.stars}</Tag>}
+            {card.stars && <Tag tone={card.stars === "观望" ? "default" : "gold"}>{card.stars}</Tag>}
           </div>
         </div>
         <div className="ml-3 shrink-0 text-right">

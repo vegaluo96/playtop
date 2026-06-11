@@ -145,13 +145,13 @@ function LockedTeaser({
         <div className="relative mt-4 space-y-3 overflow-hidden">
           {/* 模糊骨架：让用户看到报告的结构与体量，但读不到数字 */}
           {[
-            "摘要 · 三向概率与研究观点",
-            "核心论点",
+            "赛前观点 · 方向与评级",
+            "最低可接受赔率（价格边界线）",
+            "核心论点 · 三向概率",
             "关键驱动因素",
             "模型结果（市场去水 / Dixon-Coles / Elo / 集成）",
             "比分分布 · 衍生市场（大小球 / 亚盘）",
-            "价值扫描与 ¼ Kelly 仓位",
-            "盘口异动追踪",
+            "价值扫描与模拟单位（风险刻度）",
             `数据基础（${view.snapshots.total} 份快照 · ${view.snapshots.perKind.length} 个维度）`,
             "风险提示 · 版本演化 · 审计轨迹",
           ].map((t, i) => (
@@ -173,16 +173,18 @@ function LockedTeaser({
         <li className="flex gap-2">
           <span className="text-gold">▸</span>
           <span>
-            确定性量化引擎（Dixon-Coles / Elo / Shin 去水 / 对数意见池），方法全部来自经同行评审的学术文献，AI 只负责措辞、不产生任何数字。
+            方向 + 价格边界：每条观点都给出<b className="text-ink">最低可接受赔率</b>——拿你看到的实际价格一对照，低于边界即失去参考价值，判断只需十秒。
           </span>
         </li>
         <li className="flex gap-2">
           <span className="text-gold">▸</span>
-          <span>赛前持续采集 {view.snapshots.perKind.length} 个维度数据并实时改版——你看到的永远是最新一版。</span>
+          <span>
+            确定性量化引擎（Dixon-Coles / Elo / Shin 去水 / 对数意见池），方法全部来自经同行评审的学术文献，AI 只负责措辞、不产生任何数字；赛前持续采集 {view.snapshots.perKind.length} 个维度数据并实时改版。
+          </span>
         </li>
         <li className="flex gap-2">
           <span className="text-gold">▸</span>
-          <span>所有报告赛后免费公开 + 哈希链存证，战绩页可查全部历史命中与 ROI——我们无法美化过去。</span>
+          <span>所有报告赛后免费公开 + 哈希链存证，战绩页可查全部历史命中、ROI 与收盘价值——我们无法美化过去，观望也计入档案。</span>
         </li>
       </ul>
     </div>

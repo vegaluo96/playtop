@@ -118,6 +118,12 @@ export const engineConfigSchema = z.object({
   evThreshold: z.number().default(0.03),
   /** pick 的最低模型概率（太小概率的"价值"多为噪声） */
   minProbForPick: z.number().default(0.3),
+  /**
+   * 最低可接受赔率安全垫：边界价 = margin / 模型概率。
+   * 观点发布时印出这条静态边界线（玩家拿自己平台的实时价自行对照）；
+   * 开赛锁定时收盘价低于边界 → 该观点按观望处理不进战绩。0 = 关闭边界机制。
+   */
+  boundaryMargin: z.number().min(0).default(1.02),
   adjustmentsEnabled: z.boolean().default(true),
 });
 export type EngineConfig = z.infer<typeof engineConfigSchema>;

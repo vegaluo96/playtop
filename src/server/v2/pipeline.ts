@@ -271,6 +271,9 @@ export function recordSettlements(matchId: number, outcome: { homeGoals: number;
   const preds = db.select().from(predictions).where(eq(predictions.matchId, matchId)).all();
   let count = 0;
   for (const pick of engine.picks) {
+    // 与 V1 账本同口径：锁定时未落 predictions 的观点（边界失效/未发布）按观望处理，不进结算
+    const pred = preds.find((x) => x.market === pick.market && x.selection === pick.selection && x.line === pick.line);
+    if (!pred) continue;
     let result: "win" | "lose" | "push" | "void" | "half_win" | "half_lose";
     if (pick.market === "1x2") {
       const r = settle1x2(outcome.homeGoals, outcome.awayGoals, pick.selection);
@@ -282,8 +285,7 @@ export function recordSettlements(matchId: number, outcome: { homeGoals: number;
       result = settleAhDetailed(margin, pick.line ?? 0, pick.selection as "home" | "away");
     }
     const roi = pick.odds !== null ? ROI[result](pick.odds) : null;
-    const pred = preds.find((x) => x.market === pick.market && x.selection === pick.selection && x.line === pick.line);
-    const clv = pick.odds !== null && pred?.closingOdds ? pick.odds / pred.closingOdds - 1 : null;
+    const clv = pick.odds !== null && pred.closingOdds ? pick.odds / pred.closingOdds - 1 : null;
     const body = {
       matchId,
       reportLockId: lock?.id ?? null,

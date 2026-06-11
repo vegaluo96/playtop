@@ -39,6 +39,12 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
         ))}
       </div>
 
+      <p className="mt-3 text-[10.5px] leading-5 text-faint">
+        <b className="text-ink">怎么读这三个数</b>：平注 ROI 是每注 1 单位的真实盈亏；命中率短期受运气影响大；
+        <b className="text-ink">收盘价值（CLV）</b>是我们锁定的价格相对收盘价的平均优势——长期为正说明判断持续快于市场，
+        这是衡量长期能力最硬的指标。
+      </p>
+
       <div className="mt-3 grid grid-cols-1 gap-2">
         {overview.map((m) => (
           <div key={m.market} className="card px-3.5 py-3">
@@ -48,6 +54,12 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
             </div>
             {m.hitRate !== null ? (
               <div className="tabular mt-2 grid grid-cols-4 gap-2 text-center">
+                <div>
+                  <div className={`text-lg font-semibold ${m.roi !== null && m.roi >= 0 ? "text-up" : "text-down"}`}>
+                    {m.roi === null ? "—" : `${m.roi >= 0 ? "+" : ""}${pct(m.roi)}`}
+                  </div>
+                  <div className="text-[9px] tracking-wider text-faint">平注 ROI</div>
+                </div>
                 <div>
                   <div className="text-lg font-semibold text-gold-bright">{pct(m.hitRate)}</div>
                   <div className="text-[9px] tracking-wider text-faint">命中率</div>
@@ -60,16 +72,10 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
                   <div className="text-[9px] tracking-wider text-faint">胜-负{m.pushes > 0 ? "-走" : ""}</div>
                 </div>
                 <div>
-                  <div className={`text-lg font-semibold ${m.roi !== null && m.roi >= 0 ? "text-up" : "text-down"}`}>
-                    {m.roi === null ? "—" : `${m.roi >= 0 ? "+" : ""}${pct(m.roi)}`}
-                  </div>
-                  <div className="text-[9px] tracking-wider text-faint">平注 ROI</div>
-                </div>
-                <div>
                   <div className={`text-lg font-semibold ${m.avgClv !== null && m.avgClv >= 0 ? "text-up" : "text-muted"}`}>
                     {m.avgClv === null ? "—" : `${m.avgClv >= 0 ? "+" : ""}${pct(m.avgClv)}`}
                   </div>
-                  <div className="text-[9px] tracking-wider text-faint">收盘价值</div>
+                  <div className="text-[9px] tracking-wider text-faint">收盘价值 CLV</div>
                 </div>
               </div>
             ) : (
@@ -131,7 +137,8 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
                   </div>
                   <div className="tabular mt-0.5 text-[11px] text-muted">
                     {MARKET_LABEL[r.market]}·{selectionLabel(r.market, r.selection, r.line)}
-                    {r.oddsAtPublish ? ` @${r.oddsAtPublish.toFixed(2)}` : ""}（模型 {pct(r.modelProb)}）
+                    {r.oddsAtPublish ? ` @${r.oddsAtPublish.toFixed(2)}` : ""}
+                    {r.closingOdds ? ` → 收盘 ${r.closingOdds.toFixed(2)}` : ""}（模型 {pct(r.modelProb)}）
                   </div>
                 </div>
                 <div className="ml-3 shrink-0 text-right">
@@ -154,7 +161,8 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
       <div className="card mt-6 px-3.5 py-3 text-[10.5px] leading-5 text-muted">
         <b className="text-ink">统计口径（公开承诺）：</b>
         ① 预测在开赛瞬间锁定为终版并写入哈希链，赛后不可修改；② 观望场次不进入分母；③ 亚盘赢半计命中、输半计未中、整体走水不计分母，ROI
-        按真实拆腿规则逐注计算；④ CLV 为锁定赔率相对收盘赔率的平均偏差；⑤ 比赛腰斩/延期作废退款、不计战绩。
+        按真实拆腿规则逐注计算；④ CLV 为锁定赔率相对收盘赔率的平均偏差；⑤ 比赛腰斩/延期作废退款、不计战绩；⑥
+        开赛锁定时若收盘价已低于该观点的最低可接受赔率，该观点按观望处理、不计入胜负与 ROI（审计日志可查）。
       </div>
     </div>
   );

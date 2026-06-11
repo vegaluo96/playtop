@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { minAcceptableOdds } from "../engine/boundary";
 import type { EngineOutput } from "../engine/types";
 import { chatCompletion, LlmUnavailableError } from "./apiyi";
 import { buildWhitelist, findViolations } from "./numberGuard";
@@ -38,6 +39,8 @@ export interface ReportContext {
   /** 事实清单：伤停/近况/排名/天气/软信息等文字事实（数字白名单来源） */
   facts: string[];
   totalSnapshotCount: number;
+  /** 最低可接受赔率安全垫（engine.boundaryMargin；缺省 1.02） */
+  boundaryMargin?: number;
 }
 
 export const llmSectionsSchema = z.object({
@@ -242,16 +245,21 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
     L.push("");
   }
   if (e.picks.length > 0) {
-    L.push(`- 研究观点：`);
+    L.push(`- 赛前观点：`);
     for (const p of e.picks) {
+      const boundary = minAcceptableOdds(p.modelProb, ctx.boundaryMargin ?? 1.02);
       L.push(
         `  - ${MARKET_LABEL[p.market]}「${selectionLabel(p.market, p.selection, p.line)}」` +
-          `模型概率 ${pct(p.modelProb)}${p.odds ? `，赔率 ${fmtOdds(p.odds)}${p.bookmaker ? `（${p.bookmaker}）` : ""}` : ""}${p.ev !== null ? `，EV ${pct(p.ev)}` : ""}` +
-          `${p.kelly ? `，建议仓位（¼ Kelly）${pct(p.kelly)}` : ""}，置信 ${p.confidence}`,
+          `模型概率 ${pct(p.modelProb)}${p.odds ? `，参考赔率 ${fmtOdds(p.odds)}${p.bookmaker ? `（${p.bookmaker}）` : ""}` : ""}` +
+          `${boundary > 0 ? `，**最低可接受赔率 ${fmtOdds(boundary)}**` : ""}${p.ev !== null ? `，EV ${pct(p.ev)}` : ""}` +
+          `${p.kelly ? `，模拟单位（¼ Kelly 风险刻度）${pct(p.kelly)}` : ""}，置信 ${p.confidence}`,
       );
     }
+    L.push(
+      `- 最低可接受赔率是本观点的价格边界：你看到的实际价格低于该值时，本观点即失去参考价值（开赛锁定时若收盘价低于边界，该观点按观望处理、不计入战绩）。`,
+    );
   } else {
-    L.push(`- 研究观点：**观望**——所有点位期望值不足以覆盖水位成本（观望场次不计入战绩分母）。`);
+    L.push(`- 赛前观点：**观望**——所有点位期望值不足以覆盖水位成本（观望场次不计入战绩分母）。`);
   }
   L.push("");
   L.push("## 二、核心论点");
@@ -322,9 +330,9 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   }
   const valuable = e.value.filter((v) => v.ev >= 0.0);
   if (e.value.length > 0) {
-    L.push("## 六、价值扫描与仓位（¼ Kelly，上限 5%）");
+    L.push("## 六、价值扫描与模拟单位（¼ Kelly 风险刻度，上限 5%）");
     L.push("");
-    L.push("| 玩法 | 点位 | 最优赔率 | 出处 | 模型概率 | 期望值 EV | 建议仓位 |");
+    L.push("| 玩法 | 点位 | 最优赔率 | 出处 | 模型概率 | 期望值 EV | 模拟单位 |");
     L.push("|---|---|---|---|---|---|---|");
     for (const v of [...e.value].sort((a, b) => b.ev - a.ev).slice(0, 8)) {
       L.push(

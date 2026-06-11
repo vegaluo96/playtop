@@ -110,6 +110,45 @@ export function recordOverview(periodDays: number | null): MarketRecord[] {
   return out;
 }
 
+/** 首页信任条：跨市场聚合的近 N 天战绩（玩家第一眼要看的可信度证据） */
+export interface RecordSummary {
+  /** 已判定观点数（胜+负，不含走水） */
+  decisive: number;
+  hitRate: number | null;
+  roi: number | null;
+  avgClv: number | null;
+}
+
+export function recordSummary(periodDays: number | null): RecordSummary {
+  const markets = recordOverview(periodDays);
+  let hits = 0;
+  let misses = 0;
+  let roiSum = 0;
+  let roiN = 0;
+  let clvSum = 0;
+  let clvN = 0;
+  for (const m of markets) {
+    hits += m.hits;
+    misses += m.misses;
+    if (m.roi !== null) {
+      roiSum += m.roi * m.roiN;
+      roiN += m.roiN;
+    }
+    if (m.avgClv !== null) {
+      // 按观点数近似加权（avgClv 的样本数与 n 同量级）
+      clvSum += m.avgClv * m.n;
+      clvN += m.n;
+    }
+  }
+  const decisive = hits + misses;
+  return {
+    decisive,
+    hitRate: decisive > 0 ? hits / decisive : null,
+    roi: roiN > 0 ? roiSum / roiN : null,
+    avgClv: clvN > 0 ? clvSum / clvN : null,
+  };
+}
+
 export interface RecordRow {
   matchId: number;
   kickoffAt: number;
@@ -121,6 +160,7 @@ export interface RecordRow {
   line: number | null;
   modelProb: number;
   oddsAtPublish: number | null;
+  closingOdds: number | null;
   result: string;
   homeGoals: number;
   awayGoals: number;
@@ -158,6 +198,7 @@ export function recordList(limit = 100): RecordRow[] {
     line: r.p.line,
     modelProb: r.p.modelProb,
     oddsAtPublish: r.p.oddsAtPublish,
+    closingOdds: r.p.closingOdds,
     result: r.p.result,
     homeGoals: r.o.homeGoals,
     awayGoals: r.o.awayGoals,

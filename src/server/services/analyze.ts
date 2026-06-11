@@ -284,6 +284,7 @@ export async function analyzeMatch(
       .map((k) => KIND_LABELS[k]),
     facts,
     totalSnapshotCount: stats.total,
+    boundaryMargin: getConfig("engine").boundaryMargin,
   };
 
   // 定性段落：变化不大时复用上一版（标注 generatedAtVersion），显著变化才重新生成

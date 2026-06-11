@@ -308,7 +308,7 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
   const valuable = value.filter((v) => v.ev >= params.evThreshold);
   trace.push(
     value.length
-      ? `价值扫描：${value.length} 个可下注选项，${valuable.length} 个 EV≥${fmtPct(params.evThreshold)}`
+      ? `价值扫描：${value.length} 个可评估点位，${valuable.length} 个 EV≥${fmtPct(params.evThreshold)}`
       : "无盘口赔率，跳过价值扫描",
   );
 

@@ -2,6 +2,7 @@ import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { db } from "../db";
 import { analyses, historyMatches, matches, outcomes, predictions } from "../db/schema";
 import { engineOutputSchema, type NormalizedOdds } from "../engine/types";
+import { minAcceptableOdds } from "../engine/boundary";
 import { settle1x2, settleAh, settleOu } from "../engine/markets";
 import { HttpError } from "../lib/api";
 import { getConfig } from "../lib/config";
@@ -23,6 +24,7 @@ import { recordReportLock, recordSettlements, refreshTrackRecords } from "../v2/
 
 export function lockFinalAnalysisAtKickoff(): number {
   let locked = 0;
+  const boundaryMargin = getConfig("engine").boundaryMargin;
   for (const match of matchesAtKickoff()) {
     const final = db
       .select()
@@ -53,22 +55,30 @@ export function lockFinalAnalysisAtKickoff(): number {
       }
       return null;
     };
+    const invalidated: { market: string; selection: string; line: number | null; closingOdds: number; minAcceptable: number }[] = [];
     db.transaction((tx) => {
       tx.update(matches)
         .set({ finalAnalysisId: final.id, updatedAt: now() })
         .where(eq(matches.id, match.id))
         .run();
       for (const pick of engine.picks) {
-        // 收盘价同口径：优先 pick 出价那家书商，缺席时取跨家最优——CLV 可比
+        // 收盘价同口径：优先 pick 出价那家书商，缺席时取跨家最优（模拟盘不可成交，不进收盘口径）——CLV 可比
         let closingOdds: number | null = lookupClosing(
           pick.bookmaker ? closingBooks.find((b) => b.bookmaker === pick.bookmaker) : undefined,
           pick,
         );
         if (closingOdds === null) {
           for (const b of closingBooks) {
+            if (b.indicative) continue;
             const v = lookupClosing(b, pick);
             if (v !== null && (closingOdds === null || v > closingOdds)) closingOdds = v;
           }
+        }
+        // 边界问责：锁定时收盘价已低于最低可接受赔率 → 该观点价值已失效，按观望处理（不进胜负/CLV 口径）
+        const minAcceptable = minAcceptableOdds(pick.modelProb, boundaryMargin);
+        if (closingOdds !== null && minAcceptable > 0 && closingOdds < minAcceptable) {
+          invalidated.push({ market: pick.market, selection: pick.selection, line: pick.line, closingOdds, minAcceptable });
+          continue;
         }
         tx.insert(predictions)
           .values({
@@ -87,6 +97,9 @@ export function lockFinalAnalysisAtKickoff(): number {
           .run();
       }
     });
+    for (const inv of invalidated) {
+      logAudit({ actorId: 0, action: "lock_invalidated_pick", entity: "match", entityId: match.id, detail: inv });
+    }
     transitionMatch(match.id, "in_play");
     // V2 钩子：开赛锁定记录（终版三元组 + 锁定哈希）；失败不阻塞 V1
     try {
