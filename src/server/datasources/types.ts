@@ -87,23 +87,46 @@ export const formPayloadSchema = z.object({
   }),
 });
 
+/** 球队赛季深度统计（teams/statistics 富化字段，旧数据无则缺省） */
+const teamSeasonExtra = z.object({
+  wins: z.number().optional(),
+  draws: z.number().optional(),
+  loses: z.number().optional(),
+  /** 最长连胜 */
+  winStreak: z.number().optional(),
+  /** 点球：命中/总数 */
+  penaltyScored: z.number().optional(),
+  penaltyTotal: z.number().optional(),
+  /** 未进球场次占比 */
+  failedToScoreRate: z.number().optional(),
+  /** 最大比分胜（如 "4:0"） */
+  biggestWin: z.string().optional(),
+  /** 近期战绩串 + 主用阵型 */
+  form: z.string().optional(),
+  formation: z.string().nullable().optional(),
+});
+
 export const teamStatsPayloadSchema = z.object({
-  home: z.object({
-    matches: z.number(),
-    gfPerGame: z.number(),
-    gaPerGame: z.number(),
-    cleanSheetRate: z.number(),
-    homeGfPerGame: z.number().nullable(),
-    homeGaPerGame: z.number().nullable(),
-  }),
-  away: z.object({
-    matches: z.number(),
-    gfPerGame: z.number(),
-    gaPerGame: z.number(),
-    cleanSheetRate: z.number(),
-    awayGfPerGame: z.number().nullable(),
-    awayGaPerGame: z.number().nullable(),
-  }),
+  home: z
+    .object({
+      matches: z.number(),
+      gfPerGame: z.number(),
+      gaPerGame: z.number(),
+      cleanSheetRate: z.number(),
+      homeGfPerGame: z.number().nullable(),
+      homeGaPerGame: z.number().nullable(),
+    })
+    .merge(teamSeasonExtra),
+  away: z
+    .object({
+      matches: z.number(),
+      gfPerGame: z.number(),
+      gaPerGame: z.number(),
+      cleanSheetRate: z.number(),
+      awayGfPerGame: z.number().nullable(),
+      awayGaPerGame: z.number().nullable(),
+    })
+    .merge(teamSeasonExtra),
 });
 
 export const standingsPayloadSchema = z.object({

@@ -508,11 +508,28 @@ export interface AfTeamStats {
   /** 近期战绩串（如 "WWDLW"）+ 主用阵型，喂研报事实 */
   form: string;
   formation: string | null;
+  // —— 富化字段（teams/statistics 深度，玩家爱看） ——
+  wins: number;
+  draws: number;
+  loses: number;
+  winStreak: number;
+  penaltyScored: number;
+  penaltyTotal: number;
+  failedToScoreRate: number;
+  biggestWin: string | null;
 }
 
 const afTeamStatsSchema = z.object({
   form: z.string().nullable().default(null),
-  fixtures: z.object({ played: z.object({ home: z.number(), away: z.number(), total: z.number() }).partial().default({}) }).partial().default({}),
+  fixtures: z
+    .object({
+      played: z.object({ home: z.number(), away: z.number(), total: z.number() }).partial().default({}),
+      wins: z.object({ total: z.number() }).partial().default({}),
+      draws: z.object({ total: z.number() }).partial().default({}),
+      loses: z.object({ total: z.number() }).partial().default({}),
+    })
+    .partial()
+    .default({}),
   goals: z
     .object({
       for: z.object({ average: z.object({ home: z.string(), away: z.string(), total: z.string() }).partial().default({}) }).partial().default({}),
@@ -521,6 +538,12 @@ const afTeamStatsSchema = z.object({
     .partial()
     .default({}),
   clean_sheet: z.object({ total: z.number() }).partial().default({}),
+  failed_to_score: z.object({ total: z.number() }).partial().default({}),
+  biggest: z
+    .object({ streak: z.object({ wins: z.number() }).partial().default({}), wins: z.object({ home: z.string().nullable(), away: z.string().nullable() }).partial().default({}) })
+    .partial()
+    .default({}),
+  penalty: z.object({ scored: z.object({ total: z.number() }).partial().default({}), total: z.number().nullable().default(null) }).partial().default({}),
   lineups: z.array(z.object({ formation: z.string(), played: z.number() })).default([]),
 });
 
@@ -538,6 +561,7 @@ export function parseAfTeamStats(json: unknown): AfTeamStats | null {
   const played = s.fixtures.played?.total ?? 0;
   if (played === 0) return null;
   const topFormation = [...s.lineups].sort((a, b) => b.played - a.played)[0]?.formation ?? null;
+  const biggestWin = s.biggest?.wins?.home || s.biggest?.wins?.away || null;
   return {
     matches: played,
     gfPerGame: numOr(s.goals.for?.average?.total, 0) ?? 0,
@@ -549,6 +573,14 @@ export function parseAfTeamStats(json: unknown): AfTeamStats | null {
     awayGaPerGame: numOr(s.goals.against?.average?.away, null),
     form: (s.form ?? "").slice(-6),
     formation: topFormation,
+    wins: s.fixtures.wins?.total ?? 0,
+    draws: s.fixtures.draws?.total ?? 0,
+    loses: s.fixtures.loses?.total ?? 0,
+    winStreak: s.biggest?.streak?.wins ?? 0,
+    penaltyScored: s.penalty?.scored?.total ?? 0,
+    penaltyTotal: s.penalty?.total ?? 0,
+    failedToScoreRate: played > 0 ? (s.failed_to_score?.total ?? 0) / played : 0,
+    biggestWin,
   };
 }
 

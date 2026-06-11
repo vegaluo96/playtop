@@ -14,6 +14,7 @@ import type {
   refereePayloadSchema,
   softInfoPayloadSchema,
   standingsPayloadSchema,
+  teamStatsPayloadSchema,
   weatherPayloadSchema,
 } from "../datasources/types";
 import { engineOutputSchema, type EngineOutput } from "../engine/types";
@@ -221,6 +222,7 @@ export interface MatchIntel {
   h2h: z.infer<typeof h2hPayloadSchema> | null;
   form: z.infer<typeof formPayloadSchema> | null;
   standings: z.infer<typeof standingsPayloadSchema> | null;
+  teamStats: z.infer<typeof teamStatsPayloadSchema> | null;
   playerStats: z.infer<typeof playerStatsPayloadSchema> | null;
   coach: z.infer<typeof coachPayloadSchema> | null;
   referee: z.infer<typeof refereePayloadSchema> | null;
@@ -238,6 +240,7 @@ function buildIntel(snaps: Map<SnapshotKind, SnapshotRow>): MatchIntel {
     h2h: pay<z.infer<typeof h2hPayloadSchema>>("h2h"),
     form: pay<z.infer<typeof formPayloadSchema>>("form"),
     standings: pay<z.infer<typeof standingsPayloadSchema>>("standings"),
+    teamStats: pay<z.infer<typeof teamStatsPayloadSchema>>("team_stats"),
     playerStats: pay<z.infer<typeof playerStatsPayloadSchema>>("player_stats"),
     coach: pay<z.infer<typeof coachPayloadSchema>>("coach"),
     referee: pay<z.infer<typeof refereePayloadSchema>>("referee"),

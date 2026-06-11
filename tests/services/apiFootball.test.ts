@@ -219,9 +219,12 @@ describe("API-Football 富化端点解析（Ultra 配额）", () => {
     const json = {
       response: {
         form: "WLWWDLWW",
-        fixtures: { played: { home: 5, away: 5, total: 10 } },
+        fixtures: { played: { home: 5, away: 5, total: 10 }, wins: { total: 6 }, draws: { total: 2 }, loses: { total: 2 } },
         goals: { for: { average: { home: "2.0", away: "1.0", total: "1.5" } }, against: { average: { home: "0.8", away: "1.2", total: "1.0" } } },
         clean_sheet: { total: 4 },
+        failed_to_score: { total: 1 },
+        biggest: { streak: { wins: 4 }, wins: { home: "4:0", away: null } },
+        penalty: { scored: { total: 3 }, total: 4 },
         lineups: [{ formation: "4-3-3", played: 7 }, { formation: "4-2-3-1", played: 3 }],
       },
     };
@@ -232,6 +235,14 @@ describe("API-Football 富化端点解析（Ultra 配额）", () => {
     expect(s.cleanSheetRate).toBe(0.4);
     expect(s.formation).toBe("4-3-3"); // 出场最多
     expect(s.form).toBe("WWDLWW"); // 取末 6 场
+    expect(s.wins).toBe(6);
+    expect(s.draws).toBe(2);
+    expect(s.loses).toBe(2);
+    expect(s.winStreak).toBe(4);
+    expect(s.penaltyScored).toBe(3);
+    expect(s.penaltyTotal).toBe(4);
+    expect(s.failedToScoreRate).toBeCloseTo(0.1, 6);
+    expect(s.biggestWin).toBe("4:0");
     expect(parseAfTeamStats({ response: { fixtures: { played: { total: 0 } } } })).toBeNull();
   });
 

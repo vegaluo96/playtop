@@ -19,7 +19,7 @@ export default function IntelPanel({ intel, homeName, awayName }: { intel: Match
   if (intel.weather?.summary) misc.push({ label: "开球时段天气", value: intel.weather.summary });
   for (const s of intel.softInfo?.items ?? []) misc.push({ label: s.topic, value: s.content });
 
-  if (!hasLineups && inj.length === 0 && !intel.h2h?.summary.total && !intel.form && !intel.standings && scorers.length === 0 && misc.length === 0) {
+  if (!hasLineups && inj.length === 0 && !intel.h2h?.summary.total && !intel.form && !intel.standings && !intel.teamStats && scorers.length === 0 && misc.length === 0) {
     return null;
   }
 
@@ -113,6 +113,41 @@ export default function IntelPanel({ intel, homeName, awayName }: { intel: Match
                         </li>
                       );
                     })}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </Collapse>
+      )}
+
+      {intel.teamStats && (
+        <Collapse title="球队赛季数据" hint="胜平负 · 攻防 · 点球 · 连胜">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {(["home", "away"] as const).map((side) => {
+              const s = intel.teamStats![side];
+              const rows: { label: string; value: string }[] = [
+                { label: "赛季战绩", value: s.wins !== undefined ? `${s.wins}胜 ${s.draws}平 ${s.loses}负（${s.matches} 场）` : `${s.matches} 场` },
+                { label: "场均进/失", value: `${s.gfPerGame.toFixed(2)} / ${s.gaPerGame.toFixed(2)}` },
+                { label: "零封率", value: `${(s.cleanSheetRate * 100).toFixed(0)}%` },
+                ...(s.failedToScoreRate !== undefined ? [{ label: "未进球率", value: `${(s.failedToScoreRate * 100).toFixed(0)}%` }] : []),
+                ...(s.winStreak ? [{ label: "最长连胜", value: `${s.winStreak} 场` }] : []),
+                ...(s.penaltyTotal ? [{ label: "点球", value: `${s.penaltyScored ?? 0}/${s.penaltyTotal}` }] : []),
+                ...(s.biggestWin ? [{ label: "最大胜", value: s.biggestWin }] : []),
+                ...(s.formation ? [{ label: "常用阵型", value: s.formation }] : []),
+              ];
+              return (
+                <div key={side}>
+                  <div className="text-[11px] font-semibold text-ink">
+                    {teamName(side)} {s.form && <span className="tabular ml-1 text-[10px] text-gold-bright">{s.form}</span>}
+                  </div>
+                  <ul className="tabular mt-1 space-y-0.5 text-[10.5px] leading-5">
+                    {rows.map((r, i) => (
+                      <li key={i} className="flex justify-between">
+                        <span className="text-faint">{r.label}</span>
+                        <span className="text-muted">{r.value}</span>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               );

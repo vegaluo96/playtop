@@ -188,9 +188,15 @@ export async function collectMatch(
           withSource("api_football", () => fetchAfTeamStats(fx.awayId, fx.leagueId!, fx.season!)),
         ]);
         if (!hs || !as_) throw new Error("球队赛季统计缺失");
+        const extra = (s: typeof hs) => ({
+          wins: s.wins, draws: s.draws, loses: s.loses, winStreak: s.winStreak,
+          penaltyScored: s.penaltyScored, penaltyTotal: s.penaltyTotal,
+          failedToScoreRate: s.failedToScoreRate, form: s.form, formation: s.formation,
+          ...(s.biggestWin ? { biggestWin: s.biggestWin } : {}),
+        });
         insertSnapshot(matchId, "team_stats", "api_football", {
-          home: { matches: hs.matches, gfPerGame: hs.gfPerGame, gaPerGame: hs.gaPerGame, cleanSheetRate: hs.cleanSheetRate, homeGfPerGame: hs.homeGfPerGame, homeGaPerGame: hs.homeGaPerGame },
-          away: { matches: as_.matches, gfPerGame: as_.gfPerGame, gaPerGame: as_.gaPerGame, cleanSheetRate: as_.cleanSheetRate, awayGfPerGame: as_.awayGfPerGame, awayGaPerGame: as_.awayGaPerGame },
+          home: { matches: hs.matches, gfPerGame: hs.gfPerGame, gaPerGame: hs.gaPerGame, cleanSheetRate: hs.cleanSheetRate, homeGfPerGame: hs.homeGfPerGame, homeGaPerGame: hs.homeGaPerGame, ...extra(hs) },
+          away: { matches: as_.matches, gfPerGame: as_.gfPerGame, gaPerGame: as_.gaPerGame, cleanSheetRate: as_.cleanSheetRate, awayGfPerGame: as_.awayGfPerGame, awayGaPerGame: as_.awayGaPerGame, ...extra(as_) },
         });
         // 近期状态含射门质量（fixtures/statistics）：xG/射门/控球，玩家爱看的硬数据
         const [hForm, aForm] = await Promise.all([
