@@ -42,11 +42,13 @@ export interface CollectSummary {
  */
 export async function collectMatch(
   matchId: number,
-  opts: { force?: boolean; skipAi?: boolean; oddsOnly?: boolean } = {},
+  opts: { force?: boolean; skipAi?: boolean; oddsOnly?: boolean; hot?: boolean } = {},
 ): Promise<CollectSummary> {
   const force = opts.force ?? false;
   /** 临场加密刷新模式：只跑盘口+官方首发（价差监测的时效窗口），其余维度不动 */
   const oddsOnly = opts.oddsOnly ?? false;
+  /** 临场冲刺（开球前 30 分钟）：盘口/首发强制绕过礼貌冷却，5 分钟级拿最新价 */
+  const hot = opts.hot ?? false;
   const match = getMatch(matchId);
   const league = leagueById(match.leagueId);
   const homeName = teamNameById(match.homeTeamId);
@@ -109,7 +111,7 @@ export async function collectMatch(
       attempt("odds:api_football", async () => {
         const fx = await getAfFixture();
         if (!fx) throw new Error("API-Football 未匹配到本场");
-        const books = await withSource("api_football", () => fetchAfOdds(fx.fixtureId, now()));
+        const books = await withSource("api_football", () => fetchAfOdds(fx.fixtureId, now(), force || hot));
         if (books.length === 0) throw new Error("API-Football 本场暂无盘口");
         for (const b of books) insertSnapshot(matchId, "odds", "api_football", b);
       }),
@@ -118,7 +120,7 @@ export async function collectMatch(
       attempt("lineups:api_football", async () => {
         const fx = await getAfFixture();
         if (!fx) throw new Error("API-Football 未匹配到本场");
-        const lineups = await withSource("api_football", () => fetchAfLineups(fx.fixtureId, fx.homeId));
+        const lineups = await withSource("api_football", () => fetchAfLineups(fx.fixtureId, fx.homeId, force || hot));
         if (!lineups) throw new Error("首发未公布");
         insertSnapshot(matchId, "lineups", "api_football", lineups);
       }),
