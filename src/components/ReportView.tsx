@@ -50,7 +50,8 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
           <>
             <div className="mt-1 text-[15px] font-semibold tracking-wide text-ink">{verdict}</div>
             <p className="mt-2 border-l-2 border-gold/50 pl-3 text-[12px] leading-6 text-ink/85">{sections.thesis}</p>
-            <table className="tabular mt-4 w-full text-[11px]">
+            <div className="mt-4 overflow-x-auto">
+            <table className="tabular w-full min-w-[420px] text-[11px]">
               <thead>
                 <tr className="text-left text-[10px] tracking-wider text-faint">
                   <th className="pb-1 font-normal">观点</th>
@@ -80,6 +81,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
                 })}
               </tbody>
             </table>
+            </div>
             <p className="mt-2 text-[10px] leading-4 text-faint">
               <b className="text-ink">最低可接受赔率</b>：本观点的价格边界——你看到的实际价格低于该值时，观点即失去参考价值
               （开赛锁定时若收盘价低于边界，按观望处理、不计入战绩）。模拟单位：¼ Kelly 风险刻度（上限
@@ -138,7 +140,8 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
               真值锚：{engine.spread.anchor.source === "sharp" ? `锐价（${engine.spread.anchor.books.join("、")}）` : "加权共识"}
             </span>
           </div>
-          <table className="tabular mt-3 w-full text-[11px]">
+          <div className="mt-3 overflow-x-auto">
+          <table className="tabular w-full min-w-[420px] text-[11px]">
             <thead>
               <tr className="text-left text-[10px] tracking-wider text-faint">
                 <th className="pb-1 font-normal">盘口来源</th>
@@ -163,6 +166,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
               ))}
             </tbody>
           </table>
+          </div>
           {engine.spread.inefficiencyIndex !== null && (
             <p className="tabular mt-2 text-[10.5px] text-muted">
               跨家组合隐含概率 <b className={engine.spread.inefficiencyIndex < 1 ? "text-up" : "text-ink"}>{pct(engine.spread.inefficiencyIndex)}</b>
@@ -435,28 +439,33 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
 
       {engine.oddsMovement.length >= 2 && (
         <Collapse title="盘口异动记录" hint={`${engine.oddsMovement.length} 次采样（1X2）`}>
-          <table className="tabular w-full text-[11px]">
-            <thead>
-              <tr className="text-left text-[10px] tracking-wider text-faint">
-                <th className="pb-1 font-normal">采集时间</th>
-                <th className="pb-1 text-right font-normal">主胜</th>
-                <th className="pb-1 text-right font-normal">平局</th>
-                <th className="pb-1 text-right font-normal">客胜</th>
-              </tr>
-            </thead>
-            <tbody>
-              {engine.oddsMovement.slice(-8).map((o, i) =>
-                o.oneXTwo ? (
-                  <tr key={i} className="border-t border-hairline">
-                    <td className="py-1.5 text-muted">{fmtCn(o.capturedAt)}</td>
-                    <td className="py-1.5 text-right">{o.oneXTwo.home.toFixed(2)}</td>
-                    <td className="py-1.5 text-right">{o.oneXTwo.draw.toFixed(2)}</td>
-                    <td className="py-1.5 text-right">{o.oneXTwo.away.toFixed(2)}</td>
-                  </tr>
-                ) : null,
-              )}
-            </tbody>
-          </table>
+          <p className="mb-2 text-[10.5px] leading-4 text-faint">异动请按同一来源纵向对比——不同来源之间的价差属于价差监测口径，不是异动。</p>
+          <div className="overflow-x-auto">
+            <table className="tabular w-full min-w-[420px] text-[11px]">
+              <thead>
+                <tr className="text-left text-[10px] tracking-wider text-faint">
+                  <th className="pb-1 font-normal">采集时间</th>
+                  <th className="pb-1 font-normal">来源</th>
+                  <th className="pb-1 text-right font-normal">主胜</th>
+                  <th className="pb-1 text-right font-normal">平局</th>
+                  <th className="pb-1 text-right font-normal">客胜</th>
+                </tr>
+              </thead>
+              <tbody>
+                {engine.oddsMovement.slice(-10).map((o, i) =>
+                  o.oneXTwo ? (
+                    <tr key={i} className="border-t border-hairline">
+                      <td className="py-1.5 text-muted">{fmtCn(o.capturedAt)}</td>
+                      <td className="py-1.5 text-faint">{o.bookmaker ?? "—"}</td>
+                      <td className="py-1.5 text-right">{o.oneXTwo.home.toFixed(2)}</td>
+                      <td className="py-1.5 text-right">{o.oneXTwo.draw.toFixed(2)}</td>
+                      <td className="py-1.5 text-right">{o.oneXTwo.away.toFixed(2)}</td>
+                    </tr>
+                  ) : null,
+                )}
+              </tbody>
+            </table>
+          </div>
         </Collapse>
       )}
 

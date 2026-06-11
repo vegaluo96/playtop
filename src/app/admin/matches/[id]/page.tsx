@@ -314,8 +314,8 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
                     <th className="pb-1 text-right font-normal">平局</th>
                     <th className="pb-1 text-right font-normal">客胜</th>
                     <th className="pb-1 text-right font-normal">大小</th>
-                    <th className="pb-1 text-right font-normal">亚盘</th>
-                    <th className="pb-1 text-right font-normal">让球</th>
+                    <th className="pb-1 text-right font-normal">亚盘(主让)</th>
+                    <th className="pb-1 text-right font-normal">让球(主让)</th>
                     <th className="pb-1 text-right font-normal">花式</th>
                     <th className="pb-1 text-right font-normal">更新</th>
                   </tr>

@@ -96,19 +96,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      {/* 实时改版 / 赛后公开 横幅 */}
-      {live && (
-        <>
-          <RefreshLadder kickoffAt={card.kickoffAt} />
-          <div className="card mt-2 flex items-center gap-3 border-gold/30 px-3 py-2.5">
-            <LiveBadge text="实时研报" />
-            <p className="text-[10.5px] leading-4 text-muted">
-              本报告随盘口、阵容、天气等数据<b className="text-gold-bright">持续重算改版</b>，截图分享会很快过时；
-              开赛瞬间锁定终版并计入战绩。
-            </p>
-          </div>
-        </>
-      )}
+      {/* 实时改版横幅（含刷新节奏阶梯） */}
+      {live && <RefreshLadder kickoffAt={card.kickoffAt} />}
       {card.status === "settled" && view.hoursBeforeKickoffPublished !== null && (
         <div className="card mt-4 border-up/30 px-3 py-2.5 text-[10.5px] leading-5 text-muted">
           ✓ 本报告已赛后免费公开。首版发布于开赛前{" "}
@@ -147,10 +136,10 @@ function RefreshLadder({ kickoffAt }: { kickoffAt: number }) {
   return (
     <div className="card mt-4 border-gold/30 px-3 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[10px] tracking-wider text-faint">盘口刷新节奏</span>
+        <LiveBadge text="实时研报" />
         <span className="flex items-center gap-1.5 text-[11px] font-semibold text-gold-bright">
           {current.label !== "盘口静默" && <span className="pulse-dot" />}
-          当前：{current.label}
+          盘口刷新：{current.label}
           <span className="font-normal text-faint">（{current.range}）</span>
         </span>
       </div>
@@ -162,6 +151,9 @@ function RefreshLadder({ kickoffAt }: { kickoffAt: number }) {
           </div>
         ))}
       </div>
+      <p className="mt-1.5 text-[10px] leading-4 text-faint">
+        报告随盘口/阵容/天气持续重算改版，越临近开赛刷新越快；开赛瞬间锁定终版并计入战绩。
+      </p>
     </div>
   );
 }

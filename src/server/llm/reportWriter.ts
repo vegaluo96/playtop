@@ -123,13 +123,20 @@ export function qualitativePhrases(ctx: ReportContext): string[] {
   }
   for (const a of e.adjustments) phrases.push(`情境修正已计入：${a.reason}`);
   if (ctx.match.neutral) phrases.push("本场为中立场地，模型未计入常规主场优势");
-  if (e.oddsMovement.length >= 2) {
-    const first = e.oddsMovement[0].oneXTwo;
-    const last = e.oddsMovement[e.oddsMovement.length - 1].oneXTwo;
-    if (first && last) {
-      const d = last.home - first.home;
-      if (Math.abs(d) > 0.07) phrases.push(`盘口自开盘以来出现${d < 0 ? "主队方向收缩（降赔）" : "主队方向松动（升赔）"}的可见异动`);
-      else phrases.push("盘口自开盘以来保持平稳");
+  {
+    // 异动判定必须同一书商首末对比——跨家比较会把"换源"误读成"异动"
+    const byBook = new Map<string, { capturedAt: number; home: number }[]>();
+    for (const o of e.oddsMovement) {
+      if (!o.oneXTwo) continue;
+      const k = o.bookmaker ?? "未知来源";
+      byBook.set(k, [...(byBook.get(k) ?? []), { capturedAt: o.capturedAt, home: o.oneXTwo.home }]);
+    }
+    const richest = [...byBook.entries()].filter(([, v]) => v.length >= 2).sort((a, b) => b[1].length - a[1].length)[0];
+    if (richest) {
+      const [book, series] = richest;
+      const d = series[series.length - 1].home - series[0].home;
+      if (Math.abs(d) > 0.07) phrases.push(`「${book}」盘口自开盘以来出现${d < 0 ? "主队方向收缩（降赔）" : "主队方向松动（升赔）"}的可见异动`);
+      else phrases.push(`「${book}」盘口自开盘以来保持平稳`);
     }
   }
   if (ctx.prevEnsemble) {
