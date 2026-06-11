@@ -74,6 +74,9 @@ export async function GET() {
   if (!beat || Date.now() - beat > 3 * 60_000) alerts.push("worker 心跳超时,数据抓取可能已停止");
   const bal = JSON.parse(kvGet("llm_balance") || "null") as { usd: number } | null;
   if (bal && bal.usd < 100) alerts.push(`大模型余额不足($${bal.usd})`);
+  const pc = JSON.parse(kvGet("last_platform_check") || "null") as { at: number; fail: number } | null;
+  if (!pc || Date.now() - pc.at > 24 * 3_600_000) alerts.push("超过 24h 未运行平台体检");
+  else if (pc.fail > 0) alerts.push(`平台体检存在 ${pc.fail} 个失败项,详见系统设置`);
 
   const af = JSON.parse(kvGet("af_status") || "null");
   const snapsToday = one("SELECT COUNT(*) v FROM odds_snapshots WHERE captured_at>=?", t0).v ?? 0;

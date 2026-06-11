@@ -7,6 +7,7 @@ import { afGet } from "@/server/af/client";
 import { runSelftest } from "@/server/af/selftest";
 import { chatComplete, fetchLlmBalance } from "@/server/llm/client";
 import { kvGet, kvSet } from "@/server/af/store";
+import { checkApi, checkReadonly, formatReport, summarize } from "@/server/selfcheck";
 import { llmStats } from "@/server/llm/report";
 
 export async function GET() {
@@ -51,6 +52,15 @@ export async function POST(req: NextRequest) {
     cfgSet("llm_daily_budget", v);
     audit(admin.email, "LLM 日预算", `${v} tokens`);
     return NextResponse.json({ ok: true });
+  }
+  if (b.action === "platform_check") {
+    audit(admin.email, "运行平台体检", "");
+    const rows = await checkReadonly();
+    const base = `http://127.0.0.1:${process.env.PORT || 3000}`;
+    rows.push(...(await checkApi(base)));
+    const rep = summarize(rows);
+    kvSet("last_platform_check", JSON.stringify({ at: rep.at, ...rep.summary }));
+    return NextResponse.json({ ok: true, text: formatReport(rep), summary: rep.summary });
   }
   if (b.action === "selftest") {
     audit(admin.email, "运行 selftest", "");

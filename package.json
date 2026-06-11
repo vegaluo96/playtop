@@ -9,6 +9,7 @@
     "start": "next start",
     "af": "tsx scripts/af-probe.ts",
     "worker": "tsx scripts/worker.ts",
+    "selfcheck": "tsx scripts/selfcheck.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

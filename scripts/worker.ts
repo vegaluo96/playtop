@@ -24,6 +24,7 @@ import {
   upsertFixture,
 } from "../src/server/af/store";
 import { cfgEmergencyThrottle, cfgFollowedIds, cfgTierIntervals } from "../src/server/platform/config";
+import { dailyReadonlyCheck } from "../src/server/selfcheck";
 import { fetchLlmBalance } from "../src/server/llm/client";
 import { db } from "../src/server/db";
 
@@ -221,6 +222,7 @@ async function cycle(): Promise<void> {
     }
     await fetchLlmBalance().catch(() => null);
   }
+  await dailyReadonlyCheck().catch((e) => log(`每日体检异常:${msg(e)}`));
   kvSet("worker_heartbeat", String(Date.now()));
 }
 

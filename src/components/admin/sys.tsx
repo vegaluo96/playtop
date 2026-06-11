@@ -299,6 +299,10 @@ export function SettingsView() {
             <span style={{ flex: 1 }}><ABtn label={busy === "selftest" ? "自检运行中(约 30s)…" : "运行 selftest(消耗约 45 req)"} onClick={() => busy || void run("selftest", "selftest")} /></span>
             <ABtn kind="line" label="测试连接" onClick={() => void run("af_ping", "连接测试")} />
           </div>
+          <div style={{ marginTop: 8 }}>
+            <ABtn kind="line" label={busy === "platform_check" ? "体检中…" : "运行平台体检(只读+API 层,~2 req)"} onClick={() => busy || void run("platform_check", "平台体检")} />
+            <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 6 }}>全量闭环体检(含商业链路演练)在服务器跑:npm run selfcheck</div>
+          </div>
         </ACard>
         <ACard title="大模型密钥(AI 报告)" right={<span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: v.llm.usage.configured ? "#2ecc8a" : "var(--fg-3)", fontWeight: 700 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: v.llm.usage.configured ? "#2ecc8a" : "var(--fg-3)" }} />{v.llm.usage.configured ? "已连接" : "模板模式"}</span>}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
