@@ -64,3 +64,11 @@ export const GUEST_VISIBLE_ROWS = 3;
 export function guestMasked(index: number, isLive: boolean): boolean {
   return !isLive && index >= GUEST_VISIBLE_ROWS;
 }
+
+/** 邀请记录展示用:邮箱脱敏(local 部分留首尾各 2 字,如 smoke→sm**ke) */
+export function maskEmail(email: string): string {
+  const local = email.split("@")[0] ?? "";
+  if (local.length <= 2) return `${local[0] ?? "*"}**`;
+  if (local.length <= 4) return `${local.slice(0, 1)}**${local.slice(-1)}`;
+  return `${local.slice(0, 2)}**${local.slice(-2)}`;
+}

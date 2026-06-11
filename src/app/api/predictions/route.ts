@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hhmm, parseTzOffset } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
-import { fixturesBetween, latestPrediction, modelStats } from "@/server/af/store";
+import { fixtureById, fixturesBetween, latestPrediction, modelStats } from "@/server/af/store";
 import { isLive } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
 import { unlockPrice } from "@/server/platform/rules";
@@ -14,11 +14,15 @@ import { predSummary } from "@/server/views/common";
 
 export async function GET(req: NextRequest) {
   const tz = req.nextUrl.searchParams.get("tz") || "UTC+8";
+  const fixtureParam = Number(req.nextUrl.searchParams.get("fixture")) || null;
   const off = parseTzOffset(tz);
   const user = await currentUser();
   const now = Date.now();
   const dayStart = Math.floor((now + off * 3_600_000) / 86_400_000) * 86_400_000 - off * 3_600_000;
-  const fixtures = fixturesBetween(dayStart, dayStart + 86_400_000).sort((a, b) => a.kickoff_utc - b.kickoff_utc);
+  // fixture 参数:单场卡(不限今日;桌面右栏「官方预测 · 本场」用)
+  const fixtures = fixtureParam
+    ? [fixtureById(fixtureParam)].filter((f) => f != null)
+    : fixturesBetween(dayStart, dayStart + 86_400_000).sort((a, b) => a.kickoff_utc - b.kickoff_utc);
   const today = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
   const freeFid = dailyFreeFixture(today);
 

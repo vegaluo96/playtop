@@ -21,7 +21,7 @@ export default function MePage() {
   const { prefs, setPrefs, me, refreshMe } = useApp();
   const router = useRouter();
   const flow = useUnlockFlow();
-  const [sheet, setSheet] = useState<"invite" | "redeem" | "follow" | "lang" | "tz" | null>(null);
+  const [sheet, setSheet] = useState<"invite" | "invlog" | "redeem" | "follow" | "lang" | "tz" | null>(null);
   const [sec, setSec] = useState<"scheme" | "theme" | null>(null);
   const [giftOpen, setGiftOpen] = useState(false);
   const [invite, setInvite] = useState<V | null>(null);
@@ -255,6 +255,27 @@ export default function MePage() {
         <div style={{ fontSize: 10, color: "var(--fg-3)", lineHeight: 1.9, borderTop: "1px solid #1d212a", paddingTop: 10 }}>
           好友通过你的链接注册即计 1 次<br />超出每日 10 / 每周 30 / 每月 100 上限的部分不计入
         </div>
+        <div onClick={() => setSheet("invlog")} style={{ textAlign: "center", padding: "9px 0 0", fontSize: 11, fontWeight: 700, color: "var(--gold)", cursor: "pointer", borderTop: "1px solid #1d212a", marginTop: 10 }}>
+          查看邀请记录 ›
+        </div>
+      </Sheet>
+
+      {/* 邀请记录 */}
+      <Sheet open={sheet === "invlog"} onClose={() => setSheet(null)} z={66}>
+        <SheetTitle title="邀请记录" hint={`累计 ${invite?.total ?? 0} 人 · +${invite?.totalPts ?? 0} 积分`} />
+        <div style={{ maxHeight: "46vh", overflowY: "auto" }}>
+          {(invite?.log ?? []).length === 0 && <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "16px 0", textAlign: "center" }}>暂无邀请记录</div>}
+          {(invite?.log ?? []).map((l: V, i: number) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 2px", borderBottom: "1px solid var(--line-soft)" }}>
+              <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{l.u}</span>
+              <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>{l.t}</span>
+              <span className="mono" style={{ fontSize: 12, fontWeight: 800, color: l.credited > 0 ? "var(--up)" : "var(--fg-3)" }}>
+                {l.credited > 0 ? "+1" : "未计入"}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 9, color: "var(--fg-3)", marginTop: 8 }}>超出每日 10 / 每周 30 / 每月 100 上限的部分不计入</div>
       </Sheet>
 
       {/* 兑换码 */}

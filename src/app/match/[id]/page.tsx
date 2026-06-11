@@ -143,7 +143,7 @@ export default function MatchDetail({ params }: { params: Promise<{ id: string }
 
   const lineupPitch = (side: V, color: string) =>
     side && (
-      <div style={{ background: "linear-gradient(180deg,#10231a,#0d1b15)", border: "1px solid #1d3528", borderRadius: 12, padding: "14px 8px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ background: "linear-gradient(180deg,#10231a,#0d1b15)", border: "1px solid #1d3528", borderRadius: 12, padding: "14px 8px", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 300, boxSizing: "border-box" }}>
         {side.rows.map((row: string[], i: number) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-evenly" }}>
             {row.map((name) => (

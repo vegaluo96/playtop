@@ -7,6 +7,7 @@ import {
   genInviteCode,
   guestMasked,
   inviteCredit,
+  maskEmail,
   rechargeCredit,
   unlockPrice,
 } from "../../src/server/platform/rules";
@@ -54,5 +55,12 @@ describe("商业规则(HANDOFF §2 严格口径)", () => {
   it("邀请码:8 位、无歧义字母表", () => {
     const code = genInviteCode();
     expect(code).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/);
+  });
+
+  it("邮箱脱敏:留 local 首尾,不泄露完整地址", () => {
+    expect(maskEmail("smoke@test.com")).toBe("sm**ke");
+    expect(maskEmail("abcd@x.com")).toBe("a**d");
+    expect(maskEmail("ab@x.com")).toBe("a**");
+    expect(maskEmail("vegaluo96@gmail.com")).toBe("ve**96");
   });
 });
