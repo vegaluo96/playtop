@@ -152,10 +152,10 @@ function h2hView(pred: Record<string, unknown> | null, homeId: number | null, tz
 
 async function standingsView(leagueId: number, season: number, homeId: number | null, awayId: number | null) {
   try {
-    const table = await kvCached<unknown[]>(`lg:${leagueId}:${season}:standings`, 6 * 3_600_000, async () => {
+    const table = await kvCached<unknown[]>(`lg:${leagueId}:${season}:standings2`, 6 * 3_600_000, async () => {
       const r = await runAfEndpoint("standings", { league: String(leagueId), season: String(season) });
       const groups = arr(dig(arr(r.response)[0], "league", "standings"));
-      return arr(groups[0]);
+      return groups.flatMap((g) => arr(g)); // 拍平全部小组:世界杯等多组赛事两队可能分属不同组
     });
     const pickRow = (teamId: number | null) => table.find((row) => Number(dig(row, "team", "id")) === teamId);
     return [pickRow(homeId), pickRow(awayId)]

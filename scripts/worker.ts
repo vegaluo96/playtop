@@ -113,19 +113,27 @@ async function tickLive(now: number): Promise<void> {
   } catch (e) {
     log(`live 拉取失败:${msg(e)}`);
   }
-  // 滚球单场 bundle(events/statistics/players 同一请求带回)
-  for (const f of fixturesBetween(now - 4 * H, now).filter((x) => isLive(x.status))) {
+  // 滚球 bundle 批量拉取(fixtures?ids= 一次最多 20 场,省配额;events/statistics/players 同请求带回)
+  const lives = fixturesBetween(now - 4 * H, now).filter((x) => isLive(x.status));
+  for (let i = 0; i < lives.length; i += 20) {
+    const chunk = lives.slice(i, i + 20);
+    const wanted = new Set(chunk.map((f) => f.fixture_id));
     try {
-      const env = await paced(() => tracked("fixtures?id (bundle)", "滚球 1min", () => afGet(`/fixtures?id=${f.fixture_id}`, { force: true })));
-      const item = Array.isArray(env.response) ? env.response[0] : null;
-      if (item) upsertFixture(item);
+      const env = await paced(() => tracked("fixtures?ids (bundle)", "滚球快循环", () => afGet(`/fixtures?ids=${chunk.map((f) => f.fixture_id).join("-")}`, { force: true })));
+      for (const item of Array.isArray(env.response) ? env.response : []) {
+        const id = Number((item as { fixture?: { id?: number } }).fixture?.id);
+        if (wanted.has(id)) upsertFixture(item); // 身份校验:只收请求过的场次
+      }
     } catch (e) {
-      log(`bundle ${f.fixture_id} 失败:${msg(e)}`);
+      log(`bundle 批量失败:${msg(e)}`);
     }
-    // 滚球实时盘
+  }
+  // 滚球实时盘(逐场,odds/live 按 fixture 过滤)
+  for (const f of lives) {
     try {
-      const env = await paced(() => tracked("odds.live", "滚球 1min", () => afGet(`/odds/live?fixture=${f.fixture_id}`, { force: true })));
-      const item = Array.isArray(env.response) ? env.response[0] : null;
+      const env = await paced(() => tracked("odds.live", "滚球快循环", () => afGet(`/odds/live?fixture=${f.fixture_id}`, { force: true })));
+      const raw = Array.isArray(env.response) ? env.response[0] : null;
+      const item = raw && Number((raw as { fixture?: { id?: number } }).fixture?.id) === f.fixture_id ? raw : null;
       kvSet(`fx:${f.fixture_id}:liveodds`, JSON.stringify({ at: Date.now(), data: item ?? null }));
     } catch {
       /* 滚球赔率非必得 */
