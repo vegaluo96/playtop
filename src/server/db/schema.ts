@@ -96,7 +96,7 @@ export const teams = sqliteTable(
   (t) => [uniqueIndex("teams_country_name_uq").on(t.country, t.name)],
 );
 
-/** Elo 当前值（历史轨迹随 analyses.engine_output 留痕） */
+/** 历史遗留表：自建 Elo 已随引擎重建移除，不再写入（保留表结构以兼容旧库，免破坏性迁移） */
 export const teamRatings = sqliteTable("team_ratings", {
   teamId: integer("team_id")
     .primaryKey()
@@ -106,7 +106,7 @@ export const teamRatings = sqliteTable("team_ratings", {
   updatedAt: integer("updated_at").notNull(),
 });
 
-/** 模型训练用历史赛果库（football-data.co.uk 导入 + 结算回填），与产品比赛分离 */
+/** 历史赛果库（football-data.co.uk 导入 + 结算回填）：h2h/近期状态本地统计底座，与产品比赛分离 */
 export const historyMatches = sqliteTable(
   "history_matches",
   {
@@ -126,7 +126,7 @@ export const historyMatches = sqliteTable(
     awayGoals: integer("away_goals").notNull(),
     htHome: integer("ht_home"),
     htAway: integer("ht_away"),
-    /** 中立场（国际赛事）：DC 拟合时该场不计主场优势 */
+    /** 中立场（国际赛事）：本地统计聚合时该场不计主场优势 */
     neutral: integer("neutral").notNull().default(0),
     /** 技术统计 JSON：{shots, shotsOnTarget, corners, fouls, yellows, reds…按主客} */
     stats: text("stats"),

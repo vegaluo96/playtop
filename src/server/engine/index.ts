@@ -1,16 +1,4 @@
-import {
-  blendedGoals,
-  chooseDcLevel,
-  dcScoreMatrix,
-  fitDixonColesMLE,
-  fitShotWeights,
-  marketInversion,
-  matrixToThreeWay,
-  momentEstimate,
-  shotsCoverage,
-  type DcParams,
-} from "./dixonColes";
-import { eloToProbs } from "./elo";
+import { dcScoreMatrix, marketInversion, matrixToThreeWay } from "./dixonColes";
 import { powerDevig, twoWayDevig } from "./devig";
 import { bestAh, bestOneXTwo, bestOu, consensusProbs, devigBooks, pickMainOu } from "./consensus";
 import { computeAdjustments } from "./adjustments";
@@ -78,214 +66,84 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
     trace.push(`大小 ${ouMain.line} 盘去水（power 法）：P(大球)=${fmtPct(pOverDevigged)}`);
   }
 
-  // ---------- 2. Dixon-Coles ----------
+  // ---------- 2. 公允概率源：AF 蒸馏预测（主）+ 市场共识（对照/兜底） ----------
+  // 已彻底移除自建统计建模（Dixon-Coles 拟合 / Elo / xG 建模 / 历史训练）。
+  // AF 用全量数据库蒸馏，概率优于任何自建模型；我们只做 AF 不提供的派生（比分矩阵 → 亚盘/大小球）。
+  const afp = bundle.afPrediction ?? null;
+  const afProbs = afp ? { home: afp.home, draw: afp.draw, away: afp.away } : null;
   let fallbackLevel: FallbackLevel;
-  let dc: EngineOutput["dixonColes"] = null;
-  let lambda = 0;
-  let mu = 0;
-  let rho = params.rho;
-  let gamma = 1;
-  let dcProbs: ThreeWay | null = null;
-  let dcIsMarketDerived = false;
+  let ensembleProbs: ThreeWay;
+  const ensWeights = { market: 0, dc: 0, elo: 0 };
+  let afModel: EngineOutput["afModel"] = null;
 
-  const dcLevel = chooseDcLevel(bundle.leagueHistory, match.homeTeamId, match.awayTeamId);
-  let fitted: DcParams | null = null;
-  if (dcLevel === 1) {
-    fitted = fitDixonColesMLE(bundle.leagueHistory, { xi: params.xi, refTime: bundle.computedAt, rhoInit: params.rho });
+  if (afProbs) {
+    if (market) {
+      const pool = logOpinionPool([
+        { probs: afProbs, weight: params.afWeight },
+        { probs: market.devigged, weight: 1 - params.afWeight },
+      ]);
+      ensembleProbs = pool.probs;
+      ensWeights.market = pool.effectiveWeights[1];
+      afModel = { probs: afProbs, expGoalsHome: afp!.expGoalsHome, expGoalsAway: afp!.expGoalsAway, advice: afp!.advice, weight: pool.effectiveWeights[0] };
+    } else {
+      ensembleProbs = afProbs;
+      afModel = { probs: afProbs, expGoalsHome: afp!.expGoalsHome, expGoalsAway: afp!.expGoalsAway, advice: afp!.advice, weight: 1 };
+    }
     fallbackLevel = 1;
     trace.push(
-      `Dixon-Coles 完整 MLE：${bundle.leagueHistory.length} 场加权样本，` +
-        `${fitted.iterations} 次迭代${fitted.converged ? "收敛" : "（达迭代上限）"}，logLik=${fitted.logLik.toFixed(1)}，` +
-        `γ=${fitted.gamma.toFixed(3)}，ρ=${fitted.rho.toFixed(3)}`,
-    );
-    // 射门质量混合（Wheatcroft 2020）：进球噪声大，射门/射正更稳定；
-    // α/β/γ 用混合响应 quasi-Poisson 重拟合，ρ 沿用纯进球 DC 的估计
-    const coverage = shotsCoverage(bundle.leagueHistory);
-    if (params.shotsBlendTheta > 0 && coverage >= 0.6) {
-      const sw = fitShotWeights(bundle.leagueHistory);
-      if (sw) {
-        const blendFit = fitDixonColesMLE(bundle.leagueHistory, {
-          xi: params.xi,
-          refTime: bundle.computedAt,
-          rhoInit: 0,
-          freezeRho: true,
-          goals: blendedGoals(params.shotsBlendTheta, sw),
-        });
-        fitted = { ...blendFit, rho: fitted.rho };
-        trace.push(
-          `射门质量混合（Wheatcroft 2020）：覆盖率 ${(coverage * 100).toFixed(0)}%，` +
-            `OLS 标定 伪进球=${sw.c.toFixed(3)}+${sw.wShots.toFixed(3)}·射门+${sw.wSot.toFixed(3)}·射正（n=${sw.samples}），` +
-            `θ=${params.shotsBlendTheta}，攻防/主场参数已按混合响应重拟合`,
-        );
-      }
-    } else if (params.shotsBlendTheta > 0) {
-      trace.push(`历史射门数据覆盖率 ${(coverage * 100).toFixed(0)}% 不足 60%，跳过射门质量混合`);
-    }
-  } else if (dcLevel === 2) {
-    fitted = momentEstimate(bundle.leagueHistory, { xi: params.xi, refTime: bundle.computedAt, rhoInit: params.rho });
-    fallbackLevel = 2;
-    trace.push(`历史样本不足以稳定 MLE，Dixon-Coles 退化为矩估计（${bundle.leagueHistory.length} 场），γ=${fitted.gamma.toFixed(3)}`);
-  } else {
-    fitted = null;
-    fallbackLevel = market ? 3 : 4;
-  }
-
-  if (fitted) {
-    const hi = fitted.teamIndex.get(match.homeTeamId);
-    const ai = fitted.teamIndex.get(match.awayTeamId);
-    if (hi === undefined || ai === undefined) {
-      trace.push("参赛队未出现在历史样本中，Dixon-Coles 退化为市场反推");
-      fitted = null;
-      fallbackLevel = market ? 3 : 4;
-    } else {
-      gamma = fitted.gamma;
-      rho = fitted.rho;
-      lambda = fitted.attack[hi] * fitted.defense[ai] * gamma;
-      mu = fitted.attack[ai] * fitted.defense[hi];
-    }
-  }
-  if (!fitted && fallbackLevel === 3 && market) {
-    const inv = marketInversion(market.devigged, pOverDevigged, ouMain?.line ?? 2.5, params.rho);
-    lambda = inv.lambda;
-    mu = inv.mu;
-    rho = params.rho;
-    gamma = 1; // 市场价格已含主场优势
-    dcIsMarketDerived = true;
-    trace.push(`Dixon-Coles 市场反推：${inv.note}；λ=${lambda.toFixed(3)}，μ=${mu.toFixed(3)}`);
-  }
-  if (fallbackLevel === 4) {
-    trace.push("既无足够历史也无盘口，无法构建比分分布（等级 4）");
-  }
-
-  // ---------- 2b. xG 融合（近期 xG 推算期望进球，与 DC 估计加权融合） ----------
-  // xG 比进球更早反映实力（Brechot & Flepp 2020 等）；两侧口径：
-  // λ_xg = 主队近期场均 xG（进攻）× 客队近期场均被创造 xG / 联赛基线（防守）。
-  if (fallbackLevel < 4 && params.xgBlend > 0 && bundle.xg && bundle.xg.home.n >= 3 && bundle.xg.away.n >= 3) {
-    const xh = bundle.xg.home;
-    const xa = bundle.xg.away;
-    // 联赛 xG 基线 = 四个分量均值（典型单队场均 xG ≈ 1.2-1.4），用于把"对手防守"归一为相对强弱
-    const baseline = Math.max(0.3, (xh.forAvg + xh.againstAvg + xa.forAvg + xa.againstAvg) / 4);
-    const lambdaXg = xh.forAvg * (xa.againstAvg / baseline);
-    const muXg = xa.forAvg * (xh.againstAvg / baseline);
-    if (lambdaXg > 0 && muXg > 0) {
-      const t = params.xgBlend;
-      const lambdaPrev = lambda;
-      const muPrev = mu;
-      lambda = (1 - t) * lambda + t * lambdaXg;
-      mu = (1 - t) * mu + t * muXg;
-      trace.push(
-        `xG 融合（θ=${t}）：近期 主 xG攻 ${xh.forAvg.toFixed(2)}/被攻 ${xh.againstAvg.toFixed(2)}，` +
-          `客 xG攻 ${xa.forAvg.toFixed(2)}/被攻 ${xa.againstAvg.toFixed(2)} → λ_xg=${lambdaXg.toFixed(3)}/μ_xg=${muXg.toFixed(3)}；` +
-          `λ ${lambdaPrev.toFixed(3)}→${lambda.toFixed(3)}，μ ${muPrev.toFixed(3)}→${mu.toFixed(3)}`,
-      );
-    }
-  }
-
-  // ---------- 3. 情境修正层 ----------
-  let adjustments: EngineOutput["adjustments"] = [];
-  if (fallbackLevel < 4) {
-    if (params.adjustmentsEnabled) {
-      const adj = computeAdjustments({
-        injuries: bundle.injuries,
-        weather: bundle.weather,
-        neutralVenue: match.neutralVenue,
-      });
-      adjustments = adj.adjustments;
-      lambda *= adj.lambdaFactor;
-      mu *= adj.muFactor;
-      if (adj.gammaNeutral && !dcIsMarketDerived && gamma > 0) {
-        // 中立场：主场优势减半（γ → √γ），等效于 λ ÷ √γ
-        lambda /= Math.sqrt(gamma);
-        adjustments = [
-          ...adjustments,
-          { reason: "中立场地：主场优势减半（γ→√γ）", lambdaFactor: 1 / Math.sqrt(gamma), muFactor: 1 },
-        ];
-      }
-      for (const a of adjustments) trace.push(`情境修正：${a.reason}`);
-      if (adjustments.length === 0) trace.push("情境修正：无触发项");
-    } else {
-      trace.push("情境修正层已被管理员关闭");
-    }
-    lambda = Math.min(6, Math.max(0.05, lambda));
-    mu = Math.min(6, Math.max(0.05, mu));
-  }
-
-  // ---------- 3b. AF 预测期望进球（存在时驱动比分矩阵：亚盘/大小球派生的根基） ----------
-  const afp = bundle.afPrediction ?? null;
-  const afExpValid = !!afp && afp.expGoalsHome !== null && afp.expGoalsAway !== null && afp.expGoalsHome > 0 && afp.expGoalsAway > 0;
-  if (afExpValid) {
-    lambda = Math.min(6, Math.max(0.05, afp!.expGoalsHome!));
-    mu = Math.min(6, Math.max(0.05, afp!.expGoalsAway!));
-    rho = params.rho;
-    if (fallbackLevel === 4) fallbackLevel = 3; // AF 期望进球可建矩阵，脱离纯退化
-    trace.push(`AF 预测期望进球驱动比分矩阵：λ=${lambda.toFixed(3)}，μ=${mu.toFixed(3)}`);
-  }
-
-  let baseMatrix: number[][] | null = null;
-  if (fallbackLevel < 4) {
-    baseMatrix = dcScoreMatrix(lambda, mu, rho);
-    dcProbs = matrixToThreeWay(baseMatrix);
-    trace.push(
-      `比分分布：λ=${lambda.toFixed(3)}，μ=${mu.toFixed(3)}，ρ=${rho.toFixed(3)}；` +
-        `三向 主${fmtPct(dcProbs.home)}/平${fmtPct(dcProbs.draw)}/客${fmtPct(dcProbs.away)}`,
-    );
-  }
-
-  // ---------- 4. Elo ----------
-  let elo: EngineOutput["elo"] = null;
-  if (bundle.elo && bundle.elo.home.matchesPlayed >= 10 && bundle.elo.away.matchesPlayed >= 10) {
-    const homeAdv = match.neutralVenue ? 0 : params.homeAdvElo;
-    const d = bundle.elo.home.rating + homeAdv - bundle.elo.away.rating;
-    const probs = eloToProbs(d, params.eloCalib);
-    elo = { home: bundle.elo.home.rating, away: bundle.elo.away.rating, diff: d, probs };
-    trace.push(
-      `Elo（Hvattum & Arntzen 2010）：主 ${bundle.elo.home.rating.toFixed(0)} vs 客 ${bundle.elo.away.rating.toFixed(0)}，` +
-        `含主场分差 d=${d.toFixed(0)}，三向 主${fmtPct(probs.home)}/平${fmtPct(probs.draw)}/客${fmtPct(probs.away)}`,
-    );
-  } else {
-    trace.push("Elo 样本不足（任一队 <10 场），该模型缺席");
-  }
-
-  // ---------- 5. 集成（AF 蒸馏主导；缺 AF 时回落自建模型链路） ----------
-  const w = params.ensembleWeights;
-  const afProbs = afp ? { home: afp.home, draw: afp.draw, away: afp.away } : null;
-  let ensembleProbs: ThreeWay;
-  let ensWeights: { market: number; dc: number; elo: number };
-  let afModel: EngineOutput["afModel"] = null;
-  if (afProbs) {
-    // AF 蒸馏（全量数据库）优于自建统计模型：AF 主导 + 市场共识做对照，自建 DC/Elo 让位
-    const pool = logOpinionPool([
-      { probs: afProbs, weight: params.afWeight },
-      { probs: market?.devigged ?? null, weight: 1 - params.afWeight },
-    ]);
-    ensembleProbs = pool.probs;
-    ensWeights = { market: pool.effectiveWeights[1], dc: 0, elo: 0 };
-    afModel = {
-      probs: afProbs,
-      expGoalsHome: afp!.expGoalsHome,
-      expGoalsAway: afp!.expGoalsAway,
-      advice: afp!.advice,
-      weight: pool.effectiveWeights[0],
-    };
-    trace.push(
-      `集成（AF 蒸馏${afModel.weight.toFixed(2)} + 市场共识${ensWeights.market.toFixed(2)}）：` +
-        `主${fmtPct(ensembleProbs.home)}/平${fmtPct(ensembleProbs.draw)}/客${fmtPct(ensembleProbs.away)}` +
+      `公允概率 = AF 蒸馏预测（权重${afModel.weight.toFixed(2)}）` +
+        (market ? ` + 市场共识对照（${ensWeights.market.toFixed(2)}）` : "（无盘口，纯 AF）") +
+        `：主${fmtPct(ensembleProbs.home)}/平${fmtPct(ensembleProbs.draw)}/客${fmtPct(ensembleProbs.away)}` +
         (afp!.advice ? `；AF 建议「${afp!.advice}」（仅参考）` : ""),
     );
+  } else if (market) {
+    ensembleProbs = market.devigged;
+    ensWeights.market = 1;
+    fallbackLevel = 3;
+    trace.push(`无 AF 预测，公允概率回落市场共识：主${fmtPct(ensembleProbs.home)}/平${fmtPct(ensembleProbs.draw)}/客${fmtPct(ensembleProbs.away)}`);
   } else {
-    // 无 AF 预测：回落对数意见池（市场/DC/Elo）
-    const pool = logOpinionPool([
-      { probs: market?.devigged ?? null, weight: dcIsMarketDerived ? w.market + w.dc : w.market },
-      { probs: dcIsMarketDerived ? null : dcProbs, weight: w.dc },
-      { probs: elo?.probs ?? null, weight: w.elo },
-    ]);
-    ensembleProbs = pool.probs;
-    ensWeights = { market: pool.effectiveWeights[0], dc: pool.effectiveWeights[1], elo: pool.effectiveWeights[2] };
-    trace.push(
-      `对数意见池集成（市场${ensWeights.market.toFixed(2)}/DC${ensWeights.dc.toFixed(2)}/Elo${ensWeights.elo.toFixed(2)}）：` +
-        `主${fmtPct(ensembleProbs.home)}/平${fmtPct(ensembleProbs.draw)}/客${fmtPct(ensembleProbs.away)}`,
-    );
+    ensembleProbs = { home: 1 / 3, draw: 1 / 3, away: 1 / 3 };
+    fallbackLevel = 4;
+    trace.push("既无 AF 预测也无盘口，无法给出公允概率（等级 4）");
   }
+
+  // ---------- 3. 期望进球 → 比分矩阵（亚盘/大小球/波胆派生的根基；AF 不提供矩阵，由我们泊松展开） ----------
+  let lambda = 0;
+  let mu = 0;
+  const rho = params.rho;
+  let matrixNote = "";
+  const afExpValid = !!afp && afp.expGoalsHome !== null && afp.expGoalsAway !== null && afp.expGoalsHome > 0 && afp.expGoalsAway > 0;
+  if (afExpValid) {
+    lambda = afp!.expGoalsHome!;
+    mu = afp!.expGoalsAway!;
+    matrixNote = "AF 预测期望进球";
+  } else if (market || pOverDevigged !== null) {
+    const inv = marketInversion(ensembleProbs, pOverDevigged, ouMain?.line ?? 2.5, rho);
+    lambda = inv.lambda;
+    mu = inv.mu;
+    matrixNote = `市场反推（${inv.note}）`;
+  }
+
+  // 情境修正（伤停/天气）——基于真实因子的确定性调整，非统计建模
+  let adjustments: EngineOutput["adjustments"] = [];
+  if ((lambda > 0 || mu > 0) && params.adjustmentsEnabled) {
+    const adj = computeAdjustments({ injuries: bundle.injuries, weather: bundle.weather, neutralVenue: match.neutralVenue });
+    adjustments = adj.adjustments.filter((a) => a.lambdaFactor !== 1 || a.muFactor !== 1 || !adj.gammaNeutral);
+    lambda *= adj.lambdaFactor;
+    mu *= adj.muFactor;
+    for (const a of adjustments) trace.push(`情境修正：${a.reason}`);
+  }
+  lambda = Math.min(6, Math.max(0.05, lambda));
+  mu = Math.min(6, Math.max(0.05, mu));
+
+  let baseMatrix: number[][] | null = null;
+  let dcProbs: ThreeWay | null = null;
+  if (matrixNote) {
+    baseMatrix = dcScoreMatrix(lambda, mu, rho);
+    dcProbs = matrixToThreeWay(baseMatrix);
+    trace.push(`比分矩阵（泊松，源：${matrixNote}）：λ=${lambda.toFixed(3)}，μ=${mu.toFixed(3)}，ρ=${rho.toFixed(3)}`);
+  }
+  const elo: EngineOutput["elo"] = null; // Elo 模型已移除
 
   // ---------- 6. 最终比分矩阵与衍生市场 ----------
   const finalMatrix = baseMatrix ? rescaleMatrixTo1x2(baseMatrix, ensembleProbs) : null;
@@ -526,12 +384,12 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
     fallbackLevel,
     market,
     dixonColes:
-      fallbackLevel < 4 && finalMatrix
+      finalMatrix
         ? {
             lambda,
             mu,
             rho,
-            gamma,
+            gamma: 1,
             probs: dcProbs ?? ensembleProbs,
             scoreMatrix: finalMatrix,
             topScores: topScores(finalMatrix, 5),

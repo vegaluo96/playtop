@@ -39,11 +39,10 @@ async function main() {
   const { tickStateMachine } = await import("../src/server/jobs/scheduler");
   const { recordOutcome } = await import("../src/server/services/settle");
   const { recordOverview, recordList } = await import("../src/server/services/stats");
-  const { backfillElo } = await import("../src/server/services/eloService");
 
   const step = (msg: string) => console.log(`\n■ ${msg}`);
 
-  step("0. 准备账号与确定性历史样本（8 队 × 双循环 × 4 轮 = 224 场）");
+  step("0. 准备账号与确定性历史样本（8 队 × 双循环 × 4 轮 = 224 场；供 h2h/近况本地统计）");
   // 模拟覆盖付费链路（锁定态/解锁/退款），显式关闭免费公测
   const { setConfig } = await import("../src/server/lib/config");
   setConfig("pricing", { freeBeta: false });
@@ -88,7 +87,7 @@ async function main() {
       }
     }
   }
-  console.log(`  历史样本 ${k} 场，Elo 回放 ${backfillElo()} 场`);
+  console.log(`  历史样本 ${k} 场（h2h / 近期状态本地统计底座）`);
 
   step("1. 建赛（世界杯风格：中立场，开球 T0+2h）");
   const kickoffAt = T0 + 2 * 3_600_000;

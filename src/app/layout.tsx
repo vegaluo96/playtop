@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://play.top"),
   title: { default: "PlayTop 量化球研 · play.top", template: "%s · PlayTop" },
   description:
-    "PlayTop（play.top）机构级足球赛事量化研究：Dixon-Coles 双泊松、进球差调整 Elo、Shin 盘口去水、多源数据实时采集，投行级研报呈现，全部战绩链上可验。",
+    "PlayTop（play.top）亚盘优先的足球赛事量化研究：API-Football 全量库蒸馏预测为主源、Shin 多书商盘口去水共识做对照、期望进球经泊松比分矩阵展开派生亚盘与大小球，给出价格边界线，全部战绩链上可验。",
 };
 
 export const viewport: Viewport = {

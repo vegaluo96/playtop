@@ -8,7 +8,6 @@ import { HttpError } from "../lib/api";
 import { getConfig } from "../lib/config";
 import { now } from "../lib/time";
 import { logAudit } from "./audit";
-import { applyMatchToElo } from "./eloService";
 import { getMatch, matchesAtKickoff, matchesByStatus, transitionMatch } from "./matchesService";
 import { voidMatch } from "./publish";
 import { latestOddsBooks } from "./snapshots";
@@ -18,7 +17,7 @@ import { leagueById } from "./teamResolver";
  * 开赛锁定 + 赛果 + 结算：
  * - 开球时刻：把最新已发布版本锁定为"终版"，按当时盘口落 predictions（战绩口径），状态 → in_play
  * - 赛果：CSV 自动回填 / 管理员录入（即时生效）/ AI 检索（provisional，须管理员确认）
- * - 结算：判定命中 → 报告全量转 public（免费公开）→ Elo 与历史库回填 → settled
+ * - 结算：判定命中 → 报告全量转 public（免费公开）→ 历史库回填（h2h/近况底座）→ settled
  */
 
 export function lockFinalAnalysisAtKickoff(): number {
@@ -248,14 +247,6 @@ export function settleDueMatches(): number {
         .set({ status: "public", publicAt: now(), updatedAt: now() })
         .where(and(eq(analyses.matchId, match.id), eq(analyses.status, "published"), isNotNull(analyses.publishedAt)))
         .run();
-    });
-    // Elo 增量更新 + 历史库回填（喂后续比赛的模型）
-    applyMatchToElo({
-      homeTeamId: match.homeTeamId,
-      awayTeamId: match.awayTeamId,
-      homeGoals: outcome.homeGoals,
-      awayGoals: outcome.awayGoals,
-      neutral: match.neutral === 1,
     });
     const league = leagueById(match.leagueId);
     try {

@@ -1,9 +1,10 @@
 /**
  * 世界杯端到端闭环 demo（真实数据驱动）：
- * 真实赛程(openfootball) + 真实国际赛历史(martj42) + 真实射手数据集 →
- * 自动建赛 → 用户端可见 → 采集（网络受限源失败自动记健康账本）→ 多书商盘口
- * （沙箱注入同一写入口径；生产由适配器自动抓取）→ 自动建模（真实历史 DC 拟合 +
- * 加权共识）→ 自动发布 → 开赛锁定 → 权威赛果 → 自动结算公开 → 战绩 + 哈希校验。
+ * 真实赛程(openfootball) + 真实国际赛历史(martj42，h2h/近况本地统计) + 真实射手数据集 →
+ * 自动建赛 → 用户端可见 → 采集（网络受限源失败自动记健康账本）→ 多书商盘口 +
+ * AF 蒸馏预测（沙箱注入同一写入口径；生产由 API-Football 适配器自动抓取）→
+ * 自动建模（AF 蒸馏概率主导 + 市场加权共识对照；期望进球泊松展开为比分矩阵派生亚盘/大小球）→
+ * 自动发布 → 开赛锁定 → 权威赛果 → 自动结算公开 → 战绩 + 哈希校验。
  *
  * 运行：npm run demo:wc（需可访问 GitHub raw）
  */
@@ -29,7 +30,6 @@ async function main() {
   const { matches, analyses, predictions } = await import("../src/server/db/schema");
   const { asc, eq } = await import("drizzle-orm");
   const { importInternationalHistory } = await import("../src/server/services/importHistory");
-  const { backfillElo } = await import("../src/server/services/eloService");
   const { importWorldCupFixtures } = await import("../src/server/services/importWorldCup");
   const { listMatchCards, getUpcomingFixture, getMatchDetail } = await import("../src/server/services/views");
   const { collectMatch } = await import("../src/server/services/collect");
@@ -45,11 +45,10 @@ async function main() {
 
   const { setConfig } = await import("../src/server/lib/config");
   setConfig("pricing", { freeBeta: false }); // 演示付费链路
-  step(1, "真实历史底座：martj42 国际赛 2022 起 + Elo 全量回放");
+  step(1, "真实历史底座：martj42 国际赛 2022 起（h2h / 近期状态本地统计）");
   const hist = await importInternationalHistory(2022, true);
   console.log(`  导入历史 ${hist.inserted} 场`);
   assert(hist.inserted > 1500, "历史导入量异常");
-  console.log(`  Elo 回放 ${backfillElo()} 场`);
 
   step(2, "真实世界杯赛程自动建赛（openfootball）");
   const wc = await importWorldCupFixtures(true);
@@ -86,7 +85,17 @@ async function main() {
   console.log(`  并存书商：${latestOddsBookRows(opener.id).map((b) => b.bookmaker).join("、")}`);
   assert(latestOddsBookRows(opener.id).length >= 5, "多书商应并存");
 
-  step(6, "全自动推进：建模（真实历史 DC 拟合 + 加权共识）→ 默认价发布");
+  // AF 蒸馏预测注入（生产由 fetchAfPrediction 自动抓取）：1X2 概率 + 期望进球，作引擎主概率源
+  insertSnapshot(opener.id, "af_prediction", "api_football", {
+    home: 0.6,
+    draw: 0.26,
+    away: 0.14,
+    expGoalsHome: 1.85,
+    expGoalsAway: 0.95,
+    advice: `Winner: ${home}`,
+  });
+
+  step(6, "全自动推进：建模（AF 蒸馏概率主导 + 市场加权共识对照）→ 默认价发布");
   await collectMatch(opener.id, { skipAi: true }); // 盘口已到位 → ready
   const steps = await advanceMatch(opener.id);
   for (const s of steps) console.log(`  ${s}`);
@@ -95,7 +104,8 @@ async function main() {
   const analysis = db.select().from(analyses).where(eq(analyses.matchId, opener.id)).get()!;
   const engine = engineOutputSchema.parse(JSON.parse(analysis.engineOutput));
   console.log(`  退化等级 L${engine.fallbackLevel}；集成概率 主${(engine.ensemble.probs.home * 100).toFixed(1)}%`);
-  assert(engine.fallbackLevel <= 2, "真实历史下 DC 应达 MLE/矩估计档（历史池共享修复验证）");
+  assert(engine.fallbackLevel === 1, "注入 AF 预测后应为等级 1（AF 蒸馏主导）");
+  assert(engine.afModel !== null, "AF 蒸馏预测应落盘为主概率源");
   assert(engine.market!.books.length >= 5, "市场成员应含全部书商");
   const wTrace = engine.trace.find((t) => t.includes("加权共识"));
   console.log(`  ${wTrace}`);
@@ -144,7 +154,7 @@ async function main() {
   }
 
   console.log(
-    "\n✅ 世界杯闭环全部走通：真实赛程建赛→用户可见→采集→多书商加权共识建模→自动发布→锁定→权威赛果→结算公开→战绩哈希校验；网络受限源全部软降级并记账。",
+    "\n✅ 世界杯闭环全部走通：真实赛程建赛→用户可见→采集→多书商盘口 + AF 蒸馏预测主导建模→自动发布→锁定→权威赛果→结算公开→战绩哈希校验；网络受限源全部软降级并记账。",
   );
 }
 

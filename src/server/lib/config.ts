@@ -62,25 +62,8 @@ export const automationConfigSchema = z.object({
 export type AutomationConfig = z.infer<typeof automationConfigSchema>;
 
 export const engineConfigSchema = z.object({
-  /** Dixon-Coles 时间衰减（每天），论文 ξ=0.0065/半周 ≈ 0.0019/天 */
-  xi: z.number().default(0.0019),
   /** 低比分相关性 ρ 的缺省/退化值 */
   rho: z.number().default(-0.05),
-  homeAdvElo: z.number().default(100),
-  eloK0: z.number().default(10),
-  eloGoalDiffExp: z.number().default(1),
-  /** 有序 logit（Elo 差→三向概率）系数，文献典型值；积累样本后可重拟合覆盖 */
-  eloCalib: z
-    .object({ b: z.number(), c1: z.number(), c2: z.number() })
-    .default({ b: 0.0044, c1: -0.45, c2: 0.55 }),
-  /**
-   * 对数意见池权重（自动按缺席模型重归一）。
-   * 缺省偏重市场：去水收盘价是文献公认最强基线（Štrumbelj 2014），
-   * 统计模型的职责是提供独立视角与比分分布，而非压过市场。
-   */
-  ensembleWeights: z
-    .object({ market: z.number(), dc: z.number(), elo: z.number() })
-    .default({ market: 0.55, dc: 0.3, elo: 0.15 }),
   /**
    * 书商因子权重（加权共识用）：锐盘（交易所/Pinnacle）高权，官方彩票/综合价中权，
    * 模拟盘低权。未列出的书商默认 1；离群报价引擎自动再降权 80%。
@@ -97,11 +80,7 @@ export const engineConfigSchema = z.object({
     }),
   /** 锐价真值锚（硬庄口径）：单独去水做市场真值，驱动价差监测/滞后偏离 */
   sharpBooks: z.array(z.string()).default(["Pinnacle"]),
-  /** 射门质量混合系数 θ（Wheatcroft 2020），0 关闭 */
-  shotsBlendTheta: z.number().min(0).max(1).default(0.35),
-  /** xG 融合系数 θ_xg（近期 xG 推算期望进球与 DC 估计融合），0 关闭 */
-  xgBlend: z.number().min(0).max(1).default(0.3),
-  /** AF 蒸馏预测权重 w_af：AF 用全量库蒸馏优于自建模型，存在时主导集成（市场做对照）。缺 AF 时自动回落自建链路 */
+  /** AF 蒸馏预测权重 w_af：AF 用全量库蒸馏，存在时主导集成（市场做对照）。缺 AF 时自动回落市场共识链路 */
   afWeight: z.number().min(0).max(1).default(0.7),
   kellyFraction: z.number().default(0.25),
   kellyCap: z.number().default(0.05),

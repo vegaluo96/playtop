@@ -3,7 +3,7 @@ import { politeFetchText, parseCsv } from "./httpCache";
 /**
  * 国际赛（国家队）历史赛果：martj42/international_results（GitHub 公开 CSV，无需 key）。
  * 1872 年至今全部国家队正式比赛：date,home_team,away_team,home_score,away_score,
- * tournament,city,country,neutral —— 用于世界杯等国际大赛的 Elo 回放与 DC 拟合。
+ * tournament,city,country,neutral —— 用于世界杯等国际大赛的 h2h/近况本地统计底座。
  */
 
 const RESULTS_URL =

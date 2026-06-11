@@ -8,7 +8,6 @@ import {
   type EngineBundle,
   type EngineOutput,
   type EngineParams,
-  type HistMatch,
   type InjuryItem,
   type NormalizedOdds,
 } from "../engine/types";
@@ -37,85 +36,31 @@ import {
   type LlmSections,
   type ReportContext,
 } from "../llm/reportWriter";
-import { getRating } from "./eloService";
 import { getMatch, transitionMatch } from "./matchesService";
 import { latestOddsBookRows, latestOddsBooks, latestSnapshots, oddsSeries, snapshotPayload, snapshotStats, KIND_LABELS } from "./snapshots";
 import { leagueById, teamNameById } from "./teamResolver";
 import { publishAnalysisRow } from "./publish";
 import { qualitativePhrases } from "../llm/reportWriter";
 
-const HISTORY_WINDOW_DAYS = 1100;
-const HISTORY_CAP = 3000;
 /** 集成概率最大分量变化 ≥ 2pp 才重新生成 LLM 定性段落（控制 token 成本） */
 const LLM_REGEN_DELTA = 0.02;
 
 export function engineParamsFromConfig(): EngineParams {
   const cfg = getConfig("engine");
   return {
-    xi: cfg.xi,
     rho: cfg.rho,
-    homeAdvElo: cfg.homeAdvElo,
-    eloK0: cfg.eloK0,
-    eloGoalDiffExp: cfg.eloGoalDiffExp,
-    eloCalib: cfg.eloCalib,
-    ensembleWeights: cfg.ensembleWeights,
     bookWeights: cfg.bookWeights,
     sharpBooks: cfg.sharpBooks,
-    xgBlend: cfg.xgBlend,
     afWeight: cfg.afWeight,
     kellyFraction: cfg.kellyFraction,
     kellyCap: cfg.kellyCap,
     evThreshold: cfg.evThreshold,
     minProbForPick: cfg.minProbForPick,
     adjustmentsEnabled: cfg.adjustmentsEnabled,
-    shotsBlendTheta: cfg.shotsBlendTheta,
   };
 }
 
-/** 国际类联赛（世界杯/INT 等，country=国际）共享同一个国家队历史池——否则 WC2026 联赛下无历史，DC 永远退化 */
-function historyLeagueIds(leagueId: number): number[] {
-  const lg = leagueById(leagueId);
-  if (lg?.country === "国际") {
-    return db
-      .select({ id: leagues.id })
-      .from(leagues)
-      .where(eq(leagues.country, "国际"))
-      .all()
-      .map((r) => r.id);
-  }
-  return [leagueId];
-}
 
-function loadLeagueHistory(leagueId: number, refTime: number): HistMatch[] {
-  const rows = db
-    .select()
-    .from(historyMatches)
-    .where(
-      and(
-        inArray(historyMatches.leagueId, historyLeagueIds(leagueId)),
-        gte(historyMatches.playedAt, refTime - HISTORY_WINDOW_DAYS * 86_400_000),
-        lt(historyMatches.playedAt, refTime),
-      ),
-    )
-    .orderBy(desc(historyMatches.playedAt))
-    .limit(HISTORY_CAP)
-    .all();
-  return rows.map((r) => {
-    const stats = r.stats ? (JSON.parse(r.stats) as Record<string, number | null>) : {};
-    return {
-      homeTeamId: r.homeTeamId,
-      awayTeamId: r.awayTeamId,
-      homeGoals: r.homeGoals,
-      awayGoals: r.awayGoals,
-      playedAt: r.playedAt,
-      neutral: r.neutral === 1,
-      homeShots: stats.homeShots ?? undefined,
-      homeSot: stats.homeSot ?? undefined,
-      awayShots: stats.awayShots ?? undefined,
-      awaySot: stats.awaySot ?? undefined,
-    };
-  });
-}
 
 /** 与 computedAt/trace 无关的引擎输出指纹（判断"是否真的变了"） */
 export function stableEngineHash(output: EngineOutput): string {
@@ -159,18 +104,6 @@ export async function analyzeMatch(
   const odds = snapshotPayload<NormalizedOdds>(snaps.get("odds"));
   const afPrediction = snapshotPayload<z.infer<typeof afPredictionPayloadSchema>>(snaps.get("af_prediction")) ?? undefined;
   const formPayload = snapshotPayload<z.infer<typeof formPayloadSchema>>(snaps.get("form"));
-  // 近期 xG 聚合（AF fixtures/statistics）：场均进攻 xG 与被创造 xG（防守失），喂引擎 xG 融合
-  const xgAgg = (side: "home" | "away") => {
-    const recent = formPayload?.[side].recent ?? [];
-    const f = recent.map((r) => r.xg).filter((x): x is number => x !== undefined);
-    const a = recent.map((r) => r.xgAgainst).filter((x): x is number => x !== undefined);
-    const n = Math.min(f.length, a.length);
-    if (n < 3) return null;
-    const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
-    return { forAvg: mean(f), againstAvg: mean(a), n };
-  };
-  const xgHome = xgAgg("home");
-  const xgAway = xgAgg("away");
   const injuriesPayload = snapshotPayload<z.infer<typeof injuriesPayloadSchema>>(snaps.get("injuries"));
   const suspensionsPayload = snapshotPayload<z.infer<typeof injuriesPayloadSchema>>(snaps.get("suspensions"));
   const weather = snapshotPayload<z.infer<typeof weatherPayloadSchema>>(snaps.get("weather"));
@@ -190,7 +123,6 @@ export async function analyzeMatch(
     odds: odds ?? undefined,
     books: latestOddsBooks(matchId),
     oddsSeries: oddsSeries(matchId),
-    xg: xgHome && xgAway ? { home: xgHome, away: xgAway } : undefined,
     afPrediction,
     injuries,
     weather: weather
@@ -201,11 +133,6 @@ export async function analyzeMatch(
           summary: weather.summary,
         }
       : undefined,
-    leagueHistory: loadLeagueHistory(match.leagueId, computedAt),
-    elo: {
-      home: { rating: getRating(match.homeTeamId).rating, matchesPlayed: getRating(match.homeTeamId).matchesPlayed },
-      away: { rating: getRating(match.awayTeamId).rating, matchesPlayed: getRating(match.awayTeamId).matchesPlayed },
-    },
     computedAt,
   };
 

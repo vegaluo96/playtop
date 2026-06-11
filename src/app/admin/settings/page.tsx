@@ -18,7 +18,7 @@ interface Settings {
     sourceAutoDisableAfter: number;
     apiFootballKey: string;
   } & Record<string, unknown>;
-  engine: Record<string, unknown> & { ensembleWeights: { market: number; dc: number; elo: number } };
+  engine: Record<string, unknown> & { afWeight: number; boundaryMargin: number; bookWeights?: Record<string, number> };
   pricing: { defaultPricePoints: number; freeBeta: boolean };
   automation: {
     autoCollect: boolean;
@@ -300,7 +300,6 @@ export default function SettingsPage() {
           <button onClick={runHealthCheck} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] font-semibold text-gold-bright">数据源体检（全部源真实拉取）</button>
           <button onClick={() => importHistory({ type: "club", seasons: 3 }, "导入俱乐部历史（3 季）")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">导入俱乐部历史</button>
           <button onClick={() => importHistory({ type: "international", sinceYear: 2018 }, "导入国际赛历史")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">导入国际赛历史（世界杯用）</button>
-          <button onClick={() => importHistory({ type: "backfill_elo" }, "Elo 全量回放")} className="rounded border border-hairline px-3 py-1.5 text-[12px] text-muted">Elo 全量回放</button>
         </div>
       </section>
 
@@ -353,16 +352,12 @@ export default function SettingsPage() {
         <h2 className="font-display text-sm tracking-wider text-gold-bright">引擎参数与定价</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 text-[13px] sm:grid-cols-3">
           <label className="block">
-            <span className="text-[10px] tracking-wider text-faint">集成权重·市场</span>
-            <input type="number" step="0.05" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.engine.ensembleWeights.market} onChange={(e) => setS({ ...s, engine: { ...s.engine, ensembleWeights: { ...s.engine.ensembleWeights, market: Number(e.target.value) } } })} />
+            <span className="text-[10px] tracking-wider text-faint">AF 蒸馏预测权重 w_af（0~1，存在时主导集成）</span>
+            <input type="number" step="0.05" min="0" max="1" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.engine.afWeight} onChange={(e) => setS({ ...s, engine: { ...s.engine, afWeight: Number(e.target.value) } })} />
           </label>
           <label className="block">
-            <span className="text-[10px] tracking-wider text-faint">集成权重·DC</span>
-            <input type="number" step="0.05" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.engine.ensembleWeights.dc} onChange={(e) => setS({ ...s, engine: { ...s.engine, ensembleWeights: { ...s.engine.ensembleWeights, dc: Number(e.target.value) } } })} />
-          </label>
-          <label className="block">
-            <span className="text-[10px] tracking-wider text-faint">集成权重·Elo</span>
-            <input type="number" step="0.05" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.engine.ensembleWeights.elo} onChange={(e) => setS({ ...s, engine: { ...s.engine, ensembleWeights: { ...s.engine.ensembleWeights, elo: Number(e.target.value) } } })} />
+            <span className="text-[10px] tracking-wider text-faint">边界安全垫 margin（边界价 = margin / 模型概率，0=关闭）</span>
+            <input type="number" step="0.01" min="0" className="mt-1 w-full rounded border border-hairline bg-overlay/50 px-2 py-1.5" value={s.engine.boundaryMargin} onChange={(e) => setS({ ...s, engine: { ...s.engine, boundaryMargin: Number(e.target.value) } })} />
           </label>
           <label className="block">
             <span className="text-[10px] tracking-wider text-faint">默认解锁价（积分）</span>
@@ -401,7 +396,7 @@ export default function SettingsPage() {
           <button onClick={() => save("pricing", s.pricing)} className="rounded border border-gold/50 px-3 py-1.5 text-[12px] text-gold-bright">保存定价</button>
         </div>
         <p className="mt-3 text-[11px] leading-5 text-faint">
-          其余引擎参数（时间衰减 ξ、ρ、Elo K、Kelly 比例、EV 阈值、射门混合 θ 等）均有学术缺省值，需要微调时通过 API PUT /api/admin/settings 提交 engine 对象。
+          引擎已彻底重建：公允概率以 API-Football 蒸馏预测为主源、市场共识为对照，期望进球经泊松展开为比分矩阵后派生亚盘/大小球/波胆与边界价；不再做任何自建统计拟合。其余参数（ρ、锐价锚、Kelly 比例、EV 阈值、最低出手概率等）均有缺省值，需微调时通过 API PUT /api/admin/settings 提交 engine 对象。
         </p>
       </section>
     </div>

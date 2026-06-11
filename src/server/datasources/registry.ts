@@ -39,8 +39,8 @@ export const SOURCE_REGISTRY: SourceEntry[] = [
   {
     key: "football_data_couk",
     label: "football-data.co.uk",
-    note: "联赛历史赛果+收盘赔率+射门统计（模型训练底座）；赛程与即时盘口（书商维度）；联赛赛果权威结算",
-    weightNote: "书商权重 1.0；历史数据直接喂 DC/Elo",
+    note: "联赛历史赛果+收盘赔率+射门统计（h2h/近况本地统计底座）；赛程与即时盘口（书商维度）；联赛赛果权威结算",
+    weightNote: "书商权重 1.0；历史赛果 → h2h/近期状态退化链",
     configKey: null,
     probe: async () => {
       const cfg = getConfig("datasources");

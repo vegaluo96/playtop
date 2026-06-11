@@ -136,7 +136,8 @@ export function qualitativePhrases(ctx: ReportContext): string[] {
     phrases.push("所有点位的期望值均不足以覆盖水位成本，结论为观望");
   }
   for (const a of e.adjustments) phrases.push(`情境修正已计入：${a.reason}`);
-  if (e.trace.some((t) => t.includes("xG 融合"))) phrases.push("近期 xG（预期进球）已融入两队期望进球估计，比纯进球更早反映实力");
+  if (e.afModel) phrases.push("公允概率以 API-Football 全量数据库蒸馏预测为主源，多书商盘口去水共识作对照");
+  if (e.afModel?.expGoalsHome != null) phrases.push("AF 期望进球经泊松比分矩阵展开，派生亚盘与大小球的覆盖概率");
   if (ctx.match.neutral) phrases.push("本场为中立场地，模型未计入常规主场优势");
   {
     // 异动判定必须同一书商首末对比——跨家比较会把"换源"误读成"异动"
@@ -324,19 +325,15 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   L.push("");
   L.push("| 信息源 | 主胜 | 平局 | 客胜 | 集成权重 |");
   L.push("|---|---|---|---|---|");
+  if (e.afModel) L.push(`| AF 蒸馏预测（全量库） | ${pct(e.afModel.probs.home)} | ${pct(e.afModel.probs.draw)} | ${pct(e.afModel.probs.away)} | ${pct(e.afModel.weight)} |`);
   if (e.market) L.push(`| 市场（Shin 去水） | ${pct(e.market.devigged.home)} | ${pct(e.market.devigged.draw)} | ${pct(e.market.devigged.away)} | ${pct(e.ensemble.weights.market)} |`);
-  if (e.dixonColes) L.push(`| Dixon-Coles 双泊松 | ${pct(e.dixonColes.probs.home)} | ${pct(e.dixonColes.probs.draw)} | ${pct(e.dixonColes.probs.away)} | ${pct(e.ensemble.weights.dc)} |`);
-  if (e.elo) L.push(`| 进球差调整 Elo | ${pct(e.elo.probs.home)} | ${pct(e.elo.probs.draw)} | ${pct(e.elo.probs.away)} | ${pct(e.ensemble.weights.elo)} |`);
+  if (e.dixonColes) L.push(`| 比分分布（泊松，期望进球展开） | ${pct(e.dixonColes.probs.home)} | ${pct(e.dixonColes.probs.draw)} | ${pct(e.dixonColes.probs.away)} | — |`);
   L.push(`| **集成（对数意见池）** | **${pct(e.ensemble.probs.home)}** | **${pct(e.ensemble.probs.draw)}** | **${pct(e.ensemble.probs.away)}** | — |`);
   L.push("");
   if (e.dixonColes) {
-    L.push(`λ（主队期望进球）= ${e.dixonColes.lambda.toFixed(3)}，μ（客队期望进球）= ${e.dixonColes.mu.toFixed(3)}，ρ = ${e.dixonColes.rho.toFixed(3)}，γ = ${e.dixonColes.gamma.toFixed(3)}`);
+    L.push(`λ（主队期望进球）= ${e.dixonColes.lambda.toFixed(3)}，μ（客队期望进球）= ${e.dixonColes.mu.toFixed(3)}，ρ = ${e.dixonColes.rho.toFixed(3)}`);
     L.push("");
     L.push("**最可能比分**：" + e.dixonColes.topScores.map((s) => `${s.score}（${pct(s.prob)}）`).join("、"));
-    L.push("");
-  }
-  if (e.elo) {
-    L.push(`**Elo**：${m.homeName} ${e.elo.home.toFixed(0)} vs ${m.awayName} ${e.elo.away.toFixed(0)}（含场地因素差 ${e.elo.diff.toFixed(0)}）`);
     L.push("");
   }
   if (e.markets.ou.length > 0 || e.markets.ah.length > 0) {
@@ -435,11 +432,10 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
   L.push("");
   L.push("## 方法论与文献");
   L.push("");
-  L.push("- Dixon & Coles (1997). *Modelling Association Football Scores and Inefficiencies in the Football Betting Market.* JRSS Series C 46(2).");
-  L.push("- Hvattum & Arntzen (2010). *Using ELO ratings for match result prediction in association football.* International Journal of Forecasting 26(3).");
-  L.push("- Shin (1993). *Measuring the Incidence of Insider Trading in a Market for State-Contingent Claims.* Economic Journal 103(420)；Štrumbelj (2014). IJF 30(4).");
-  L.push("- Wheatcroft (2020). *A profitable model for predicting the over/under market in football.* IJF 36(3)（射门质量评分）；Brechot & Flepp (2020). *Dealing with Randomness in Football: xG.* Journal of Sports Economics（近期 xG 融合期望进球）。");
-  L.push("- Genest & Zidek (1986). *Combining Probability Distributions.* Statistical Science 1(1)（对数意见池）；Kelly (1956). BSTJ 35(4)（仓位）。");
+  L.push("- 公允概率主源：API-Football 全量数据库蒸馏预测（/predictions）——1X2 概率 + 期望进球；本平台不再自建统计拟合。");
+  L.push("- Dixon & Coles (1997). *Modelling Association Football Scores and Inefficiencies in the Football Betting Market.* JRSS Series C 46(2)（低比分相关性修正 + 双泊松比分矩阵：把期望进球展开为亚盘/大小球/波胆派生）。");
+  L.push("- Shin (1993). *Measuring the Incidence of Insider Trading in a Market for State-Contingent Claims.* Economic Journal 103(420)；Štrumbelj (2014). IJF 30(4)（多书商盘口去水，作市场共识对照与价差监测真值锚）。");
+  L.push("- Genest & Zidek (1986). *Combining Probability Distributions.* Statistical Science 1(1)（AF 预测与市场共识对数意见池融合）；Kelly (1956). BSTJ 35(4)（注码比例）。");
   L.push("");
   L.push("---");
   L.push(

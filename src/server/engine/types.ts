@@ -30,20 +30,6 @@ export const normalizedOddsSchema = z.object({
 });
 export type NormalizedOdds = z.infer<typeof normalizedOddsSchema>;
 
-/** 历史比赛（DC 拟合 / Elo 回放输入）；射门数据用于射门质量评分（可缺省） */
-export interface HistMatch {
-  homeTeamId: number;
-  awayTeamId: number;
-  homeGoals: number;
-  awayGoals: number;
-  playedAt: number;
-  /** 中立场（国际大赛常见）：该场不计主场优势 γ */
-  neutral?: boolean;
-  homeShots?: number;
-  homeSot?: number;
-  awayShots?: number;
-  awaySot?: number;
-}
 
 export interface InjuryItem {
   team: "home" | "away";
@@ -61,25 +47,14 @@ export interface WeatherInfo {
 }
 
 export interface EngineParams {
-  xi: number;
   rho: number;
-  homeAdvElo: number;
-  eloK0: number;
-  eloGoalDiffExp: number;
-  eloCalib: { b: number; c1: number; c2: number };
-  ensembleWeights: { market: number; dc: number; elo: number };
   /** 书商权重（量化因子口径）：加权共识用；未列出的书商权重 1，离群报价自动降权 */
   bookWeights: Record<string, number>;
   /** 锐价真值锚书商（硬庄口径）：单独去水做"市场真值"，用于价差监测/滞后偏离 */
   sharpBooks: string[];
   /**
-   * xG 融合系数 θ_xg∈[0,1]：把近期 xG 推算的期望进球与 Dixon-Coles 历史估计融合。
-   * xG 比进球更早反映实力（短期更稳）；0 = 关闭；缺 xG 数据时自动跳过。
-   */
-  xgBlend: number;
-  /**
    * AF 预测权重 w_af∈[0,1]：AF 蒸馏概率在集成中的占比（与市场共识对数池融合）。
-   * 默认高（AF 优于自建模型）；缺 AF 预测时自动让位给自建模型链路。
+   * 默认高（AF 用全量库蒸馏，优于市场）；缺 AF 预测时自动回落市场共识链路。
    */
   afWeight: number;
   kellyFraction: number;
@@ -87,12 +62,6 @@ export interface EngineParams {
   evThreshold: number;
   minProbForPick: number;
   adjustmentsEnabled: boolean;
-  /**
-   * 射门质量混合系数 θ∈[0,1]：进球是高噪声信号，射门/射正更稳定
-   * （Wheatcroft 2020，shots-based ratings 对大小球市场显著优于纯进球）。
-   * 0 = 纯进球；历史数据缺射门列时自动退回纯进球。
-   */
-  shotsBlendTheta: number;
 }
 
 /** runEngine 的输入包：全部来自数据快照与本地库，引擎本身零 IO、无时钟 */
@@ -106,14 +75,6 @@ export interface EngineBundle {
   odds?: NormalizedOdds;
   /** 多家书商各自最新盘口（缺省时回落到 odds 单家）；引擎内做共识与最优价 */
   books?: NormalizedOdds[];
-  /**
-   * 近期 xG 聚合（来自 AF fixtures/statistics）：每队近 N 场场均 xG（进攻）与场均被创造 xG（防守失）。
-   * 缺数据时省略，引擎自动跳过 xG 融合。
-   */
-  xg?: {
-    home: { forAvg: number; againstAvg: number; n: number };
-    away: { forAvg: number; againstAvg: number; n: number };
-  };
   /**
    * AF 蒸馏预测（/predictions）：1X2 概率 + 期望进球。引擎主概率源——
    * AF 用全量数据库蒸馏，优于自建统计模型；存在时主导集成，期望进球驱动比分矩阵。
@@ -129,15 +90,10 @@ export interface EngineBundle {
   oddsSeries?: NormalizedOdds[];
   injuries?: InjuryItem[];
   weather?: WeatherInfo;
-  leagueHistory: HistMatch[];
-  elo?: {
-    home: { rating: number; matchesPlayed: number };
-    away: { rating: number; matchesPlayed: number };
-  };
   computedAt: number;
 }
 
-/** DC 退化等级：1=完整MLE 2=矩估计 3=市场反推 4=纯市场 */
+/** 退化等级：1=AF 蒸馏预测（主源） 3=市场反推（无 AF） 4=既无 AF 也无盘口（2 保留位） */
 export type FallbackLevel = 1 | 2 | 3 | 4;
 
 export const engineOutputSchema = z.object({

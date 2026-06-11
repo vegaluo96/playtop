@@ -20,6 +20,7 @@ interface EngineView {
     books: { bookmaker: string; rawOdds: ThreeWayN; overround: number; devigged: ThreeWayN }[];
   } | null;
   dixonColes: { probs: ThreeWayN; topScores: { score: string; prob: number }[] } | null;
+  afModel: { probs: ThreeWayN; expGoalsHome: number | null; expGoalsAway: number | null; advice: string | null; weight: number } | null;
   elo: { home: number; away: number; probs: ThreeWayN } | null;
   ensemble: { weights: { market: number; dc: number; elo: number }; probs: ThreeWayN };
   picks: {
@@ -466,6 +467,15 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
                     </tr>
                   </thead>
                   <tbody>
+                    {engine.afModel && (
+                      <tr className="border-t border-hairline font-semibold text-gold-bright">
+                        <td className="py-1">AF 蒸馏预测（全量库）</td>
+                        <td className="py-1 text-right">{pct(engine.afModel.probs.home)}</td>
+                        <td className="py-1 text-right">{pct(engine.afModel.probs.draw)}</td>
+                        <td className="py-1 text-right">{pct(engine.afModel.probs.away)}</td>
+                        <td className="py-1 text-right">{pct(engine.afModel.weight)}</td>
+                      </tr>
+                    )}
                     {engine.market?.books.map((b) => (
                       <tr key={b.bookmaker} className="border-t border-hairline text-muted">
                         <td className="py-1">「{b.bookmaker}」去水（水位 {pct(b.overround)}）</td>
@@ -486,22 +496,11 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
                     )}
                     {engine.dixonColes && (
                       <tr className="border-t border-hairline">
-                        <td className="py-1">Dixon-Coles</td>
+                        <td className="py-1">比分分布（泊松）</td>
                         <td className="py-1 text-right">{pct(engine.dixonColes.probs.home)}</td>
                         <td className="py-1 text-right">{pct(engine.dixonColes.probs.draw)}</td>
                         <td className="py-1 text-right">{pct(engine.dixonColes.probs.away)}</td>
-                        <td className="py-1 text-right text-muted">{pct(engine.ensemble.weights.dc)}</td>
-                      </tr>
-                    )}
-                    {engine.elo && (
-                      <tr className="border-t border-hairline">
-                        <td className="py-1">
-                          Elo（{engine.elo.home.toFixed(0)} vs {engine.elo.away.toFixed(0)}）
-                        </td>
-                        <td className="py-1 text-right">{pct(engine.elo.probs.home)}</td>
-                        <td className="py-1 text-right">{pct(engine.elo.probs.draw)}</td>
-                        <td className="py-1 text-right">{pct(engine.elo.probs.away)}</td>
-                        <td className="py-1 text-right text-muted">{pct(engine.ensemble.weights.elo)}</td>
+                        <td className="py-1 text-right text-muted">—</td>
                       </tr>
                     )}
                   </tbody>

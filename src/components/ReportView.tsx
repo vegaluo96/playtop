@@ -279,7 +279,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         以下为模型明细与全部底层数据——结论如何算出来、依据是什么，每一项都可展开查证。
       </p>
 
-      <Collapse title="模型结果与集成权重" hint="多书商去水共识 / Dixon-Coles+xG / Elo 三路印证">
+      <Collapse title="模型结果与集成权重" hint="AF 蒸馏预测主源 / 多书商 Shin 去水共识对照 / 泊松比分分布">
         <table className="tabular w-full text-[11px]">
           <thead>
             <tr className="text-left text-[10px] tracking-wider text-faint">
@@ -326,24 +326,12 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
             {engine.dixonColes && (
               <tr className="border-t border-hairline">
                 <td className="py-1.5">
-                  Dixon-Coles 双泊松
-                  {engine.trace.some((t) => t.includes("xG 融合")) && <span className="ml-1 text-[9px] text-gold-bright">+xG</span>}
+                  比分分布（泊松，{engine.afModel?.expGoalsHome != null ? "AF 期望进球展开" : "市场反推期望进球"}）
                 </td>
                 <td className="py-1.5 text-right">{pct(engine.dixonColes.probs.home)}</td>
                 <td className="py-1.5 text-right">{pct(engine.dixonColes.probs.draw)}</td>
                 <td className="py-1.5 text-right">{pct(engine.dixonColes.probs.away)}</td>
-                <td className="py-1.5 text-right text-muted">{pct(engine.ensemble.weights.dc)}</td>
-              </tr>
-            )}
-            {engine.elo && (
-              <tr className="border-t border-hairline">
-                <td className="py-1.5">
-                  进球差调整 Elo（{engine.elo.home.toFixed(0)} vs {engine.elo.away.toFixed(0)}）
-                </td>
-                <td className="py-1.5 text-right">{pct(engine.elo.probs.home)}</td>
-                <td className="py-1.5 text-right">{pct(engine.elo.probs.draw)}</td>
-                <td className="py-1.5 text-right">{pct(engine.elo.probs.away)}</td>
-                <td className="py-1.5 text-right text-muted">{pct(engine.ensemble.weights.elo)}</td>
+                <td className="py-1.5 text-right text-muted">—</td>
               </tr>
             )}
             <tr className="border-t border-gold/30 font-semibold text-gold-bright">
@@ -413,7 +401,7 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
       {engine.scoreMarket.length > 0 && (
         <Collapse title="比分市场对照" hint={`波胆去水 vs 模型分布（${engine.scoreMarket[0].bookmaker}）`}>
           <p className="mb-2 text-[11px] leading-5 text-muted">
-            市场（波胆赔率 power 去水）与模型（Dixon-Coles 比分分布）对每个具体比分的定价对照——分歧即研究信号。
+            市场（波胆赔率 power 去水）与模型（泊松比分分布，由 AF 期望进球展开）对每个具体比分的定价对照——分歧即研究信号。
           </p>
           <table className="tabular w-full text-[11px]">
             <thead>
@@ -587,14 +575,12 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
         </ul>
       </Collapse>
 
-      <Collapse title="方法论与学术文献" hint="全部方法均经同行评审">
+      <Collapse title="方法论与数据来源" hint="AF 蒸馏预测主源 + 经同行评审的派生方法">
         <ul className="space-y-1.5 border-l border-hairline pl-3 text-[10.5px] leading-5 text-muted">
-          <li>Dixon &amp; Coles (1997). Modelling Association Football Scores and Inefficiencies in the Football Betting Market. JRSS-C 46(2).</li>
-          <li>Hvattum &amp; Arntzen (2010). Using ELO ratings for match result prediction in association football. IJF 26(3).</li>
-          <li>Shin (1993). Measuring the Incidence of Insider Trading in a Market for State-Contingent Claims. EJ 103(420)；Štrumbelj (2014). IJF 30(4).</li>
-          <li>Wheatcroft (2020). Profitable over/under model（射门质量）；Brechot &amp; Flepp (2020). Expected Goals 的预测价值，Journal of Sports Economics（近期 xG 融合）。</li>
-          <li>Wheatcroft (2020). A profitable model for predicting the over/under market in football. IJF 36(3).</li>
-          <li>Genest &amp; Zidek (1986). Combining Probability Distributions. Statistical Science 1(1)；Kelly (1956). BSTJ 35(4).</li>
+          <li>公允概率主源：API-Football 全量数据库蒸馏预测（/predictions）——1X2 概率 + 期望进球；本平台不再自建统计拟合。</li>
+          <li>Dixon &amp; Coles (1997). Modelling Association Football Scores and Inefficiencies in the Football Betting Market. JRSS-C 46(2)（低比分相关性修正 + 双泊松比分矩阵：把期望进球展开为亚盘/大小球/波胆派生）。</li>
+          <li>Shin (1993). Measuring the Incidence of Insider Trading in a Market for State-Contingent Claims. EJ 103(420)；Štrumbelj (2014). IJF 30(4)（多书商盘口去水，作市场共识对照与价差监测真值锚）。</li>
+          <li>Genest &amp; Zidek (1986). Combining Probability Distributions. Statistical Science 1(1)（AF 预测与市场共识对数意见池融合）；Kelly (1956). BSTJ 35(4)（注码比例）。</li>
         </ul>
       </Collapse>
 

@@ -3,23 +3,15 @@ import { runEngine } from "@/server/engine";
 import type { EngineBundle, EngineParams } from "@/server/engine/types";
 
 const params: EngineParams = {
-  xi: 0.0019,
   rho: -0.05,
-  homeAdvElo: 100,
-  eloK0: 10,
-  eloGoalDiffExp: 1,
-  eloCalib: { b: 0.0044, c1: -0.45, c2: 0.55 },
-  ensembleWeights: { market: 0.55, dc: 0.3, elo: 0.15 },
   bookWeights: {},
   sharpBooks: ["Pinnacle"],
-  xgBlend: 0.3,
   afWeight: 0.7,
   kellyFraction: 0.25,
   kellyCap: 0.05,
   evThreshold: 0.03,
   minProbForPick: 0.3,
   adjustmentsEnabled: true,
-  shotsBlendTheta: 0.35,
 };
 
 const T = Date.UTC(2026, 5, 11);
@@ -28,7 +20,6 @@ function bundleWith(books: EngineBundle["books"]): EngineBundle {
   return {
     match: { homeTeamId: 1, awayTeamId: 2, kickoffAt: T + 86_400_000 },
     books,
-    leagueHistory: [],
     computedAt: T,
   };
 }
