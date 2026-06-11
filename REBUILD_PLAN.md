@@ -1,6 +1,12 @@
 # PlayTop V2 重构计划(REBUILD_PLAN.md · Opinion 主链修正版)
 
 > 状态:**已被"玩家视角重构(v4)"取代,本文档保留作架构审计档案**。
+> **瘦身手术已执行(2026-06)**:V2 平行账本(provider_entity_map/match_snapshots/odds_snapshots/
+> model_runs/report_versions/report_locks/settlements/track_records/audit_hashes 共 9 表,
+> 含 /v2 页面、/api/v2 路由、analyze/settle 双写钩子)整体移除——全站单账本:
+> analyses(哈希链+/verify)+ predictions(锁定/收盘/结算)+ outcomes。
+> 保留 providers / raw_api_payloads / data_provider_health(原始留档与体检,合规铁律)。
+> 迁移 0003_slim_dual_ledger 不可逆删除冗余账本数据(与 V1 完全重复,无信息损失)。
 > 产品负责人最终裁定(2026-06):第一性原理 = 站在玩家视角解决其痛点。Opinion 表族方案不再实施——
 > "观点"不需要独立表与状态机:**方向与评级来自 engine.picks,价格边界(最低可接受赔率)是发布时印出的静态派生值
 > (margin/模型概率,engine.boundaryMargin 可配),锁定时收盘价低于边界的观点按观望计(不进战绩,审计留痕)**。

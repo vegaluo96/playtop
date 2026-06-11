@@ -5,9 +5,9 @@ import { sha256Hex } from "../lib/hash";
 import { now } from "../lib/time";
 
 /**
- * V2 数据源对象 + 原始响应留档。
- * providers 从 SOURCE_REGISTRY 引导填充（幂等）；
- * raw_api_payloads 由 politeFetchText 统一落档——所有第三方响应原样保存（截断保护）。
+ * 数据源注册 + 原始响应留档（合规铁律：所有第三方原始响应原样保存，截断保护）。
+ * providers 从 SOURCE_REGISTRY 引导填充（幂等）；raw_api_payloads 由 politeFetchText 统一落档；
+ * data_provider_health 记录体检延迟时间序列。
  */
 
 const PROVIDER_SEED: { name: string; type: "football_data" | "odds" | "weather" | "news" | "result" | "dataset"; priority: number }[] = [

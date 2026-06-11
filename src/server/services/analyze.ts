@@ -42,7 +42,6 @@ import { latestOddsBookRows, latestOddsBooks, latestSnapshots, oddsSeries, snaps
 import { leagueById, teamNameById } from "./teamResolver";
 import { publishAnalysisRow } from "./publish";
 import { qualitativePhrases } from "../llm/reportWriter";
-import { recordV2Artifacts, snapshotTypeForKickoff } from "../v2/pipeline";
 
 const HISTORY_WINDOW_DAYS = 1100;
 const HISTORY_CAP = 3000;
@@ -334,28 +333,6 @@ export async function analyzeMatch(
     st = FF[st];
   }
 
-  // ── V2 钩子：对象链一等公民落库（快照归并/盘口扁平化/ModelRun/ReportVersion）。
-  // 复用本次已算好的 bundle/engine/sections，零双倍计算；V2 失败绝不阻塞 V1 链路。
-  try {
-    recordV2Artifacts({
-      matchId,
-      bundle,
-      engine,
-      versionType: snapshotTypeForKickoff(match.kickoffAt, computedAt),
-      title: `${ctx.match.leagueName}${ctx.match.round ? ` ${ctx.match.round}` : ""}：${homeName} vs ${awayName} · 赛前量化研报 V${version}`,
-      freePreview: JSON.stringify({
-        ensemble: engine.ensemble.probs,
-        fallbackLevel: engine.fallbackLevel,
-        pickCount: engine.picks.length,
-        thesis: sections.thesis,
-      }),
-      paidContent: reportMd,
-      summary: { ensemble: engine.ensemble.probs, picks: engine.picks, marketBooks: engine.market?.books.length ?? 0 },
-      whitelistSource: [...facts, ...qualitativePhrases(ctx)],
-    });
-  } catch (e) {
-    console.warn(`[v2] artifacts 记录失败 match=${matchId}:`, e instanceof Error ? e.message : e);
-  }
 
   let autoPublished = false;
   if (opts.autoPublishRevision && match.status === "published") {

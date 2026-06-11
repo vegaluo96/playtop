@@ -389,7 +389,7 @@ export const sourceHealth = sqliteTable("source_health", {
  * 复用现有表（服务层映射 V2 语义），避免双写。旧表与旧接口保留（deprecated 渐退）。
  */
 
-/** V2-1 数据源（从 SOURCE_REGISTRY 引导填充） */
+/** 数据源注册（从 SOURCE_REGISTRY 引导填充；原始留档归属用） */
 export const providers = sqliteTable("providers", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
@@ -400,24 +400,7 @@ export const providers = sqliteTable("providers", {
   updatedAt: integer("updated_at").notNull(),
 });
 
-/** V2-2 跨源实体 ID 映射（ESPN teamId / 竞彩中文名 等 → PlayTop 实体） */
-export const providerEntityMap = sqliteTable(
-  "provider_entity_map",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    providerId: integer("provider_id").notNull().references(() => providers.id),
-    entityType: text("entity_type", { enum: ["league", "team", "player", "match", "bookmaker", "market"] }).notNull(),
-    providerEntityId: text("provider_entity_id").notNull(),
-    playtopEntityId: integer("playtop_entity_id").notNull(),
-    confidenceScore: real("confidence_score").notNull().default(1),
-    lastCheckedAt: integer("last_checked_at"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
-  },
-  (t) => [uniqueIndex("pem_uq").on(t.providerId, t.entityType, t.providerEntityId)],
-);
-
-/** V2-6 原始 API 响应留档（全链路可追溯的地基；politeFetchText 统一落档） */
+/** 原始 API 响应留档（合规铁律：全链路可追溯；politeFetchText 统一落档） */
 export const rawApiPayloads = sqliteTable(
   "raw_api_payloads",
   {
@@ -435,163 +418,7 @@ export const rawApiPayloads = sqliteTable(
   (t) => [index("rap_endpoint_time_idx").on(t.endpoint, t.fetchedAt)],
 );
 
-/** V2-7 比赛研究快照（按时间档归并 data_snapshots 为一份完整研究底稿，链式哈希） */
-export const matchSnapshots = sqliteTable(
-  "match_snapshots",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    matchId: integer("match_id").notNull().references(() => matches.id),
-    snapshotType: text("snapshot_type", { enum: ["T72", "T24", "T6", "T1", "lineup", "lock", "post"] }).notNull(),
-    capturedAt: integer("captured_at").notNull(),
-    kickoffAt: integer("kickoff_at").notNull(),
-    teamStateJson: text("team_state_json"),
-    lineupJson: text("lineup_json"),
-    injuryJson: text("injury_json"),
-    weatherJson: text("weather_json"),
-    standingsJson: text("standings_json"),
-    statsJson: text("stats_json"),
-    providerHealthJson: text("provider_health_json"),
-    snapshotHash: text("snapshot_hash").notNull(),
-    previousSnapshotHash: text("previous_snapshot_hash"),
-    createdAt: integer("created_at").notNull(),
-  },
-  (t) => [index("ms_match_idx").on(t.matchId, t.capturedAt)],
-);
-
-/** V2-8 盘口快照（扁平化：一行 = 一家 × 一玩法 × 一方向） */
-export const oddsSnapshots = sqliteTable(
-  "odds_snapshots",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    matchId: integer("match_id").notNull().references(() => matches.id),
-    providerId: integer("provider_id"),
-    bookmakerName: text("bookmaker_name").notNull(),
-    marketType: text("market_type", { enum: ["one_x_two", "asian_handicap", "over_under", "correct_score"] }).notNull(),
-    line: real("line"),
-    selection: text("selection").notNull(),
-    oddsDecimal: real("odds_decimal").notNull(),
-    impliedProbability: real("implied_probability").notNull(),
-    normalizedProbability: real("normalized_probability"),
-    capturedAt: integer("captured_at").notNull(),
-    isStale: integer("is_stale").notNull().default(0),
-    oddsHash: text("odds_hash").notNull(),
-    createdAt: integer("created_at").notNull(),
-  },
-  (t) => [index("os_match_time_idx").on(t.matchId, t.capturedAt)],
-);
-
-/** V2-9 模型运行（一次引擎执行 = 一条；输入完整持久化，可精确重放） */
-export const modelRuns = sqliteTable(
-  "model_runs",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    matchId: integer("match_id").notNull().references(() => matches.id),
-    snapshotId: integer("snapshot_id").references(() => matchSnapshots.id),
-    modelVersion: text("model_version").notNull(),
-    inputJson: text("input_json").notNull(),
-    inputHash: text("input_hash").notNull(),
-    outputJson: text("output_json").notNull(),
-    outputHash: text("output_hash").notNull(),
-    status: text("status", { enum: ["success", "failed"] }).notNull(),
-    errorMessage: text("error_message"),
-    createdAt: integer("created_at").notNull(),
-  },
-  (t) => [index("mr_match_idx").on(t.matchId, t.createdAt)],
-);
-
-/** V2-10 研报版本（免费预览 + 付费正文 + 数字白名单留档） */
-export const reportVersions = sqliteTable(
-  "report_versions",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    matchId: integer("match_id").notNull().references(() => matches.id),
-    snapshotId: integer("snapshot_id").references(() => matchSnapshots.id),
-    modelRunId: integer("model_run_id").references(() => modelRuns.id),
-    versionType: text("version_type", { enum: ["T72", "T24", "T6", "T1", "lineup", "lock", "post"] }).notNull(),
-    title: text("title").notNull(),
-    freePreview: text("free_preview").notNull(),
-    paidContent: text("paid_content").notNull(),
-    summaryJson: text("summary_json").notNull(),
-    numbersWhitelistJson: text("numbers_whitelist_json"),
-    reportHash: text("report_hash").notNull(),
-    previousReportHash: text("previous_report_hash"),
-    isPublic: integer("is_public").notNull().default(0),
-    createdAt: integer("created_at").notNull(),
-  },
-  (t) => [index("rv_match_idx").on(t.matchId, t.createdAt)],
-);
-
-/** V2-11 开赛锁定记录（终版三元组 + 锁定哈希） */
-export const reportLocks = sqliteTable("report_locks", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  matchId: integer("match_id").notNull().unique().references(() => matches.id),
-  finalSnapshotId: integer("final_snapshot_id").references(() => matchSnapshots.id),
-  finalModelRunId: integer("final_model_run_id").references(() => modelRuns.id),
-  finalReportVersionId: integer("final_report_version_id").references(() => reportVersions.id),
-  lockedAt: integer("locked_at").notNull(),
-  lockHash: text("lock_hash").notNull(),
-  createdAt: integer("created_at").notNull(),
-});
-
-/** V2-12 赛后结算（逐观点：胜负/走水/半赢半输 + ROI/CLV/Brier） */
-export const settlements = sqliteTable(
-  "settlements",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    matchId: integer("match_id").notNull().references(() => matches.id),
-    reportLockId: integer("report_lock_id").references(() => reportLocks.id),
-    finalResultJson: text("final_result_json").notNull(),
-    opinionJson: text("opinion_json").notNull(),
-    settlementResult: text("settlement_result", {
-      enum: ["win", "lose", "push", "void", "half_win", "half_lose"],
-    }).notNull(),
-    roi: real("roi"),
-    clv: real("clv"),
-    brierScore: real("brier_score"),
-    settledAt: integer("settled_at").notNull(),
-    settlementHash: text("settlement_hash").notNull(),
-    createdAt: integer("created_at").notNull(),
-  },
-  (t) => [index("st_match_idx").on(t.matchId)],
-);
-
-/** V2-13 长期战绩物化（按 scope 维度聚合，结算后增量更新） */
-export const trackRecords = sqliteTable(
-  "track_records",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    scopeType: text("scope_type", { enum: ["global", "league", "market", "rating", "period"] }).notNull(),
-    scopeKey: text("scope_key").notNull(),
-    totalMatches: integer("total_matches").notNull().default(0),
-    publishedOpinions: integer("published_opinions").notNull().default(0),
-    watchOnlyCount: integer("watch_only_count").notNull().default(0),
-    wins: integer("wins").notNull().default(0),
-    losses: integer("losses").notNull().default(0),
-    pushes: integer("pushes").notNull().default(0),
-    roi: real("roi"),
-    clv: real("clv"),
-    maxDrawdown: real("max_drawdown"),
-    brierScore: real("brier_score"),
-    updatedAt: integer("updated_at").notNull(),
-  },
-  (t) => [uniqueIndex("tr_scope_uq").on(t.scopeType, t.scopeKey)],
-);
-
-/** V2-16 通用审计哈希链（V2 实体统一链式存证） */
-export const auditHashes = sqliteTable(
-  "audit_hashes",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    entityType: text("entity_type").notNull(),
-    entityId: integer("entity_id").notNull(),
-    hashValue: text("hash_value").notNull(),
-    previousHash: text("previous_hash"),
-    createdAt: integer("created_at").notNull(),
-  },
-  (t) => [index("ah_entity_idx").on(t.entityType, t.entityId)],
-);
-
-/** V2-17 数据源健康账本（按 provider 维度的时间序列体检记录） */
+/** 数据源体检记录（按 provider 维度的时间序列：延迟/成败） */
 export const dataProviderHealth = sqliteTable(
   "data_provider_health",
   {

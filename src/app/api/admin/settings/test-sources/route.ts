@@ -3,7 +3,7 @@ import { requireAdmin } from "@/server/auth/guards";
 import { SOURCE_REGISTRY } from "@/server/datasources/registry";
 import { getConfig } from "@/server/lib/config";
 import { listSourceHealth, reportSourceFail, reportSourceOk } from "@/server/services/sourceHealth";
-import { recordProviderHealth } from "@/server/v2/providers";
+import { recordProviderHealth } from "@/server/services/rawArchive";
 
 export const maxDuration = 120;
 
