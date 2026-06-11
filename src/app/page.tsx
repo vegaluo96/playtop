@@ -7,6 +7,7 @@ import { useApp } from "@/components/app-context";
 import { RefreshSheet } from "@/components/refresh-sheet";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { PageHeader } from "@/components/page-header";
+import { RiskFooter } from "@/components/consent-bar";
 import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
 import { Chip } from "@/components/ui";
@@ -249,6 +250,7 @@ function MobileMatchesPage() {
             </div>
           );
         })}
+        {loaded && <RiskFooter />}
       </div>
       <RefreshSheet open={rfOpen} onClose={() => setRfOpen(false)} activeIdx={null} />
     </div>

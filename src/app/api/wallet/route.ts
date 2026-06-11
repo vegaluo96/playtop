@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/server/platform/session";
 import { claimGift, ledgerOf, recharge, redeem } from "@/server/platform/wallet";
 import { cfgRechargeMaintenance, cfgRechargeTiers } from "@/server/platform/config";
+import { rateLimit, sameOrigin } from "@/server/platform/rate-limit";
+import { SITE_HOST } from "@/lib/site";
 
 export async function GET() {
   const u = await currentUser();
@@ -14,6 +16,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!sameOrigin(req, SITE_HOST)) return NextResponse.json({ ok: false, error: "请求来源异常" }, { status: 403 });
+  if (!rateLimit(req, "wallet", 20, 60_000)) return NextResponse.json({ ok: false, error: "操作过于频繁,请稍后再试" }, { status: 429 });
   const u = await currentUser();
   if (!u) return NextResponse.json({ ok: false, error: "未登录" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as { action?: string; tier?: number; code?: string };

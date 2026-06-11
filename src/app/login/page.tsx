@@ -72,6 +72,10 @@ export default function LoginPage() {
       {err && <div style={{ fontSize: 11, color: "var(--red)", marginBottom: 10 }}>{err}</div>}
       <GoldBtn label={busy ? "处理中…" : "登录 / 注册"} onClick={submit} style={{ padding: "13px 0", fontSize: 15 }} />
       <div style={{ textAlign: "center", fontSize: 10, color: "var(--fg-3)", marginTop: 10 }}>未注册的邮箱将自动创建账户,无需邮箱验证</div>
+      <div style={{ textAlign: "center", fontSize: 9.5, color: "var(--fg-4)", marginTop: 6, lineHeight: 1.6 }}>
+        登录或注册即表示你已阅读并同意<a href="/about" style={{ color: "var(--fg-3)" }}>《平台性质与免责声明》</a>;
+        本平台仅提供数据资讯,不提供任何投注服务
+      </div>
       <div
         onClick={() => router.push("/")}
         style={{ textAlign: "center", fontSize: 12, color: "var(--fg-3)", marginTop: 22, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}

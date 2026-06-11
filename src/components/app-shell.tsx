@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { t } from "@/lib/i18n";
 import { useApp } from "./app-context";
 import { useIsDesktop } from "./use-viewport";
+import { ConsentBar } from "./consent-bar";
 
 /** 4 个 Tab 根路由显示底部导航;详情/报告/登录/二级页隐藏 */
 const TABS = [
@@ -44,6 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="app-shell desktop-root" style={{ width: "100%", height: "100dvh", background: "var(--bg)", color: "var(--fg)", overflow: "hidden" }}>
         {children}
+        <ConsentBar />
       </div>
     );
   }
@@ -66,6 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
         {children}
       </div>
+      <ConsentBar />
       {showNav && (
         <div
           style={{

@@ -3,8 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { fixtureById } from "@/server/af/store";
 import { currentUser } from "@/server/platform/session";
 import { unlock } from "@/server/platform/wallet";
+import { rateLimit, sameOrigin } from "@/server/platform/rate-limit";
+import { SITE_HOST } from "@/lib/site";
 
 export async function POST(req: NextRequest) {
+  if (!sameOrigin(req, SITE_HOST)) return NextResponse.json({ ok: false, error: "请求来源异常" }, { status: 403 });
+  if (!rateLimit(req, "unlock", 30, 60_000)) return NextResponse.json({ ok: false, error: "操作过于频繁,请稍后再试" }, { status: 429 });
   const user = await currentUser();
   if (!user) return NextResponse.json({ ok: false, error: "未登录" }, { status: 401 });
   const { fixtureId } = (await req.json().catch(() => ({}))) as { fixtureId?: number };

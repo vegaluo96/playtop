@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp, type Scheme } from "@/components/app-context";
 import { PageHeader } from "@/components/page-header";
+import { RiskFooter } from "@/components/consent-bar";
 import { useUnlockFlow } from "@/components/unlock-flow";
 import { GoldBtn, Sheet, SheetTitle } from "@/components/ui";
 import { LANGS, type Lang } from "@/lib/i18n";
@@ -214,9 +215,10 @@ function MobileMePage() {
             退出登录
           </div>
         )}
-        <div className="mono" style={{ textAlign: "center", fontSize: 9, color: "var(--fg-4)", padding: "14px 0 4px" }}>
-          足球终端 v{APP_VERSION}
+        <div className="mono" style={{ textAlign: "center", fontSize: 9, color: "var(--fg-4)", padding: "14px 0 0" }}>
+          足球终端 v{APP_VERSION} · <span onClick={() => router.push("/about")} style={{ cursor: "pointer", color: "var(--fg-3)" }}>关于与免责声明 ›</span>
         </div>
+        <RiskFooter />
       </div>
 
       {/* 新人礼包 */}
