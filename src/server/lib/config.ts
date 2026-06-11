@@ -47,6 +47,8 @@ export const datasourcesConfigSchema = z.object({
   understatEnabled: z.boolean().default(true),
   /** martj42 GitHub 数据集：国际赛射手榜/点球大战史 */
   githubIntlEnabled: z.boolean().default(true),
+  /** API-Football 付费主源（盘口/首发/伤停/赛果）；需服务器 env API_FOOTBALL_KEY，未配置时自动缺席 */
+  apiFootballEnabled: z.boolean().default(true),
   /** 数据源连败 N 次自动停用（体检成功自动复活）；0 = 不自动停用 */
   sourceAutoDisableAfter: z.number().min(0).default(5),
 });

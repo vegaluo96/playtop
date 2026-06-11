@@ -119,7 +119,7 @@ export function recordOutcome(input: {
   htHome?: number | null;
   htAway?: number | null;
   finalStatus?: "finished" | "abandoned" | "postponed";
-  source: "csv" | "llm" | "manual" | "espn";
+  source: "csv" | "llm" | "manual" | "espn" | "api_football";
   provisional?: boolean;
   recordedBy?: number;
 }): void {

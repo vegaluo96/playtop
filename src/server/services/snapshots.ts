@@ -20,7 +20,8 @@ export type SnapshotSource =
   | "eloratings"
   | "manifold"
   | "smarkets"
-  | "understat";
+  | "understat"
+  | "api_football";
 
 /**
  * 快照写入唯一入口：zod 归一校验 + 内容哈希；与该 kind 最新一份内容相同则不重复入库。

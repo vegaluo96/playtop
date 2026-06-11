@@ -11,6 +11,7 @@ import { confirmOutcomeRow, recordOutcome } from "../services/settle";
 import { isSourceUsable, withSource } from "../services/sourceHealth";
 import { leagueById, teamNameById } from "../services/teamResolver";
 import { ESPN_LEAGUE_SLUG, fetchEspnScoreboard, matchEspnEvent } from "../datasources/espn";
+import { afFixtureFinished, apiFootballConfigured, fetchAfFixturesByDate, matchAfFixture } from "../datasources/apiFootball";
 import { teams } from "../db/schema";
 
 /**
@@ -54,6 +55,54 @@ export async function fetchResultsFromCsv(): Promise<number> {
           htAway: hit.htag,
           source: "csv",
           provisional: false,
+        });
+        filled++;
+      }
+    }
+  }
+  return filled;
+}
+
+/**
+ * API-Football 权威赛果（付费主源，最先执行）：按比赛日分组、一日一拉，
+ * fulltime 字段即 90 分钟口径比分，FT/AET/PEN 直接确认结算。未配置 key 时整段跳过。
+ */
+export async function fetchResultsFromApiFootball(): Promise<number> {
+  const ds = getConfig("datasources");
+  if (!apiFootballConfigured() || !isSourceUsable("api_football", ds.apiFootballEnabled)) return 0;
+  const due = matchesByStatus(["in_play"]).filter((m) => now() - m.kickoffAt > 2 * 3_600_000);
+  if (due.length === 0) return 0;
+  let filled = 0;
+  const byDate = new Map<string, typeof due>();
+  for (const m of due) {
+    const d = new Date(m.kickoffAt).toISOString().slice(0, 10);
+    byDate.set(d, [...(byDate.get(d) ?? []), m]);
+  }
+  for (const [date, ms] of byDate) {
+    let fixtures;
+    try {
+      fixtures = await withSource("api_football", () => fetchAfFixturesByDate(date));
+    } catch (e) {
+      console.warn(`[jobs] API-Football 赛果抓取失败 ${date}:`, e instanceof Error ? e.message : e);
+      continue;
+    }
+    for (const m of ms) {
+      const teamNames = (teamId: number) => {
+        const t = db.select().from(teams).where(eq(teams.id, teamId)).get();
+        return t ? [t.name, ...(JSON.parse(t.aliases) as string[])] : [];
+      };
+      const hit = matchAfFixture(fixtures, {
+        homeNames: teamNames(m.homeTeamId),
+        awayNames: teamNames(m.awayTeamId),
+        kickoffAt: m.kickoffAt,
+      });
+      if (hit && afFixtureFinished(hit)) {
+        recordOutcome({
+          matchId: m.id,
+          homeGoals: hit.ftHome!,
+          awayGoals: hit.ftAway!,
+          source: "api_football",
+          provisional: false, // 持牌数据商：权威级直接结算
         });
         filled++;
       }

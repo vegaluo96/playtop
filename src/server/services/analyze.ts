@@ -375,6 +375,7 @@ function sourceLabel(source: string): string {
       manual: "人工录入",
       sporttery: "中国竞彩官方",
       polymarket: "Polymarket 预测市场",
+      api_football: "API-Football（付费主源）",
     }[source] ?? source
   );
 }

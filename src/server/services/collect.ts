@@ -6,6 +6,15 @@ import { getConfig } from "../lib/config";
 import { now } from "../lib/time";
 import { aiRetrieveSoftData } from "../datasources/aiRetrieval";
 import { aiRetrieveOddsBooks } from "../datasources/aiOdds";
+import {
+  apiFootballConfigured,
+  fetchAfFixturesByDate,
+  fetchAfInjuries,
+  fetchAfLineups,
+  fetchAfOdds,
+  matchAfFixture,
+  type AfFixture,
+} from "../datasources/apiFootball";
 import { fetchPolymarketOdds } from "../datasources/polymarket";
 import {
   ESPN_LEAGUE_SLUG,
@@ -93,9 +102,52 @@ export async function collectMatch(
     return matchEspnEvent(await espnEventsP, matchRef);
   };
 
+  // API-Football（付费主源）：按比赛日拉一次 fixtures、本场内存共享（odds/首发/伤停共用 fixtureId）
+  const afUsable = apiFootballConfigured() && isSourceUsable("api_football", dsCfg.apiFootballEnabled);
+  let afFixtureP: Promise<AfFixture | null> | null = null;
+  const getAfFixture = async (): Promise<AfFixture | null> => {
+    if (!afUsable) return null;
+    if (!afFixtureP) {
+      afFixtureP = withSource("api_football", async () => {
+        const dateUtc = new Date(match.kickoffAt).toISOString().slice(0, 10);
+        return matchAfFixture(await fetchAfFixturesByDate(dateUtc), matchRef);
+      });
+    }
+    return afFixtureP;
+  };
+
   // 盘口：多源真并发（生产环境被墙源会挂死等超时，串行一次采集可达数分钟——
   // 并发后墙钟时间 = 最慢一源；每源独立成败 + 健康门控记账）。
   const networkTasks: Promise<void>[] = [];
+  if (afUsable) {
+    networkTasks.push(
+      attempt("odds:api_football", async () => {
+        const fx = await getAfFixture();
+        if (!fx) throw new Error("API-Football 未匹配到本场");
+        const books = await withSource("api_football", () => fetchAfOdds(fx.fixtureId, now()));
+        if (books.length === 0) throw new Error("API-Football 本场暂无盘口");
+        for (const b of books) insertSnapshot(matchId, "odds", "api_football", b);
+      }),
+    );
+    networkTasks.push(
+      attempt("lineups:api_football", async () => {
+        const fx = await getAfFixture();
+        if (!fx) throw new Error("API-Football 未匹配到本场");
+        const lineups = await withSource("api_football", () => fetchAfLineups(fx.fixtureId, fx.homeId));
+        if (!lineups) throw new Error("首发未公布");
+        insertSnapshot(matchId, "lineups", "api_football", lineups);
+      }),
+    );
+    networkTasks.push(
+      attempt("injuries:api_football", async () => {
+        const fx = await getAfFixture();
+        if (!fx) throw new Error("API-Football 未匹配到本场");
+        const injuries = await withSource("api_football", () => fetchAfInjuries(fx.fixtureId, fx.homeId, fx.awayId));
+        if (!injuries) throw new Error("本场无伤停记录");
+        insertSnapshot(matchId, "injuries", "api_football", injuries);
+      }),
+    );
+  }
   if (match.source === "csv") {
     networkTasks.push(
       attempt("odds:csv", async () => {
@@ -155,7 +207,8 @@ export async function collectMatch(
       }),
     );
   }
-  if ((match.source === "csv" ? dsCfg.aiOddsForCsvLeagues : true) && !opts.skipAi) {
+  // 有 API-Football 真源时 AI 检索盘口自动退场（省 token、可信度更高）
+  if ((match.source === "csv" ? dsCfg.aiOddsForCsvLeagues : true) && !opts.skipAi && !afUsable) {
     networkTasks.push(
       attempt("odds:ai", async () => {
       const books = await aiRetrieveOddsBooks({
@@ -339,12 +392,15 @@ export async function collectMatch(
         kickoffAtIso: new Date(match.kickoffAt).toISOString(),
         round: match.round,
       });
-      if (result.injuries) insertSnapshot(matchId, "injuries", "llm", result.injuries);
+      // 官方源（ESPN / API-Football）优先：已有官方数据的维度，AI 检索不再覆盖
+      const OFFICIAL = ["espn", "api_football"];
+      const latestKind = (kind: "injuries" | "lineups") => latestSnapshots(matchId).get(kind);
+      if (result.injuries && !OFFICIAL.includes(latestKind("injuries")?.source ?? "")) {
+        insertSnapshot(matchId, "injuries", "llm", result.injuries);
+      }
       if (result.suspensions) insertSnapshot(matchId, "suspensions", "llm", result.suspensions);
-      if (result.lineups) {
-        // ESPN 官方首发优先：已有 espn 来源的阵容时，AI 预计阵容不再覆盖
-        const cur = latestSnapshots(matchId).get("lineups");
-        if (!cur || cur.source !== "espn") insertSnapshot(matchId, "lineups", "llm", result.lineups);
+      if (result.lineups && !OFFICIAL.includes(latestKind("lineups")?.source ?? "")) {
+        insertSnapshot(matchId, "lineups", "llm", result.lineups);
       }
       if (result.coach) insertSnapshot(matchId, "coach", "llm", result.coach);
       if (result.referee) insertSnapshot(matchId, "referee", "llm", result.referee);

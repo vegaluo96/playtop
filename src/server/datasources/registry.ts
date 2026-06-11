@@ -1,4 +1,5 @@
 import { getConfig, type DatasourcesConfig } from "../lib/config";
+import { probeApiFootball } from "./apiFootball";
 import { politeFetchText } from "./httpCache";
 import { fetchSporttery } from "./sporttery";
 import { parsePolymarketSearch } from "./polymarket";
@@ -32,6 +33,14 @@ export interface SourceEntry {
 }
 
 export const SOURCE_REGISTRY: SourceEntry[] = [
+  {
+    key: "api_football",
+    label: "API-Football（付费主源）",
+    note: "大书商盘口（bet365/Pinnacle/威廉希尔等，1X2/亚盘/大小/波胆）+ 官方首发 + 伤停 + 权威赛果；key 由服务器 env API_FOOTBALL_KEY 提供",
+    weightNote: "书商权重按各家名称走 bookWeights（bet365 1.2 / Pinnacle 1.3 / 威廉希尔 1.1）；赛果权威级",
+    configKey: "apiFootballEnabled",
+    probe: () => probeApiFootball(),
+  },
   {
     key: "football_data_couk",
     label: "football-data.co.uk",

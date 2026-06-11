@@ -11,6 +11,7 @@ import { now } from "../lib/time";
  */
 
 const PROVIDER_SEED: { name: string; type: "football_data" | "odds" | "weather" | "news" | "result" | "dataset"; priority: number }[] = [
+  { name: "api_football", type: "odds", priority: 5 },
   { name: "football_data_couk", type: "football_data", priority: 10 },
   { name: "espn", type: "result", priority: 10 },
   { name: "sporttery", type: "odds", priority: 20 },
@@ -44,6 +45,7 @@ export function providerIdByName(name: string): number | null {
 
 /** URL 主机名 → provider 名（原始留档归属判定，best-effort） */
 const HOST_PROVIDER: [RegExp, string][] = [
+  [/api-sports\.io/, "api_football"],
   [/football-data\.co\.uk/, "football_data_couk"],
   [/espn\.com/, "espn"],
   [/sporttery\.cn/, "sporttery"],

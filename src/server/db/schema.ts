@@ -241,6 +241,7 @@ export const dataSnapshots = sqliteTable(
         "manifold",
         "smarkets",
         "understat",
+        "api_football",
       ],
     }).notNull(),
     payload: text("payload").notNull(), // JSON，符合 datasources/types.ts 归一化 schema
@@ -342,7 +343,7 @@ export const outcomes = sqliteTable(
     finalStatus: text("final_status", { enum: ["finished", "abandoned", "postponed"] })
       .notNull()
       .default("finished"),
-    source: text("source", { enum: ["csv", "llm", "manual", "espn"] }).notNull(),
+    source: text("source", { enum: ["csv", "llm", "manual", "espn", "api_football"] }).notNull(),
     /** AI 检索的赛果先标 provisional=1，管理员确认后置 0 才允许结算 */
     provisional: integer("provisional").notNull().default(0),
     recordedBy: integer("recorded_by"),
