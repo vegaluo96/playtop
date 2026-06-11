@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { RefreshSheet } from "@/components/refresh-sheet";
 import { Chip } from "@/components/ui";
-import { f2, hhmm } from "@/lib/format";
+import { f2, hhmm, mdLabel } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
 import { Flash, HeartBeat, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
@@ -93,8 +93,7 @@ function MobileMatchesPage() {
     return () => clearInterval(t);
   }, [load]);
 
-  const today = new Date();
-  const dateLabel = `${today.getMonth() + 1}月${today.getDate()}日 · ${prefs.tz}`;
+  const dateLabel = `${mdLabel(Date.now(), prefs.tz)} · ${prefs.tz}`;
   const dateChips = [
     { k: "live", label: `直播 ${liveCount}` },
     { k: "today", label: "今日" },

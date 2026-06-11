@@ -7,10 +7,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
-import { f2, hhmm } from "@/lib/format";
+import { f2, hhmm, mdLabel } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
-import { Flash, HeartBeat, useNewIds, useWorkerBeat } from "@/components/live";
-import { TIERS } from "@/server/af/schedule";
+import { Flash, HeartBeat, useNewIds, useTierIntervals, useWorkerBeat } from "@/components/live";
+import { TIERS, tierFreqText } from "@/server/af/schedule";
 import { Modal, ModalTitle } from "./modal";
 import { CenterPane } from "./center";
 import { AccountDrawer } from "./drawer";
@@ -54,6 +54,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   const [busy, setBusy] = useState(false);
   const [lastAt, setLastAt] = useState<number | null>(null);
   const workerAt = useWorkerBeat();
+  const tierIntervals = useTierIntervals(modal?.kind === "refresh");
   const selRef = useRef<number | null>(sel);
   selRef.current = sel;
 
@@ -193,7 +194,6 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
     setTab("odds");
   };
 
-  const today = new Date();
   const X = "-.--";
   const TIERS_DATA: { rmb: number; pts: number; tag?: string; hot?: boolean }[] = [
     { rmb: 6, pts: 60 }, { rmb: 30, pts: 320, tag: "+6%" }, { rmb: 68, pts: 750, tag: "+10%" },
@@ -212,7 +212,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
         </div>
         <span style={{ width: 1, height: 20, background: "var(--line)" }} />
         <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>
-          {today.getMonth() + 1}月{today.getDate()}日 · {prefs.tz}
+          {mdLabel(Date.now(), prefs.tz)} · {prefs.tz}
         </span>
         <span style={{ flex: 1 }} />
         <span
@@ -295,16 +295,13 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 <div
                   key={m.id}
                   onClick={() => (m.masked ? router.push("/login") : gotoMatchOdds(m.id))}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px 10px 12px", cursor: "pointer", borderBottom: "1px solid var(--card)", borderLeft: `3px solid ${selected ? "var(--gold)" : "transparent"}`, background: selected ? "rgba(233,185,73,.07)" : "transparent" }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 10px 10px", cursor: "pointer", borderBottom: "1px solid var(--card)", borderLeft: `3px solid ${selected ? "var(--gold)" : "transparent"}`, background: selected ? "rgba(233,185,73,.07)" : "transparent" }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden" }}>
                       <span style={{ width: 5, height: 5, borderRadius: "50%", flexShrink: 0, background: leagueColor(m.leagueId) }} />
                       <span style={{ fontSize: 10, color: "var(--fg-3)", whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", flexShrink: 1 }}>{leagueZh(m.leagueId, m.leagueName)}</span>
                       <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)", whiteSpace: "nowrap", flexShrink: 0 }}>{hhmm(m.kickoff, prefs.tz)}</span>
-                      {tag && (
-                        <span style={{ fontSize: 8.5, fontWeight: 800, borderRadius: 3, padding: "1px 5px", flexShrink: 0, whiteSpace: "nowrap", background: m.free && !m.masked ? "rgba(46,204,138,.12)" : "rgba(233,185,73,.12)", color: m.free && !m.masked ? "#2ecc8a" : "var(--gold)" }}>{tag}</span>
-                      )}
                       {m.live && (
                         <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 9, color: "var(--red)", fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap" }}>
                           <span className="livepulse" style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--red)" }} />
@@ -312,17 +309,22 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {m.home} <span style={{ color: "var(--fg-3)", fontWeight: 400 }}>vs</span> {m.away}
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
+                        {m.home} <span style={{ color: "var(--fg-3)", fontWeight: 400 }}>vs</span> {m.away}
+                      </span>
+                      {tag && (
+                        <span style={{ fontSize: 8.5, fontWeight: 800, borderRadius: 3, padding: "1px 5px", flexShrink: 0, whiteSpace: "nowrap", background: m.free && !m.masked ? "rgba(46,204,138,.12)" : "rgba(233,185,73,.12)", color: m.free && !m.masked ? "#2ecc8a" : "var(--gold)" }}>{tag}</span>
+                      )}
                     </div>
                   </div>
-                  <div style={{ flexShrink: 0, textAlign: "right", width: 56 }}>
+                  <div style={{ flexShrink: 0, textAlign: "right", width: 54 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked ? "●●" : (m.ah?.text ?? "—")} /></div>
-                    <div className="mono" style={{ fontSize: 10, color: "var(--fg-2)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ah ? X : `${f2(m.ah.h)}/${f2(m.ah.a)}`} /></div>
+                    <div className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ah ? X : `${f2(m.ah.h)}/${f2(m.ah.a)}`} /></div>
                   </div>
-                  <div style={{ flexShrink: 0, textAlign: "right", width: 40 }}>
+                  <div style={{ flexShrink: 0, textAlign: "right", width: 54 }}>
                     <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || m.ou?.line == null ? X : m.ou.line.toFixed(2)} /></div>
-                    <div className="mono" style={{ fontSize: 10, color: "var(--fg-2)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ou ? X : `${f2(m.ou.h)}/${f2(m.ou.a)}`} /></div>
+                    <div className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ou ? X : `${f2(m.ou.h)}/${f2(m.ou.a)}`} /></div>
                   </div>
                   <div style={{ flexShrink: 0, textAlign: "right", width: 44 }}>
                     {[m.eu?.h, m.eu?.d, m.eu?.a].map((vv, i) => (
@@ -376,6 +378,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px" }}>{f.mk}</span>
+                    {f.bk && <span style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 56 }}>{f.bk}</span>}
                     <span style={{ fontSize: 9.5, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
                     <span style={{ fontSize: 10.5, color: "var(--fg-2)", whiteSpace: "nowrap" }}>{f.from}</span>
                     <span style={{ fontSize: 9.5, color: typeColor(f.type) }}>→</span>
@@ -571,11 +574,11 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           return (
             <div key={r.idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8, marginBottom: 4, background: active ? "rgba(233,185,73,.12)" : "#0e1117" }}>
               <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: active ? "var(--gold)" : "var(--fg-mid)" }}>{r.label}</span>
-              <span className="mono" style={{ fontSize: 11.5, fontWeight: 800, color: active ? "var(--gold)" : "var(--fg-2)" }}>{r.freq}</span>
+              <span className="mono" style={{ fontSize: 11.5, fontWeight: 800, color: active ? "var(--gold)" : "var(--fg-2)" }}>{tierFreqText(r.idx, tierIntervals?.[r.idx] ?? r.intervalMs)}</span>
             </div>
           );
         })}
-        <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 8, lineHeight: 1.7 }}>赔率、赛况与阵容数据来自官方接口,平台按上表频率自动抓取;滚球期为接口允许的最高刷新频率。</div>
+        <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 8, lineHeight: 1.7 }}>赔率、赛况与阵容数据来自官方接口,平台按上表频率自动抓取;频率为后台当前生效配置,调整后此处实时同步。</div>
       </Modal>
 
       <Modal open={modal?.kind === "record"} onClose={() => setModal(null)} width={480}>

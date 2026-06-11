@@ -48,6 +48,25 @@ export function dateStr(utcMs: number, tz: string): string {
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
 }
 
+/** 用户时区口径的「M月D日」(顶栏日期与所标时区必须同源,不能用浏览器本地时间) */
+export function mdLabel(utcMs: number, tz: string): string {
+  const d = new Date(utcMs + parseTzOffset(tz) * 3_600_000);
+  return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
+}
+
+/** 开球日前缀:今日 / 明日 / 昨日 / MM-DD(用户时区口径) */
+export function dayLabel(utcMs: number, tz: string, nowMs = Date.now()): string {
+  const off = parseTzOffset(tz);
+  const dayN = (ms: number) => Math.floor((ms + off * 3_600_000) / 86_400_000);
+  const diff = dayN(utcMs) - dayN(nowMs);
+  if (diff === 0) return "今日";
+  if (diff === 1) return "明日";
+  if (diff === -1) return "昨日";
+  const d = new Date(utcMs + off * 3_600_000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+
 export function parseTzOffset(tz: string): number {
   const m = /^UTC([+-]\d+(?:\.\d+)?)$/.exec(tz.trim());
   return m ? Number(m[1]) : 8;

@@ -96,6 +96,21 @@ export function useWorkerBeat(): number | null {
   return at;
 }
 
+/** 后台实际生效的抓取档位(/api/health intervals);open 置 true 时拉取,保证弹层展示的是当前生效值 */
+export function useTierIntervals(open: boolean): number[] | null {
+  const [iv, setIv] = useState<number[] | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/health", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (Array.isArray(j.intervals)) setIv(j.intervals as number[]);
+      })
+      .catch(() => {});
+  }, [open]);
+  return iv;
+}
+
 /** 新出现的 id 集合(首帧不算新;800ms 后并入已知) */
 export function useNewIds(ids: (string | number)[]): Set<string | number> {
   const known = useRef<Set<string | number> | null>(null);

@@ -25,6 +25,21 @@ export const TIERS: Tier[] = [
   { idx: 6, label: "滚球进行中", freq: "每 1 分钟 · 接口最高频率", intervalMs: 1 * M },
 ];
 
+/** 间隔毫秒 → 人话频率(后台「数据与模型监控」可调档,用户端展示必须与实际生效值同源) */
+export function fmtFreq(ms: number): string {
+  if (ms < M) return `每 ${Math.round(ms / 1000)} 秒`;
+  if (ms < H) return `每 ${Math.round(ms / M)} 分钟`;
+  const h = Math.round((ms / H) * 10) / 10;
+  return `每 ${h % 1 === 0 ? h.toFixed(0) : h} 小时`;
+}
+
+/** 「数据刷新规则」表里某档的频率文案(移动端弹层与桌面弹窗共用) */
+export function tierFreqText(idx: number, ms: number): string {
+  if (idx === 0) return `低频巡检 · ${fmtFreq(ms)}`;
+  if (idx === 6) return `${fmtFreq(ms)} · 接口最高频率`;
+  return fmtFreq(ms);
+}
+
 export const LIVE_STATUSES = new Set(["1H", "HT", "2H", "ET", "BT", "P", "INT", "LIVE"]);
 export const FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "AWD", "WO"]);
 
@@ -49,14 +64,19 @@ export function tierFor(kickoffUtcMs: number, nowMs: number, status: string): Ti
   return TIERS[5];
 }
 
-/** 详情页提示行:把当前档位翻译给用户(设计稿 freshFor) */
-export function freshLine(kickoffUtcMs: number, nowMs: number, status: string): { idx: number; line: string } {
-  if (isLive(status)) return { idx: 6, line: "滚球数据 · 每 1 分钟刷新" };
-  if (isFinished(status)) return { idx: 0, line: "已完场 · 数据已固化" };
+/** 详情页提示行:把当前档位翻译给用户(设计稿 freshFor)。intervals 传后台实际生效档位(cfgTierIntervals),不传则用静态默认 */
+export function freshLine(kickoffUtcMs: number, nowMs: number, status: string, intervals?: number[]): { idx: number; line: string; freq: string } {
+  const iv = (i: number) => intervals?.[i] ?? TIERS[i].intervalMs;
+  if (isLive(status)) return { idx: 6, line: `滚球数据 · ${fmtFreq(iv(6))}刷新`, freq: fmtFreq(iv(6)) };
+  if (isFinished(status)) return { idx: 0, line: "已完场 · 数据已固化", freq: "—" };
   const t = tierFor(kickoffUtcMs, nowMs, status);
   const mins = Math.max(0, Math.round((kickoffUtcMs - nowMs) / M));
   const label = mins >= 60 ? `${Math.round(mins / 6) / 10} 小时` : `${mins} 分钟`;
-  return { idx: t.idx, line: `距开赛约 ${label}` + (t.idx === 0 ? " · 低频巡检中" : ` · ${t.freq}刷新`) };
+  return {
+    idx: t.idx,
+    line: `距开赛约 ${label}` + (t.idx === 0 ? ` · 低频巡检中(${fmtFreq(iv(0))})` : ` · ${fmtFreq(iv(t.idx))}刷新`),
+    freq: fmtFreq(iv(t.idx)),
+  };
 }
 
 /** 滚球与 T-30min 内链路必须 force=true 绕过 client 的 10min TTL 缓存 */

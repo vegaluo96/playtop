@@ -187,7 +187,7 @@ export function oddsSeries(fixtureId: number, market: "ah" | "ou" | "eu"): SnapR
     .all(fixtureId, market, pick) as unknown as SnapRow[];
 }
 
-/** 各书商初盘/即时盘(百家对比) */
+/** 各书商归档首帧/即时盘(百家对比) */
 export function oddsCompare(fixtureId: number, market: "ah" | "ou" | "eu"): { bookmaker: string; first: SnapRow; last: SnapRow }[] {
   const d = db();
   const rows = d

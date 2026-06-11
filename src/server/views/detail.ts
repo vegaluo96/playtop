@@ -4,6 +4,7 @@
 import { ahText, f2, hhmm, ouText } from "@/lib/format";
 import { leagueZh, roundZh } from "@/lib/leagues";
 import { freshLine, isFinished, isLive } from "../af/schedule";
+import { cfgTierIntervals } from "../platform/config";
 import { kvCached, kvGet } from "../af/store";
 import { runAfEndpoint } from "../af/catalog";
 import type { Panorama } from "../af/panorama";
@@ -564,7 +565,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       score: fx.goals_home != null ? `${fx.goals_home}-${fx.goals_away}` : null,
       elapsed: fx.elapsed,
       kickoff: fx.kickoff_utc,
-      fresh: freshLine(fx.kickoff_utc, now, fx.status),
+      fresh: freshLine(fx.kickoff_utc, now, fx.status, cfgTierIntervals()),
     },
     summary: {
       ah: ahL ? { text: ahText(ahL.line ?? 0), w: `${f2(ahL.h)}/${f2(ahL.a)}` } : null,

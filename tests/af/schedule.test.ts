@@ -1,6 +1,6 @@
 /** 抓取分层(设计稿对接注释逐字口径) */
 import { describe, expect, it } from "vitest";
-import { freshLine, mustForce, tierFor } from "../../src/server/af/schedule";
+import { fmtFreq, freshLine, mustForce, tierFor, tierFreqText } from "../../src/server/af/schedule";
 
 const M = 60_000;
 const now = Date.parse("2026-06-11T12:00:00Z");
@@ -39,5 +39,27 @@ describe("freshLine(详情页提示行)", () => {
     expect(freshLine(ko(-10), now, "1H").line).toContain("滚球");
     expect(freshLine(ko(-200), now, "FT").line).toContain("完场");
     expect(freshLine(ko(45), now, "NS").line).toContain("距开赛约 45 分钟");
+  });
+
+  it("传入后台生效档位时,文案随配置变(滚球 5s / 赛前 1h–30m 改 3 分钟)", () => {
+    const intervals = [3 * 3_600_000, 60 * M, 30 * M, 3 * M, 5 * M, M, 5_000];
+    expect(freshLine(ko(-10), now, "1H", intervals).line).toBe("滚球数据 · 每 5 秒刷新");
+    expect(freshLine(ko(45), now, "NS", intervals).line).toContain("每 3 分钟刷新");
+    expect(freshLine(ko(45), now, "NS").line).toContain("每 10 分钟刷新"); // 不传则静态默认
+  });
+});
+
+describe("fmtFreq / tierFreqText(后台调档 → 用户端同源展示)", () => {
+  it("秒/分钟/小时三段格式", () => {
+    expect(fmtFreq(5_000)).toBe("每 5 秒");
+    expect(fmtFreq(60_000)).toBe("每 1 分钟");
+    expect(fmtFreq(30 * M)).toBe("每 30 分钟");
+    expect(fmtFreq(3 * 3_600_000)).toBe("每 3 小时");
+  });
+
+  it("巡检档与滚球档带说明后缀", () => {
+    expect(tierFreqText(0, 3 * 3_600_000)).toBe("低频巡检 · 每 3 小时");
+    expect(tierFreqText(6, 5_000)).toBe("每 5 秒 · 接口最高频率");
+    expect(tierFreqText(3, 10 * M)).toBe("每 10 分钟");
   });
 });

@@ -8,7 +8,7 @@ import { Legend, LineChart, type ChartRow } from "@/components/charts";
 import { RefreshSheet } from "@/components/refresh-sheet";
 import { ShareSheet, type ShareData } from "@/components/share-sheet";
 import { Card, Chip, EmptyBox, SectionTitle, ShareIcon } from "@/components/ui";
-import { hhmm } from "@/lib/format";
+import { dayLabel, hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
 import { Flash, HeartBeat, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
@@ -89,7 +89,7 @@ function MobileMatchDetail({ id }: { id: string }) {
   const openShare = () =>
     setShare({
       title: `${h.home} vs ${h.away}`,
-      sub: `${h.league} · ${h.live ? `${h.elapsed ?? ""}' 进行中` : `今日 ${hhmm(h.kickoff, prefs.tz)}`}`,
+      sub: `${h.league} · ${h.live ? `${h.elapsed ?? ""}' 进行中` : `${dayLabel(h.kickoff, prefs.tz)} ${hhmm(h.kickoff, prefs.tz)}`}`,
       v1: v.summary.ah ? `${v.summary.ah.text} ${v.summary.ah.w.split("/")[0]}` : "—",
       v2: v.summary.ou ? `${v.summary.ou.text} ${v.summary.ou.w.split("/")[0]}` : "—",
       v3: v.summary.eu?.w ?? "—",
@@ -203,7 +203,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             <Flash v={h.live || h.finished ? (h.score ?? "VS") : "VS"} />
           </div>
           <div style={{ fontSize: 10, color: h.live ? "var(--red)" : "var(--fg-3)", fontWeight: 600, marginTop: 1, whiteSpace: "nowrap" }}>
-            {h.live ? `${h.elapsed ?? ""}' 进行中` : h.finished ? "已完场" : `今日 ${hhmm(h.kickoff, prefs.tz)} 开赛`}
+            {h.live ? `${h.elapsed ?? ""}' 进行中` : h.finished ? "已完场" : `${dayLabel(h.kickoff, prefs.tz)} ${hhmm(h.kickoff, prefs.tz)} 开赛`}
           </div>
         </div>
         <div style={{ textAlign: "left", minWidth: 0 }}>
@@ -231,7 +231,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 8px", cursor: "pointer", flexWrap: "wrap" }}>
         <span style={{ fontSize: 9.5, color: "var(--fg-3)" }}>⟳ {h.fresh.line}{v.summary.oddsAt ? ` · 盘口更新于 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}</span>
         <span style={{ fontSize: 9.5, color: "var(--gold)", fontWeight: 700 }}>规则 ›</span>
-        <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} showNext />
+        {!h.finished && <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} showNext />}
       </div>
 
       <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", overflowX: "auto", flexShrink: 0 }}>
@@ -249,7 +249,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                   <div style={{ fontSize: 13, fontWeight: 700 }}>滚球实时盘</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-                    <span className="mono" style={{ fontSize: 9, color: "var(--red)", fontWeight: 700, whiteSpace: "nowrap" }}>LIVE · 每 1 分钟刷新</span>
+                    <span className="mono" style={{ fontSize: 9, color: "var(--red)", fontWeight: 700, whiteSpace: "nowrap" }}>LIVE · {h.fresh.freq}刷新</span>
                   </div>
                 </div>
                 <div style={{ background: "var(--card)", border: "1px solid rgba(240,67,79,.3)", borderRadius: 12, padding: "4px 14px", marginBottom: 14 }}>

@@ -98,6 +98,7 @@ function MobileMovesPage() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.mk}</span>
+              {f.bk && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.bk}</span>}
               <span style={{ fontSize: 10, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: "var(--fg-2)" }}>{f.from}</span>
               <span style={{ fontSize: 11, color: typeColor(f.type) }}>→</span>

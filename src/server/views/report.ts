@@ -34,11 +34,11 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
     if (first.line !== last.line && first.line != null && last.line != null) {
       const dir = Math.abs(last.line) > Math.abs(first.line) ? "升" : "降";
       ps1.push(
-        `亚盘由初盘 ${ahText(first.line)} ${dir}至 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)}。` +
+        `亚盘自归档首帧 ${ahText(first.line)} ${dir}至 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)}。` +
           (dir === "升" ? "让球加深,市场对让球方的信心有所增强。" : "盘口回撤,市场对让球方的态度趋于谨慎。"),
       );
     } else if (last.line != null) {
-      ps1.push(`亚盘自初盘维持 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)},市场对该盘口分歧不大。`);
+      ps1.push(`亚盘自归档首帧维持 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)},市场对该盘口分歧不大。`);
     }
   }
   const ouS = p.odds.ou;
