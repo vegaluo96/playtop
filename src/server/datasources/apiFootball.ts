@@ -583,6 +583,84 @@ export async function fetchAfTopScorers(leagueId: number, season: number, force 
   return data;
 }
 
+// ── 近期状态（fixtures + fixtures/statistics：射门/射正/控球/xG） ───────────
+
+export interface AfFormMatch {
+  playedAt: number;
+  opponent: string;
+  venue: "home" | "away";
+  goalsFor: number;
+  goalsAgainst: number;
+  shots?: number;
+  shotsOnTarget?: number;
+  xg?: number;
+  possession?: number;
+}
+
+/** 某队近 N 场已完赛（相对该队的进失球/对手/主客） */
+export function parseAfTeamFixtures(json: unknown, teamId: number): { fixtureId: number; m: AfFormMatch }[] {
+  const out: { fixtureId: number; m: AfFormMatch }[] = [];
+  for (const f of parseAfFixtures(json)) {
+    if (f.ftHome === null || f.ftAway === null) continue;
+    const isHome = f.homeId === teamId;
+    if (!isHome && f.awayId !== teamId) continue;
+    out.push({
+      fixtureId: f.fixtureId,
+      m: {
+        playedAt: f.kickoffAt,
+        opponent: isHome ? f.awayName : f.homeName,
+        venue: isHome ? "home" : "away",
+        goalsFor: isHome ? f.ftHome : f.ftAway,
+        goalsAgainst: isHome ? f.ftAway : f.ftHome,
+      },
+    });
+  }
+  return out;
+}
+
+const afStatBlockSchema = z.array(
+  z.object({
+    team: z.object({ id: z.number() }),
+    statistics: z.array(z.object({ type: z.string(), value: z.union([z.number(), z.string()]).nullable().default(null) })).default([]),
+  }),
+);
+
+/** 单场某队的射门/射正/控球/xG（字段缺失返回部分） */
+export function parseAfFixtureStats(json: unknown, teamId: number): Pick<AfFormMatch, "shots" | "shotsOnTarget" | "xg" | "possession"> {
+  const p = afStatBlockSchema.safeParse((json as { response?: unknown }).response ?? []);
+  if (!p.success) return {};
+  const block = p.data.find((b) => b.team.id === teamId);
+  if (!block) return {};
+  const get = (type: string): number | undefined => {
+    const v = block.statistics.find((s) => s.type === type)?.value;
+    if (v === null || v === undefined) return undefined;
+    const n = typeof v === "string" ? Number(v.replace("%", "")) : v;
+    return Number.isFinite(n) ? n : undefined;
+  };
+  return {
+    shots: get("Total Shots"),
+    shotsOnTarget: get("Shots on Goal"),
+    xg: get("expected_goals"),
+    possession: get("Ball Possession"),
+  };
+}
+
+async function fetchAfFixtureStats(fixtureId: number, teamId: number, force = false) {
+  return parseAfFixtureStats(await afGet(`/fixtures/statistics?fixture=${fixtureId}&team=${teamId}`, force), teamId);
+}
+
+/** 球队近 N 场状态（含射门质量）：1 次 fixtures + N 次 statistics。Ultra 配额下成本可忽略 */
+export async function fetchAfTeamForm(teamId: number, last = 5, force = false): Promise<AfFormMatch[]> {
+  const recent = parseAfTeamFixtures(await afGet(`/fixtures?team=${teamId}&last=${last}`, force), teamId);
+  const enriched = await Promise.all(
+    recent.map(async ({ fixtureId, m }) => {
+      const st = await fetchAfFixtureStats(fixtureId, teamId, force).catch(() => ({}));
+      return { ...m, ...st };
+    }),
+  );
+  return enriched.sort((a, b) => b.playedAt - a.playedAt);
+}
+
 // ── 体检 ────────────────────────────────────────────────────────────────
 
 export async function probeApiFootball(): Promise<string> {

@@ -101,9 +101,15 @@ export default function IntelPanel({ intel, homeName, awayName }: { intel: Match
                     {f.recent.slice(0, 5).map((r, i) => {
                       const res = r.goalsFor > r.goalsAgainst ? "胜" : r.goalsFor === r.goalsAgainst ? "平" : "负";
                       const tone = res === "胜" ? "text-up" : res === "负" ? "text-down" : "text-muted";
+                      const extra = [
+                        r.xg !== undefined ? `xG ${r.xg.toFixed(1)}` : null,
+                        r.shots !== undefined ? `射${r.shots}${r.shotsOnTarget !== undefined ? `/${r.shotsOnTarget}` : ""}` : null,
+                        r.possession !== undefined ? `控${r.possession}%` : null,
+                      ].filter(Boolean).join(" · ");
                       return (
                         <li key={i}>
                           <span className={`${tone} font-semibold`}>{res}</span> {r.goalsFor}:{r.goalsAgainst} vs {r.opponent}
+                          {extra && <span className="ml-1 text-faint/80">（{extra}）</span>}
                         </li>
                       );
                     })}

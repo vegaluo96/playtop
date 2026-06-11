@@ -15,10 +15,12 @@ import {
   fetchAfOdds,
   fetchAfSquad,
   fetchAfStandings,
+  fetchAfTeamForm,
   fetchAfTeamStats,
   fetchAfTopScorers,
   matchAfFixture,
   type AfFixture,
+  type AfFormMatch,
   type AfScorer,
 } from "../datasources/apiFootball";
 import { fetchPolymarketOdds, normName } from "../datasources/polymarket";
@@ -192,11 +194,25 @@ export async function collectMatch(
           home: { matches: hs.matches, gfPerGame: hs.gfPerGame, gaPerGame: hs.gaPerGame, cleanSheetRate: hs.cleanSheetRate, homeGfPerGame: hs.homeGfPerGame, homeGaPerGame: hs.homeGaPerGame },
           away: { matches: as_.matches, gfPerGame: as_.gfPerGame, gaPerGame: as_.gaPerGame, cleanSheetRate: as_.cleanSheetRate, awayGfPerGame: as_.awayGfPerGame, awayGaPerGame: as_.awayGaPerGame },
         });
-        const formText = (label: string, s: typeof hs, formation: string | null) =>
-          `近${s.form.length}场战绩 ${s.form}${formation ? `，常用阵型 ${formation}` : ""}（场均进 ${s.gfPerGame.toFixed(2)} / 失 ${s.gaPerGame.toFixed(2)}）`;
+        // 近期状态含射门质量（fixtures/statistics）：xG/射门/控球，玩家爱看的硬数据
+        const [hForm, aForm] = await Promise.all([
+          withSource("api_football", () => fetchAfTeamForm(fx.homeId)).catch(() => [] as AfFormMatch[]),
+          withSource("api_football", () => fetchAfTeamForm(fx.awayId)).catch(() => [] as AfFormMatch[]),
+        ]);
+        const avgXg = (rs: AfFormMatch[]) => {
+          const xs = rs.map((r) => r.xg).filter((x): x is number => x !== undefined);
+          return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+        };
+        const formText = (s: typeof hs, formation: string | null, rs: AfFormMatch[]) => {
+          const x = avgXg(rs);
+          return (
+            `近${s.form.length}场 ${s.form}${formation ? `，常用阵型 ${formation}` : ""}` +
+            `（场均进 ${s.gfPerGame.toFixed(2)} / 失 ${s.gaPerGame.toFixed(2)}${x !== null ? `，近期场均 xG ${x.toFixed(2)}` : ""}）`
+          );
+        };
         insertSnapshot(matchId, "form", "api_football", {
-          home: { recent: [], summaryText: formText(homeName, hs, hs.formation) },
-          away: { recent: [], summaryText: formText(awayName, as_, as_.formation) },
+          home: { recent: hForm, summaryText: formText(hs, hs.formation, hForm) },
+          away: { recent: aForm, summaryText: formText(as_, as_.formation, aForm) },
         });
       }),
     );

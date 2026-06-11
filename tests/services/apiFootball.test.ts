@@ -13,6 +13,8 @@ import {
   parseAfStandings,
   parseAfTeamStats,
   parseAfTopScorers,
+  parseAfTeamFixtures,
+  parseAfFixtureStats,
 } from "@/server/datasources/apiFootball";
 
 const T0 = Date.UTC(2026, 5, 11, 18, 0);
@@ -264,5 +266,32 @@ describe("API-Football 富化端点解析（Ultra 配额）", () => {
     const f = parseAfFixtures(json)[0];
     expect(f.venueName).toBe("Estadio Azteca");
     expect(f.venueCity).toBe("Mexico City");
+  });
+});
+
+describe("API-Football 近期状态（fixtures/statistics：射门质量）", () => {
+  it("近 N 场相对该队的进失球/对手/主客", () => {
+    const json = {
+      response: [
+        { fixture: { id: 10, timestamp: 1_700_000_000, status: { short: "FT" } }, league: { name: "L" }, teams: { home: { id: 33, name: "MX" }, away: { id: 50, name: "USA" } }, score: { fulltime: { home: 3, away: 1 } } },
+        { fixture: { id: 11, timestamp: 1_690_000_000, status: { short: "FT" } }, league: { name: "L" }, teams: { home: { id: 60, name: "CAN" }, away: { id: 33, name: "MX" } }, score: { fulltime: { home: 2, away: 0 } } },
+      ],
+    };
+    const rows = parseAfTeamFixtures(json, 33);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].m).toMatchObject({ opponent: "USA", venue: "home", goalsFor: 3, goalsAgainst: 1 });
+    expect(rows[1].m).toMatchObject({ opponent: "CAN", venue: "away", goalsFor: 0, goalsAgainst: 2 });
+  });
+
+  it("单场统计：射门/射正/控球%/xG，按 teamId 取，缺失部分", () => {
+    const json = {
+      response: [
+        { team: { id: 33 }, statistics: [{ type: "Total Shots", value: 14 }, { type: "Shots on Goal", value: 6 }, { type: "Ball Possession", value: "58%" }, { type: "expected_goals", value: "2.1" }] },
+        { team: { id: 50 }, statistics: [{ type: "Total Shots", value: 8 }] },
+      ],
+    };
+    expect(parseAfFixtureStats(json, 33)).toEqual({ shots: 14, shotsOnTarget: 6, possession: 58, xg: 2.1 });
+    expect(parseAfFixtureStats(json, 50)).toEqual({ shots: 8, shotsOnTarget: undefined, possession: undefined, xg: undefined });
+    expect(parseAfFixtureStats({ response: [] }, 33)).toEqual({});
   });
 });
