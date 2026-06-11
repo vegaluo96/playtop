@@ -354,7 +354,9 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       const odds = arr(dig(data, "odds"));
       const find = (re: RegExp) => odds.find((o) => re.test(String(dig(o, "name") ?? "")));
       const fmtAh = (o: unknown) => {
-        const vals = arr(dig(o, "values"));
+        const all = arr(dig(o, "values"));
+        const mains = all.filter((v) => dig(v, "main") === true);
+        const vals = mains.length >= 2 ? mains : all; // 滚球多档时书商标了主盘就用主盘
         const h = vals.find((v) => dig(v, "value") === "Home" || /home/i.test(String(dig(v, "value"))));
         const a = vals.find((v) => dig(v, "value") === "Away" || /away/i.test(String(dig(v, "value"))));
         const hc = parseFloat(String(dig(h, "handicap") ?? ""));
@@ -375,7 +377,9 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
         if (r) rowsOut.push({ mk: "亚盘", v: `${r.text} · ${r.v}`, susp: r.susp });
       }
       if (ouO) {
-        const vals = arr(dig(ouO, "values"));
+        const allV = arr(dig(ouO, "values"));
+        const mainsV = allV.filter((v) => dig(v, "main") === true);
+        const vals = mainsV.length >= 2 ? mainsV : allV;
         const over = vals.find((v) => /over/i.test(String(dig(v, "value"))));
         const under = vals.find((v) => /under/i.test(String(dig(v, "value"))));
         const susp = Boolean(dig(over, "suspended")) || Boolean(dig(under, "suspended"));

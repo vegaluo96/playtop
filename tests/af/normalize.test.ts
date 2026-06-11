@@ -89,6 +89,56 @@ describe("normalizeOddsItem", () => {
   });
 });
 
+describe("parseAh 腿标签格式无关(满水率自证)", () => {
+  const item = (ahValues: { value: string; odd: string }[], eu?: { h: string; a: string }) => ({
+    bookmakers: [{ id: 8, name: "Bet365", bets: [
+      ...(eu ? [{ id: 1, name: "Match Winner", values: [
+        { value: "Home", odd: eu.h }, { value: "Draw", odd: "3.60" }, { value: "Away", odd: eu.a },
+      ] }] : []),
+      { id: 4, name: "Asian Handicap", values: ahValues },
+    ] }],
+  });
+
+  it("镜像标签:Home -0.5 / Away +0.5 → line=+0.5,水位为各自腿", () => {
+    const ah = normalizeOddsItem(item([
+      { value: "Home -0.5", odd: "1.90" }, { value: "Away +0.5", odd: "1.98" },
+    ])).at(0)!.markets.find((m) => m.market === "ah")!;
+    expect(ah.line).toBe(0.5);
+    expect(ah.h).toBeCloseTo(0.9, 2);
+    expect(ah.a).toBeCloseTo(0.98, 2);
+  });
+
+  it("同号标签:Home -0.5 / Away -0.5(同一条线的两腿)→ 同样 line=+0.5,不错腿", () => {
+    const ah = normalizeOddsItem(item([
+      { value: "Home -0.5", odd: "1.90" }, { value: "Away -0.5", odd: "1.98" },
+      { value: "Home -1", odd: "2.65" }, { value: "Away -1", odd: "1.48" },
+    ])).at(0)!.markets.find((m) => m.market === "ah")!;
+    expect(ah.line).toBe(0.5);
+    expect(ah.h).toBeCloseTo(0.9, 2);
+    expect(ah.a).toBeCloseTo(0.98, 2);
+  });
+
+  it("对称梯子歧义:用同书商 1X2 强弱方向裁决(主队热门 → 主让)", () => {
+    // 镜像与同号两种假设都能配出满水率合理的对,但 line 符号相反;1X2 主 1.50 vs 客 6.00 → 必须主让
+    const ah = normalizeOddsItem(item(
+      [
+        { value: "Home -0.75", odd: "1.92" }, { value: "Away -0.75", odd: "1.96" },
+        { value: "Home +0.75", odd: "1.96" }, { value: "Away +0.75", odd: "1.92" },
+      ],
+      { h: "1.50", a: "6.00" },
+    )).at(0)!.markets.find((m) => m.market === "ah")!;
+    expect(ah.line).toBeGreaterThan(0); // 主让,绝不能解析成受让
+  });
+
+  it("配错腿/坏数据(满水率失真)整组拒收,不显示假盘", () => {
+    const books = normalizeOddsItem(item([
+      { value: "Home -0.5", odd: "1.90" }, { value: "Away +0.5", odd: "0.91" }, // 0.91 不是合法欧赔
+    ]));
+    const ah = books.at(0)?.markets.find((m) => m.market === "ah");
+    expect(ah).toBeUndefined();
+  });
+});
+
 describe("detectMovement(急变 = 盘口位移 ≥0.25 或水位 |Δ|≥0.05)", () => {
   it("升盘:line 上移;0.25 位移即急变", () => {
     const mv = detectMovement("ah", { line: 1.25, h: 0.9, a: 0.96 }, { line: 1.5, h: 0.85, a: 1.01 })!;

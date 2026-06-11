@@ -5,10 +5,12 @@
  *   npm run selfcheck -- --readonly        # 只读层 L0-L2(不打 HTTP、不写业务数据)
  *   npm run selfcheck -- --base http://localhost:3001
  *   npm run selfcheck -- audit <fixtureId> # 盘口保真度审计:AF原始→归一化→落库→显示 四层对照
+ *   npm run selfcheck -- renorm [fid|all]  # 归一化修正后,重放 odds_raw 重建快照与异动
  * 退出码:有 ✗ 时为 2。
  */
 import {
   auditOdds,
+  renormalizeOdds,
   checkAdmin,
   checkApi,
   checkBusiness,
@@ -26,6 +28,12 @@ async function main() {
   const baseIdx = args.indexOf("--base");
   const base = baseIdx >= 0 ? args[baseIdx + 1] : `http://127.0.0.1:${process.env.PORT || 3000}`;
 
+  if (args[0] === "renorm") {
+    const fid = args[1] && args[1] !== "all" ? Number(args[1]) : undefined;
+    const r = renormalizeOdds(fid);
+    console.log(`重算完成:${r.fixtures} 场 · 重放 ${r.raws} 帧原始数据 · 重建异动 ${r.moves} 条`);
+    return;
+  }
   if (args[0] === "audit") {
     const fid = Number(args[1]);
     if (!fid) {

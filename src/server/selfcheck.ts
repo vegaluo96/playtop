@@ -5,8 +5,8 @@
  */
 import { db, tx } from "./db";
 import { afGet } from "./af/client";
-import { fixturesBetween, hasPrediction, kvGet, kvSet } from "./af/store";
-import { normalizeOddsItem } from "./af/normalize";
+import { archiveOdds, fixturesBetween, hasPrediction, kvGet, kvSet } from "./af/store";
+import { normalizeOddsItem, pairMargin } from "./af/normalize";
 import { tierFor } from "./af/schedule";
 import { cfgAfKey, cfgFirstBonusOn, cfgLlmKey, cfgRechargeTiers, cfgTierIntervals, cfgUnlockPrice } from "./platform/config";
 import { audit, ensureAdminSeed, listAudit } from "./admin/auth";
@@ -125,6 +125,31 @@ export async function checkReadonly(opts: { skipNetwork?: boolean; now?: number 
     row("L2 衍生", "每日免费场", todays.length === 0 ? "skip" : free && !freeHidden ? "ok" : "fail",
       todays.length === 0 ? "今日无场次" : free ? (freeHidden ? "免费场被隐藏,需在后台改选" : `fixture=${free.fixture_id}`) : "未设定:worker 应自动选定"),
   );
+
+  // 盘口配对合理性:满水率(两腿隐含概率和)必须落在 1.00–1.18,配错腿/坏数据立刻露馅
+  const latestPairs = d
+    .prepare(
+      `SELECT fixture_id, bookmaker, market, line, h, a FROM odds_snapshots
+       WHERE market IN ('ah','ou')
+         AND captured_at = (SELECT MAX(captured_at) FROM odds_snapshots s2
+                            WHERE s2.fixture_id=odds_snapshots.fixture_id AND s2.bookmaker=odds_snapshots.bookmaker AND s2.market=odds_snapshots.market)
+       LIMIT 200`,
+    )
+    .all() as unknown as { fixture_id: number; bookmaker: string; market: string; line: number; h: number; a: number }[];
+  if (latestPairs.length === 0) {
+    rows.push(row("L2 衍生", "盘口配对合理性", "skip", "暂无盘口快照"));
+  } else {
+    const bad = latestPairs.filter((s2) => {
+      const m = pairMargin(s2.h + 1, s2.a + 1);
+      return m < 1.0 || m > 1.18;
+    });
+    rows.push(
+      row("L2 衍生", "盘口配对合理性", bad.length === 0 ? "ok" : "fail",
+        bad.length === 0
+          ? `${latestPairs.length} 组满水率均在 1.00–1.18`
+          : `${bad.length}/${latestPairs.length} 组异常,如 fixture=${bad[0].fixture_id} ${bad[0].market} ${bad[0].h}/${bad[0].a}(疑似错腿配对,跑 renorm 重算)`),
+    );
+  }
 
   const settleable = d
     .prepare(
@@ -389,6 +414,39 @@ export async function dailyReadonlyCheck(now = Date.now()): Promise<void> {
   kvSet("last_platform_check", JSON.stringify({ at: rep.at, ...rep.summary }));
 }
 
+/** 重放 odds_raw 重建快照与异动(归一化逻辑修正后修复历史数据;原始数据不动) */
+export function renormalizeOdds(fixtureId?: number): { fixtures: number; raws: number; moves: number } {
+  const d = db();
+  const where = fixtureId ? "WHERE fixture_id = ?" : "";
+  const args = fixtureId ? [fixtureId] : [];
+  const raws = d
+    .prepare(`SELECT id, fixture_id, payload, captured_at FROM odds_raw ${where} ORDER BY fixture_id, captured_at`)
+    .all(...(args as [number] | [])) as unknown as { id: number; fixture_id: number; payload: string; captured_at: number }[];
+  const fids = [...new Set(raws.map((r) => r.fixture_id))];
+  let moves = 0;
+  tx(() => {
+    for (const fid of fids) {
+      d.prepare("DELETE FROM odds_snapshots WHERE fixture_id = ?").run(fid);
+      d.prepare("DELETE FROM movements WHERE fixture_id = ?").run(fid);
+    }
+  });
+  // 重放经 archiveOdds(会再写一份 raw),完成后按 (fixture,时间戳,payload) 去重
+  for (const r of raws) {
+    try {
+      moves += archiveOdds(r.fixture_id, JSON.parse(r.payload), r.captured_at);
+    } catch {
+      /* 单条坏 payload 跳过 */
+    }
+  }
+  // 去掉重放产生的重复 raw(保留原 id 较小者)
+  d.prepare(
+    `DELETE FROM odds_raw WHERE id NOT IN (
+       SELECT MIN(id) FROM odds_raw GROUP BY fixture_id, captured_at, payload
+     )${fixtureId ? " AND fixture_id = " + Number(fixtureId) : ""}`,
+  ).run();
+  return { fixtures: fids.length, raws: raws.length, moves };
+}
+
 /* ── 盘口保真度审计:AF 原始 → 归一化 → 落库 → 显示,四层对照 ── */
 export async function auditOdds(fixtureId: number, base?: string): Promise<string> {
   const d = db();
@@ -426,7 +484,13 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
     .all(fixtureId) as unknown as { bookmaker: string; market: string; line: number | null; h: number; a: number; d: number | null; captured_at: number }[];
   if (snaps.length === 0) lines.push("     (空:该场尚无快照)");
   for (const s of snaps.slice(0, 9)) {
-    lines.push(`     ${s.bookmaker.padEnd(12)} ${s.market} line=${s.line ?? "—"} h=${s.h} a=${s.a}${s.d != null ? ` d=${s.d}` : ""} · ${Math.round((Date.now() - s.captured_at) / 60_000)}m 前`);
+    const margin = s.market === "eu" ? null : pairMargin(s.h + 1, s.a + 1);
+    const flag = margin != null && (margin < 1.0 || margin > 1.18) ? " ⚠配对异常" : "";
+    lines.push(
+      `     ${s.bookmaker.padEnd(12)} ${s.market} line=${s.line ?? "—"} h=${s.h} a=${s.a}${s.d != null ? ` d=${s.d}` : ""}` +
+        (margin != null ? ` · 满水率 ${margin.toFixed(3)}${flag}` : "") +
+        ` · ${Math.round((Date.now() - s.captured_at) / 60_000)}m 前`,
+    );
   }
 
   // ③ 前端显示值(API)
