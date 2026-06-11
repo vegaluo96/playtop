@@ -3,7 +3,7 @@
  * 免注册:前 3 条完整,其余纯数值打码 + 注册 CTA(服务端执行)。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { ahText, f2, hhmm, ouText } from "@/lib/format";
+import { ahText, f2, hhmm, maskBookmaker, ouText } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
 import { recentMovements } from "@/server/af/store";
 import { currentUser } from "@/server/platform/session";
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       leagueId: m.league_id,
       mk: isAh ? "亚盘" : "大小",
       mkFull: isAh ? "亚洲让球盘" : "大小球(进球数)",
-      bk: m.bookmaker,
+      bk: maskBookmaker(m.bookmaker),
       type: m.type,
       sev: !masked && !!m.sev,
       masked,

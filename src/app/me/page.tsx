@@ -10,6 +10,7 @@ import { LANGS, type Lang } from "@/lib/i18n";
 import { LEAGUES } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
+import { APP_VERSION } from "@/lib/version";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -36,6 +37,7 @@ function MobileMePage() {
   const [ledgerCount, setLedgerCount] = useState<number | null>(null);
   const [rdMsg, setRdMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [ticketNew, setTicketNew] = useState(false);
 
   useEffect(() => {
     if (me.loggedIn && me.giftPending) setGiftOpen(true);
@@ -45,6 +47,20 @@ function MobileMePage() {
     if (!me.loggedIn) return;
     void fetch("/api/wallet").then((r) => r.json()).then((j) => j.ok && setLedgerCount(j.ledger.length));
   }, [me.loggedIn, me.pts]);
+
+  // 工单有新回复 → 「系统工单」行红点提示(进入工单页即标记已读)
+  useEffect(() => {
+    if (!me.loggedIn) return;
+    void fetch("/api/tickets")
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j.ok) return;
+        const latest = Math.max(0, ...(j.tickets as { replied_at?: number | null }[]).map((t) => t.replied_at ?? 0));
+        const seen = Number(localStorage.getItem("playtop.tickets.seen") ?? 0);
+        setTicketNew(latest > seen);
+      })
+      .catch(() => {});
+  }, [me.loggedIn]);
 
   const openInvite = async () => {
     if (!me.loggedIn) {
@@ -99,10 +115,10 @@ function MobileMePage() {
       ? prefs.follows.map((id) => LEAGUES.find((l) => String(l.id) === id)?.zh ?? id).join(" · ")
       : "未关注";
 
-  const MenuRow = ({ label, sum, ch, onClick, border = true }: { label: string; sum: string; ch?: string; onClick: () => void; border?: boolean }) => (
+  const MenuRow = ({ label, sum, ch, onClick, border = true, sumColor }: { label: string; sum: string; ch?: string; onClick: () => void; border?: boolean; sumColor?: string }) => (
     <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 8, padding: 14, cursor: "pointer", borderTop: border ? "1px solid #1d212a" : undefined }}>
       <span style={{ fontSize: 13, fontWeight: 700, flex: 1 }}>{label}</span>
-      <span style={{ fontSize: 11, color: "var(--fg-2)", maxWidth: 170, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sum}</span>
+      <span style={{ fontSize: 11, color: sumColor ?? "var(--fg-2)", fontWeight: sumColor ? 700 : undefined, maxWidth: 170, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sum}</span>
       <span style={{ fontSize: 12, color: "var(--fg-3)", width: 12, textAlign: "center" }}>{ch ?? "›"}</span>
     </div>
   );
@@ -192,7 +208,7 @@ function MobileMePage() {
             </div>
           )}
           <MenuRow label="时区" sum={TZS.find((z) => z[0] === prefs.tz)?.[1] ?? prefs.tz} onClick={() => setSheet("tz")} />
-          <MenuRow label="系统工单" sum="提交问题" onClick={() => router.push("/me/tickets")} />
+          <MenuRow label="系统工单" sum={ticketNew ? "● 有新回复" : "提交问题"} sumColor={ticketNew ? "var(--red)" : undefined} onClick={() => router.push("/me/tickets")} />
         </div>
 
         {me.loggedIn && (
@@ -200,6 +216,9 @@ function MobileMePage() {
             退出登录
           </div>
         )}
+        <div className="mono" style={{ textAlign: "center", fontSize: 9, color: "var(--fg-4)", padding: "14px 0 4px" }}>
+          足球终端 v{APP_VERSION}
+        </div>
       </div>
 
       {/* 新人礼包 */}

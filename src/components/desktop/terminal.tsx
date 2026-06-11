@@ -14,6 +14,8 @@ import { TIERS, tierFreqText } from "@/server/af/schedule";
 import { Modal, ModalTitle } from "./modal";
 import { CenterPane } from "./center";
 import { AccountDrawer } from "./drawer";
+import { useRechargeTiers } from "@/components/unlock-flow";
+import { AnnouncementBar } from "@/components/announcement-bar";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -55,6 +57,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   const [lastAt, setLastAt] = useState<number | null>(null);
   const workerAt = useWorkerBeat();
   const tierIntervals = useTierIntervals(modal?.kind === "refresh");
+  const { tiers: rechargeTiers, maintenance: rechargeMaintenance } = useRechargeTiers(modal?.kind === "recharge");
   const selRef = useRef<number | null>(sel);
   selRef.current = sel;
 
@@ -195,13 +198,10 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   };
 
   const X = "-.--";
-  const TIERS_DATA: { rmb: number; pts: number; tag?: string; hot?: boolean }[] = [
-    { rmb: 6, pts: 60 }, { rmb: 30, pts: 320, tag: "+6%" }, { rmb: 68, pts: 750, tag: "+10%" },
-    { rmb: 128, pts: 1480, tag: "+15%" }, { rmb: 328, pts: 3940, tag: "+20%" }, { rmb: 648, pts: 8420, tag: "+30%", hot: true },
-  ];
 
   return (
     <div className="desktop-root" style={{ position: "relative", width: "100%", height: "100dvh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", overflow: "hidden" }}>
+      <AnnouncementBar compact />
       {/* ===== 顶栏 ===== */}
       <div style={{ flexShrink: 0, height: 52, display: "flex", alignItems: "center", gap: 18, padding: "0 20px", borderBottom: "1px solid var(--line)", background: "#0e1015" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
@@ -266,8 +266,8 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
               {[{ id: "all", zh: "全部", color: "", wc: false }, ...LEAGUES.map((l) => ({ id: String(l.id), zh: l.zh, color: l.color, wc: !!l.wc }))].map((l) => {
                 const active = league === l.id;
                 return l.wc ? (
-                  <div key={l.id} onClick={() => setLeague(l.id)} className="wcglow" style={{ padding: "4px 10px", borderRadius: 999, fontSize: 10.5, fontWeight: 700, cursor: "pointer", background: active ? "rgba(233,185,73,.14)" : "rgba(233,185,73,.08)", color: "var(--gold)", border: "1px solid rgba(233,185,73,.65)" }}>
-                    ★ {l.zh}
+                  <div key={l.id} onClick={() => setLeague(l.id)} className={active ? "wcglow" : undefined} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 10.5, fontWeight: 700, cursor: "pointer", background: active ? "rgba(233,185,73,.16)" : "var(--card)", color: active ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${active ? "rgba(233,185,73,.65)" : "rgba(233,185,73,.28)"}` }}>
+                    <span style={{ color: "var(--gold)" }}>★</span> {l.zh}
                   </div>
                 ) : (
                   <div key={l.id} onClick={() => setLeague(l.id)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 10.5, fontWeight: 600, cursor: "pointer", background: active ? "rgba(233,185,73,.14)" : "var(--card)", color: active ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${active ? "rgba(233,185,73,.45)" : "var(--line)"}` }}>
@@ -305,7 +305,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                       {m.live && (
                         <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 9, color: "var(--red)", fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap" }}>
                           <span className="livepulse" style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--red)" }} />
-                          {m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
+                          {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
                         </span>
                       )}
                     </div>
@@ -554,8 +554,13 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           <span style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700 }}>首充任意档位 +50%</span>
         </div>
         <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 14 }}>积分仅用于解锁比赛预测 · 1 元 = 10 积分起</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
-          {TIERS_DATA.map((tr, i) => (
+        {rechargeMaintenance && (
+          <div style={{ background: "rgba(233,185,73,.1)", border: "1px solid rgba(233,185,73,.4)", borderRadius: 10, padding: "14px 12px", marginBottom: 10, textAlign: "center", fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>
+            充值通道维护中,请稍后再试
+          </div>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10, opacity: rechargeMaintenance ? 0.35 : 1, pointerEvents: rechargeMaintenance ? "none" : "auto" }}>
+          {rechargeTiers.map((tr, i) => (
             <div key={tr.rmb} onClick={() => doRecharge(i)} style={{ position: "relative", background: "var(--inset)", border: `1px solid ${tr.hot ? "rgba(233,185,73,.55)" : "var(--line)"}`, borderRadius: 10, padding: "12px 0 10px", textAlign: "center", cursor: "pointer" }}>
               {tr.hot && <span style={{ position: "absolute", top: -7, right: 8, background: "var(--gold)", color: "#0a0b0f", fontSize: 8, fontWeight: 800, borderRadius: 4, padding: "1px 5px" }}>最划算</span>}
               <div className="mono" style={{ fontSize: 16, fontWeight: 800, color: "var(--gold)" }}>{tr.pts}</div>

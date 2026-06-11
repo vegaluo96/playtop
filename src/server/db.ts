@@ -140,6 +140,43 @@ CREATE TABLE IF NOT EXISTS daily_free (
   date TEXT PRIMARY KEY,
   fixture_id INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS free_fixtures (
+  date TEXT NOT NULL,
+  fixture_id INTEGER NOT NULL,
+  PRIMARY KEY (date, fixture_id)
+);
+-- 滚球实时帧归档(/odds/live 无书商维度;仅变化帧落库 + 心跳帧)
+CREATE TABLE IF NOT EXISTS live_odds_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fixture_id INTEGER NOT NULL,
+  market TEXT NOT NULL,          -- 'ah' | 'ou' | 'eu'
+  line REAL,
+  h REAL, a REAL, d REAL,
+  suspended INTEGER NOT NULL DEFAULT 0,
+  captured_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_live_odds ON live_odds_snapshots(fixture_id, market, captured_at);
+-- AI 报告版本历史(report_cache 仍是「最新版」指针)
+CREATE TABLE IF NOT EXISTS report_versions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fixture_id INTEGER NOT NULL,
+  ver INTEGER NOT NULL,
+  fingerprint TEXT NOT NULL,
+  content TEXT NOT NULL,
+  model TEXT NOT NULL DEFAULT '',
+  tokens INTEGER NOT NULL DEFAULT 0,
+  gen_at INTEGER NOT NULL,
+  changed TEXT NOT NULL DEFAULT '[]',
+  UNIQUE (fixture_id, ver)
+);
+-- 名称汉化缓存(词典 → 本表 → 原名;DB 永远存原名)
+CREATE TABLE IF NOT EXISTS name_zh (
+  raw TEXT PRIMARY KEY,
+  kind TEXT NOT NULL DEFAULT '',
+  zh TEXT NOT NULL,
+  src TEXT NOT NULL DEFAULT 'llm',
+  updated_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS kv (
   k TEXT PRIMARY KEY,
   v TEXT NOT NULL
@@ -222,7 +259,13 @@ const COLUMN_MIGRATIONS: [string, string][] = [
   ["ledger", "rmb REAL"],
   ["invites", "ip TEXT"],
   ["redemptions", "ip TEXT"],
+  ["movements", "phase TEXT NOT NULL DEFAULT '盘前'"],
 ];
+
+/* 一次性数据迁移(幂等):daily_free(单场/日)→ free_fixtures(多场/日) */
+function dataMigrations(d: DatabaseSync): void {
+  d.exec("INSERT OR IGNORE INTO free_fixtures (date, fixture_id) SELECT date, fixture_id FROM daily_free");
+}
 
 let _db: DatabaseSync | null = null;
 
@@ -247,6 +290,7 @@ export function db(): DatabaseSync {
       /* 列已存在 */
     }
   }
+  dataMigrations(_db);
   return _db;
 }
 

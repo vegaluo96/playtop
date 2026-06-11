@@ -78,14 +78,21 @@ export function redeem(userId: number, codeRaw: string, ip: string | null = null
   });
 }
 
-/** 今日免费场(平台指定,登录即视同解锁) */
+/** 当日免费场列表(平台指定,可多场;登录即视同解锁) */
+export function dailyFreeFixtureIds(dateStr: string): number[] {
+  const rows = db().prepare("SELECT fixture_id FROM free_fixtures WHERE date = ? ORDER BY fixture_id").all(dateStr) as unknown as {
+    fixture_id: number;
+  }[];
+  return rows.map((r) => r.fixture_id);
+}
+
+/** 兼容旧调用:返回当日第一个免费场 */
 export function dailyFreeFixture(dateStr: string): number | null {
-  const r = db().prepare("SELECT fixture_id FROM daily_free WHERE date = ?").get(dateStr) as { fixture_id: number } | undefined;
-  return r?.fixture_id ?? null;
+  return dailyFreeFixtureIds(dateStr)[0] ?? null;
 }
 
 export function isUnlocked(userId: number, fixtureId: number, dateStr: string): boolean {
-  if (dailyFreeFixture(dateStr) === fixtureId) return true;
+  if (dailyFreeFixtureIds(dateStr).includes(fixtureId)) return true;
   return !!db().prepare("SELECT 1 FROM unlocks WHERE user_id = ? AND fixture_id = ?").get(userId, fixtureId);
 }
 

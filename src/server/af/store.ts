@@ -328,10 +328,15 @@ export function modelStats(nowMs = Date.now()): ModelStats {
   };
 }
 
-/* ── 每日免费场 + kv 缓存 ── */
+/* ── 每日免费场(可多场)+ kv 缓存 ── */
 
 export function setDailyFree(date: string, fixtureId: number): void {
-  db().prepare("INSERT OR IGNORE INTO daily_free (date, fixture_id) VALUES (?,?)").run(date, fixtureId);
+  db().prepare("INSERT OR IGNORE INTO free_fixtures (date, fixture_id) VALUES (?,?)").run(date, fixtureId);
+}
+
+export function freeFixtureCount(date: string): number {
+  const r = db().prepare("SELECT COUNT(*) n FROM free_fixtures WHERE date = ?").get(date) as { n: number } | undefined;
+  return r?.n ?? 0;
 }
 
 export function kvGet(key: string): string | null {

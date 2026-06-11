@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { audit, canWrite, currentAdmin } from "@/server/admin/auth";
 import {
-  cfgFirstBonusOn, cfgGiftPoints, cfgInviteCaps, cfgInvitePoints, cfgPriceLive, cfgPricePre, cfgRechargeTiers, cfgSet,
+  cfgFirstBonusOn, cfgGiftPoints, cfgInviteCaps, cfgInvitePoints, cfgPriceLive, cfgPricePre, cfgRechargeMaintenance, cfgRechargeTiers, cfgSet,
 } from "@/server/platform/config";
 
 export async function GET() {
@@ -16,6 +16,7 @@ export async function GET() {
     invitePoints: cfgInvitePoints(),
     caps: cfgInviteCaps(),
     firstBonusOn: cfgFirstBonusOn(),
+    rechargeMaintenance: cfgRechargeMaintenance(),
   });
 }
 
@@ -47,6 +48,9 @@ export async function POST(req: NextRequest) {
       if (!Array.isArray(tiers) || tiers.length === 0 || tiers.some((t) => !(t.rmb > 0) || !(t.pts > 0))) throw new Error("档位无效");
       cfgSet("recharge_tiers", tiers);
       audit(admin.email, "营销配置", `充值档位 ${tiers.map((t) => `¥${t.rmb}/${t.pts}`).join(" ")}`);
+    } else if (b.action === "recharge_maintenance") {
+      cfgSet("recharge_maintenance", b.on ? 1 : 0);
+      audit(admin.email, "营销配置", `充值维护 → ${b.on ? "开启(用户端暂停充值)" : "关闭"}`);
     } else return NextResponse.json({ ok: false, error: "未知操作" }, { status: 400 });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "参数错误" }, { status: 400 });

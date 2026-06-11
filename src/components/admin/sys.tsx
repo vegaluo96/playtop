@@ -308,7 +308,9 @@ export function SettingsView() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={{ fontSize: 10, color: "var(--fg-2)" }}>服务商:API易(apiyi.com)聚合网关</span>
             <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: v.llm.balance != null && v.llm.balance < 100 ? "#f0434f" : "#2ecc8a" }}>
-              {v.llm.balance != null ? `余额 $${v.llm.balance}` : "余额 —"}
+              {v.llm.balance != null
+                ? `余额 $${v.llm.balance}${v.llm.balanceDetail?.limit != null ? ` · 已用 $${v.llm.balanceDetail.used ?? 0}/$${v.llm.balanceDetail.limit}` : ""}`
+                : "余额 —"}
             </span>
           </div>
           <div style={{ fontSize: 10, color: "var(--fg-2)", marginBottom: 6 }}>LLM_API_KEY(调用密钥)</div>

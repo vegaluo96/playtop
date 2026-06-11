@@ -53,6 +53,16 @@ export interface PredSummary {
   comparison: Record<string, { home: number; away: number }>;
   formHome: string;
   formAway: string;
+  /** AF 字段缺失时由当前盘口推导出的方向(显示「盘口推导」标注) */
+  derived: boolean;
+}
+
+/** 盘口兜底输入:最新亚盘/大小球主盘(line + 双侧净水) */
+export interface OddsHint {
+  ah?: { line: number | null; h: number; a: number } | null;
+  ou?: { line: number | null; h: number; a: number } | null;
+  homeName?: string;
+  awayName?: string;
 }
 
 const pct = (v: unknown) => {
@@ -60,25 +70,40 @@ const pct = (v: unknown) => {
   return Number.isFinite(n) ? Math.round(n) : 0;
 };
 
-/** AF /predictions 信封项 → 中文摘要(建议文案按设计稿口径合成) */
-export function predSummary(pred: unknown, homeId: number | null): PredSummary | null {
+/** AF /predictions 信封项 → 中文摘要(建议文案按设计稿口径合成);odds 传最新主盘时,AF 缺方向可由盘口推导(标注「盘口推导」) */
+export function predSummary(pred: unknown, homeId: number | null, odds?: OddsHint): PredSummary | null {
   if (!pred) return null;
   const p = pred as Record<string, unknown>;
   const pH = pct(dig(p, "predictions", "percent", "home"));
   const pD = pct(dig(p, "predictions", "percent", "draw"));
   const pA = pct(dig(p, "predictions", "percent", "away"));
-  const winnerName = String(dig(p, "predictions", "winner", "name") ?? "");
-  const winnerId = Number(dig(p, "predictions", "winner", "id")) || null;
+  let winnerName = String(dig(p, "predictions", "winner", "name") ?? "");
+  let winnerId = Number(dig(p, "predictions", "winner", "id")) || null;
   const winDraw = Boolean(dig(p, "predictions", "win_or_draw"));
   const uoRaw = dig(p, "predictions", "under_over");
-  const uoLine = uoRaw == null ? null : String(uoRaw);
+  let uoLine = uoRaw == null ? null : String(uoRaw);
   let uoTextZh: string | null = null;
   if (uoLine) {
     const v = parseFloat(uoLine);
     uoTextZh = v < 0 ? `小于 ${Math.abs(v)} 球` : `大于 ${Math.abs(v)} 球`;
   }
+
+  // 盘口推导兜底:AF 模型未给方向时,用亚盘让球方向/大小球低水侧补齐,绝不留「样本不足」空窗
+  let derived = false;
+  if (!winnerName && odds?.ah && odds.ah.line != null && odds.ah.line !== 0) {
+    const homeSide = odds.ah.line > 0;
+    winnerName = homeSide ? (odds.homeName ?? "主队") : (odds.awayName ?? "客队");
+    winnerId = homeSide ? homeId : null;
+    derived = true;
+  }
+  if (!uoTextZh && odds?.ou && odds.ou.line != null && odds.ou.h !== odds.ou.a) {
+    uoTextZh = odds.ou.h < odds.ou.a ? `大于 ${odds.ou.line} 球` : `小于 ${odds.ou.line} 球`;
+    uoLine = uoLine ?? String(odds.ou.line);
+    derived = true;
+  }
+
   const winPart = winnerName ? (winDraw ? `双重机会:${winnerName} 或平局` : `单场:${winnerName} 胜`) : "样本不足,暂无方向";
-  const advice = winnerName && uoTextZh ? `${winPart},且${uoTextZh}` : winPart;
+  const advice = (winnerName && uoTextZh ? `${winPart},且${uoTextZh}` : winPart) + (derived ? "(盘口推导)" : "");
   const comparison: Record<string, { home: number; away: number }> = {};
   const compKeys: [string, string][] = [
     ["form", "状态"], ["att", "攻击"], ["def", "防守"], ["poisson_distribution", "泊松"],
@@ -100,6 +125,7 @@ export function predSummary(pred: unknown, homeId: number | null): PredSummary |
     comparison,
     formHome: String(dig(p, "teams", "home", "league", "form") ?? ""),
     formAway: String(dig(p, "teams", "away", "league", "form") ?? ""),
+    derived,
   };
 }
 

@@ -1,7 +1,7 @@
 /**
  * 详情页视图模型:matchPanorama → 6 个 tab 的渲染数据(全部中文化)。
  */
-import { ahText, f2, hhmm, ouText } from "@/lib/format";
+import { ahText, f2, hhmm, maskBookmaker, ouText } from "@/lib/format";
 import { leagueZh, roundZh } from "@/lib/leagues";
 import { freshLine, isFinished, isLive } from "../af/schedule";
 import { cfgTierIntervals } from "../platform/config";
@@ -463,10 +463,14 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   const now = Date.now();
   const live = isLive(fx.status);
   const pred = p.prediction;
-  const ps = predSummary(pred, fx.home_id);
+  const lastOf = (s: SnapRow[]) => (s.length > 0 ? s[s.length - 1] : null);
+  const hintOf = (s: SnapRow[]) => {
+    const r = lastOf(s);
+    return r ? { line: r.line, h: r.h, a: r.a } : null;
+  };
+  const ps = predSummary(pred, fx.home_id, { ah: hintOf(p.odds.ah), ou: hintOf(p.odds.ou), homeName: fx.home_name, awayName: fx.away_name });
   const ah = seriesRows(p.odds.ah, "ah", tz);
   const ou = seriesRows(p.odds.ou, "ou", tz);
-  const lastOf = (s: SnapRow[]) => (s.length > 0 ? s[s.length - 1] : null);
   const ahL = lastOf(p.odds.ah);
   const ouL = lastOf(p.odds.ou);
   const euL = lastOf(p.odds.eu);
@@ -539,7 +543,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   // 「首帧」= 本站归档到的第一帧(AF 不提供真正初盘),表头与此对齐,不冒充初盘
   const compMap = (list: Panorama["odds"]["compareAh"], market: "ah" | "ou") =>
     list.map((c) => ({
-      co: c.bookmaker,
+      co: maskBookmaker(c.bookmaker),
       iText: market === "ah" ? ahText(c.first.line ?? 0) : ouText(c.first.line ?? 0),
       iW: `${f2(c.first.h)} / ${f2(c.first.a)}`,
       nText: market === "ah" ? ahText(c.last.line ?? 0) : ouText(c.last.line ?? 0),
@@ -547,7 +551,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       changed: c.first.line !== c.last.line,
     }));
   const compEu = p.odds.compareEu.map((c) => ({
-    co: c.bookmaker,
+    co: maskBookmaker(c.bookmaker),
     iW: `${f2(c.first.h)} / ${f2(c.first.d ?? 0)} / ${f2(c.first.a)}`,
     nW: `${f2(c.last.h)} / ${f2(c.last.d ?? 0)} / ${f2(c.last.a)}`,
   }));
@@ -564,6 +568,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       finished: isFinished(fx.status),
       score: fx.goals_home != null ? `${fx.goals_home}-${fx.goals_away}` : null,
       elapsed: fx.elapsed,
+      ht: fx.status === "HT",
       kickoff: fx.kickoff_utc,
       fresh: freshLine(fx.kickoff_utc, now, fx.status, cfgTierIntervals()),
     },

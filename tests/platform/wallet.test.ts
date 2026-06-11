@@ -10,6 +10,7 @@ import {
   claimGift,
   creditInvite,
   dailyFreeFixture,
+  dailyFreeFixtureIds,
   inviteStats,
   isUnlocked,
   ledgerOf,
@@ -96,11 +97,14 @@ describe("解锁(唯一收费项)", () => {
     expect(unlock(uid, 1003, ko(120), "C vs D", "2026-06-11").ok).toBe(false);
   });
 
-  it("每日免费场对登录用户视同已解锁", () => {
+  it("每日免费场对登录用户视同已解锁;支持同日多场", () => {
     const uid = newUser("u3@b.com");
-    db().prepare("INSERT INTO daily_free (date, fixture_id) VALUES ('2026-06-11', 7777)").run();
+    db().prepare("INSERT INTO free_fixtures (date, fixture_id) VALUES ('2026-06-11', 7777)").run();
+    db().prepare("INSERT INTO free_fixtures (date, fixture_id) VALUES ('2026-06-11', 8888)").run();
     expect(dailyFreeFixture("2026-06-11")).toBe(7777);
+    expect(dailyFreeFixtureIds("2026-06-11")).toEqual([7777, 8888]);
     expect(isUnlocked(uid, 7777, "2026-06-11")).toBe(true);
+    expect(isUnlocked(uid, 8888, "2026-06-11")).toBe(true); // 第二场同样免费
     expect(unlock(uid, 7777, ko(60), "E vs F", "2026-06-11").ok).toBe(false); // 已免费,不允许重复扣费
   });
 });

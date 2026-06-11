@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { currentAdmin } from "@/server/admin/auth";
 import { day8, metric, topMetrics } from "@/server/admin/metrics";
-import { dailyFreeFixture } from "@/server/platform/wallet";
+import { dailyFreeFixtureIds } from "@/server/platform/wallet";
 import { kvGet } from "@/server/af/store";
 import { llmStats } from "@/server/llm/report";
 
@@ -56,12 +56,12 @@ export async function GET() {
   const consume = one("SELECT COALESCE(SUM(-delta),0) v FROM ledger WHERE kind='unlock' AND created_at>=?", t0).v ?? 0;
 
   // 热门场次 Top5(浏览来自埋点 mv:<fid>)
-  const freeFid = dailyFreeFixture(day8());
+  const freeSet = new Set(dailyFreeFixtureIds(day8()));
   const hot = topMetrics("mv:", 5).map((m) => {
     const fid = Number(m.k.slice(3));
     const fx = d.prepare("SELECT home_name, away_name, league_name, league_id FROM fixtures_cache WHERE fixture_id=?").get(fid) as { home_name: string; away_name: string; league_id: number } | undefined;
     const un = one("SELECT COUNT(*) v FROM unlocks WHERE fixture_id=? AND created_at>=?", fid, t0).v ?? 0;
-    return fx && { m: `${fx.home_name} vs ${fx.away_name}`, leagueId: fx.league_id, pv: m.n, un, free: fid === freeFid, rate: fid === freeFid ? "免费场" : pct(un, m.n) };
+    return fx && { m: `${fx.home_name} vs ${fx.away_name}`, leagueId: fx.league_id, pv: m.n, un, free: freeSet.has(fid), rate: freeSet.has(fid) ? "免费场" : pct(un, m.n) };
   }).filter(Boolean);
 
   // 告警条

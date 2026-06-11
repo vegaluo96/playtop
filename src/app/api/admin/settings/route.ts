@@ -22,6 +22,7 @@ export async function GET() {
       keyMasked: maskKey(cfgLlmKey()), balanceKeyMasked: maskKey(cfgLlmBalanceKey()),
       base: cfgLlmBase(), model: cfgLlmModel(), budget: cfgLlmDailyBudget(),
       balance: (JSON.parse(kvGet("llm_balance") || "null") as { usd: number } | null)?.usd ?? null,
+      balanceDetail: JSON.parse(kvGet("llm_balance") || "null") as { usd: number; limit?: number; used?: number; at?: number } | null,
       usage: llmStats(), customKey: !!cfgGetRaw("llm_key"),
     },
     members,

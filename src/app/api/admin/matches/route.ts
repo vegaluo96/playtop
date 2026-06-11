@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { audit, canWrite, currentAdmin } from "@/server/admin/auth";
 import { fixturesBetween, kvGet } from "@/server/af/store";
 import { cfgLeagues, cfgSet, cfgUnlockPrice } from "@/server/platform/config";
-import { dailyFreeFixture } from "@/server/platform/wallet";
+import { dailyFreeFixtureIds } from "@/server/platform/wallet";
 import { runAfEndpoint } from "@/server/af/catalog";
 import { hhmm } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
@@ -18,13 +18,13 @@ export async function GET() {
   const d = db();
   const t0 = Math.floor((Date.now() + TZ8) / 86_400_000) * 86_400_000 - TZ8;
   const hidden = new Set((d.prepare("SELECT fixture_id FROM hidden_fixtures").all() as unknown as { fixture_id: number }[]).map((r) => r.fixture_id));
-  const freeFid = dailyFreeFixture(day8());
+  const freeSet = new Set(dailyFreeFixtureIds(day8()));
   const rows = fixturesBetween(t0, t0 + 2 * 86_400_000).map((f) => ({
     id: f.fixture_id,
     m: `${f.home_name} vs ${f.away_name}`,
     lg: leagueZh(f.league_id, f.league_name),
     t: hhmm(f.kickoff_utc, "UTC+8"),
-    free: f.fixture_id === freeFid,
+    free: freeSet.has(f.fixture_id),
     price: isLive(f.status) || isFinished(f.status) || Date.now() >= f.kickoff_utc ? `滚球 ${cfgUnlockPrice(f.kickoff_utc, Date.now())}` : `赛前 ${cfgUnlockPrice(f.kickoff_utc, Date.now())}`,
     st: hidden.has(f.fixture_id) ? "隐藏" : isLive(f.status) ? "滚球" : isFinished(f.status) ? "完场" : "开盘",
   }));
@@ -40,10 +40,11 @@ export async function POST(req: NextRequest) {
   const b = (await req.json().catch(() => ({}))) as { action?: string; fixtureId?: number; id?: number; on?: boolean; text?: string };
   const d = db();
   if (b.action === "free") {
-    d.prepare("INSERT OR REPLACE INTO daily_free (date, fixture_id) VALUES (?,?)").run(day8(), Number(b.fixtureId));
+    // 多场免费:逐场追加,不再互相覆盖
+    d.prepare("INSERT OR IGNORE INTO free_fixtures (date, fixture_id) VALUES (?,?)").run(day8(), Number(b.fixtureId));
     audit(admin.email, "设为今日免费场", String(b.fixtureId));
   } else if (b.action === "unfree") {
-    d.prepare("DELETE FROM daily_free WHERE date=? AND fixture_id=?").run(day8(), Number(b.fixtureId));
+    d.prepare("DELETE FROM free_fixtures WHERE date=? AND fixture_id=?").run(day8(), Number(b.fixtureId));
     audit(admin.email, "取消免费场", String(b.fixtureId));
   } else if (b.action === "hide") {
     d.prepare("INSERT OR IGNORE INTO hidden_fixtures (fixture_id) VALUES (?)").run(Number(b.fixtureId));

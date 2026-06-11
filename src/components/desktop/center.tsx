@@ -181,7 +181,7 @@ export function CenterPane({
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(h.leagueId) }} />
           <span style={{ fontSize: 11.5, color: "var(--fg-2)", fontWeight: 600, whiteSpace: "nowrap" }}>{h.league} · {h.round}</span>
           <span style={{ fontSize: 10, color: h.live ? "var(--red)" : "var(--fg-3)", fontWeight: 700, whiteSpace: "nowrap" }}>
-            {h.live ? `${h.elapsed ?? ""}' 进行中` : h.finished ? "已完场" : `${dayLabel(h.kickoff, tz)} ${hhmm(h.kickoff, tz)} 开赛`}
+            {h.live ? (h.ht ? "中场休息" : `${h.elapsed ?? ""}' 进行中`) : h.finished ? "已完场" : `${dayLabel(h.kickoff, tz)} ${hhmm(h.kickoff, tz)} 开赛`}
           </span>
           <span style={{ flex: 1 }} />
           <span style={{ fontSize: 10, color: "var(--fg-3)", whiteSpace: "nowrap" }}>⟳ {h.fresh.line}{v.summary.oddsAt ? ` · 盘口 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}</span>
@@ -291,7 +291,7 @@ export function CenterPane({
               {compCol("大小球 · 多公司", v.comp.ou)}
               {compCol("胜平负 · 多公司", v.comp.eu, true)}
             </div>
-            <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 2px 0" }}>上行为本站归档首帧,下行为即时盘;各公司变盘时间与幅度可横向比对。</div>
+            <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 2px 0" }}>上行为初盘(开赛前 14 天起本站持续归档的最早盘口),下行为即时盘;各公司变盘时间与幅度可横向比对。</div>
           </>
         )}
 

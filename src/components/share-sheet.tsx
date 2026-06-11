@@ -78,13 +78,6 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
     a.click();
   };
 
-  const channels: { label: string; bg: string }[] = [
-    { label: "微信", bg: "#2ecc8a" },
-    { label: "朋友圈", bg: "#1f9e63" },
-    { label: "Telegram", bg: "#5b9dff" },
-    { label: "复制链接", bg: "#383d47" },
-  ];
-
   return (
     <Sheet open={open} onClose={onClose}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
@@ -115,14 +108,6 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
         )}
       </div>
       <GoldBtn label="生成并保存分享图" onClick={genImg} style={{ marginBottom: 12 }} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
-        {channels.map((c) => (
-          <div key={c.label} onClick={copy} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
-            <span style={{ width: 44, height: 44, borderRadius: "50%", background: c.bg }} />
-            <span style={{ fontSize: 10, color: "var(--fg-2)" }}>{c.label}</span>
-          </div>
-        ))}
-      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 10, padding: "11px 12px", marginBottom: 6 }}>
         <span className="mono" style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "var(--gold)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {data.url}

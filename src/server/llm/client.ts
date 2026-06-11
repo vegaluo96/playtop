@@ -34,7 +34,15 @@ export async function chatComplete(system: string, user: string, maxTokens = 220
   return { text, tokens: j.usage?.total_tokens ?? Math.ceil((system.length + user.length + text.length) / 3) };
 }
 
-/** 余额查询(OneAPI/NewAPI 风格:subscription 上限 - usage 已用);结果落 kv llm_balance */
+/**
+ * 余额查询(OneAPI/NewAPI 风格:subscription 上限 - usage 已用);结果落 kv llm_balance。
+ * usage 接口必须带 start_date/end_date——缺参时多数网关返回 0,余额会恒等于额度上限(线上已踩坑)。
+ */
+export function llmUsageWindow(now = Date.now()): { start: string; end: string } {
+  const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  return { start: day(now - 90 * 86_400_000), end: day(now + 86_400_000) };
+}
+
 export async function fetchLlmBalance(): Promise<number | null> {
   const key = cfgLlmBalanceKey() || cfgLlmKey();
   if (!key) return null;
@@ -44,13 +52,16 @@ export async function fetchLlmBalance(): Promise<number | null> {
     const sub = (await fetch(`${base}/dashboard/billing/subscription`, { headers: auth, signal: AbortSignal.timeout(15_000) }).then((r) =>
       r.json(),
     )) as { hard_limit_usd?: number; system_hard_limit_usd?: number };
-    const usage = (await fetch(`${base}/dashboard/billing/usage`, { headers: auth, signal: AbortSignal.timeout(15_000) }).then((r) =>
-      r.json(),
-    )) as { total_usage?: number };
-    const limit = sub.hard_limit_usd ?? sub.system_hard_limit_usd ?? 0;
-    const used = (usage.total_usage ?? 0) / 100;
+    const { start, end } = llmUsageWindow();
+    const usage = (await fetch(`${base}/dashboard/billing/usage?start_date=${start}&end_date=${end}`, {
+      headers: auth,
+      signal: AbortSignal.timeout(15_000),
+    }).then((r) => r.json())) as { total_usage?: number };
+    const limit = Number(sub.hard_limit_usd ?? sub.system_hard_limit_usd ?? 0);
+    const used = Number(usage.total_usage ?? 0) / 100; // total_usage 单位为美分
+    if (!Number.isFinite(limit) || !Number.isFinite(used)) return null;
     const balance = Math.round((limit - used) * 100) / 100;
-    kvSet("llm_balance", JSON.stringify({ usd: balance, at: Date.now() }));
+    kvSet("llm_balance", JSON.stringify({ usd: balance, limit, used: Math.round(used * 100) / 100, at: Date.now() }));
     return balance;
   } catch {
     return null;

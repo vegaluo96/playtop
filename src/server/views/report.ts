@@ -22,7 +22,11 @@ function dig(obj: unknown, ...path: (string | number)[]): unknown {
 
 export function buildReport(p: Panorama): { ps: PredSummary | null; secs: ReportSection[] } {
   const fx = p.fixture;
-  const ps = predSummary(p.prediction, fx.home_id);
+  const hintOf = (s: { line: number | null; h: number; a: number }[]) =>
+    s.length > 0 ? { line: s[s.length - 1].line, h: s[s.length - 1].h, a: s[s.length - 1].a } : null;
+  const ps = predSummary(p.prediction, fx.home_id, {
+    ah: hintOf(p.odds.ah), ou: hintOf(p.odds.ou), homeName: fx.home_name, awayName: fx.away_name,
+  });
   const secs: ReportSection[] = [];
 
   // ── 盘口解读 ──

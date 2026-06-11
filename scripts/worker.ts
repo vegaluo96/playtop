@@ -22,6 +22,7 @@ import {
   kvGet,
   kvSet,
   setDailyFree,
+  freeFixtureCount,
   settleFixture,
   upsertFixture,
 } from "../src/server/af/store";
@@ -218,8 +219,10 @@ function settleAndDailyFree(now: number): void {
   for (const f of fixturesBetween(now - 36 * H, now)) {
     if (isFinished(f.status)) settleFixture(f);
   }
+  // 仅当后台当日尚未指定任何免费场时自动选定一场,不覆盖运营的多场配置
   const todays = fixturesBetween(now - TZ8, now - TZ8 + 86_400_000).filter((f) => day8(f.kickoff_utc) === today);
-  if (todays.length > 0) setDailyFree(today, todays.sort((a, b) => a.kickoff_utc - b.kickoff_utc)[0].fixture_id);
+  if (todays.length > 0 && freeFixtureCount(today) === 0)
+    setDailyFree(today, todays.sort((a, b) => a.kickoff_utc - b.kickoff_utc)[0].fixture_id);
 }
 
 function msg(e: unknown): string {

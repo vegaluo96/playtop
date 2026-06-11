@@ -48,6 +48,15 @@ export function dateStr(utcMs: number, tz: string): string {
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
 }
 
+/** 书商名打码:前台不显示全称但保留辨识度(Bet365→Be***5,平博→平*);后台不打码 */
+export function maskBookmaker(name: string): string {
+  const n = name.trim();
+  if (!n) return n;
+  if (/[一-鿿]/.test(n)) return n.length <= 1 ? n : `${n[0]}${"*".repeat(Math.max(1, n.length - 1))}`;
+  if (n.length <= 3) return `${n[0]}**`;
+  return `${n.slice(0, 2)}***${n.slice(-1)}`;
+}
+
 /** 用户时区口径的「M月D日」(顶栏日期与所标时区必须同源,不能用浏览器本地时间) */
 export function mdLabel(utcMs: number, tz: string): string {
   const d = new Date(utcMs + parseTzOffset(tz) * 3_600_000);

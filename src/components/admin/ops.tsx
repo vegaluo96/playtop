@@ -194,7 +194,7 @@ export function MatchesView() {
               </span>
             </AGrid>
           ))}
-          <div style={{ padding: "9px 14px", fontSize: 10, color: "var(--fg-3)" }}>免费场策略:每日 1 场(worker 自动选,可在此覆盖);隐藏=列表不展示(数据仍归档)</div>
+          <div style={{ padding: "9px 14px", fontSize: 10, color: "var(--fg-3)" }}>免费场策略:每日可设多场,逐场点「设为免费」即可;当日未设置时调度自动选定 1 场。隐藏=列表不展示(数据仍归档)</div>
         </ACard>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <ACard title="联赛开关" right={<ABtn small kind="line" label="+ 添加联赛" onClick={async () => {
@@ -300,6 +300,13 @@ export function MktView() {
               }
             }} />
             <span style={{ fontSize: 10, color: "var(--fg-3)" }}>首充加赠 50%(开关在右侧规则卡)</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+            <span style={{ flex: 1, fontSize: 11, color: v.rechargeMaintenance ? "var(--gold)" : "var(--fg-2)", fontWeight: 700 }}>
+              充值维护{v.rechargeMaintenance ? " · 维护中(用户端已暂停充值)" : " · 正常"}
+            </span>
+            <ABtn small kind={v.rechargeMaintenance ? "red" : "line"} label={v.rechargeMaintenance ? "恢复充值" : "开启维护"}
+              onClick={() => void save({ action: "recharge_maintenance", on: !v.rechargeMaintenance }, v.rechargeMaintenance ? "恢复充值通道" : "开启充值维护(用户端暂停充值)")} />
           </div>
         </ACard>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

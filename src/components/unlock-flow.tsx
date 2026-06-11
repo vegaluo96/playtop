@@ -4,7 +4,7 @@
  * 解锁 + 充值复合弹层(全站唯一收费路径):
  * 余额够 → 确认解锁;不够 → 一键转充值弹层,充值完回到解锁。
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "./app-context";
 import { GoldBtn, Sheet, SheetTitle } from "./ui";
@@ -22,7 +22,8 @@ interface Tier {
   hot?: boolean;
 }
 
-const TIERS: Tier[] = [
+/* 兜底初值;打开充值层时从 /api/wallet 拉后台生效档位 */
+const FALLBACK_TIERS: Tier[] = [
   { rmb: 6, pts: 60 },
   { rmb: 30, pts: 320, tag: "+6%" },
   { rmb: 68, pts: 750, tag: "+10%" },
@@ -31,11 +32,29 @@ const TIERS: Tier[] = [
   { rmb: 648, pts: 8420, tag: "+30%", hot: true },
 ];
 
+/** 充值档位与维护开关(后台实际生效值);open 置 true 时拉取 */
+export function useRechargeTiers(open: boolean): { tiers: Tier[]; maintenance: boolean } {
+  const [tiers, setTiers] = useState<Tier[]>(FALLBACK_TIERS);
+  const [maintenance, setMaintenance] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/wallet")
+      .then((r) => r.json())
+      .then((j) => {
+        if (Array.isArray(j.tiers) && j.tiers.length > 0) setTiers(j.tiers as Tier[]);
+        setMaintenance(!!j.maintenance);
+      })
+      .catch(() => {});
+  }, [open]);
+  return { tiers, maintenance };
+}
+
 export function useUnlockFlow(onUnlocked?: () => void) {
   const [target, setTarget] = useState<UnlockTarget | null>(null);
   const [sheet, setSheet] = useState<"unlock" | "recharge" | null>(null);
   const [busy, setBusy] = useState(false);
   const { me, refreshMe } = useApp();
+  const { tiers, maintenance } = useRechargeTiers(sheet === "recharge");
   const router = useRouter();
 
   const open = (t: UnlockTarget) => {
@@ -126,8 +145,13 @@ export function useUnlockFlow(onUnlocked?: () => void) {
           <span style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700 }}>首充任意档位 +50%</span>
         </div>
         <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 14 }}>积分仅用于解锁比赛深度数据 · 1 元 = 10 积分起</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
-          {TIERS.map((tr, i) => (
+        {maintenance && (
+          <div style={{ background: "rgba(233,185,73,.1)", border: "1px solid rgba(233,185,73,.4)", borderRadius: 10, padding: "14px 12px", marginBottom: 12, textAlign: "center", fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>
+            充值通道维护中,请稍后再试
+          </div>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12, opacity: maintenance ? 0.35 : 1, pointerEvents: maintenance ? "none" : "auto" }}>
+          {tiers.map((tr, i) => (
             <div
               key={tr.rmb}
               onClick={() => doRecharge(i)}

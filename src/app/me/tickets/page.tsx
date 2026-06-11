@@ -32,11 +32,19 @@ function MobileTicketsPage() {
 
   const load = useCallback(async () => {
     const j = await fetch("/api/tickets").then((r) => r.json());
-    if (j.ok) setTickets(j.tickets);
+    if (j.ok) {
+      setTickets(j.tickets);
+      // 标记已读:我的页「系统工单」红点据此消失
+      const latest = Math.max(0, ...(j.tickets as { replied_at?: number | null }[]).map((t) => t.replied_at ?? 0));
+      if (latest > 0) localStorage.setItem("playtop.tickets.seen", String(latest));
+    }
   }, []);
 
   useEffect(() => {
-    if (me.loggedIn) void load();
+    if (!me.loggedIn) return;
+    void load();
+    const t = setInterval(load, 30_000); // 客服回复无需手动刷新即可看到
+    return () => clearInterval(t);
   }, [me.loggedIn, load]);
 
   const submit = async () => {

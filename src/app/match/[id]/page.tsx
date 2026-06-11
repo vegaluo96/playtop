@@ -89,7 +89,7 @@ function MobileMatchDetail({ id }: { id: string }) {
   const openShare = () =>
     setShare({
       title: `${h.home} vs ${h.away}`,
-      sub: `${h.league} · ${h.live ? `${h.elapsed ?? ""}' 进行中` : `${dayLabel(h.kickoff, prefs.tz)} ${hhmm(h.kickoff, prefs.tz)}`}`,
+      sub: `${h.league} · ${h.live ? (h.ht ? "中场休息" : `${h.elapsed ?? ""}' 进行中`) : `${dayLabel(h.kickoff, prefs.tz)} ${hhmm(h.kickoff, prefs.tz)}`}`,
       v1: v.summary.ah ? `${v.summary.ah.text} ${v.summary.ah.w.split("/")[0]}` : "—",
       v2: v.summary.ou ? `${v.summary.ou.text} ${v.summary.ou.w.split("/")[0]}` : "—",
       v3: v.summary.eu?.w ?? "—",
@@ -136,7 +136,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       <Card style={{ overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 16px 1fr", padding: "8px 12px", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
           <span style={{ fontSize: 10, color: "var(--fg-3)" }}>公司</span>
-          <span style={{ fontSize: 10, color: "var(--fg-3)" }}>{headEu ? "首帧 主/平/客" : "首帧 · 主/客"}</span>
+          <span style={{ fontSize: 10, color: "var(--fg-3)" }} title="初盘=本站归档到的最早盘口(开赛前 14 天起持续归档)">{headEu ? "初盘 主/平/客" : "初盘 · 主/客"}</span>
           <span />
           <span style={{ fontSize: 10, color: "var(--fg-3)" }}>{headEu ? "即时 主/平/客" : "即时 · 主/客"}</span>
         </div>
@@ -203,7 +203,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             <Flash v={h.live || h.finished ? (h.score ?? "VS") : "VS"} />
           </div>
           <div style={{ fontSize: 10, color: h.live ? "var(--red)" : "var(--fg-3)", fontWeight: 600, marginTop: 1, whiteSpace: "nowrap" }}>
-            {h.live ? `${h.elapsed ?? ""}' 进行中` : h.finished ? "已完场" : `${dayLabel(h.kickoff, prefs.tz)} ${hhmm(h.kickoff, prefs.tz)} 开赛`}
+            {h.live ? (h.ht ? "中场休息" : `${h.elapsed ?? ""}' 进行中`) : h.finished ? "已完场" : `${dayLabel(h.kickoff, prefs.tz)} ${hhmm(h.kickoff, prefs.tz)} 开赛`}
           </div>
         </div>
         <div style={{ textAlign: "left", minWidth: 0 }}>

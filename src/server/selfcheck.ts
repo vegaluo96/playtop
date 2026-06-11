@@ -119,7 +119,7 @@ export async function checkReadonly(opts: { skipNetwork?: boolean; now?: number 
   }
 
   const today8 = new Date(now + TZ8).toISOString().slice(0, 10);
-  const free = d.prepare("SELECT fixture_id FROM daily_free WHERE date=?").get(today8) as { fixture_id: number } | undefined;
+  const free = d.prepare("SELECT fixture_id FROM free_fixtures WHERE date=?").get(today8) as { fixture_id: number } | undefined;
   const freeHidden = free && d.prepare("SELECT 1 FROM hidden_fixtures WHERE fixture_id=?").get(free.fixture_id);
   rows.push(
     row("L2 衍生", "每日免费场", todays.length === 0 ? "skip" : free && !freeHidden ? "ok" : "fail",
@@ -263,8 +263,10 @@ export async function checkBusiness(base: string): Promise<CheckRow[]> {
     // 解锁(选今日非免费场)
     const t0 = todayStartMs();
     const today8 = new Date(Date.now() + TZ8).toISOString().slice(0, 10);
-    const free = (d.prepare("SELECT fixture_id FROM daily_free WHERE date=?").get(today8) as { fixture_id: number } | undefined)?.fixture_id;
-    const target = fixturesBetween(t0, t0 + 86_400_000).find((f) => f.fixture_id !== free);
+    const freeIds = new Set(
+      (d.prepare("SELECT fixture_id FROM free_fixtures WHERE date=?").all(today8) as unknown as { fixture_id: number }[]).map((r) => r.fixture_id),
+    );
+    const target = fixturesBetween(t0, t0 + 86_400_000).find((f) => !freeIds.has(f.fixture_id));
     if (!target) {
       rows.push(row("L4 闭环", "解锁与付费墙", "skip", "今日无可解锁场次"));
     } else {

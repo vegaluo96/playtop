@@ -5,11 +5,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hhmm, parseTzOffset } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
-import { fixtureById, fixturesBetween, latestPrediction, modelStats } from "@/server/af/store";
+import { fixtureById, fixturesBetween, latestPrediction, modelStats, oddsSeries } from "@/server/af/store";
 import { isLive } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
 import { cfgUnlockPrice } from "@/server/platform/config";
-import { dailyFreeFixture, isUnlocked } from "@/server/platform/wallet";
+import { dailyFreeFixtureIds, isUnlocked } from "@/server/platform/wallet";
 import { predSummary } from "@/server/views/common";
 
 export async function GET(req: NextRequest) {
@@ -24,11 +24,18 @@ export async function GET(req: NextRequest) {
     ? [fixtureById(fixtureParam)].filter((f) => f != null)
     : fixturesBetween(dayStart, dayStart + 86_400_000).sort((a, b) => a.kickoff_utc - b.kickoff_utc);
   const today = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
-  const freeFid = dailyFreeFixture(today);
+  const freeSet = new Set(dailyFreeFixtureIds(today));
 
   const cards = fixtures
     .map((f) => {
-      const ps = predSummary(latestPrediction(f.fixture_id), f.home_id);
+      const lastSnap = (mk: "ah" | "ou") => {
+        const s = oddsSeries(f.fixture_id, mk);
+        const r = s[s.length - 1];
+        return r ? { line: r.line, h: r.h, a: r.a } : null;
+      };
+      const ps = predSummary(latestPrediction(f.fixture_id), f.home_id, {
+        ah: lastSnap("ah"), ou: lastSnap("ou"), homeName: f.home_name, awayName: f.away_name,
+      });
       if (!ps) return null;
       const unlocked = !!user && isUnlocked(user.id, f.fixture_id, today);
       const price = cfgUnlockPrice(f.kickoff_utc, now);
@@ -39,7 +46,7 @@ export async function GET(req: NextRequest) {
         leagueId: f.league_id,
         time: hhmm(f.kickoff_utc, tz),
         live: isLive(f.status),
-        free: freeFid === f.fixture_id,
+        free: freeSet.has(f.fixture_id),
         pH: ps.pH, pD: ps.pD, pA: ps.pA,
         locked: !unlocked,
         price,

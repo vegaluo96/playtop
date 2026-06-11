@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { parseTzOffset } from "@/lib/format";
-import { fixturesBetween, oddsSeries, dailyFreeFixtureToday, movedRecently, hiddenFixtureIds } from "@/server/views/list-helpers";
+import { fixturesBetween, oddsSeries, dailyFreeSetToday, movedRecently, hiddenFixtureIds } from "@/server/views/list-helpers";
 import { marketCell } from "@/server/views/common";
 import { isLive, isFinished } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   if (league !== "all") fixtures = fixtures.filter((f) => f.league_id === Number(league));
   fixtures.sort((a, b) => a.kickoff_utc - b.kickoff_utc);
 
-  const freeFid = dailyFreeFixtureToday();
+  const freeSet = dailyFreeSetToday();
   const liveCount = fixturesBetween(now - 4 * 3_600_000, now + 5 * 60_000).filter((f) => isLive(f.status)).length;
 
   let maskIndex = 0;
@@ -61,12 +61,13 @@ export async function GET(req: NextRequest) {
       live,
       finished: fin,
       elapsed: f.elapsed,
+      ht: f.status === "HT",
       score: f.goals_home != null && f.goals_away != null ? `${f.goals_home}-${f.goals_away}` : null,
       home: f.home_name,
       away: f.away_name,
       moved: !masked && movedRecently(f.fixture_id),
       masked,
-      free: freeFid === f.fixture_id,
+      free: freeSet.has(f.fixture_id),
       unlocked,
       ah: masked ? null : ah,
       ou: masked ? null : ou,

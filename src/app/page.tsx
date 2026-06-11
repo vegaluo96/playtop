@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { RefreshSheet } from "@/components/refresh-sheet";
+import { AnnouncementBar } from "@/components/announcement-bar";
 import { Chip } from "@/components/ui";
 import { f2, hhmm, mdLabel } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
@@ -29,6 +30,7 @@ interface Row {
   live: boolean;
   finished: boolean;
   elapsed: number | null;
+  ht: boolean;
   score: string | null;
   home: string;
   away: string;
@@ -103,6 +105,7 @@ function MobileMatchesPage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+      <AnnouncementBar />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 8px" }}>
         <div>
           <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: 0.5 }}>
@@ -128,18 +131,22 @@ function MobileMatchesPage() {
         <Chip label="全部" active={league === "all"} onClick={() => setLeague("all")} style={{ padding: "5px 12px", fontSize: 11 }} />
         {LEAGUES.map((l) =>
           l.wc ? (
+            // 世界杯:仅以 ★ 与微弱描边突出,未选中态不得与「选中」混淆(选中=金底填充,与其他 chip 同语义)
             <div
               key={l.id}
               onClick={() => setLeague(String(l.id))}
-              className="wcglow"
+              className={league === String(l.id) ? "wcglow" : undefined}
               style={{
                 position: "relative", overflow: "hidden", flexShrink: 0, padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: "pointer",
-                background: league === String(l.id) ? "rgba(233,185,73,.14)" : "rgba(233,185,73,.08)",
-                color: "var(--gold)", border: "1px solid rgba(233,185,73,.65)",
+                background: league === String(l.id) ? "rgba(233,185,73,.16)" : "var(--card)",
+                color: league === String(l.id) ? "var(--gold)" : "var(--fg-2)",
+                border: `1px solid ${league === String(l.id) ? "rgba(233,185,73,.65)" : "rgba(233,185,73,.28)"}`,
               }}
             >
-              <span className="wcsweep" style={{ position: "absolute", top: 0, left: 0, width: 36, height: "100%", background: "linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent)" }} />
-              <span style={{ position: "relative" }}>★ {l.zh}</span>
+              {league === String(l.id) && (
+                <span className="wcsweep" style={{ position: "absolute", top: 0, left: 0, width: 36, height: "100%", background: "linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent)" }} />
+              )}
+              <span style={{ position: "relative" }}><span style={{ color: "var(--gold)" }}>★</span> {l.zh}</span>
             </div>
           ) : (
             <Chip key={l.id} label={l.zh} active={league === String(l.id)} onClick={() => setLeague(String(l.id))} style={{ padding: "5px 12px", fontSize: 11 }} />
@@ -172,7 +179,7 @@ function MobileMatchesPage() {
                 {m.live && (
                   <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--red)", fontWeight: 700 }}>
                     <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-                    {m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
+                    {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
                   </span>
                 )}
                 <span style={{ flex: 1 }} />
