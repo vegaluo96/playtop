@@ -1,4 +1,4 @@
-# PlayTop（play.top）—— 单容器部署
+# 足球终端(www.play.top)—— Web + worker 双进程,同库同卷
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -10,17 +10,24 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
+# ── Web(默认目标):standalone 由 server.js 监听 3000 ──
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
-ENV DATABASE_PATH=/app/data/app.db
+# SQLite 落持久卷;worker 容器必须挂同一卷
+ENV PLAYTOP_DB=/app/data/playtop.db
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/drizzle ./drizzle
-# SQLite 持久卷（迁移在启动时自动执行，首次启动自动创建管理员）
 VOLUME ["/app/data"]
 EXPOSE 3000
 CMD ["node", "server.js"]
+
+# ── worker(数据抓取,构建时 --target worker):docker run 时挂同一 /app/data 卷 ──
+FROM builder AS worker
+ENV NODE_ENV=production
+ENV PLAYTOP_DB=/app/data/playtop.db
+VOLUME ["/app/data"]
+CMD ["npx", "tsx", "scripts/worker.ts"]
