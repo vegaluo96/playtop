@@ -73,10 +73,13 @@ describe("用户端赛程可见性（世界杯冷启动场景）", () => {
     expect(open.engine).not.toBeNull();
     expect(open.card.verdict).not.toBeNull();
 
+    expect(open.intel).not.toBeNull(); // 情报面板随解锁态可见
+
     setConfig("pricing", { freeBeta: false });
     const locked = getMatchDetail(id, null)!;
     expect(locked.access).toBe("locked");
     expect(locked.engine).toBeNull();
+    expect(locked.intel).toBeNull(); // 锁定态不泄露情报
     setConfig("pricing", { freeBeta: true });
   });
 

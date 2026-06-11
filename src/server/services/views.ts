@@ -1,12 +1,26 @@
 import { and, desc, eq, gte, inArray, lte, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
+import type { z } from "zod";
 import { db } from "../db";
 import { analyses, leagues, matches, outcomes, teams, unlocks } from "../db/schema";
+import type {
+  coachPayloadSchema,
+  externalRatingsPayloadSchema,
+  formPayloadSchema,
+  h2hPayloadSchema,
+  injuriesPayloadSchema,
+  lineupsPayloadSchema,
+  playerStatsPayloadSchema,
+  refereePayloadSchema,
+  softInfoPayloadSchema,
+  standingsPayloadSchema,
+  weatherPayloadSchema,
+} from "../datasources/types";
 import { engineOutputSchema, type EngineOutput } from "../engine/types";
 import { getConfig } from "../lib/config";
 import { now } from "../lib/time";
 import { ratingStars, selectionLabel, type LlmSections } from "../llm/reportWriter";
-import { snapshotStats, type SnapshotStats } from "./snapshots";
+import { latestSnapshots, snapshotPayload, snapshotStats, type SnapshotStats } from "./snapshots";
 
 /** 用户侧/页面渲染所需的查询封装（server components 直接调用） */
 
@@ -198,6 +212,41 @@ export function getUpcomingFixture(matchId: number): MatchCard | null {
 
 export type MatchAccess = "locked" | "unlocked" | "public";
 
+/** 比赛情报面板：抓取到的全部维度结构化展示（不再只进 AI 上下文与完备度计数） */
+export interface MatchIntel {
+  lineups: z.infer<typeof lineupsPayloadSchema> | null;
+  injuries: z.infer<typeof injuriesPayloadSchema> | null;
+  suspensions: z.infer<typeof injuriesPayloadSchema> | null;
+  h2h: z.infer<typeof h2hPayloadSchema> | null;
+  form: z.infer<typeof formPayloadSchema> | null;
+  standings: z.infer<typeof standingsPayloadSchema> | null;
+  playerStats: z.infer<typeof playerStatsPayloadSchema> | null;
+  coach: z.infer<typeof coachPayloadSchema> | null;
+  referee: z.infer<typeof refereePayloadSchema> | null;
+  externalRatings: z.infer<typeof externalRatingsPayloadSchema> | null;
+  weather: z.infer<typeof weatherPayloadSchema> | null;
+  softInfo: z.infer<typeof softInfoPayloadSchema> | null;
+}
+
+function buildIntel(matchId: number): MatchIntel {
+  const snaps = latestSnapshots(matchId);
+  const pay = <T,>(k: Parameters<typeof snaps.get>[0]) => snapshotPayload<T>(snaps.get(k));
+  return {
+    lineups: pay<z.infer<typeof lineupsPayloadSchema>>("lineups"),
+    injuries: pay<z.infer<typeof injuriesPayloadSchema>>("injuries"),
+    suspensions: pay<z.infer<typeof injuriesPayloadSchema>>("suspensions"),
+    h2h: pay<z.infer<typeof h2hPayloadSchema>>("h2h"),
+    form: pay<z.infer<typeof formPayloadSchema>>("form"),
+    standings: pay<z.infer<typeof standingsPayloadSchema>>("standings"),
+    playerStats: pay<z.infer<typeof playerStatsPayloadSchema>>("player_stats"),
+    coach: pay<z.infer<typeof coachPayloadSchema>>("coach"),
+    referee: pay<z.infer<typeof refereePayloadSchema>>("referee"),
+    externalRatings: pay<z.infer<typeof externalRatingsPayloadSchema>>("external_ratings"),
+    weather: pay<z.infer<typeof weatherPayloadSchema>>("weather"),
+    softInfo: pay<z.infer<typeof softInfoPayloadSchema>>("soft_info"),
+  };
+}
+
 export interface MatchDetailView {
   card: MatchCard;
   access: MatchAccess;
@@ -210,6 +259,8 @@ export interface MatchDetailView {
   contentHash: string | null;
   versions: VersionInfo[];
   snapshots: SnapshotStats;
+  /** 比赛情报（locked 时为 null） */
+  intel: MatchIntel | null;
   hoursBeforeKickoffPublished: number | null;
   /** 最低可接受赔率安全垫（决策卡渲染边界线用） */
   boundaryMargin: number;
@@ -283,6 +334,7 @@ export function getMatchDetail(matchId: number, userId: number | null, isAdmin =
     contentHash: access === "locked" ? null : analysis.contentHash,
     versions: access === "locked" ? [] : versionHistory(matchId),
     snapshots: stats,
+    intel: access === "locked" ? null : buildIntel(matchId),
     hoursBeforeKickoffPublished: firstPublished?.publishedAt
       ? (card.kickoffAt - firstPublished.publishedAt) / 3_600_000
       : null,

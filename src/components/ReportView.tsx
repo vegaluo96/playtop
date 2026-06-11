@@ -2,6 +2,7 @@ import { minAcceptableOdds } from "@/server/engine/boundary";
 import type { EngineOutput } from "@/server/engine/types";
 import type { LlmSections } from "@/server/llm/reportWriter";
 import { ratingStars, selectionLabel } from "@/server/llm/reportWriter";
+import IntelPanel from "./IntelPanel";
 import type { MatchDetailView } from "@/server/services/views";
 import { versionDelta } from "@/server/services/views";
 import { Collapse, MARKET_LABEL, ProbBar, SectionTitle, Tag, fmtCn, pct } from "./ui";
@@ -214,6 +215,16 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
               </div>
             ))}
           </div>
+        </>
+      )}
+
+      {view.intel && (
+        <>
+          <SectionTitle index={idx()}>比赛情报</SectionTitle>
+          <p className="-mt-1 mb-2 text-[10.5px] leading-4 text-faint">
+            以下为本场抓取到的全部情报维度原文——首发、伤停、交锋、状态、积分榜、射手、裁判、外部评级，逐项可查。
+          </p>
+          <IntelPanel intel={view.intel} homeName={view.card.homeName} awayName={view.card.awayName} />
         </>
       )}
 
