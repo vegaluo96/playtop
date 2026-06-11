@@ -310,11 +310,11 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
                 <thead>
                   <tr className="text-left text-[10px] tracking-wider text-faint">
                     <th className="pb-1 font-normal">书商</th>
+                    <th className="pb-1 text-right font-normal">亚盘(主让)</th>
+                    <th className="pb-1 text-right font-normal">大小</th>
                     <th className="pb-1 text-right font-normal">主胜</th>
                     <th className="pb-1 text-right font-normal">平局</th>
                     <th className="pb-1 text-right font-normal">客胜</th>
-                    <th className="pb-1 text-right font-normal">大小</th>
-                    <th className="pb-1 text-right font-normal">亚盘(主让)</th>
                     <th className="pb-1 text-right font-normal">让球(主让)</th>
                     <th className="pb-1 text-right font-normal">花式</th>
                     <th className="pb-1 text-right font-normal">更新</th>
@@ -333,13 +333,13 @@ export default function MatchWorkbench({ params }: { params: Promise<{ id: strin
                     return (
                       <tr key={b.bookmaker} className="border-t border-hairline">
                         <td className="py-1.5">{b.bookmaker}</td>
+                        <td className="py-1.5 text-right text-muted">{ah ? `${ah.line > 0 ? "+" : ""}${ah.line} (${ah.home.toFixed(2)}/${ah.away.toFixed(2)})` : "—"}</td>
+                        <td className="py-1.5 text-right text-muted">{ou ? `${ou.line} (${ou.over.toFixed(2)}/${ou.under.toFixed(2)})` : "—"}</td>
                         {(["home", "draw", "away"] as const).map((sel) => (
                           <td key={sel} className={`py-1.5 text-right ${o && o[sel] === best(sel) && wb.oddsBooks.length > 1 ? "font-semibold text-up" : ""}`}>
                             {o ? o[sel].toFixed(2) : "—"}
                           </td>
                         ))}
-                        <td className="py-1.5 text-right text-muted">{ou ? `${ou.line} (${ou.over.toFixed(2)}/${ou.under.toFixed(2)})` : "—"}</td>
-                        <td className="py-1.5 text-right text-muted">{ah ? `${ah.line > 0 ? "+" : ""}${ah.line} (${ah.home.toFixed(2)}/${ah.away.toFixed(2)})` : "—"}</td>
                         <td className="py-1.5 text-right text-muted">{hh ? `${hh.line > 0 ? "+" : ""}${hh.line} (${hh.home.toFixed(2)}/${hh.draw.toFixed(2)}/${hh.away.toFixed(2)})` : "—"}</td>
                         <td className="py-1.5 text-right text-faint">{extras.length ? extras.join(" ") : "—"}</td>
                         <td className="py-1.5 text-right text-faint">{fmtTs(b.fetchedAt)}</td>

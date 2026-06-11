@@ -70,7 +70,7 @@ export function recordOverview(periodDays: number | null): MarketRecord[] {
     .where(and(...conds))
     .all();
   const out: MarketRecord[] = [];
-  for (const market of ["1x2", "ou", "ah"] as const) {
+  for (const market of ["ah", "1x2", "ou"] as const) {
     const ms = rows.filter((r) => r.p.market === market);
     const hits = ms.filter((r) => r.p.result === "hit").length;
     const misses = ms.filter((r) => r.p.result === "miss").length;

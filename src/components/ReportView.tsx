@@ -51,6 +51,30 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
           <>
             <div className="mt-1 text-[15px] font-semibold tracking-wide text-ink">{verdict}</div>
             <p className="mt-2 border-l-2 border-gold/50 pl-3 text-[12px] leading-6 text-ink/85">{sections.thesis}</p>
+            {mainAh && (
+              <div className="tabular mt-3 rounded border border-gold/25 bg-gold/5 px-3 py-2 text-[11px]">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-[10px] tracking-wider text-faint">亚盘主盘</span>
+                  <b className="text-ink">{selectionLabel("ah", "home", mainAh.line)}</b>
+                  <span className="text-muted">
+                    主 {mainAh.odds.toFixed(2)}
+                    {mainAh.bookmaker ? `（${mainAh.bookmaker}）` : ""}
+                    {mainAhAway ? ` / 客 ${mainAhAway.odds.toFixed(2)}${mainAhAway.bookmaker ? `（${mainAhAway.bookmaker}）` : ""}` : ""}
+                  </span>
+                  <span>
+                    模型主赢盘 <b className="text-gold-bright">{pct(mainAh.modelProb)}</b>
+                  </span>
+                </div>
+                <div className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-overlay">
+                  <div className="bg-gold" style={{ width: `${(mainAh.modelProb * 100).toFixed(1)}%` }} />
+                  <div className="bg-info/70" style={{ width: `${((1 - mainAh.modelProb) * 100).toFixed(1)}%` }} />
+                </div>
+                <div className="mt-0.5 flex justify-between text-[9px] text-faint">
+                  <span>主赢盘</span>
+                  <span>客赢盘 {pct(1 - mainAh.modelProb)}</span>
+                </div>
+              </div>
+            )}
             <div className="mt-4 overflow-x-auto">
             <table className="tabular w-full min-w-[420px] text-[11px]">
               <thead>
@@ -88,20 +112,6 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
               （开赛锁定时若收盘价低于边界，按观望处理、不计入战绩）。模拟单位：¼ Kelly 风险刻度（上限
               5%），仅为风险量化展示。
             </p>
-            {mainAh && (
-              <div className="tabular mt-3 rounded border border-gold/25 bg-gold/5 px-3 py-2 text-[11px]">
-                <span className="text-[10px] tracking-wider text-faint">亚盘主盘</span>{" "}
-                <b className="text-ink">{selectionLabel("ah", "home", mainAh.line)}</b>
-                <span className="ml-2 text-muted">
-                  主 {mainAh.odds.toFixed(2)}
-                  {mainAh.bookmaker ? `（${mainAh.bookmaker}）` : ""}
-                  {mainAhAway ? ` / 客 ${mainAhAway.odds.toFixed(2)}${mainAhAway.bookmaker ? `（${mainAhAway.bookmaker}）` : ""}` : ""}
-                </span>
-                <span className="ml-2">
-                  模型主赢盘 <b className="text-gold-bright">{pct(mainAh.modelProb)}</b>
-                </span>
-              </div>
-            )}
             <div className="mt-3">
               <ProbBar home={engine.ensemble.probs.home} draw={engine.ensemble.probs.draw} away={engine.ensemble.probs.away} />
             </div>
@@ -114,15 +124,21 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
             <p className="mt-2 border-l-2 border-hairline pl-3 text-[12px] leading-6 text-ink/85">{sections.thesis}</p>
             {mainAh && (
               <div className="tabular mt-3 rounded border border-hairline bg-overlay/40 px-3 py-2 text-[11px]">
-                <span className="text-[10px] tracking-wider text-faint">亚盘主盘</span>{" "}
-                <b className="text-ink">{selectionLabel("ah", "home", mainAh.line)}</b>
-                <span className="ml-2 text-muted">
-                  主 {mainAh.odds.toFixed(2)}
-                  {mainAhAway ? ` / 客 ${mainAhAway.odds.toFixed(2)}` : ""}
-                </span>
-                <span className="ml-2 text-muted">
-                  模型主赢盘 <b className="text-ink">{pct(mainAh.modelProb)}</b>
-                </span>
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-[10px] tracking-wider text-faint">亚盘主盘</span>
+                  <b className="text-ink">{selectionLabel("ah", "home", mainAh.line)}</b>
+                  <span className="text-muted">
+                    主 {mainAh.odds.toFixed(2)}
+                    {mainAhAway ? ` / 客 ${mainAhAway.odds.toFixed(2)}` : ""}
+                  </span>
+                  <span className="text-muted">
+                    模型主赢盘 <b className="text-ink">{pct(mainAh.modelProb)}</b>
+                  </span>
+                </div>
+                <div className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-overlay">
+                  <div className="bg-gold" style={{ width: `${(mainAh.modelProb * 100).toFixed(1)}%` }} />
+                  <div className="bg-info/70" style={{ width: `${((1 - mainAh.modelProb) * 100).toFixed(1)}%` }} />
+                </div>
               </div>
             )}
             <div className="mt-3">
@@ -331,28 +347,8 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
       </Collapse>
 
       {(engine.markets.ou.length > 0 || engine.markets.ah.length > 0) && (
-        <Collapse title="衍生市场概率" hint="大小球 / 亚盘全盘口">
+        <Collapse title="衍生市场概率" hint="亚盘 / 大小球全盘口">
           <div className="grid grid-cols-2 gap-2">
-            {engine.markets.ou.length > 0 && (
-              <table className="tabular w-full text-[11px]">
-                <thead>
-                  <tr className="text-left text-[10px] tracking-wider text-faint">
-                    <th className="pb-1 font-normal">大小球</th>
-                    <th className="pb-1 text-right font-normal">大</th>
-                    <th className="pb-1 text-right font-normal">小</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {engine.markets.ou.map((o) => (
-                    <tr key={o.line} className="border-t border-hairline">
-                      <td className="py-1.5">{o.line}</td>
-                      <td className="py-1.5 text-right">{pct(o.over)}</td>
-                      <td className="py-1.5 text-right">{pct(o.under)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
             {engine.markets.ah.length > 0 && (
               <table className="tabular w-full text-[11px]">
                 <thead>
@@ -368,6 +364,26 @@ export default function ReportView({ view }: { view: MatchDetailView }) {
                       <td className="py-1.5">{a.line > 0 ? `+${a.line}` : a.line}</td>
                       <td className="py-1.5 text-right">{pct(a.homeCover)}</td>
                       <td className="py-1.5 text-right">{pct(a.awayCover)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {engine.markets.ou.length > 0 && (
+              <table className="tabular w-full text-[11px]">
+                <thead>
+                  <tr className="text-left text-[10px] tracking-wider text-faint">
+                    <th className="pb-1 font-normal">大小球</th>
+                    <th className="pb-1 text-right font-normal">大</th>
+                    <th className="pb-1 text-right font-normal">小</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {engine.markets.ou.map((o) => (
+                    <tr key={o.line} className="border-t border-hairline">
+                      <td className="py-1.5">{o.line}</td>
+                      <td className="py-1.5 text-right">{pct(o.over)}</td>
+                      <td className="py-1.5 text-right">{pct(o.under)}</td>
                     </tr>
                   ))}
                 </tbody>

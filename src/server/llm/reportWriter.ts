@@ -115,6 +115,20 @@ export function qualitativePhrases(ctx: ReportContext): string[] {
   } else {
     phrases.push("本场缺乏盘口数据，结论基于纯模型概率，置信度相应下调");
   }
+  {
+    // 亚盘视角（玩家第一语言）：模型赢盘评估 vs 盘口隐含
+    const ahHome = e.value.filter((v) => v.market === "ah" && v.selection === "home");
+    const mainAh = ahHome.length
+      ? ahHome.reduce((b, v) => (Math.abs(v.modelProb - 0.5) < Math.abs(b.modelProb - 0.5) ? v : b))
+      : null;
+    const away = mainAh ? e.value.find((v) => v.market === "ah" && v.line === mainAh.line && v.selection === "away") : null;
+    if (mainAh && away) {
+      const implied = 1 / mainAh.odds / (1 / mainAh.odds + 1 / away.odds);
+      const d = mainAh.modelProb - implied;
+      const dir = d > 0.03 ? "明显高于" : d > 0.01 ? "略高于" : d < -0.03 ? "明显低于" : d < -0.01 ? "略低于" : "基本贴合";
+      phrases.push(`亚盘视角：主盘为「${selectionLabel("ah", "home", mainAh.line)}」，模型对主队赢盘的评估${dir}盘口隐含水位`);
+    }
+  }
   const top = e.picks[0];
   if (top) {
     phrases.push(`最优价值点位于${MARKET_LABEL[top.market]}的「${selectionLabel(top.market, top.selection, top.line)}」方向`);
@@ -252,6 +266,21 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
     }
     L.push("");
   }
+  {
+    // 亚盘主盘（玩家第一语言）：优先观点同线，否则取模型赢盘最接近五五开的线
+    const ahHome = e.value.filter((v) => v.market === "ah" && v.selection === "home");
+    const ahPick = e.picks.find((p) => p.market === "ah" && p.line !== null);
+    const mainAh =
+      (ahPick ? ahHome.find((v) => v.line === ahPick.line) : undefined) ??
+      (ahHome.length ? ahHome.reduce((b, v) => (Math.abs(v.modelProb - 0.5) < Math.abs(b.modelProb - 0.5) ? v : b)) : null);
+    if (mainAh) {
+      const away = e.value.find((v) => v.market === "ah" && v.line === mainAh.line && v.selection === "away");
+      L.push(
+        `- 亚盘主盘：**${selectionLabel("ah", "home", mainAh.line)}**，主 ${fmtOdds(mainAh.odds)}${mainAh.bookmaker ? `（${mainAh.bookmaker}）` : ""}` +
+          `${away ? ` / 客 ${fmtOdds(away.odds)}` : ""}，模型主队赢盘 **${pct(mainAh.modelProb)}**`,
+      );
+    }
+  }
   if (e.picks.length > 0) {
     L.push(`- 赛前观点：`);
     for (const p of e.picks) {
@@ -310,18 +339,18 @@ export function renderReportMd(ctx: ReportContext, sections: z.infer<typeof llmS
     L.push("");
   }
   if (e.markets.ou.length > 0 || e.markets.ah.length > 0) {
-    L.push("## 五、衍生市场");
+    L.push("## 五、衍生市场（亚盘优先）");
     L.push("");
-    if (e.markets.ou.length > 0) {
-      L.push("| 大小球盘 | 大球 | 小球 |");
-      L.push("|---|---|---|");
-      for (const ou of e.markets.ou) L.push(`| ${ou.line} | ${pct(ou.over)} | ${pct(ou.under)} |`);
-      L.push("");
-    }
     if (e.markets.ah.length > 0) {
       L.push("| 亚盘（主队让球） | 主队赢盘 | 客队赢盘 |");
       L.push("|---|---|---|");
       for (const ah of e.markets.ah) L.push(`| ${ah.line > 0 ? `+${ah.line}` : ah.line} | ${pct(ah.homeCover)} | ${pct(ah.awayCover)} |`);
+      L.push("");
+    }
+    if (e.markets.ou.length > 0) {
+      L.push("| 大小球盘 | 大球 | 小球 |");
+      L.push("|---|---|---|");
+      for (const ou of e.markets.ou) L.push(`| ${ou.line} | ${pct(ou.over)} | ${pct(ou.under)} |`);
       L.push("");
     }
   }
