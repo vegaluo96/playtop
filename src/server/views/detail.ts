@@ -190,6 +190,45 @@ async function standingsView(leagueId: number, season: number, homeId: number | 
   }
 }
 
+/** 半场拆分(fixtures/statistics?half=true):AF 返回形态做容错解析,解析不出则隐藏容器 */
+function halfStats(fixtureId: number, homeId: number | null) {
+  const raw = kvGet(`fx:${fixtureId}:stats_half`);
+  if (!raw) return null;
+  let blocks: unknown[];
+  try {
+    blocks = (JSON.parse(raw) as { data: unknown[] }).data ?? [];
+  } catch {
+    return null;
+  }
+  const teamOf = (b: unknown) => Number(dig(b, "team", "id"));
+  // 半场值提取:value 为对象时尝试常见键;数值场景无半场信息则放弃
+  const halfOf = (v: unknown): string | null => {
+    if (v == null || typeof v !== "object") return null;
+    const o = v as Record<string, unknown>;
+    for (const k of ["1h", "halftime", "first_half", "firstHalf", "ht"]) {
+      if (o[k] != null) return String(o[k]);
+    }
+    return null;
+  };
+  const pick = (teamId: number | null) => {
+    const b = blocks.find((x) => teamOf(x) === teamId);
+    const out = new Map<string, string>();
+    for (const st of Array.isArray(dig(b, "statistics")) ? (dig(b, "statistics") as unknown[]) : []) {
+      const h = halfOf(dig(st, "value"));
+      if (h != null) out.set(String(dig(st, "type")), h);
+    }
+    return out;
+  };
+  const home = pick(homeId);
+  const awayId = blocks.map(teamOf).find((id) => id !== homeId) ?? null;
+  const away = pick(awayId);
+  if (home.size === 0 && away.size === 0) return null;
+  const rows = STAT_ZH.map(([type, label]) => ({ label, lv: home.get(type) ?? "—", rv: away.get(type) ?? "—" })).filter(
+    (r) => r.lv !== "—" || r.rv !== "—",
+  );
+  return rows.length > 0 ? rows : null;
+}
+
 /* ── 阵容 ── */
 function lineupSide(lu: unknown) {
   const rowsMap = new Map<number, { col: number; name: string }[]>();
@@ -541,6 +580,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       stats: liveStats(p.bundle, fx.home_id),
       formHome: ps ? formZh(ps.formHome) : [],
       formAway: ps ? formZh(ps.formAway) : [],
+      half: live ? halfStats(fx.fixture_id, fx.home_id) : null,
       h2h: h2hView(await h2hRows(fx.home_id, fx.away_id, pred), fx.home_id, tz),
       minutes: minutesView(pred),
       standings: await standingsView(fx.league_id, fx.season, fx.home_id, fx.away_id),

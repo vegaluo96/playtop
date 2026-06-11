@@ -349,6 +349,22 @@ function MobileMatchDetail({ id }: { id: string }) {
               </>
             )}
 
+            {h.live && v.tech.half && (
+              <>
+                <SectionTitle title="半场拆分 · 上半场" />
+                <Card style={{ padding: "10px 14px 6px" }}>
+                  {v.tech.half.map((b: V) => (
+                    <div key={b.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: "var(--home)" }}>{b.lv}</span>
+                      <span style={{ fontSize: 10, color: "var(--fg-2)" }}>{b.label}</span>
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)" }}>{b.rv}</span>
+                    </div>
+                  ))}
+                  <div style={{ height: 4 }} />
+                </Card>
+              </>
+            )}
+
             <SectionTitle title="近况 · 最近 6 场" />
             <Card style={{ padding: "10px 14px" }}>
               {[[h.home, v.tech.formHome], [h.away, v.tech.formAway]].map(([name, form], idx) => (

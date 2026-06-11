@@ -102,7 +102,7 @@ export function CenterPane({
         {data.rows.map((r: V, i: number) => (
           <div key={i} style={{ display: "grid", gridTemplateColumns: "52px 1fr 48px 48px", padding: "6px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
             <span style={{ fontSize: 10, color: "var(--fg-2)" }}>{r.t}</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: r.chg ? "var(--gold)" : "var(--fg-mid)", whiteSpace: "nowrap" }}>{r.text}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: r.chg ? "var(--gold)" : "var(--fg-mid)", whiteSpace: "nowrap" }}>{r.text}{r.chg ? <span style={{ fontSize: 8.5, marginLeft: 4 }}>变盘</span> : null}</span>
             <span className="mono" style={{ fontSize: 11, textAlign: "right" }}>{r.h}</span>
             <span className="mono" style={{ fontSize: 11, textAlign: "right" }}>{r.a}</span>
           </div>
@@ -311,6 +311,18 @@ export function CenterPane({
                   </div>
                 </div>
               ))}
+              {h.live && v.tech.half && (
+                <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 12, paddingTop: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>半场拆分 · 上半场</div>
+                  {v.tech.half.map((b: V) => (
+                    <div key={b.label} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                      <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: "var(--home)" }}>{b.lv}</span>
+                      <span style={{ fontSize: 9.5, color: "var(--fg-2)" }}>{b.label}</span>
+                      <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: "var(--gold)" }}>{b.rv}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {h.live && v.tech.stats && (
                 <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 12, paddingTop: 10 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10 }}>实时技术统计</div>

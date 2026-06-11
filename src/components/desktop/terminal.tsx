@@ -37,6 +37,8 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   const { prefs, me, refreshMe } = useApp();
   const router = useRouter();
   const [league, setLeague] = useState("all");
+  const [day, setDay] = useState("today");
+  const [liveCount, setLiveCount] = useState(0);
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<V[]>([]);
   const [sel, setSel] = useState<number | null>(initialMatchId ?? null);
@@ -58,9 +60,10 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   /* ── 取数 ── */
   const loadRows = useCallback(async () => {
     try {
-      const j = await fetch(`/api/matches?day=today&league=${league}&tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" }).then((r) => r.json());
+      const j = await fetch(`/api/matches?day=${day}&league=${league}&tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" }).then((r) => r.json());
       if (j.ok) {
         setRows(j.rows);
+        setLiveCount(j.liveCount ?? 0);
         if (selRef.current == null && j.rows.length > 0) {
           const live = j.rows.find((r: V) => r.live && !r.masked);
           const first = j.rows.find((r: V) => !r.masked);
@@ -70,7 +73,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
     } catch { /* 保留旧数据 */ } finally {
       setLastAt(Date.now());
     }
-  }, [league, prefs.tz]);
+  }, [league, day, prefs.tz]);
 
   const loadDetail = useCallback(async () => {
     if (selRef.current == null) return;
@@ -243,8 +246,15 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
         {/* 左栏 · 赛事列表 */}
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderRight: "1px solid var(--line)", background: "#0c0d12" }}>
           <div style={{ flexShrink: 0, padding: "12px 14px 8px" }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              {[["live", `直播 ${liveCount}`], ["today", "今日"], ["tmr", "明日"], ["sat", "周六"]].map(([k, label]) => (
+                <div key={k} onClick={() => setDay(k)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 10.5, fontWeight: 600, cursor: "pointer", background: day === k ? "rgba(233,185,73,.14)" : "var(--card)", color: day === k ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${day === k ? "rgba(233,185,73,.45)" : "var(--line)"}` }}>
+                  {label}
+                </div>
+              ))}
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, flexShrink: 0 }}>今日赛事</span>
+              <span style={{ fontSize: 13, fontWeight: 800, flexShrink: 0 }}>赛事</span>
               <input
                 placeholder="搜索球队…"
                 value={search}
@@ -313,6 +323,13 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   <div style={{ flexShrink: 0, textAlign: "right", width: 40 }}>
                     <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || m.ou?.line == null ? X : m.ou.line.toFixed(2)} /></div>
                     <div className="mono" style={{ fontSize: 10, color: "var(--fg-2)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ou ? X : `${f2(m.ou.h)}/${f2(m.ou.a)}`} /></div>
+                  </div>
+                  <div style={{ flexShrink: 0, textAlign: "right", width: 44 }}>
+                    {[m.eu?.h, m.eu?.d, m.eu?.a].map((vv, i) => (
+                      <div key={i} className="mono" style={{ fontSize: 9, lineHeight: "12px", color: i === 1 ? "var(--fg-3)" : "var(--fg-2)", display: "flex", justifyContent: "flex-end" }}>
+                        <Flash v={m.masked || vv == null ? X : f2(vv)} />
+                      </div>
+                    ))}
                   </div>
                   <div style={{ flexShrink: 0, width: 34, textAlign: "right" }}>
                     <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: m.live ? "var(--gold)" : "var(--fg-4)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} /></div>

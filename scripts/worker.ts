@@ -83,6 +83,7 @@ async function paced<T>(fn: () => Promise<T>): Promise<T> {
 const day8 = (nowMs: number, offset = 0) => new Date(nowMs + TZ8 + offset * 86_400_000).toISOString().slice(0, 10);
 
 const lastOdds = new Map<number, number>();
+const lastHalf = new Map<number, number>();
 const lineupDone = new Set<number>();
 const predRefetched = new Set<number>();
 
@@ -126,6 +127,21 @@ async function tickLive(now: number): Promise<void> {
       }
     } catch (e) {
       log(`bundle 批量失败:${msg(e)}`);
+    }
+  }
+  // 半场拆分统计(half=true,每场 60s 一拉,存 kv 供技术面「半场拆分」容器)
+  for (const f of lives) {
+    const last = lastHalf.get(f.fixture_id) ?? 0;
+    if (now - last >= 60_000) {
+      lastHalf.set(f.fixture_id, now);
+      try {
+        const env = await paced(() => tracked("fixtures.statistics (half)", "滚球 60s", () => afGet(`/fixtures/statistics?fixture=${f.fixture_id}&half=true`, { force: true })));
+        if (Array.isArray(env.response) && env.response.length > 0) {
+          kvSet(`fx:${f.fixture_id}:stats_half`, JSON.stringify({ at: Date.now(), data: env.response }));
+        }
+      } catch {
+        /* 半场统计非必得 */
+      }
     }
   }
   // 滚球实时盘(逐场,odds/live 按 fixture 过滤)
@@ -215,15 +231,16 @@ function log(s: string): void {
 
 async function cycle(): Promise<void> {
   const now = Date.now();
-  await refreshDayFixtures(day8(now));
-  await refreshDayFixtures(day8(now, 1));
+  // 初盘容器:AF 赛前赔率覆盖开赛前 1–14 天,赛程提前 14 天入库、赔率随分层从入窗起归档,
+  // 「首帧」从此≈真实初盘
+  for (let d = 0; d <= 13; d++) await refreshDayFixtures(day8(now, d));
   const ydayKey = `fixtures_yday:${day8(now)}`;
   if (!kvGet(ydayKey)) {
     kvSet(ydayKey, "1");
     await refreshDayFixtures(day8(now, -1)).catch(() => {});
   }
   await tickLive(now);
-  const horizon = fixturesBetween(now - 4 * H, now + 36 * H);
+  const horizon = fixturesBetween(now - 4 * H, now + 14 * 24 * H);
   for (const f of horizon) await tickFixture(f.fixture_id, now);
   settleAndDailyFree(now);
   // 每小时:AF 配额(/status)与 LLM 余额(<\$100 由看板告警)
