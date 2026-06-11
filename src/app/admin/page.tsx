@@ -11,11 +11,11 @@ import { MARKET_LABEL, STATUS_LABEL, Stat, Tag } from "@/components/ui";
  * 业务数字与审计日志下沉到页尾。
  */
 
-const JOBS: { name: string; label: string; cadence: string }[] = [
-  { name: "state_machine", label: "状态机（锁定/结算）", cadence: "每 10 分钟" },
-  { name: "live_revisions", label: "采集→建模→发布→改版", cadence: "每 30 分钟" },
-  { name: "fetch_results", label: "赛果回填", cadence: "每 2 小时" },
-  { name: "sync_fixtures", label: "赛程同步", cadence: "每 6 小时" },
+const JOBS: { name: string; label: string; cadence: string; expectMin: number }[] = [
+  { name: "state_machine", label: "状态机（锁定/结算）", cadence: "每 10 分钟", expectMin: 10 },
+  { name: "live_revisions", label: "采集→建模→发布→改版", cadence: "每 30 分钟", expectMin: 30 },
+  { name: "fetch_results", label: "赛果回填", cadence: "每 2 小时", expectMin: 120 },
+  { name: "sync_fixtures", label: "赛程同步", cadence: "每 6 小时", expectMin: 360 },
 ];
 
 interface MatchLite {
@@ -115,8 +115,10 @@ export default function AdminDuty() {
       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {JOBS.map((j) => {
           const hb = data.heartbeats[j.name];
+          // 假死检测：进程整体挂掉时心跳停在最后一次"✓"——超计划周期 2 倍未跳即视为停摆
+          const stalled = hb && Date.now() - hb.at > 2 * j.expectMin * 60_000;
           return (
-            <div key={j.name} className={`card px-3 py-2.5 ${hb && !hb.ok ? "border-down/50" : ""}`}>
+            <div key={j.name} className={`card px-3 py-2.5 ${(hb && !hb.ok) || stalled ? "border-down/50" : ""}`}>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-ink">{j.label}</span>
                 <button
@@ -130,9 +132,13 @@ export default function AdminDuty() {
               <div className="mt-1 text-[10.5px] text-faint">
                 计划 {j.cadence} ·{" "}
                 {hb ? (
-                  <span className={hb.ok ? "text-up" : "text-down"}>
-                    {hb.ok ? "✓" : "✗"} {ago(hb.at)}
-                  </span>
+                  stalled ? (
+                    <span className="text-down">⚠ 疑似停摆：最后心跳 {ago(hb.at)}（检查容器/调度器）</span>
+                  ) : (
+                    <span className={hb.ok ? "text-up" : "text-down"}>
+                      {hb.ok ? "✓" : "✗"} {ago(hb.at)}
+                    </span>
+                  )
                 ) : (
                   <span className="text-faint">尚无心跳（等待首次执行）</span>
                 )}
