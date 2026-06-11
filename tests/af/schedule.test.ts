@@ -6,21 +6,22 @@ const M = 60_000;
 const now = Date.parse("2026-06-11T12:00:00Z");
 const ko = (minsAhead: number) => now + minsAhead * M;
 
-describe("tierFor", () => {
-  it(">12h 低频巡检 → 开球前逐级加密 → 滚球 1min", () => {
-    expect(tierFor(ko(13 * 60), now, "NS").freq).toBe("低频巡检");
+describe("tierFor(8 档:14d–48h 起接入)", () => {
+  it("14d–48h 低频巡检 → 48–12h 每 3h → 逐级加密 → 滚球", () => {
+    expect(tierFor(ko(5 * 24 * 60), now, "NS").freq).toBe("低频巡检");
+    expect(tierFor(ko(30 * 60), now, "NS").freq).toBe("每 3 小时");
     expect(tierFor(ko(8 * 60), now, "NS").freq).toBe("每 60 分钟");
     expect(tierFor(ko(3 * 60), now, "NS").freq).toBe("每 30 分钟");
     expect(tierFor(ko(45), now, "NS").freq).toBe("每 10 分钟");
     expect(tierFor(ko(20), now, "NS").freq).toBe("每 5 分钟");
     expect(tierFor(ko(3), now, "NS").freq).toBe("每 1 分钟");
-    expect(tierFor(ko(-10), now, "1H").idx).toBe(6);
-    expect(tierFor(ko(-10), now, "HT").idx).toBe(6);
+    expect(tierFor(ko(-10), now, "1H").idx).toBe(7);
+    expect(tierFor(ko(-10), now, "HT").idx).toBe(7);
   });
 
   it("完场回落低频;名义已开球但状态未翻转按滚球频率盯", () => {
     expect(tierFor(ko(-200), now, "FT").idx).toBe(0);
-    expect(tierFor(ko(-2), now, "NS").idx).toBe(6);
+    expect(tierFor(ko(-2), now, "NS").idx).toBe(7);
   });
 });
 
@@ -42,7 +43,7 @@ describe("freshLine(详情页提示行)", () => {
   });
 
   it("传入后台生效档位时,文案随配置变(滚球 5s / 赛前 1h–30m 改 3 分钟)", () => {
-    const intervals = [3 * 3_600_000, 60 * M, 30 * M, 3 * M, 5 * M, M, 5_000];
+    const intervals = [12 * 3_600_000, 3 * 3_600_000, 60 * M, 30 * M, 3 * M, 5 * M, M, 5_000];
     expect(freshLine(ko(-10), now, "1H", intervals).line).toBe("滚球数据 · 每 5 秒刷新");
     expect(freshLine(ko(45), now, "NS", intervals).line).toContain("每 3 分钟刷新");
     expect(freshLine(ko(45), now, "NS").line).toContain("每 10 分钟刷新"); // 不传则静态默认
@@ -59,7 +60,7 @@ describe("fmtFreq / tierFreqText(后台调档 → 用户端同源展示)", () =>
 
   it("巡检档与滚球档带说明后缀", () => {
     expect(tierFreqText(0, 3 * 3_600_000)).toBe("低频巡检 · 每 3 小时");
-    expect(tierFreqText(6, 5_000)).toBe("每 5 秒 · 接口最高频率");
+    expect(tierFreqText(7, 5_000)).toBe("每 5 秒 · 接口最高频率");
     expect(tierFreqText(3, 10 * M)).toBe("每 10 分钟");
   });
 });

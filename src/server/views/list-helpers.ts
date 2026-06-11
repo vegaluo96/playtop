@@ -1,8 +1,23 @@
 /** 列表页 DB 取数小件(从 store 转出,带轻量缓存语义) */
 import { db } from "../db";
 import { dailyFreeFixtureIds } from "../platform/wallet";
+import { oddsSeries, type SnapRow } from "../af/store";
+import { liveOddsSeries } from "../af/live-store";
 
 export { fixturesBetween, oddsSeries } from "../af/store";
+
+/** 列表行情序列:滚球场拼上实时帧尾巴(最近 2 帧,保留涨跌方向),数值随 5s 抓取真实跳动 */
+export function liveAwareSeries(fixtureId: number, market: "ah" | "ou" | "eu", live: boolean): SnapRow[] {
+  const pre = oddsSeries(fixtureId, market);
+  if (!live) return pre;
+  const lv = liveOddsSeries(fixtureId, market).filter((r) => !r.suspended);
+  if (lv.length === 0) return pre;
+  const mapped: SnapRow[] = lv.slice(-2).map((r) => ({
+    fixture_id: fixtureId, bookmaker_id: 0, bookmaker: "实时盘", market,
+    line: r.line, h: r.h, a: r.a, d: r.d, captured_at: r.captured_at,
+  }));
+  return [...pre, ...mapped];
+}
 
 /** 今日免费场集合(可多场) */
 export function dailyFreeSetToday(): Set<number> {

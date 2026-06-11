@@ -12,7 +12,7 @@
 import { loadEnvFile } from "../src/server/env-file";
 loadEnvFile();
 import { afGet, afGetAllPages } from "../src/server/af/client";
-import { isFinished, isLive, tierFor } from "../src/server/af/schedule";
+import { isFinished, isLive, LIVE_TIER, tierFor } from "../src/server/af/schedule";
 import {
   archiveOdds,
   archivePrediction,
@@ -29,7 +29,9 @@ import {
 import { cfgEmergencyThrottle, cfgFollowedIds, cfgTierIntervals } from "../src/server/platform/config";
 import { dailyReadonlyCheck } from "../src/server/selfcheck";
 import { fetchLlmBalance } from "../src/server/llm/client";
-import { db } from "../src/server/db";
+import { archiveLiveOdds, pruneLiveData } from "../src/server/af/live-store";
+import { normalizeLiveOddsItem } from "../src/server/af/normalize";
+import { db, tx } from "../src/server/db";
 
 /** 联赛范围:后台「联赛开关」动态配置(env 兜底) */
 function FOLLOWED(): number[] {
@@ -145,13 +147,17 @@ async function tickLive(now: number): Promise<void> {
       }
     }
   }
-  // 滚球实时盘(逐场,odds/live 按 fixture 过滤)
+  // 滚球实时盘(逐场,odds/live 按 fixture 过滤):kv 给实时盘卡,同步归档变化帧 → 走势图滚球段 + 滚球异动
   for (const f of lives) {
     try {
       const env = await paced(() => tracked("odds.live", "滚球快循环", () => afGet(`/odds/live?fixture=${f.fixture_id}`, { force: true })));
       const raw = Array.isArray(env.response) ? env.response[0] : null;
       const item = raw && Number((raw as { fixture?: { id?: number } }).fixture?.id) === f.fixture_id ? raw : null;
       kvSet(`fx:${f.fixture_id}:liveodds`, JSON.stringify({ at: Date.now(), data: item ?? null }));
+      if (item) {
+        const frames = normalizeLiveOddsItem(item);
+        if (frames.length > 0) tx(() => archiveLiveOdds(f.fixture_id, frames, Date.now()));
+      }
     } catch {
       /* 滚球赔率非必得 */
     }
@@ -183,14 +189,19 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
       log(`odds ${fxId} 失败:${msg(e)}`);
     }
   }
-  // 预测:开盘抓 1 次;T-60min 复抓 1 次
+  // 预测:入窗(14 天)即抓;窗口内每日刷一版;T-60min 再复抓 1 次锁临场版
   const minsTo = (f.kickoff_utc - now) / 60_000;
-  if (!hasPrediction(fxId) || (minsTo <= 60 && minsTo > 0 && !predRefetched.has(fxId))) {
+  const predDayKey = `pred_day:${fxId}:${day8(now)}`;
+  const needDaily = minsTo > 60 && !kvGet(predDayKey);
+  if (!hasPrediction(fxId) || needDaily || (minsTo <= 60 && minsTo > 0 && !predRefetched.has(fxId))) {
     if (minsTo <= 60) predRefetched.add(fxId);
     try {
-      const env = await paced(() => tracked("predictions", "开盘+T-1h", () => afGet(`/predictions?fixture=${fxId}`, { force: true })));
+      const env = await paced(() => tracked("predictions", "入窗+每日+T-1h", () => afGet(`/predictions?fixture=${fxId}`, { force: true })));
       const item = Array.isArray(env.response) ? env.response[0] : null;
-      if (item) archivePrediction(fxId, item);
+      if (item) {
+        archivePrediction(fxId, item);
+        kvSet(predDayKey, "1");
+      }
     } catch (e) {
       log(`predictions ${fxId} 失败:${msg(e)}`);
     }
@@ -259,6 +270,17 @@ async function cycle(): Promise<void> {
     }
     await fetchLlmBalance().catch(() => null);
   }
+  // 每日数据保鲜:清完场 >7d 滚球帧 / >30d 原始包
+  const pruneKey = `prune:${day8(now)}`;
+  if (!kvGet(pruneKey)) {
+    kvSet(pruneKey, "1");
+    try {
+      const r = pruneLiveData(now);
+      if (r.liveRows + r.rawRows > 0) log(`保鲜清理:滚球帧 ${r.liveRows} 行 · odds_raw ${r.rawRows} 行`);
+    } catch (e) {
+      log(`保鲜清理异常:${msg(e)}`);
+    }
+  }
   await dailyReadonlyCheck().catch((e) => log(`每日体检异常:${msg(e)}`));
   kvSet("worker_heartbeat", String(Date.now()));
 }
@@ -283,7 +305,7 @@ async function main(): Promise<void> {
         await cycle();
         lastLive = Date.now();
       } else {
-        const liveIv = Math.max(5_000, cfgTierIntervals()[6] ?? 60_000);
+        const liveIv = Math.max(5_000, cfgTierIntervals()[LIVE_TIER] ?? 60_000);
         if (now - lastLive >= liveIv) {
           lastLive = now;
           await liveFast(now);

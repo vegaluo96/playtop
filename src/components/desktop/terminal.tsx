@@ -7,9 +7,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
-import { f2, hhmm, mdLabel } from "@/lib/format";
+import { f2, hhmm, mdLabel, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
-import { Flash, HeartBeat, useNewIds, useTierIntervals, useWorkerBeat } from "@/components/live";
+import { Flash, HeartBeat, useNewIds, usePoll, useTierIntervals, useWorkerBeat } from "@/components/live";
 import { TIERS, tierFreqText } from "@/server/af/schedule";
 import { Modal, ModalTitle } from "./modal";
 import { CenterPane } from "./center";
@@ -109,32 +109,24 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   }, [prefs.tz]);
 
   useEffect(() => {
-    void loadRows();
-    const t = setInterval(loadRows, 10_000);
-    return () => clearInterval(t);
+    void loadRows(); // 切日期/联赛立即刷新
   }, [loadRows]);
+  // 滚球行/直播视图 3s,其余 10s;后台 tab 全部暂停(usePoll)
+  const hasLiveRow = day === "live" || rows.some((r: V) => r.live);
+  usePoll(loadRows, hasLiveRow ? 3_000 : 10_000);
   useEffect(() => {
     setDetail(null);
     setPred(null);
     if (sel != null) void fetch("/api/track", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ k: "match_view", id: sel }) });
     void loadDetail();
     void loadPred();
-    const t = setInterval(() => {
-      void loadDetail();
-    }, 10_000);
-    const tp = setInterval(() => {
-      void loadPred();
-    }, 60_000);
-    return () => {
-      clearInterval(t);
-      clearInterval(tp);
-    };
   }, [sel, loadDetail, loadPred]);
+  usePoll(loadDetail, detail?.header?.live ? 3_000 : 10_000);
+  usePoll(loadPred, 60_000);
   useEffect(() => {
-    void loadMoves();
-    const t = setInterval(loadMoves, 10_000);
-    return () => clearInterval(t);
+    void loadMoves(); // 切筛选立即刷新
   }, [loadMoves]);
+  usePoll(loadMoves, 5_000);
 
   const freshMoveIds = useNewIds(moves.map((m) => m.id));
 
@@ -246,9 +238,16 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
         {/* 左栏 · 赛事列表 */}
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderRight: "1px solid var(--line)", background: "#0c0d12" }}>
           <div style={{ flexShrink: 0, padding: "12px 14px 8px" }}>
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-              {[["live", `直播 ${liveCount}`], ["today", "今日"], ["tmr", "明日"], ["sat", "周六"]].map(([k, label]) => (
-                <div key={k} onClick={() => setDay(k)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 10.5, fontWeight: 600, cursor: "pointer", background: day === k ? "rgba(233,185,73,.14)" : "var(--card)", color: day === k ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${day === k ? "rgba(233,185,73,.45)" : "var(--line)"}` }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto", paddingBottom: 2 }}>
+              {[
+                ["live", `直播 ${liveCount}`], ["today", "今日"], ["tmr", "明日"],
+                ...Array.from({ length: 12 }, (_, i) => {
+                  const n = i + 2;
+                  const d = new Date(Date.now() + parseTzOffset(prefs.tz) * 3_600_000 + n * 86_400_000);
+                  return [`d${n}`, `周${"日一二三四五六"[d.getUTCDay()]} ${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`];
+                }),
+              ].map(([k, label]) => (
+                <div key={k} onClick={() => setDay(k)} style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 999, fontSize: 10.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", background: day === k ? "rgba(233,185,73,.14)" : "var(--card)", color: day === k ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${day === k ? "rgba(233,185,73,.45)" : "var(--line)"}` }}>
                   {label}
                 </div>
               ))}
@@ -356,7 +355,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
               <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} />
             </div>
             <div style={{ flexShrink: 0, display: "flex", gap: 6, padding: "0 14px 8px" }}>
-              {["全部", "升盘", "降盘", "水位"].map((l) => (
+              {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
                 <div key={l} onClick={() => setMonF(l)} style={{ padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 600, cursor: "pointer", background: monF === l ? "rgba(233,185,73,.14)" : "var(--card)", color: monF === l ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${monF === l ? "rgba(233,185,73,.45)" : "var(--line)"}` }}>
                   {l}
                 </div>
@@ -377,6 +376,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                     {f.sev && <span style={{ fontSize: 8, fontWeight: 800, color: "var(--red)", background: "rgba(240,67,79,.14)", borderRadius: 3, padding: "1px 5px" }}>急变</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {f.live && <span style={{ fontSize: 8.5, fontWeight: 800, color: "var(--red)", background: "rgba(240,67,79,.14)", borderRadius: 3, padding: "1px 5px" }}>滚球</span>}
                     <span style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px" }}>{f.mk}</span>
                     {f.bk && <span style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 56 }}>{f.bk}</span>}
                     <span style={{ fontSize: 9.5, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>

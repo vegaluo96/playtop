@@ -3,9 +3,10 @@
 /** 桌面中栏:比赛头 + 7 tab(盘口走势/百家对比/技术面/AI报告/阵容/情报/深挖) */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LineChart, type ChartRow } from "@/components/charts";
+import { type ChartRow } from "@/components/charts";
+import { IndexChart } from "@/components/index-chart";
 import { Flash } from "@/components/live";
-import { dayLabel, hhmm } from "@/lib/format";
+import { ahText, dayLabel, hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
 import type { DTab } from "./terminal";
 import { SITE_HOST } from "@/lib/site";
@@ -83,14 +84,22 @@ export function CenterPane({
     <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, ...style }}>{children}</div>
   );
 
-  const trendCol = (title: string, data: { rows: V[]; chart: ChartRow[] }, cols: [string, string]) => (
+  const trendCol = (title: string, data: { rows: V[]; chart: ChartRow[] }, idx: V, mk: "ah" | "ou", cols: [string, string]) => (
     <div>
       <div style={{ fontSize: 12, fontWeight: 700, margin: "0 2px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         {title}
         {data.chart.length > 1 && <span className="mono" style={{ fontSize: 9, color: "var(--fg-4)", fontWeight: 400 }}>自 {data.chart[0].t} 归档</span>}
       </div>
-      <Card style={{ padding: "10px 8px 4px" }}>
-        <LineChart rows={data.chart} id={title} />
+      <Card style={{ padding: "10px 10px 6px" }}>
+        <IndexChart
+          data={idx}
+          kickoff={h.kickoff}
+          tz={tz}
+          unit={mk === "ah" ? "主水指数" : "大球指数"}
+          lineText={(l) => (l == null ? "" : mk === "ah" ? ahText(l) : `${l} 球`)}
+          height={150}
+        />
+        <div style={{ fontSize: 9, color: "var(--fg-3)", marginTop: 4, lineHeight: 1.5 }}>{idx?.method}</div>
       </Card>
       <Card style={{ marginTop: 8, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "52px 1fr 48px 48px", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
@@ -250,12 +259,13 @@ export function CenterPane({
               </div>
             )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 }}>
-              {trendCol("亚盘水位走势", v.odds.ah, ["主水", "客水"])}
-              {trendCol("大小球水位走势", v.odds.ou, ["大水", "小水"])}
+              {trendCol("亚盘 · 综合指数", v.odds.ah, v.odds.index?.ah, "ah", ["主水", "客水"])}
+              {trendCol("大小球 · 综合指数", v.odds.ou, v.odds.index?.ou, "ou", ["大水", "小水"])}
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, margin: "0 2px 8px" }}>胜平负赔率走势</div>
-                <Card style={{ padding: "10px 8px 4px" }}>
-                  <LineChart rows={v.odds.euChart} id="eu" />
+                <div style={{ fontSize: 12, fontWeight: 700, margin: "0 2px 8px" }}>胜平负 · 综合指数</div>
+                <Card style={{ padding: "10px 10px 6px" }}>
+                  <IndexChart data={v.odds.index?.eu} kickoff={h.kickoff} tz={tz} unit="主胜概率" height={150} />
+                  <div style={{ fontSize: 9, color: "var(--fg-3)", marginTop: 4, lineHeight: 1.5 }}>{v.odds.index?.eu?.method}</div>
                 </Card>
                 <Card style={{ marginTop: 8, overflow: "hidden" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "52px 1fr 1fr 1fr", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>

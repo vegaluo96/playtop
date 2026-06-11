@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "无权限" }, { status: 403 });
   const b = (await req.json().catch(() => ({}))) as { action?: string; values?: number[]; on?: boolean };
   if (b.action === "intervals") {
-    const v = (b.values ?? []).map((x, i) => Math.max(i >= 5 ? 5_000 : 60_000, Math.trunc(Number(x)))); // 滚球两档可至 5s
+    const v = (b.values ?? []).map((x, i) => Math.max(i >= TIERS.length - 2 ? 5_000 : 60_000, Math.trunc(Number(x)))); // 滚球两档可至 5s
     if (v.length !== TIERS.length) return NextResponse.json({ ok: false, error: "档位数量不符" }, { status: 400 });
     cfgSet("tier_intervals", v);
     audit(admin.email, "抓取频率配置", v.map((ms) => (ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60_000)}m`)).join("/"));

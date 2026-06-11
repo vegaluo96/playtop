@@ -4,13 +4,14 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
-import { Legend, LineChart, type ChartRow } from "@/components/charts";
+import { type ChartRow } from "@/components/charts";
+import { IndexChart } from "@/components/index-chart";
 import { RefreshSheet } from "@/components/refresh-sheet";
 import { ShareSheet, type ShareData } from "@/components/share-sheet";
 import { Card, Chip, EmptyBox, SectionTitle, ShareIcon } from "@/components/ui";
-import { dayLabel, hhmm } from "@/lib/format";
+import { ahText, dayLabel, hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
-import { Flash, HeartBeat, useWorkerBeat } from "@/components/live";
+import { Flash, HeartBeat, usePoll, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 import { SITE_HOST } from "@/lib/site";
@@ -62,9 +63,9 @@ function MobileMatchDetail({ id }: { id: string }) {
 
   useEffect(() => {
     void load();
-    const t = setInterval(load, 10_000);
-    return () => clearInterval(t);
   }, [load]);
+  // 滚球 3s(交易所级跳动),赛前 10s;后台 tab 暂停
+  usePoll(load, v?.header?.live ? 3_000 : 10_000);
 
   useEffect(() => {
     void fetch("/api/track", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ k: "match_view", id: Number(id) }) });
@@ -105,12 +106,19 @@ function MobileMatchDetail({ id }: { id: string }) {
     </div>
   );
 
-  const trendBlock = (title: string, data: { rows: V[]; chart: ChartRow[]; startAt?: number | null }, legend: [string, string], cols: [string, string]) => (
+  const trendBlock = (title: string, data: { rows: V[]; chart: ChartRow[]; startAt?: number | null }, idx: V, mk: "ah" | "ou", cols: [string, string]) => (
     <>
       <SectionTitle title={title} right={data.chart.length > 1 ? `自 ${data.chart[0].t} 归档` : undefined} />
-      <Card style={{ padding: "10px 8px 6px" }}>
-        <LineChart rows={data.chart} id={title} />
-        <Legend items={[{ color: "var(--home)", label: legend[0] }, { color: "var(--gold)", label: legend[1] }]} />
+      <Card style={{ padding: "10px 10px 8px" }}>
+        <IndexChart
+          data={idx}
+          kickoff={h.kickoff}
+          tz={prefs.tz}
+          unit={mk === "ah" ? "主水指数" : "大球指数"}
+          lineText={(l) => (l == null ? "" : mk === "ah" ? ahText(l) : `${l} 球`)}
+          height={188}
+        />
+        <div style={{ fontSize: 9.5, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.6 }}>{idx?.method}</div>
       </Card>
       <Card style={{ marginTop: 8, overflow: "hidden" }}>
         <Th cols={["时间", "盘口", cols[0], cols[1]]} widths="62px 1fr 58px 58px" />
@@ -266,13 +274,13 @@ function MobileMatchDetail({ id }: { id: string }) {
                 </div>
               </>
             )}
-            {trendBlock("亚盘水位走势", v.odds.ah, ["主队水位", "客队水位"], ["主水", "客水"])}
+            {trendBlock("亚盘走势 · 综合指数", v.odds.ah, v.odds.index?.ah, "ah", ["主水", "客水"])}
             <div style={{ height: 8 }} />
-            {trendBlock("大小球水位走势", v.odds.ou, ["大球水位", "小球水位"], ["大水", "小水"])}
-            <SectionTitle title="胜平负赔率走势" />
-            <Card style={{ padding: "10px 8px 6px" }}>
-              <LineChart rows={v.odds.euChart} id="eu" />
-              <Legend items={[{ color: "var(--home)", label: "主胜" }, { color: "var(--fg-2)", label: "平局" }, { color: "var(--gold)", label: "客胜" }]} />
+            {trendBlock("大小球走势 · 综合指数", v.odds.ou, v.odds.index?.ou, "ou", ["大水", "小水"])}
+            <SectionTitle title="胜平负走势 · 综合指数" />
+            <Card style={{ padding: "10px 10px 8px" }}>
+              <IndexChart data={v.odds.index?.eu} kickoff={h.kickoff} tz={prefs.tz} unit="主胜概率" height={188} />
+              <div style={{ fontSize: 9.5, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.6 }}>{v.odds.index?.eu?.method}</div>
             </Card>
             <Card style={{ marginTop: 8, overflow: "hidden" }}>
               <Th cols={["时间", "主胜", "平局", "客胜"]} widths="62px 1fr 1fr 1fr" />

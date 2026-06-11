@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { Chip, GoldBtn, Sheet } from "@/components/ui";
 import { leagueColor } from "@/lib/leagues";
-import { HeartBeat, useNewIds, useWorkerBeat } from "@/components/live";
+import { HeartBeat, useNewIds, usePoll, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 
@@ -45,10 +45,9 @@ function MobileMovesPage() {
   }, [filter, prefs.tz]);
 
   useEffect(() => {
-    void load();
-    const t = setInterval(load, 10_000);
-    return () => clearInterval(t);
+    void load(); // 切筛选立即刷新
   }, [load]);
+  usePoll(load, 5_000); // 滚球异动随 5s 抓取产生,5s 轮询即可即时入流;后台 tab 暂停
 
   const freshIds = useNewIds(rows.map((r) => r.id));
 
@@ -70,7 +69,7 @@ function MobileMovesPage() {
         </div>
       </div>
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
-        {["全部", "升盘", "降盘", "水位"].map((l) => (
+        {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
           <Chip key={l} label={l} active={filter === l} onClick={() => setFilter(l)} />
         ))}
       </div>
@@ -97,6 +96,7 @@ function MobileMovesPage() {
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {f.live && <span style={{ fontSize: 9, fontWeight: 800, color: "var(--red)", background: "rgba(240,67,79,.14)", borderRadius: 4, padding: "2px 6px" }}>滚球</span>}
               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.mk}</span>
               {f.bk && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.bk}</span>}
               <span style={{ fontSize: 10, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>

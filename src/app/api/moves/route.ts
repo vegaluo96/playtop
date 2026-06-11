@@ -19,19 +19,24 @@ export async function GET(req: NextRequest) {
   const rows = list.map((m, i) => {
     const masked = !user && i >= GUEST_VISIBLE_ROWS;
     const isAh = m.market === "ah";
+    const isEu = m.market === "eu";
+    const liveMove = m.phase === "滚球";
     const text = (line: number) => (isAh ? ahText(line) : ouText(line));
-    const lineDelta = m.to_line - m.from_line;
+    const lineDelta = (m.to_line ?? 0) - (m.from_line ?? 0);
     const hDelta = m.to_h - m.from_h;
-    const fromS = m.type === "水位" ? `${isAh ? "主" : "大"} ${f2(m.from_h)}` : text(m.from_line);
-    const toS = m.type === "水位" ? `${isAh ? "主" : "大"} ${f2(m.to_h)}` : text(m.to_line);
-    const water =
-      m.type === "水位"
+    const sideZh = isEu ? "主胜" : isAh ? "主" : "大";
+    const fromS = isEu || m.type === "水位" ? `${sideZh} ${f2(m.from_h)}` : text(m.from_line);
+    const toS = isEu || m.type === "水位" ? `${sideZh} ${f2(m.to_h)}` : text(m.to_line);
+    const water = isEu
+      ? `${f2(m.from_h)} → ${f2(m.to_h)}`
+      : m.type === "水位"
         ? `盘口维持 ${text(m.to_line)}`
         : `${f2(m.from_h)} → ${f2(m.to_h)}`;
-    const note =
-      m.type === "水位"
-        ? `盘口不变 · ${isAh ? "主" : "大"}水 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`
-        : `盘口 ${lineDelta >= 0 ? "+" : ""}${f2(lineDelta)} · ${isAh ? "主" : "大"}水 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`;
+    const note = isEu
+      ? `滚球赔率 · 主胜 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`
+      : m.type === "水位"
+        ? `盘口不变 · ${sideZh}水 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`
+        : `盘口 ${lineDelta >= 0 ? "+" : ""}${f2(lineDelta)} · ${sideZh}水 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`;
     return {
       id: m.id,
       fixtureId: m.fixture_id,
@@ -40,9 +45,10 @@ export async function GET(req: NextRequest) {
       match: `${m.home_name} vs ${m.away_name}`,
       league: leagueZh(m.league_id, m.league_name),
       leagueId: m.league_id,
-      mk: isAh ? "亚盘" : "大小",
-      mkFull: isAh ? "亚洲让球盘" : "大小球(进球数)",
-      bk: maskBookmaker(m.bookmaker),
+      mk: isEu ? "胜平负" : isAh ? "亚盘" : "大小",
+      mkFull: isEu ? "胜平负(滚球)" : isAh ? "亚洲让球盘" : "大小球(进球数)",
+      live: liveMove,
+      bk: liveMove ? m.bookmaker : maskBookmaker(m.bookmaker),
       type: m.type,
       sev: !masked && !!m.sev,
       masked,
@@ -52,11 +58,16 @@ export async function GET(req: NextRequest) {
       note: masked ? "注册后免费查看全部异动" : note,
       rows: masked
         ? []
-        : [
-            { k: "盘口", a: text(m.from_line), b: text(m.to_line), chg: lineDelta !== 0 },
-            { k: isAh ? "主队水位" : "大球水位", a: f2(m.from_h), b: f2(m.to_h) },
-            { k: isAh ? "客队水位" : "小球水位", a: f2(m.from_a), b: f2(m.to_a) },
-          ],
+        : isEu
+          ? [
+              { k: "主胜赔", a: f2(m.from_h), b: f2(m.to_h), chg: m.from_h !== m.to_h },
+              { k: "客胜赔", a: f2(m.from_a), b: f2(m.to_a) },
+            ]
+          : [
+              { k: "盘口", a: text(m.from_line), b: text(m.to_line), chg: lineDelta !== 0 },
+              { k: isAh ? "主队水位" : "大球水位", a: f2(m.from_h), b: f2(m.to_h) },
+              { k: isAh ? "客队水位" : "小球水位", a: f2(m.from_a), b: f2(m.to_a) },
+            ],
     };
   });
 

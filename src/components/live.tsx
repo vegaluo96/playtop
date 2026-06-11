@@ -96,6 +96,26 @@ export function useWorkerBeat(): number | null {
   return at;
 }
 
+/** 统一轮询:document.hidden 时暂停(省流量 + 长停留防御),回到前台立即刷一次 */
+export function usePoll(fn: () => void | Promise<void>, intervalMs: number): void {
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
+  useEffect(() => {
+    void fnRef.current();
+    const t = setInterval(() => {
+      if (!document.hidden) void fnRef.current();
+    }, intervalMs);
+    const onVis = () => {
+      if (!document.hidden) void fnRef.current();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [intervalMs]);
+}
+
 /** 后台实际生效的抓取档位(/api/health intervals);open 置 true 时拉取,保证弹层展示的是当前生效值 */
 export function useTierIntervals(open: boolean): number[] | null {
   const [iv, setIv] = useState<number[] | null>(null);

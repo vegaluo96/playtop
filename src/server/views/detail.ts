@@ -5,6 +5,9 @@ import { ahText, f2, hhmm, maskBookmaker, ouText } from "@/lib/format";
 import { leagueZh, roundZh } from "@/lib/leagues";
 import { freshLine, isFinished, isLive } from "../af/schedule";
 import { cfgTierIntervals } from "../platform/config";
+import { normalizeLiveOddsItem } from "../af/normalize";
+import { liveOddsSeries } from "../af/live-store";
+import { compositeLive, compositePre, mergeComposite } from "./composite";
 import { kvCached, kvGet } from "../af/store";
 import { runAfEndpoint } from "../af/catalog";
 import type { Panorama } from "../af/panorama";
@@ -468,72 +471,47 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     const r = lastOf(s);
     return r ? { line: r.line, h: r.h, a: r.a } : null;
   };
-  const ps = predSummary(pred, fx.home_id, { ah: hintOf(p.odds.ah), ou: hintOf(p.odds.ou), homeName: fx.home_name, awayName: fx.away_name });
-  const ah = seriesRows(p.odds.ah, "ah", tz);
-  const ou = seriesRows(p.odds.ou, "ou", tz);
-  const ahL = lastOf(p.odds.ah);
-  const ouL = lastOf(p.odds.ou);
-  const euL = lastOf(p.odds.eu);
+  // 走势序列 = 赛前书商快照 + 滚球实时帧(归档于 live_odds_snapshots),开赛后图表持续生长
+  const liveExt = (mk: "ah" | "ou" | "eu"): SnapRow[] =>
+    live || isFinished(fx.status)
+      ? liveOddsSeries(fx.fixture_id, mk)
+          .filter((r) => !r.suspended)
+          .map((r) => ({
+            fixture_id: fx.fixture_id, bookmaker_id: 0, bookmaker: "实时盘", market: mk,
+            line: r.line, h: r.h, a: r.a, d: r.d, captured_at: r.captured_at,
+          }))
+      : [];
+  const merged = (pre: SnapRow[], mk: "ah" | "ou" | "eu") => [...pre, ...liveExt(mk)].sort((x, y) => x.captured_at - y.captured_at);
+  const ahAll = merged(p.odds.ah, "ah");
+  const ouAll = merged(p.odds.ou, "ou");
+  const euAll = merged(p.odds.eu, "eu");
+  const ps = predSummary(pred, fx.home_id, { ah: hintOf(ahAll), ou: hintOf(ouAll), homeName: fx.home_name, awayName: fx.away_name });
+  // 综合指数:赛前段缓存 60s(盘口慢变),滚球段实时拼接(5s 帧不允许延迟)
+  const cidx = async (mk: "ah" | "ou" | "eu") => {
+    const pre = await kvCached(`cidx:${fx.fixture_id}:${mk}`, 60_000, async () => compositePre(fx.fixture_id, mk, fx.kickoff_utc));
+    const liveSeg = live || isFinished(fx.status) ? compositeLive(fx.fixture_id, mk) : [];
+    return mergeComposite(pre, liveSeg, mk);
+  };
+  const ah = seriesRows(ahAll, "ah", tz);
+  const ou = seriesRows(ouAll, "ou", tz);
+  const ahL = lastOf(ahAll);
+  const ouL = lastOf(ouAll);
+  const euL = lastOf(euAll);
 
-  // 滚球实时盘(worker 每分钟落 kv)
+  // 滚球实时盘(worker 落 kv;解析与归档共用 normalizeLiveOddsItem)
   let liveOdds: { mk: string; v: string; susp: boolean }[] | null = null;
   if (live) {
     try {
       const raw = kvGet(`fx:${fx.fixture_id}:liveodds`);
       const data = raw ? (JSON.parse(raw) as { at: number; data: unknown }).data : null;
-      const odds = arr(dig(data, "odds"));
-      const find = (re: RegExp) => odds.find((o) => re.test(String(dig(o, "name") ?? "")));
-      const fmtAh = (o: unknown) => {
-        const all = arr(dig(o, "values"));
-        const mains = all.filter((v) => dig(v, "main") === true);
-        const vals = mains.length >= 2 ? mains : all; // 滚球多档时书商标了主盘就用主盘
-        const h = vals.find((v) => dig(v, "value") === "Home" || /home/i.test(String(dig(v, "value"))));
-        const a = vals.find((v) => dig(v, "value") === "Away" || /away/i.test(String(dig(v, "value"))));
-        const hc = parseFloat(String(dig(h, "handicap") ?? ""));
-        if (!h || !a) return null;
-        const suspended = Boolean(dig(h, "suspended")) || Boolean(dig(a, "suspended"));
-        return {
-          text: Number.isFinite(hc) ? ahText(-hc) : "",
-          v: `${f2(parseFloat(String(dig(h, "odd"))) - 1)} / ${f2(parseFloat(String(dig(a, "odd"))) - 1)}`,
-          susp: suspended,
-        };
-      };
-      const rowsOut: { mk: string; v: string; susp: boolean }[] = [];
-      const ahO = find(/asian handicap/i);
-      const ouO = find(/over\/under/i);
-      const x12 = find(/fulltime result|match winner|1x2/i);
-      if (ahO) {
-        const r = fmtAh(ahO);
-        if (r) rowsOut.push({ mk: "亚盘", v: `${r.text} · ${r.v}`, susp: r.susp });
-      }
-      if (ouO) {
-        const allV = arr(dig(ouO, "values"));
-        const mainsV = allV.filter((v) => dig(v, "main") === true);
-        const vals = mainsV.length >= 2 ? mainsV : allV;
-        const over = vals.find((v) => /over/i.test(String(dig(v, "value"))));
-        const under = vals.find((v) => /under/i.test(String(dig(v, "value"))));
-        const susp = Boolean(dig(over, "suspended")) || Boolean(dig(under, "suspended"));
-        if (over && under) {
-          const hc = parseFloat(String(dig(over, "handicap") ?? ""));
-          rowsOut.push({
-            mk: "大小",
-            v: `${Number.isFinite(hc) ? hc + " 球" : ""} · ${f2(parseFloat(String(dig(over, "odd"))) - 1)} / ${f2(parseFloat(String(dig(under, "odd"))) - 1)}`,
-            susp,
-          });
-        }
-      }
-      if (x12) {
-        const vals = arr(dig(x12, "values"));
-        const g = (name: string) => vals.find((v) => String(dig(v, "value")) === name);
-        const h = g("Home"), dd = g("Draw"), a = g("Away");
-        const susp = [h, dd, a].some((v) => Boolean(dig(v, "suspended")));
-        if (h && dd && a)
-          rowsOut.push({
-            mk: "胜平负",
-            v: `${f2(parseFloat(String(dig(h, "odd"))))} / ${f2(parseFloat(String(dig(dd, "odd"))))} / ${f2(parseFloat(String(dig(a, "odd"))))}`,
-            susp,
-          });
-      }
+      const frames = data ? normalizeLiveOddsItem(data) : [];
+      const rowsOut = frames.map((f) =>
+        f.market === "ah"
+          ? { mk: "亚盘", v: `${f.line != null ? ahText(f.line) : ""} · ${f2(f.h)} / ${f2(f.a)}`, susp: f.suspended }
+          : f.market === "ou"
+            ? { mk: "大小", v: `${f.line != null ? `${f.line} 球` : ""} · ${f2(f.h)} / ${f2(f.a)}`, susp: f.suspended }
+            : { mk: "胜平负", v: `${f2(f.h)} / ${f2(f.d ?? 0)} / ${f2(f.a)}`, susp: f.suspended },
+      );
       liveOdds = rowsOut.length > 0 ? rowsOut : null;
     } catch {
       liveOdds = null;
@@ -579,7 +557,11 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       oddsAt: Math.max(ahL?.captured_at ?? 0, ouL?.captured_at ?? 0, euL?.captured_at ?? 0) || null,
     },
     liveOdds,
-    odds: { ah, ou, eu: euRows(p.odds.eu, tz), euChart: p.odds.eu.slice(-40).map((s) => ({ t: hhmm(s.captured_at, tz), h: s.h, a: s.a, d: s.d ?? 0 })) },
+    odds: {
+      ah, ou, eu: euRows(euAll, tz),
+      euChart: euAll.slice(-40).map((s) => ({ t: hhmm(s.captured_at, tz), h: s.h, a: s.a, d: s.d ?? 0 })),
+      index: { ah: await cidx("ah"), ou: await cidx("ou"), eu: await cidx("eu") },
+    },
     comp: { ah: compMap(p.odds.compareAh, "ah"), ou: compMap(p.odds.compareOu, "ou"), eu: compEu },
     tech: {
       events: eventsView(p.bundle, fx.home_id),

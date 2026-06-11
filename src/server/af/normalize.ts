@@ -178,6 +178,102 @@ export function normalizeOddsItem(item: unknown): BookmakerOdds[] {
   return out;
 }
 
+/* ── 滚球实时盘解析(/odds/live;无书商维度,worker 归档与详情页共用同一套解析)── */
+
+export interface LiveMarketFrame {
+  market: "ah" | "ou" | "eu";
+  line: number | null; // ah:主让为正;ou:盘口;eu:null
+  h: number;
+  a: number;
+  d: number | null; // 仅 eu
+  suspended: boolean;
+}
+
+export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
+  const dig = (o: unknown, ...p: (string | number)[]): unknown => {
+    let cur = o;
+    for (const k of p) {
+      if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
+      else return undefined;
+    }
+    return cur;
+  };
+  const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+  const odds = arr(dig(item, "odds"));
+  const find = (re: RegExp) => odds.find((o) => re.test(String(dig(o, "name") ?? "")));
+  const mainVals = (o: unknown) => {
+    const all = arr(dig(o, "values"));
+    const mains = all.filter((v) => dig(v, "main") === true);
+    return mains.length >= 2 ? mains : all; // 书商标了主盘就用主盘
+  };
+  const num = (v: unknown) => parseFloat(String(v ?? ""));
+  const out: LiveMarketFrame[] = [];
+
+  const ahO = find(/asian handicap/i);
+  if (ahO) {
+    const vals = mainVals(ahO);
+    const h = vals.find((v) => /^home$/i.test(String(dig(v, "value"))) || /home/i.test(String(dig(v, "value"))));
+    const a = vals.find((v) => /^away$/i.test(String(dig(v, "value"))) || /away/i.test(String(dig(v, "value"))));
+    if (h && a) {
+      const hc = num(dig(h, "handicap"));
+      const hOdd = num(dig(h, "odd"));
+      const aOdd = num(dig(a, "odd"));
+      if (hOdd > 1 && aOdd > 1)
+        out.push({
+          market: "ah",
+          line: Number.isFinite(hc) ? -hc : null, // AF handicap 为主队受让数 → 取反得主让
+          h: Math.round((hOdd - 1) * 100) / 100,
+          a: Math.round((aOdd - 1) * 100) / 100,
+          d: null,
+          suspended: Boolean(dig(h, "suspended")) || Boolean(dig(a, "suspended")),
+        });
+    }
+  }
+  const ouO = find(/over\/under/i);
+  if (ouO) {
+    const vals = mainVals(ouO);
+    const over = vals.find((v) => /over/i.test(String(dig(v, "value"))));
+    const under = vals.find((v) => /under/i.test(String(dig(v, "value"))));
+    if (over && under) {
+      const hc = num(dig(over, "handicap"));
+      const oOdd = num(dig(over, "odd"));
+      const uOdd = num(dig(under, "odd"));
+      if (oOdd > 1 && uOdd > 1)
+        out.push({
+          market: "ou",
+          line: Number.isFinite(hc) ? hc : null,
+          h: Math.round((oOdd - 1) * 100) / 100,
+          a: Math.round((uOdd - 1) * 100) / 100,
+          d: null,
+          suspended: Boolean(dig(over, "suspended")) || Boolean(dig(under, "suspended")),
+        });
+    }
+  }
+  const x12 = find(/fulltime result|match winner|1x2/i);
+  if (x12) {
+    const vals = arr(dig(x12, "values"));
+    const g = (name: string) => vals.find((v) => String(dig(v, "value")) === name);
+    const h = g("Home");
+    const dd = g("Draw");
+    const a = g("Away");
+    if (h && dd && a) {
+      const hv = num(dig(h, "odd"));
+      const dv = num(dig(dd, "odd"));
+      const av = num(dig(a, "odd"));
+      if (hv > 1 && dv > 1 && av > 1)
+        out.push({
+          market: "eu",
+          line: null,
+          h: hv,
+          a: av,
+          d: dv,
+          suspended: [h, dd, a].some((v) => Boolean(dig(v, "suspended"))),
+        });
+    }
+  }
+  return out;
+}
+
 /* ── 异动判定(阈值:HANDOFF §3 急变 = 盘口位移 ≥0.25 或水位 |Δ|≥0.05)── */
 
 export const MOVE_WATER_MIN = 0.03; // 低于此幅度的纯水位变化不记异动

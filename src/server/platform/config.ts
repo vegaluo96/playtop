@@ -64,9 +64,11 @@ export function cfgFollowedIds(): number[] {
 /* ── 抓取分层(数据监控页可改;1min 为 API-SPORTS 下限,不可更低)── */
 export function cfgTierIntervals(): number[] {
   const def = TIERS.map((t) => t.intervalMs);
-  const v = json<number[]>("tier_intervals", def);
+  let v = json<number[]>("tier_intervals", def);
+  // 兼容旧 7 档配置(>12h 单档拆为 14d–48h / 48–12h 两档):旧[0] 作 48–12h,新增 14d–48h 用默认 12h
+  if (v.length === 7 && def.length === 8) v = [def[0], v[0], ...v.slice(1)];
   // 滚球两档(临场 5min 内 / 滚球)可低至 5s(后台设置,注意配额);其余档下限 1min
-  return v.length === def.length ? v.map((ms, i) => Math.max(ms, i >= 5 ? 5_000 : 60_000)) : def;
+  return v.length === def.length ? v.map((ms, i) => Math.max(ms, i >= def.length - 2 ? 5_000 : 60_000)) : def;
 }
 export const cfgEmergencyThrottle = () => num("emergency_throttle", 0) === 1;
 

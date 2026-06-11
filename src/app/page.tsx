@@ -7,9 +7,9 @@ import { useApp } from "@/components/app-context";
 import { RefreshSheet } from "@/components/refresh-sheet";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { Chip } from "@/components/ui";
-import { f2, hhmm, mdLabel } from "@/lib/format";
+import { f2, hhmm, mdLabel, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
-import { Flash, HeartBeat, useWorkerBeat } from "@/components/live";
+import { Flash, HeartBeat, usePoll, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 
@@ -90,17 +90,24 @@ function MobileMatchesPage() {
   }, [day, league, prefs.tz]);
 
   useEffect(() => {
-    void load();
-    const t = setInterval(load, 10_000);
-    return () => clearInterval(t);
+    void load(); // 切日期/联赛立即刷新
   }, [load]);
+  // 直播视图/列表含滚球行 → 3s(交易所级跳动,只渲染真实变化);其余 10s;后台 tab 暂停
+  const hasLive = day === "live" || rows.some((r) => r.live);
+  usePoll(load, hasLive ? 3_000 : 10_000);
 
   const dateLabel = `${mdLabel(Date.now(), prefs.tz)} · ${prefs.tz}`;
+  // 14 天日期带:直播 | 今日 | 明日 | 周X 日期…(worker 提前 14 天归档赛程与赔率)
+  const off = parseTzOffset(prefs.tz);
   const dateChips = [
     { k: "live", label: `直播 ${liveCount}` },
     { k: "today", label: "今日" },
     { k: "tmr", label: "明日" },
-    { k: "sat", label: "周六" },
+    ...Array.from({ length: 12 }, (_, i) => {
+      const n = i + 2;
+      const d = new Date(Date.now() + off * 3_600_000 + n * 86_400_000);
+      return { k: `d${n}`, label: `周${"日一二三四五六"[d.getUTCDay()]} ${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}` };
+    }),
   ];
 
   return (

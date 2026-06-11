@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { parseTzOffset } from "@/lib/format";
-import { fixturesBetween, oddsSeries, dailyFreeSetToday, movedRecently, hiddenFixtureIds } from "@/server/views/list-helpers";
+import { fixturesBetween, dailyFreeSetToday, liveAwareSeries, movedRecently, hiddenFixtureIds } from "@/server/views/list-helpers";
 import { marketCell } from "@/server/views/common";
 import { isLive, isFinished } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
@@ -22,10 +22,16 @@ export async function GET(req: NextRequest) {
   const dayStart = Math.floor((now + off * 3_600_000) / 86_400_000) * 86_400_000 - off * 3_600_000;
   let from = dayStart;
   let to = dayStart + 86_400_000;
+  const dn = /^d(\d{1,2})$/.exec(day); // d0..d13:今日起第 N 天(worker 已缓存 14 天日表)
   if (day === "tmr") {
     from += 86_400_000;
     to += 86_400_000;
+  } else if (dn) {
+    const n = Math.min(13, Math.max(0, Number(dn[1])));
+    from = dayStart + n * 86_400_000;
+    to = from + 86_400_000;
   } else if (day === "sat") {
+    // 旧入口兼容:下一个周六
     const dow = new Date(dayStart + off * 3_600_000).getUTCDay();
     const ahead = ((6 - dow) % 7 + 7) % 7 || 7;
     from = dayStart + ahead * 86_400_000;
@@ -49,9 +55,9 @@ export async function GET(req: NextRequest) {
     const live = isLive(f.status);
     const fin = isFinished(f.status);
     const masked = !user && guestMasked(live ? 0 : maskIndex++, live);
-    const ah = marketCell(oddsSeries(f.fixture_id, "ah"), "ah");
-    const ou = marketCell(oddsSeries(f.fixture_id, "ou"), "ou");
-    const eu = marketCell(oddsSeries(f.fixture_id, "eu"), "eu");
+    const ah = marketCell(liveAwareSeries(f.fixture_id, "ah", live), "ah");
+    const ou = marketCell(liveAwareSeries(f.fixture_id, "ou", live), "ou");
+    const eu = marketCell(liveAwareSeries(f.fixture_id, "eu", live), "eu");
     const unlocked = user ? isUnlocked(user.id, f.fixture_id, todayStr()) : false;
     return {
       id: f.fixture_id,

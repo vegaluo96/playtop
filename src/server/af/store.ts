@@ -222,10 +222,12 @@ export interface MovementRow {
   sev: number;
   t0: number;
   t1: number;
+  phase: string; // 盘前 | 滚球
 }
 
 export function recentMovements(limit = 80, type?: string): (MovementRow & { home_name: string; away_name: string; league_name: string; league_id: number })[] {
-  const where = type && type !== "全部" ? "WHERE m.type = ?" : "";
+  // type 既支持异动类型(升盘/降盘/水位)也支持阶段筛选(滚球)
+  const where = type === "滚球" ? "WHERE m.phase = ?" : type && type !== "全部" ? "WHERE m.type = ?" : "";
   const args: unknown[] = type && type !== "全部" ? [type, limit] : [limit];
   return db()
     .prepare(
