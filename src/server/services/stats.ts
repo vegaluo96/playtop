@@ -86,7 +86,7 @@ export function recordOverview(periodDays: number | null): MarketRecord[] {
         roiSum += pnl;
         roiN++;
       }
-      if (r.p.oddsAtPublish && r.p.closingOdds && r.p.closingOdds > 1) {
+      if (r.p.oddsAtPublish && r.p.oddsAtPublish > 1 && r.p.closingOdds && r.p.closingOdds > 1) {
         clvSum += r.p.oddsAtPublish / r.p.closingOdds - 1;
         clvN++;
       }

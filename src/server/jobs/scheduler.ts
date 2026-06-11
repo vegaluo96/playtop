@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { and, desc, eq } from "drizzle-orm";
+import { REFRESH_LADDER } from "../lib/refreshLadder";
 import { db } from "../db";
 import { dataSnapshots, settings } from "../db/schema";
 import { now } from "../lib/time";
@@ -89,11 +90,13 @@ function latestOddsAge(matchId: number): number {
  */
 export async function tickHotWindow(): Promise<{ refreshed: number }> {
   let refreshed = 0;
-  const hot = matchesByStatus(["published"]).filter((m) => m.kickoffAt > now() && m.kickoffAt - now() < 30 * 60_000);
+  const sprintMs = REFRESH_LADDER.sprintMins * 60_000;
+  const finalMs = REFRESH_LADDER.finalMins * 60_000;
+  const hot = matchesByStatus(["published"]).filter((m) => m.kickoffAt > now() && m.kickoffAt - now() < sprintMs);
   for (const m of hot) {
-    const minsToKickoff = (m.kickoffAt - now()) / 60_000;
+    const msToKickoff = m.kickoffAt - now();
     // 30~10 分钟段维持 5 分钟节奏（4.5min 阈值容忍 cron 抖动）；最后 10 分钟每个 tick 都刷
-    if (minsToKickoff > 10 && latestOddsAge(m.id) < 4.5 * 60_000) continue;
+    if (msToKickoff > finalMs && latestOddsAge(m.id) < 4.5 * 60_000) continue;
     try {
       await collectMatch(m.id, { oddsOnly: true, hot: true, skipAi: true });
       await advanceMatch(m.id);

@@ -164,13 +164,7 @@ export interface SnapshotStats {
   total: number;
 }
 
-export function snapshotStats(matchId: number): SnapshotStats {
-  const rows = db
-    .select()
-    .from(dataSnapshots)
-    .where(eq(dataSnapshots.matchId, matchId))
-    .orderBy(asc(dataSnapshots.fetchedAt))
-    .all();
+function statsFromRows(rows: SnapshotRow[]): SnapshotStats {
   const byKind = new Map<SnapshotKind, { source: string; fetchedAt: number; count: number }>();
   for (const r of rows) {
     const cur = byKind.get(r.kind);
@@ -178,12 +172,31 @@ export function snapshotStats(matchId: number): SnapshotStats {
   }
   const expected = SNAPSHOT_KINDS.filter((k) => k !== "manual_override");
   return {
-    perKind: [...byKind.entries()].map(([kind, v]) => ({
-      kind,
-      kindLabel: KIND_LABELS[kind],
-      ...v,
-    })),
+    perKind: [...byKind.entries()].map(([kind, v]) => ({ kind, kindLabel: KIND_LABELS[kind], ...v })),
     missing: expected.filter((k) => !byKind.has(k)),
     total: rows.length,
   };
+}
+
+export function snapshotStats(matchId: number): SnapshotStats {
+  const rows = db
+    .select()
+    .from(dataSnapshots)
+    .where(eq(dataSnapshots.matchId, matchId))
+    .orderBy(asc(dataSnapshots.fetchedAt))
+    .all();
+  return statsFromRows(rows);
+}
+
+/** 一次查询同时得出"完备度统计"与"每 kind 最新一份"——比赛详情页用，避免双倍全表扫描 */
+export function snapshotBundle(matchId: number): { stats: SnapshotStats; latest: Map<SnapshotKind, SnapshotRow> } {
+  const rows = db
+    .select()
+    .from(dataSnapshots)
+    .where(eq(dataSnapshots.matchId, matchId))
+    .orderBy(asc(dataSnapshots.fetchedAt), asc(dataSnapshots.id))
+    .all();
+  const latest = new Map<SnapshotKind, SnapshotRow>();
+  for (const r of rows) latest.set(r.kind, r); // 升序遍历，后者覆盖 → 最新
+  return { stats: statsFromRows(rows), latest };
 }

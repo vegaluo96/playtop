@@ -4,6 +4,7 @@ import UnlockButton from "@/components/UnlockButton";
 import VerifyBadge from "@/components/VerifyBadge";
 import { LiveBadge, SectionTitle, Tag, STATUS_LABEL, fmtCn } from "@/components/ui";
 import { currentUser } from "@/server/auth/guards";
+import { REFRESH_STAGES } from "@/server/lib/refreshLadder";
 import { getMatchDetail, getUpcomingFixture } from "@/server/services/views";
 
 export const dynamic = "force-dynamic";
@@ -126,12 +127,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 function RefreshLadder({ kickoffAt }: { kickoffAt: number }) {
   const mins = (kickoffAt - Date.now()) / 60_000;
   if (mins <= 0) return null;
-  const stages = [
-    { label: "盘口静默", range: "开赛前 12 小时以上", active: mins > 720 },
-    { label: "每 30 分钟", range: "12 小时 ~ 30 分钟", active: mins <= 720 && mins > 30 },
-    { label: "每 5 分钟", range: "30 ~ 10 分钟", active: mins <= 30 && mins > 10 },
-    { label: "每分钟", range: "最后 10 分钟", active: mins <= 10 },
-  ];
+  const stages = REFRESH_STAGES.map((s) => ({ label: s.label, range: s.range, active: s.match(mins) }));
   const current = stages.find((s) => s.active)!;
   return (
     <div className="card mt-4 border-gold/30 px-3 py-2.5">

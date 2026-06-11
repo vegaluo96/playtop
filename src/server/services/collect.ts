@@ -29,6 +29,7 @@ import { getMatch, syncFixtures, transitionMatch } from "./matchesService";
 import { isSourceUsable, withSource } from "./sourceHealth";
 import { insertSnapshot, latestSnapshots } from "./snapshots";
 import { leagueById, teamNameById } from "./teamResolver";
+import { REFRESH_LADDER } from "../lib/refreshLadder";
 
 export interface CollectSummary {
   collected: string[];
@@ -88,10 +89,10 @@ export async function collectMatch(
     return r ? now() - r.fetchedAt : Infinity;
   };
   const H = 3_600_000;
-  // 盘口刷新阶梯（用户可见承诺）：>12h 静默（仅首采）→ 12h~30min 每 30 分钟（主循环）
-  // → 30~10min 每 5 分钟 → 最后 10 分钟每分钟（hot_window 分级强刷）。force/hot 始终放行。
-  const hoursToKickoff = (match.kickoffAt - now()) / H;
-  const oddsDue = force || hot || ageOf("odds") === Infinity || hoursToKickoff <= 12;
+  // 盘口刷新阶梯（单一事实来源 REFRESH_LADDER）：>静默上界 仅首采；窗口内跟随各级节奏。
+  // force/hot 始终放行。
+  const minsToKickoff = (match.kickoffAt - now()) / 60_000;
+  const oddsDue = force || hot || ageOf("odds") === Infinity || minsToKickoff <= REFRESH_LADDER.quietMins;
 
   // API-Football（付费主源）：按比赛日拉一次 fixtures、本场内存共享（odds/首发/伤停共用 fixtureId）
   const afUsable = apiFootballConfigured() && isSourceUsable("api_football", dsCfg.apiFootballEnabled);

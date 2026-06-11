@@ -79,6 +79,7 @@ export function consensusProbs(devigged: BookDevig[], bookWeights: Record<string
     acc.away += devigged[i].devigged.away * detail[i].weight;
   }
   const s = acc.home + acc.draw + acc.away;
+  if (!(s > 1e-12)) return null; // 防御：去水概率和退化为 0/NaN（不应发生，避免 NaN 污染下游）
   return { probs: { home: acc.home / s, draw: acc.draw / s, away: acc.away / s }, detail };
 }
 

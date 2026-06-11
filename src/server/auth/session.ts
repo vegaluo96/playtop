@@ -8,6 +8,15 @@ import { now } from "../lib/time";
 export const SESSION_COOKIE = "pt_session";
 const SESSION_TTL = 30 * 86_400_000; // 30 天，活动即顺延
 
+/** 会话 cookie 选项：生产环境恒 secure（Caddy 终结 HTTPS）；COOKIE_SECURE=1 可显式开启 */
+export const sessionCookieOptions = {
+  httpOnly: true,
+  sameSite: "lax" as const,
+  maxAge: 30 * 86_400,
+  path: "/",
+  secure: process.env.NODE_ENV === "production" || process.env.COOKIE_SECURE === "1",
+};
+
 export function createSession(userId: number): { token: string; expiresAt: number } {
   const token = randomBytes(32).toString("hex");
   const expiresAt = now() + SESSION_TTL;

@@ -26,7 +26,7 @@ const BANNED = [
   "套利",
   "对冲仓位",
 ];
-const SCAN_DIRS = ["src/app", "src/components", "src/server/llm", "src/server/engine"];
+const SCAN_DIRS = ["src/app", "src/components", "src/server/llm", "src/server/engine", "src/server/services"];
 /** 否定式声明（"不构成投注建议/不提供投注平台"）是合规要求本身，放行 */
 const NEGATION = /不构成|不提供|不跳转/;
 

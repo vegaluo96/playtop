@@ -20,7 +20,8 @@ import { engineOutputSchema, type EngineOutput } from "../engine/types";
 import { getConfig } from "../lib/config";
 import { now } from "../lib/time";
 import { ratingStars, selectionLabel, type LlmSections } from "../llm/reportWriter";
-import { latestSnapshots, snapshotPayload, snapshotStats, type SnapshotStats } from "./snapshots";
+import { snapshotBundle, snapshotPayload, snapshotStats, type SnapshotRow, type SnapshotStats } from "./snapshots";
+import type { SnapshotKind } from "../db/schema";
 
 /** 用户侧/页面渲染所需的查询封装（server components 直接调用） */
 
@@ -228,9 +229,8 @@ export interface MatchIntel {
   softInfo: z.infer<typeof softInfoPayloadSchema> | null;
 }
 
-function buildIntel(matchId: number): MatchIntel {
-  const snaps = latestSnapshots(matchId);
-  const pay = <T,>(k: Parameters<typeof snaps.get>[0]) => snapshotPayload<T>(snaps.get(k));
+function buildIntel(snaps: Map<SnapshotKind, SnapshotRow>): MatchIntel {
+  const pay = <T,>(k: SnapshotKind) => snapshotPayload<T>(snaps.get(k));
   return {
     lineups: pay<z.infer<typeof lineupsPayloadSchema>>("lineups"),
     injuries: pay<z.infer<typeof injuriesPayloadSchema>>("injuries"),
@@ -310,7 +310,8 @@ export function getMatchDetail(matchId: number, userId: number | null, isAdmin =
   const unlocked = card.unlocked || isAdmin || card.freeBeta;
   const access: MatchAccess = isPublic ? "public" : unlocked ? "unlocked" : "locked";
   const engine = engineOutputSchema.parse(JSON.parse(analysis.engineOutput));
-  const stats = snapshotStats(matchId);
+  // 一次查询同出完备度与每 kind 最新（避免 stats + intel 双倍全表扫描）
+  const { stats, latest } = snapshotBundle(matchId);
   const r = ratingStars(engine);
   card.stars = r.stars;
   if (access !== "locked") card.verdict = r.verdict;
@@ -334,7 +335,7 @@ export function getMatchDetail(matchId: number, userId: number | null, isAdmin =
     contentHash: access === "locked" ? null : analysis.contentHash,
     versions: access === "locked" ? [] : versionHistory(matchId),
     snapshots: stats,
-    intel: access === "locked" ? null : buildIntel(matchId),
+    intel: access === "locked" ? null : buildIntel(latest),
     hoursBeforeKickoffPublished: firstPublished?.publishedAt
       ? (card.kickoffAt - firstPublished.publishedAt) / 3_600_000
       : null,

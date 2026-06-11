@@ -4,7 +4,7 @@ import { users } from "@/server/db/schema";
 import { handleRoute, jsonErr, jsonOk } from "@/server/lib/api";
 import { now } from "@/server/lib/time";
 import { hashPassword } from "@/server/auth/password";
-import { createSession, SESSION_COOKIE } from "@/server/auth/session";
+import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/server/auth/session";
 
 const inputSchema = z.object({
   username: z
@@ -30,13 +30,7 @@ export async function POST(req: Request) {
     }
     const { token } = createSession(userId);
     const res = jsonOk({ userId, username });
-    res.cookies.set(SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 30 * 86_400,
-      path: "/",
-      secure: process.env.COOKIE_SECURE === "1",
-    });
+    res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
     return res;
   });
 }

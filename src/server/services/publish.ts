@@ -135,19 +135,12 @@ export interface VerifyResult {
   detail: string;
 }
 
-/** 公开可验：重算内容哈希 + 校验链上前驱 */
+/** 公开可验：重算内容哈希 + 校验链上前驱（仅对已发布/已公开版本开放，防 ID 遍历枚举草稿） */
 export function verifyAnalysis(analysisId: number): VerifyResult {
   const row = db.select().from(analyses).where(eq(analyses.id, analysisId)).get();
-  if (!row) throw new HttpError(404, "分析不存在");
-  if (!row.publishedAt || !row.contentHash) {
-    return {
-      valid: false,
-      analysisId,
-      storedHash: row.contentHash,
-      computedHash: "",
-      prevHashOk: false,
-      detail: "该版本尚未发布，无哈希记录",
-    };
+  // 未发布的草稿一律按"不存在"处理：不向匿名者泄露草稿存在性与发布节奏
+  if (!row || !row.publishedAt || !row.contentHash || !["published", "public"].includes(row.status)) {
+    throw new HttpError(404, "分析不存在");
   }
   const computedHash = computeAnalysisHash(row);
   const contentOk = computedHash === row.contentHash;
