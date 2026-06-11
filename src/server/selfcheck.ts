@@ -451,10 +451,10 @@ export function renormalizeOdds(fixtureId?: number): { fixtures: number; raws: n
 export async function auditOdds(fixtureId: number, base?: string): Promise<string> {
   const d = db();
   const lines: string[] = [`■ 盘口保真度审计 · fixture=${fixtureId}`];
-  const fx = d.prepare("SELECT home_name, away_name, status, kickoff_utc FROM fixtures_cache WHERE fixture_id=?").get(fixtureId) as
-    | { home_name: string; away_name: string; status: string; kickoff_utc: number } | undefined;
+  const fx = d.prepare("SELECT home_name, away_name, status, kickoff_utc, payload FROM fixtures_cache WHERE fixture_id=?").get(fixtureId) as
+    | { home_name: string; away_name: string; status: string; kickoff_utc: number; payload: string } | undefined;
   if (!fx) return `fixture ${fixtureId} 不在库中`;
-  lines.push(`  ${fx.home_name} vs ${fx.away_name} · 状态 ${fx.status}`);
+  lines.push(`  ${fx.home_name} vs ${fx.away_name} · 状态 ${fx.status} · 开球 ${new Date(fx.kickoff_utc + 8 * 3_600_000).toISOString().slice(0, 16).replace("T", " ")}(UTC+8)`);
 
   // ① AF 实时原始(1 req)
   let liveRaw: unknown = null;
@@ -466,7 +466,7 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
   }
   if (liveRaw) {
     lines.push("  ① AF 实时原始(欧赔)→ 归一化(亚盘/大小为净水=欧赔-1,line 正=主让):");
-    for (const bm of normalizeOddsItem(liveRaw).slice(0, 3)) {
+    for (const bm of normalizeOddsItem(liveRaw).slice(0, 25)) {
       for (const mk of bm.markets) {
         lines.push(`     ${bm.bookmaker.padEnd(12)} ${mk.market} line=${mk.line ?? "—"} h=${mk.h} a=${mk.a}${mk.d != null ? ` d=${mk.d}` : ""}`);
       }
@@ -483,7 +483,7 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
     )
     .all(fixtureId) as unknown as { bookmaker: string; market: string; line: number | null; h: number; a: number; d: number | null; captured_at: number }[];
   if (snaps.length === 0) lines.push("     (空:该场尚无快照)");
-  for (const s of snaps.slice(0, 9)) {
+  for (const s of snaps.slice(0, 60)) {
     const margin = s.market === "eu" ? null : pairMargin(s.h + 1, s.a + 1);
     const flag = margin != null && (margin < 1.0 || margin > 1.18) ? " ⚠配对异常" : "";
     lines.push(
@@ -503,6 +503,36 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
       lines.push("  ③ 前端显示:API 不可达");
     }
   }
-  lines.push("  口径说明:平台水位为净水(港盘),= 书商欧赔 − 1;主盘 = 两侧净水最均衡的盘口线;主源书商优先 Bet365。");
+  // ④ AF 实时阵容 vs 库内阵容(身份对照:首发前 3 人)
+  const namesOf = (payload: unknown, homeId?: number) => {
+    const lus = ((payload as { lineups?: unknown[] })?.lineups ?? []) as Record<string, never>[];
+    return lus.map((lu) => {
+      const team = (lu as Record<string, { id?: number; name?: string }>)["team"];
+      const xi = ((lu as Record<string, unknown>)["startXI"] as { player?: { name?: string } }[] | undefined) ?? [];
+      void homeId;
+      return `${team?.name ?? "?"}(id=${team?.id}):${xi.slice(0, 3).map((x) => x.player?.name).join("、")}…`;
+    });
+  };
+  try {
+    const dbLineups = namesOf(JSON.parse(fx.payload));
+    lines.push("  ④ 库内阵容(bundle):" + (dbLineups.length > 0 ? "" : "未公布/未抓到"));
+    for (const l of dbLineups) lines.push(`     ${l}`);
+  } catch {
+    lines.push("  ④ 库内阵容:payload 解析失败");
+  }
+  try {
+    const env = await afGet(`/fixtures?id=${fixtureId}`, { force: true });
+    const raw = Array.isArray(env.response) ? env.response[0] : null;
+    const okId = raw && Number((raw as { fixture?: { id?: number } }).fixture?.id) === fixtureId;
+    lines.push(`  ⑤ AF 实时阵容:${okId ? "" : "(⚠ 返回体 fixture.id 与请求不符!)"}`);
+    for (const l of namesOf(raw)) lines.push(`     ${l}`);
+    const teams = (raw as { teams?: { home?: { name?: string }; away?: { name?: string } } })?.teams;
+    if (teams && (teams.home?.name !== fx.home_name || teams.away?.name !== fx.away_name)) {
+      lines.push(`     ⚠ 队名不一致:AF=${teams.home?.name} vs ${teams.away?.name},库内=${fx.home_name} vs ${fx.away_name}`);
+    }
+  } catch (e) {
+    lines.push(`  ⑤ AF 实时阵容拉取失败:${e instanceof Error ? e.message : e}`);
+  }
+  lines.push("  口径说明:平台水位为净水(港盘),= 书商欧赔 − 1;主盘 = 两侧净水最均衡的盘口线;同场三市场固定同一主书商。");
   return lines.join("\n");
 }

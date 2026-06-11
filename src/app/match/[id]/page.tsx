@@ -229,7 +229,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       </div>
 
       <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 8px", cursor: "pointer", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 9.5, color: "var(--fg-3)" }}>⟳ {h.fresh.line}</span>
+        <span style={{ fontSize: 9.5, color: "var(--fg-3)" }}>⟳ {h.fresh.line}{v.summary.oddsAt ? ` · 盘口更新于 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}</span>
         <span style={{ fontSize: 9.5, color: "var(--gold)", fontWeight: 700 }}>规则 ›</span>
         <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} showNext />
       </div>

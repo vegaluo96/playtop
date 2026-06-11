@@ -194,11 +194,19 @@ function lineupSide(lu: unknown) {
   };
 }
 
-function lineupsView(bundle: Record<string, unknown>, homeId: number | null) {
+function lineupsView(bundle: Record<string, unknown>, homeId: number | null, homeName = "", awayName = "") {
   const lus = arr(bundle.lineups);
   if (lus.length < 2) return { ready: false as const };
-  const home = lus.find((l) => Number(dig(l, "team", "id")) === homeId) ?? lus[0];
-  const away = lus.find((l) => l !== home) ?? lus[1];
+  // 指派优先级:team.id 精确匹配 → 队名匹配;两者都对不上则不展示,绝不按下标猜
+  const byId = lus.find((l) => Number(dig(l, "team", "id")) === homeId);
+  const byName = lus.find((l) => String(dig(l, "team", "name") ?? "") === homeName);
+  const home = byId ?? byName;
+  if (!home) return { ready: false as const };
+  const away = lus.find((l) => l !== home);
+  if (!away) return { ready: false as const };
+  const awayOk = Number(dig(away, "team", "id")) !== homeId && String(dig(away, "team", "name") ?? "") !== homeName;
+  if (!awayOk) return { ready: false as const };
+  void awayName;
   return { ready: true as const, home: lineupSide(home), away: lineupSide(away) };
 }
 
@@ -411,7 +419,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   }
 
   const compMap = (list: Panorama["odds"]["compareAh"], market: "ah" | "ou") =>
-    list.slice(0, 6).map((c) => ({
+    list.map((c) => ({
       co: c.bookmaker,
       iText: market === "ah" ? ahText(c.first.line ?? 0) : ouText(c.first.line ?? 0),
       iW: `${f2(c.first.h)} / ${f2(c.first.a)}`,
@@ -419,7 +427,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       nW: `${f2(c.last.h)} / ${f2(c.last.a)}`,
       changed: c.first.line !== c.last.line,
     }));
-  const compEu = p.odds.compareEu.slice(0, 6).map((c) => ({
+  const compEu = p.odds.compareEu.map((c) => ({
     co: c.bookmaker,
     iW: `${f2(c.first.h)} / ${f2(c.first.d ?? 0)} / ${f2(c.first.a)}`,
     nW: `${f2(c.last.h)} / ${f2(c.last.d ?? 0)} / ${f2(c.last.a)}`,
@@ -444,6 +452,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       ah: ahL ? { text: ahText(ahL.line ?? 0), w: `${f2(ahL.h)}/${f2(ahL.a)}` } : null,
       ou: ouL ? { text: ouText(ouL.line ?? 0), w: `${f2(ouL.h)}/${f2(ouL.a)}` } : null,
       eu: euL ? { w: `${f2(euL.h)}/${f2(euL.d ?? 0)}/${f2(euL.a)}` } : null,
+      oddsAt: Math.max(ahL?.captured_at ?? 0, ouL?.captured_at ?? 0, euL?.captured_at ?? 0) || null,
     },
     liveOdds,
     odds: { ah, ou, eu: euRows(p.odds.eu, tz), euChart: p.odds.eu.slice(-40).map((s) => ({ t: hhmm(s.captured_at, tz), h: s.h, a: s.a, d: s.d ?? 0 })) },
@@ -457,7 +466,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       minutes: minutesView(pred),
       standings: await standingsView(fx.league_id, fx.season, fx.home_id, fx.away_id),
     },
-    lineups: lineupsView(p.bundle, fx.home_id),
+    lineups: lineupsView(p.bundle, fx.home_id, fx.home_name, fx.away_name),
     intel: intelView(p.injuries, fx.home_id),
     deep: opts.deep ? await deepView(p) : null,
   };

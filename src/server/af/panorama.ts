@@ -79,7 +79,9 @@ async function ensureBundle(fixtureId: number): Promise<FixtureRow | null> {
     try {
       const force = !fx || mustForce(fx.kickoff_utc, now, fx.status) || isLive(fx?.status ?? "NS");
       const env = await afGet(`/fixtures?id=${fixtureId}`, { force });
-      const item = Array.isArray(env.response) ? env.response[0] : null;
+      const raw = Array.isArray(env.response) ? env.response[0] : null;
+      // 身份校验:防把别场的 bundle(阵容/事件)写到本场
+      const item = raw && Number((raw as { fixture?: { id?: number } }).fixture?.id) === fixtureId ? raw : null;
       if (item) upsertFixture(item);
       fx = fixtureById(fixtureId);
     } catch {

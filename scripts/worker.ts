@@ -141,8 +141,15 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
   if (now - last >= effIntervalMs(tier.idx)) {
     lastOdds.set(fxId, now);
     try {
-      const env = await paced(() => tracked("odds (bet 1/4/5)", tier.freq, () => afGet(`/odds?fixture=${fxId}`, { force: true })));
-      const item = Array.isArray(env.response) ? env.response[0] : null;
+      // 拉满全部分页:AF /odds 按页返回,书商一个不漏;并做身份校验防串场
+      const env = await paced(() => tracked("odds (bet 1/4/5)", tier.freq, () => afGetAllPages(`/odds?fixture=${fxId}`, 5, { force: true })));
+      const items = (Array.isArray(env.response) ? env.response : []).filter(
+        (it) => Number((it as { fixture?: { id?: number } }).fixture?.id) === fxId,
+      );
+      const item =
+        items.length > 0
+          ? { ...(items[0] as Record<string, unknown>), bookmakers: items.flatMap((it) => ((it as { bookmakers?: unknown[] }).bookmakers ?? [])) }
+          : null;
       if (item) {
         const moves = archiveOdds(fxId, item);
         if (moves > 0) log(`异动 +${moves}:${f.home_name} vs ${f.away_name}`);
