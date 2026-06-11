@@ -5,6 +5,7 @@
 import { ahText, f2, ouText } from "@/lib/format";
 import type { Panorama } from "../af/panorama";
 import { formZh, predSummary, type PredSummary } from "./common";
+import { nameZh } from "./names";
 
 export interface ReportSection {
   h: string;
@@ -25,7 +26,7 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
   const hintOf = (s: { line: number | null; h: number; a: number }[]) =>
     s.length > 0 ? { line: s[s.length - 1].line, h: s[s.length - 1].h, a: s[s.length - 1].a } : null;
   const ps = predSummary(p.prediction, fx.home_id, {
-    ah: hintOf(p.odds.ah), ou: hintOf(p.odds.ou), homeName: fx.home_name, awayName: fx.away_name,
+    ah: hintOf(p.odds.ah), ou: hintOf(p.odds.ou), homeName: nameZh(fx.home_name), awayName: nameZh(fx.away_name),
   });
   const secs: ReportSection[] = [];
 
@@ -66,7 +67,7 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
   if (ps) {
     const fH = formZh(ps.formHome).join(" ");
     const fA = formZh(ps.formAway).join(" ");
-    if (fH || fA) ps2.push(`${fx.home_name} 近 6 场:${fH || "—"};${fx.away_name} 近 6 场:${fA || "—"}。`);
+    if (fH || fA) ps2.push(`${nameZh(fx.home_name)} 近 6 场:${fH || "—"};${nameZh(fx.away_name)} 近 6 场:${fA || "—"}。`);
   }
   const h2h = Array.isArray(dig(p.prediction, "h2h")) ? (dig(p.prediction, "h2h") as unknown[]) : [];
   if (h2h.length > 0) {
@@ -79,7 +80,7 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
       if ((homeIsMe && gh > ga) || (!homeIsMe && ga > gh)) myWins++;
       if (gh + ga > 2.5) big++;
     }
-    ps2.push(`近 ${h2h.length} 次交锋,${fx.home_name} 取胜 ${myWins} 次,大球(>2.5)出现 ${big} 次。`);
+    ps2.push(`近 ${h2h.length} 次交锋,${nameZh(fx.home_name)} 取胜 ${myWins} 次,大球(>2.5)出现 ${big} 次。`);
   }
   if (ps2.length === 0) ps2.push("两队近况与交锋数据积累中。");
   secs.push({ h: "状态与盘路", ps: ps2 });
@@ -100,7 +101,7 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
 
   // ── 人员情报 ──
   const intel = p.injuries.slice(0, 8).map((i) => {
-    const side = Number(dig(i, "team", "id")) === fx.home_id ? fx.home_name : fx.away_name;
+    const side = Number(dig(i, "team", "id")) === fx.home_id ? nameZh(fx.home_name) : nameZh(fx.away_name);
     return `${side}:${dig(i, "player", "name") ?? ""} · ${dig(i, "player", "reason") ?? "未注明"}(${dig(i, "player", "type") ?? ""})`;
   });
   secs.push({ h: "人员情报", ps: intel.length > 0 ? intel : ["暂无官方伤停通报;首发公布后自动更新。"] });

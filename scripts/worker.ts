@@ -34,6 +34,7 @@ import { normalizeLiveOddsItem } from "../src/server/af/normalize";
 import { getLlmReport, shouldPregenReport } from "../src/server/llm/report";
 import { buildReport } from "../src/server/views/report";
 import { matchPanorama } from "../src/server/af/panorama";
+import { drainNameQueue } from "../src/server/views/names";
 import { db, tx } from "../src/server/db";
 
 /** 联赛范围:后台「联赛开关」动态配置(env 兜底) */
@@ -286,6 +287,8 @@ async function cycle(): Promise<void> {
       log(`/status 失败:${msg(e)}`);
     }
     await fetchLlmBalance().catch(() => null);
+    const named = await drainNameQueue().catch(() => 0);
+    if (named > 0) log(`译名入库 +${named}`);
   }
   // 每日数据保鲜:清完场 >7d 滚球帧 / >30d 原始包
   const pruneKey = `prune:${day8(now)}`;

@@ -11,6 +11,7 @@ import { currentUser } from "@/server/platform/session";
 import { cfgUnlockPrice } from "@/server/platform/config";
 import { dailyFreeFixtureIds, isUnlocked } from "@/server/platform/wallet";
 import { predSummary } from "@/server/views/common";
+import { nameZh } from "@/server/views/names";
 
 export async function GET(req: NextRequest) {
   const tz = req.nextUrl.searchParams.get("tz") || "UTC+8";
@@ -34,14 +35,14 @@ export async function GET(req: NextRequest) {
         return r ? { line: r.line, h: r.h, a: r.a } : null;
       };
       const ps = predSummary(latestPrediction(f.fixture_id), f.home_id, {
-        ah: lastSnap("ah"), ou: lastSnap("ou"), homeName: f.home_name, awayName: f.away_name,
+        ah: lastSnap("ah"), ou: lastSnap("ou"), homeName: nameZh(f.home_name), awayName: nameZh(f.away_name),
       });
       if (!ps) return null;
       const unlocked = !!user && isUnlocked(user.id, f.fixture_id, today);
       const price = cfgUnlockPrice(f.kickoff_utc, now);
       return {
         id: f.fixture_id,
-        match: `${f.home_name} vs ${f.away_name}`,
+        match: `${nameZh(f.home_name)} vs ${nameZh(f.away_name)}`,
         league: leagueZh(f.league_id, f.league_name),
         leagueId: f.league_id,
         time: hhmm(f.kickoff_utc, tz),

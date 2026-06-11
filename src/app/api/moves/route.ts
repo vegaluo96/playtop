@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ahText, f2, hhmm, maskBookmaker, ouText } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
 import { recentMovements } from "@/server/af/store";
+import { nameZh } from "@/server/views/names";
 import { currentUser } from "@/server/platform/session";
 import { GUEST_VISIBLE_ROWS } from "@/server/platform/rules";
 
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
       fixtureId: m.fixture_id,
       t: hhmm(m.t1, tz),
       t0: hhmm(m.t0, tz),
-      match: `${m.home_name} vs ${m.away_name}`,
+      match: `${nameZh(m.home_name)} vs ${nameZh(m.away_name)}`,
       league: leagueZh(m.league_id, m.league_name),
       leagueId: m.league_id,
       mk: isEu ? "胜平负" : isAh ? "亚盘" : "大小",

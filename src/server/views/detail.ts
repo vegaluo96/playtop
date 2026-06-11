@@ -8,6 +8,7 @@ import { cfgTierIntervals } from "../platform/config";
 import { normalizeLiveOddsItem } from "../af/normalize";
 import { liveOddsSeries } from "../af/live-store";
 import { compositeLive, compositePre, mergeComposite } from "./composite";
+import { nameZh } from "./names";
 import { kvCached, kvGet } from "../af/store";
 import { runAfEndpoint } from "../af/catalog";
 import type { Panorama } from "../af/panorama";
@@ -106,7 +107,7 @@ function eventsView(bundle: Record<string, unknown>, homeId: number | null) {
     const detail = String(dig(e, "detail") ?? "");
     let k = EVENT_KIND[type] ?? "var";
     if (type === "Card" && /red/i.test(detail)) k = "red";
-    const player = String(dig(e, "player", "name") ?? "");
+    const player = nameZh(String(dig(e, "player", "name") ?? ""), "player");
     const assist = dig(e, "assist", "name");
     let x = player;
     if (type === "Goal") x = `${player}${assist ? `(助攻:${assist})` : ""}${/penalty/i.test(detail) ? "(点球)" : ""}`;
@@ -252,7 +253,7 @@ function lineupSide(lu: unknown, mirror = false) {
     rowsMap.get(row)!.push({
       col: col || 0,
       p: {
-        n: name,
+        n: nameZh(name, "player"),
         num: (Number(dig(p, "player", "number")) || null) as number | null,
         pos: String(dig(p, "player", "pos") ?? ""),
         id: (Number(dig(p, "player", "id")) || null) as number | null,
@@ -263,14 +264,14 @@ function lineupSide(lu: unknown, mirror = false) {
     .sort((a, b) => a[0] - b[0])
     .map(([, ps]) => ps.sort((x, y) => (mirror ? y.col - x.col : x.col - y.col)).map((c) => c.p));
   const subs: LineupPlayer[] = arr(dig(lu, "substitutes")).map((p) => ({
-    n: String(dig(p, "player", "name") ?? ""),
+    n: nameZh(String(dig(p, "player", "name") ?? ""), "player"),
     num: (Number(dig(p, "player", "number")) || null) as number | null,
     pos: String(dig(p, "player", "pos") ?? ""),
     id: (Number(dig(p, "player", "id")) || null) as number | null,
   }));
   return {
     form: String(dig(lu, "formation") ?? ""),
-    coach: String(dig(lu, "coach", "name") ?? ""),
+    coach: nameZh(String(dig(lu, "coach", "name") ?? ""), "coach"),
     rows,
     subs,
   };
@@ -507,7 +508,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   const ahAll = merged(p.odds.ah, "ah");
   const ouAll = merged(p.odds.ou, "ou");
   const euAll = merged(p.odds.eu, "eu");
-  const ps = predSummary(pred, fx.home_id, { ah: hintOf(ahAll), ou: hintOf(ouAll), homeName: fx.home_name, awayName: fx.away_name });
+  const ps = predSummary(pred, fx.home_id, { ah: hintOf(ahAll), ou: hintOf(ouAll), homeName: nameZh(fx.home_name), awayName: nameZh(fx.away_name) });
   // 综合指数:赛前段缓存 60s(盘口慢变),滚球段实时拼接(5s 帧不允许延迟)
   const cidx = async (mk: "ah" | "ou" | "eu") => {
     const pre = await kvCached(`cidx:${fx.fixture_id}:${mk}`, 60_000, async () => compositePre(fx.fixture_id, mk, fx.kickoff_utc));
@@ -562,8 +563,8 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       leagueId: fx.league_id,
       league: leagueZh(fx.league_id, fx.league_name),
       round: roundZh(fx.round),
-      home: fx.home_name,
-      away: fx.away_name,
+      home: nameZh(fx.home_name),
+      away: nameZh(fx.away_name),
       homeId: fx.home_id,
       awayId: fx.away_id,
       live,

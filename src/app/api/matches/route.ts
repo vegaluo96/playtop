@@ -10,6 +10,7 @@ import { isLive, isFinished } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
 import { guestMasked } from "@/server/platform/rules";
 import { isUnlocked } from "@/server/platform/wallet";
+import { nameZh } from "@/server/views/names";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
@@ -69,8 +70,8 @@ export async function GET(req: NextRequest) {
       elapsed: f.elapsed,
       ht: f.status === "HT",
       score: f.goals_home != null && f.goals_away != null ? `${f.goals_home}-${f.goals_away}` : null,
-      home: f.home_name,
-      away: f.away_name,
+      home: nameZh(f.home_name),
+      away: nameZh(f.away_name),
       homeId: f.home_id,
       awayId: f.away_id,
       moved: !masked && movedRecently(f.fixture_id),
