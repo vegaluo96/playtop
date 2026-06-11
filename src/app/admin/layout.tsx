@@ -6,6 +6,7 @@ import { currentUser } from "@/server/auth/guards";
 const NAV = [
   { href: "/admin", label: "运营看板" },
   { href: "/admin/matches", label: "比赛管理" },
+  { href: "/admin/af", label: "AF 数据中心" },
   { href: "/admin/users", label: "用户与积分" },
   { href: "/admin/settings", label: "系统设置" },
 ];

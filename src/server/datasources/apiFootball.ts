@@ -30,16 +30,39 @@ export function apiFootballConfigured(): boolean {
   return apiFootballKey() !== null;
 }
 
-async function afGet(path: string, force = false): Promise<unknown> {
+/** AF v3 统一响应信封：所有端点同构（get/parameters/errors/results/paging/response） */
+export interface AfRawResponse {
+  get?: string;
+  parameters?: Record<string, string> | unknown[];
+  errors?: unknown;
+  results?: number;
+  paging?: { current?: number; total?: number };
+  response?: unknown;
+}
+
+/** AF 把鉴权/配额/参数错误放 errors（对象，非空）里、HTTP 仍 200；空数组表示无错 */
+export function afHasErrors(parsed: AfRawResponse): boolean {
+  const e = parsed.errors;
+  return !!e && typeof e === "object" && !Array.isArray(e) && Object.keys(e as object).length > 0;
+}
+
+/**
+ * 通用原始调用：任意 v3 端点路径 → 完整响应信封（不对 errors 抛错，交由调用方处置）。
+ * 全站「套壳」数据中心与各专用解析器共用此入口；key 缺失才抛（整源缺席）。
+ */
+export async function afGetRaw(path: string, force = false): Promise<AfRawResponse> {
   const key = apiFootballKey();
   if (!key) throw new Error("API_FOOTBALL_KEY 未配置");
   const { body } = await politeFetchText(`${API_FOOTBALL_BASE}${path}`, force, {
     "x-apisports-key": key,
     accept: "application/json",
   });
-  const parsed = JSON.parse(body) as { errors?: unknown; response?: unknown };
-  // API-Football 把鉴权/配额错误放 errors 对象里、HTTP 仍 200
-  if (parsed.errors && typeof parsed.errors === "object" && Object.keys(parsed.errors as object).length > 0) {
+  return JSON.parse(body) as AfRawResponse;
+}
+
+async function afGet(path: string, force = false): Promise<unknown> {
+  const parsed = await afGetRaw(path, force);
+  if (afHasErrors(parsed)) {
     throw new Error(`API-Football 错误：${JSON.stringify(parsed.errors).slice(0, 200)}`);
   }
   return parsed;
