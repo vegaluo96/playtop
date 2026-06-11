@@ -31,9 +31,9 @@ function MobileReportPage({ id }: { id: string }) {
   const router = useRouter();
   const flow = useUnlockFlow(() => void load());
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (ver?: number) => {
     try {
-      const r = await fetch(`/api/report/${id}?tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" });
+      const r = await fetch(`/api/report/${id}?tz=${encodeURIComponent(prefs.tz)}${ver ? `&v=${ver}` : ""}`, { cache: "no-store" });
       const j = await r.json();
       if (j.ok) setV(j);
     } catch {
@@ -124,6 +124,36 @@ function MobileReportPage({ id }: { id: string }) {
               onClick={() => (v.loggedIn ? flow.open({ id: v.id, match: v.match, price: v.price }) : router.push("/login"))}
             />
           </div>
+        )}
+
+        {!v.locked && (v.versions ?? []).length > 0 && (
+          <Card style={{ borderRadius: 12, padding: "9px 12px", marginTop: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, color: "var(--fg-3)", marginRight: 2 }}>
+                {v.lockedFinal ? `已开赛锁定 · 共 ${v.versions.length} 版` : `随盘口变化更新 · 共 ${v.versions.length} 版`}
+              </span>
+              {v.versions.map((vv: V) => (
+                <span
+                  key={vv.ver}
+                  onClick={() => void load(vv.ver)}
+                  className="mono"
+                  style={{
+                    fontSize: 10, fontWeight: 800, cursor: "pointer", borderRadius: 6, padding: "2px 8px",
+                    background: v.ver === vv.ver ? "rgba(233,185,73,.16)" : "var(--inset)",
+                    color: v.ver === vv.ver ? "var(--gold)" : "var(--fg-2)",
+                  }}
+                >
+                  v{vv.ver}
+                </span>
+              ))}
+            </div>
+            {(() => {
+              const cur = (v.versions ?? []).find((x: V) => x.ver === v.ver);
+              return cur?.changed?.length > 0 ? (
+                <div style={{ fontSize: 10, color: "var(--gold)", marginTop: 6 }}>本版更新:{cur.changed.join(" · ")}</div>
+              ) : null;
+            })()}
+          </Card>
         )}
 
         {(v.sections ?? []).map((sec: V) => (

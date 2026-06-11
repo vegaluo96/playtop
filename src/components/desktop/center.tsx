@@ -463,6 +463,21 @@ export function CenterPane({
                   <span style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-2)", background: "var(--line)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>结论</span>
                   <span style={{ fontSize: 13, fontWeight: 800, color: "var(--gold)" }}>{report.advice}</span>
                   <span style={{ flex: 1 }} />
+                  {(report.versions ?? []).length > 0 && (
+                    <span style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                      <span style={{ fontSize: 9, color: "var(--fg-3)" }}>{report.lockedFinal ? "已开赛锁定" : "随盘口更新"}</span>
+                      {report.versions.map((vv: V) => (
+                        <span
+                          key={vv.ver}
+                          onClick={() => void fetch(`/api/report/${fid}?tz=${encodeURIComponent(tz)}&v=${vv.ver}`, { cache: "no-store" }).then((r) => r.json()).then((j) => j.ok && setReport(j))}
+                          className="mono"
+                          style={{ fontSize: 9.5, fontWeight: 800, cursor: "pointer", borderRadius: 5, padding: "1px 7px", background: report.ver === vv.ver ? "rgba(233,185,73,.16)" : "var(--card)", color: report.ver === vv.ver ? "var(--gold)" : "var(--fg-2)" }}
+                        >
+                          v{vv.ver}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: 14 }}>
                   {report.sections.map((sec: V) => (

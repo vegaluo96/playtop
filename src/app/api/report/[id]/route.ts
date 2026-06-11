@@ -5,7 +5,7 @@ import { leagueZh } from "@/lib/leagues";
 import { matchPanorama } from "@/server/af/panorama";
 import { isLive } from "@/server/af/schedule";
 import { buildReport } from "@/server/views/report";
-import { getLlmReport } from "@/server/llm/report";
+import { getLlmReport, getReportVersion, listReportVersions, reportLocked } from "@/server/llm/report";
 import { currentUser } from "@/server/platform/session";
 import { cfgUnlockPrice } from "@/server/platform/config";
 import { isUnlocked } from "@/server/platform/wallet";
@@ -23,14 +23,30 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const { ps, secs } = buildReport(p);
   let sections = secs;
   let genBy = "template";
+  const versions = listReportVersions(fid);
+  const reqVer = Number(req.nextUrl.searchParams.get("v")) || null;
+  let curVer: number | null = null;
   if (unlocked) {
-    const llm = await getLlmReport(p, secs).catch(() => null);
-    if (llm) {
-      sections = llm.sections;
-      genBy = llm.by;
+    if (reqVer != null) {
+      // 历史版本回看
+      const v = getReportVersion(fid, reqVer);
+      if (v) {
+        sections = v.sections;
+        genBy = v.model;
+        curVer = reqVer;
+      }
+    }
+    if (curVer == null) {
+      const llm = await getLlmReport(p, secs).catch(() => null);
+      if (llm) {
+        sections = llm.sections;
+        genBy = llm.by;
+        curVer = versions.length > 0 ? versions[versions.length - 1].ver : null;
+      }
     }
   }
   const fx = p.fixture;
+  const lockedFinal = reportLocked(fx.status);
   return NextResponse.json({
     ok: true,
     id: fid,
@@ -45,6 +61,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     advice: unlocked ? (ps?.advice ?? "样本不足") : null,
     sections: unlocked ? sections : [],
     genBy,
+    versions: unlocked ? versions.map((v) => ({ ver: v.ver, genAt: v.gen_at, changed: v.changed })) : [],
+    ver: curVer,
+    lockedFinal,
     locked: !unlocked,
     loggedIn: !!user,
     price: cfgUnlockPrice(fx.kickoff_utc, Date.now()),

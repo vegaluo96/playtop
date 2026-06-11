@@ -31,6 +31,9 @@ import { dailyReadonlyCheck } from "../src/server/selfcheck";
 import { fetchLlmBalance } from "../src/server/llm/client";
 import { archiveLiveOdds, pruneLiveData } from "../src/server/af/live-store";
 import { normalizeLiveOddsItem } from "../src/server/af/normalize";
+import { getLlmReport, shouldPregenReport } from "../src/server/llm/report";
+import { buildReport } from "../src/server/views/report";
+import { matchPanorama } from "../src/server/af/panorama";
 import { db, tx } from "../src/server/db";
 
 /** 联赛范围:后台「联赛开关」动态配置(env 兜底) */
@@ -189,6 +192,20 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
       log(`odds ${fxId} 失败:${msg(e)}`);
     }
   }
+  // AI 报告预生成:跟随抓取频次检查,指纹变化才出新版(getLlmReport 内部判),开赛锁定
+  if (shouldPregenReport(fxId, f.kickoff_utc, f.status, now)) {
+    try {
+      const p = await matchPanorama(fxId);
+      if (p) {
+        const { secs } = buildReport(p);
+        const r = await getLlmReport(p, secs);
+        if (r) log(`报告预生成:${f.home_name} vs ${f.away_name}(${r.by})`);
+      }
+    } catch (e) {
+      log(`报告预生成 ${fxId} 失败:${msg(e)}`);
+    }
+  }
+
   // 预测:入窗(14 天)即抓;窗口内每日刷一版;T-60min 再复抓 1 次锁临场版
   const minsTo = (f.kickoff_utc - now) / 60_000;
   const predDayKey = `pred_day:${fxId}:${day8(now)}`;
