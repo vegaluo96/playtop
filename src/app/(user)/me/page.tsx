@@ -20,7 +20,7 @@ export default async function MePage() {
   const user = await currentUser();
   if (!user) {
     return (
-      <div className="card mt-8 px-4 py-10 text-center">
+      <div className="card mx-auto mt-8 max-w-md px-4 py-10 text-center">
         <p className="text-sm text-muted">登录后查看积分与解锁记录</p>
         <div className="mt-4 flex justify-center gap-3">
           <Link href="/login" className="rounded border border-gold/50 px-4 py-2 text-sm text-gold-bright">
@@ -55,7 +55,7 @@ export default async function MePage() {
     .all();
 
   return (
-    <div className="py-4">
+    <div className="mx-auto max-w-2xl py-4">
       <div className="card p-5 text-center">
         <div className="text-[10px] tracking-wider text-faint">积分余额</div>
         <div className="tabular font-display mt-1 text-4xl text-gold-bright">{user.points}</div>

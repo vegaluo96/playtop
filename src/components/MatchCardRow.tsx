@@ -11,7 +11,7 @@ export default function MatchCardRow({ card }: { card: MatchCard }) {
     : (STATUS_LABEL[card.status] ?? { text: card.status, tone: "default" as const });
   const free = card.status === "settled";
   return (
-    <div className="card px-3.5 py-3 transition-colors hover:border-gold/40">
+    <div className="card h-full px-3.5 py-3 transition-colors hover:border-gold/40">
       <div className="flex items-center justify-between text-[10px] text-faint">
         <span className="tracking-wider">
           {card.league}

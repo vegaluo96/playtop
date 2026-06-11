@@ -12,7 +12,7 @@ const TABS = [
 export default function BottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-hairline bg-surface/95 backdrop-blur">
+    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-hairline bg-surface/95 backdrop-blur md:hidden">
       <div className="grid grid-cols-3">
         {TABS.map((t) => {
           const active = t.href === "/" ? pathname === "/" || pathname.startsWith("/matches") : pathname.startsWith(t.href);

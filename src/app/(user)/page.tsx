@@ -84,7 +84,7 @@ export default async function HomePage() {
             <h2 className="font-display text-[13px] tracking-wide text-muted">{date}</h2>
             <div className="gold-rule flex-1" />
           </div>
-          <div className="space-y-2.5">
+          <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
             {list.map((c) => (
               <Link key={c.id} href={`/matches/${c.id}`} className="block">
                 <MatchCardRow card={c} />
@@ -100,7 +100,7 @@ export default async function HomePage() {
             <h2 className="font-display text-[13px] tracking-wide text-faint">即将覆盖 · 研报准备中</h2>
             <div className="gold-rule flex-1" />
           </div>
-          <div className="space-y-2.5">
+          <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
             {upcoming.map((c) => (
               <Link key={c.id} href={`/matches/${c.id}`} className="block">
                 <MatchCardRow card={c} />

@@ -45,7 +45,7 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
         这是衡量长期能力最硬的指标。
       </p>
 
-      <div className="mt-3 grid grid-cols-1 gap-2">
+      <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
         {overview.map((m) => (
           <div key={m.market} className="card px-3.5 py-3">
             <div className="flex items-center justify-between">
@@ -121,7 +121,7 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
       {rows.length === 0 ? (
         <div className="card px-4 py-8 text-center text-sm text-muted">暂无已结算观点。</div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2 md:grid-cols-2">
           {rows.map((r, i) => (
             <Link key={i} href={`/matches/${r.matchId}`} className="card block px-3.5 py-2.5">
               <div className="flex items-center justify-between text-[10px] text-faint">

@@ -8,7 +8,7 @@ import { currentUser } from "@/server/auth/guards";
 export default async function UserLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
   return (
-    <div className="mx-auto min-h-screen max-w-md pb-20">
+    <div className="mx-auto min-h-screen max-w-md pb-20 md:max-w-3xl md:pb-10 xl:max-w-6xl">
       {/* 实时研报语义：前端每 60s 静默重取服务端数据，发布/改版/结算自动浮现 */}
       <AutoRefresh seconds={60} />
       <header className="sticky top-0 z-30 border-b border-hairline bg-bg/90 backdrop-blur">
@@ -17,6 +17,18 @@ export default async function UserLayout({ children }: { children: React.ReactNo
             <span className="font-display text-lg tracking-wider text-gold-bright">PLAYTOP</span>
             <span className="text-[10px] tracking-wider text-muted">量化球研</span>
           </Link>
+          {/* 桌面/平板顶部导航（手机用底部 Tab） */}
+          <nav className="hidden items-center gap-1 md:flex">
+            <Link href="/" className="rounded px-3 py-1.5 text-[12px] tracking-wider text-muted hover:bg-overlay hover:text-ink">
+              赛事
+            </Link>
+            <Link href="/record" className="rounded px-3 py-1.5 text-[12px] tracking-wider text-muted hover:bg-overlay hover:text-ink">
+              战绩
+            </Link>
+            <Link href="/me" className="rounded px-3 py-1.5 text-[12px] tracking-wider text-muted hover:bg-overlay hover:text-ink">
+              我的
+            </Link>
+          </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <LiveBadge />

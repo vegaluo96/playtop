@@ -19,7 +19,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     if (up) {
       const hours = Math.max(1, Math.round((up.kickoffAt - Date.now()) / 3_600_000));
       return (
-        <div className="py-4">
+        <div className="mx-auto max-w-3xl py-4">
           <div className="text-center">
             <div className="text-[10px] tracking-wider text-faint">
               {up.league}
@@ -51,7 +51,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       );
     }
     return (
-      <div className="card mt-8 px-4 py-10 text-center text-sm text-muted">
+      <div className="card mx-auto mt-8 max-w-3xl px-4 py-10 text-center text-sm text-muted">
         本场研报尚未发布或不存在。
         <div className="mt-4">
           <Link href="/" className="text-gold-bright underline underline-offset-4">
@@ -67,7 +67,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const live = card.status === "published";
 
   return (
-    <div className="py-4">
+    <div className="mx-auto max-w-3xl py-4">
       {/* 比赛头部 */}
       <div className="text-center">
         <div className="text-[10px] tracking-wider text-faint">
