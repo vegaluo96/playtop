@@ -1,0 +1,52 @@
+/**
+ * 预测列表:GET /api/predictions?tz=
+ * 轻量卡:概率条免费可见;建议/胜者/大小/进球上限 + AI 报告 = 唯一付费项。
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { hhmm, parseTzOffset } from "@/lib/format";
+import { leagueZh } from "@/lib/leagues";
+import { fixturesBetween, latestPrediction, modelStats } from "@/server/af/store";
+import { isLive } from "@/server/af/schedule";
+import { currentUser } from "@/server/platform/session";
+import { unlockPrice } from "@/server/platform/rules";
+import { dailyFreeFixture, isUnlocked } from "@/server/platform/wallet";
+import { predSummary } from "@/server/views/common";
+
+export async function GET(req: NextRequest) {
+  const tz = req.nextUrl.searchParams.get("tz") || "UTC+8";
+  const off = parseTzOffset(tz);
+  const user = await currentUser();
+  const now = Date.now();
+  const dayStart = Math.floor((now + off * 3_600_000) / 86_400_000) * 86_400_000 - off * 3_600_000;
+  const fixtures = fixturesBetween(dayStart, dayStart + 86_400_000).sort((a, b) => a.kickoff_utc - b.kickoff_utc);
+  const today = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
+  const freeFid = dailyFreeFixture(today);
+
+  const cards = fixtures
+    .map((f) => {
+      const ps = predSummary(latestPrediction(f.fixture_id), f.home_id);
+      if (!ps) return null;
+      const unlocked = !!user && isUnlocked(user.id, f.fixture_id, today);
+      const price = unlockPrice(f.kickoff_utc, now);
+      return {
+        id: f.fixture_id,
+        match: `${f.home_name} vs ${f.away_name}`,
+        league: leagueZh(f.league_id, f.league_name),
+        leagueId: f.league_id,
+        time: hhmm(f.kickoff_utc, tz),
+        live: isLive(f.status),
+        free: freeFid === f.fixture_id,
+        pH: ps.pH, pD: ps.pD, pA: ps.pA,
+        locked: !unlocked,
+        price,
+        lockText: !user ? "注册领 58 积分 · 免费解锁 1 场预测" : `解锁本场预测 · ${price} 积分`,
+        advice: unlocked ? ps.advice : null,
+        winnerText: unlocked ? ps.winnerName + (ps.winDraw ? " / 平" : "") : null,
+        uoText: unlocked && ps.uoText ? `${ps.uoLine} ${ps.uoText}` : unlocked ? "暂无方向" : null,
+        goalsText: unlocked ? `主 ${ps.goalsHome ?? "—"} 客 ${ps.goalsAway ?? "—"}` : null,
+      };
+    })
+    .filter(Boolean);
+
+  return NextResponse.json({ ok: true, cards, record: modelStats(now), loggedIn: !!user });
+}

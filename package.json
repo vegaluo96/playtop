@@ -1,15 +1,19 @@
 {
   "name": "playtop",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "PlayTop（play.top）— 平台重建中（清空旧实现，准备从头设计）",
+  "description": "足球终端（www.play.top）— 亚盘/大小球/胜平负 盘口数据终端",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "af": "tsx scripts/af-probe.ts",
+    "worker": "tsx scripts/worker.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22.5"
   },
   "dependencies": {
     "next": "^15.5.19",

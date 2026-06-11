@@ -1,12 +1,99 @@
 @import "tailwindcss";
 
+/* ── 设计 token(唯一来源:盯盘Pro 设计稿 §4)──
+   所有红/绿语义(升降、✓✗、盈亏)一律走 --up/--down,
+   用户在「我 · 涨跌配色」切换 data-scheme,严禁写死。 */
 :root {
-  --background: #0b0d10;
-  --foreground: #e8eaed;
+  --bg: #0a0b0f;
+  --card: #12141a;
+  --inset: #181b23;
+  --line: #20242e;
+  --line-soft: #181b23;
+  --fg: #eceef2;
+  --fg-2: #959ba6;
+  --fg-3: #5c626e;
+  --fg-4: #383d47;
+  --fg-mid: #c3c8d2;
+  --gold: #e9b949;
+  --gold-2: #d9a32e;
+  --home: #5b9dff;
+  --red: #f0434f;
+  --green: #2ecc8a;
+  /* 默认红升绿降 */
+  --up: var(--red);
+  --down: var(--green);
+}
+[data-scheme="gr"] {
+  --up: var(--green);
+  --down: var(--red);
 }
 
 html,
 body {
-  background: var(--background);
-  color: var(--foreground);
+  margin: 0;
+  padding: 0;
+  background: #060709;
+  color: var(--fg);
+}
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+input,
+textarea {
+  font-family: inherit;
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* 浅色模式:MVP 用 invert 方案(HANDOFF §4),正式版 token 化 */
+[data-theme="light"] .app-shell {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+@keyframes livepulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+@keyframes wcglow {
+  0%,
+  100% {
+    box-shadow: 0 0 4px rgba(233, 185, 73, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(233, 185, 73, 0.55);
+  }
+}
+@keyframes wcsweep {
+  0% {
+    transform: translateX(-50px) skewX(-20deg);
+  }
+  55%,
+  100% {
+    transform: translateX(130px) skewX(-20deg);
+  }
+}
+.livepulse {
+  animation: livepulse 1.5s infinite;
+}
+.wcglow {
+  animation: wcglow 2.4s ease-in-out infinite;
+}
+.wcsweep {
+  animation: wcsweep 2.4s linear infinite;
 }

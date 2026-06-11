@@ -1,0 +1,460 @@
+/**
+ * 详情页视图模型:matchPanorama → 6 个 tab 的渲染数据(全部中文化)。
+ */
+import { ahText, f2, hhmm, ouText } from "@/lib/format";
+import { leagueZh, roundZh } from "@/lib/leagues";
+import { freshLine, isFinished, isLive } from "../af/schedule";
+import { kvCached, kvGet } from "../af/store";
+import { runAfEndpoint } from "../af/catalog";
+import type { Panorama } from "../af/panorama";
+import { formZh, predSummary } from "./common";
+import type { SnapRow } from "../af/store";
+
+function dig(obj: unknown, ...path: (string | number)[]): unknown {
+  let cur: unknown = obj;
+  for (const k of path) {
+    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
+    else return undefined;
+  }
+  return cur;
+}
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+/* ── 赔率走势:全序列 → 变盘点行 + 折线采样 ── */
+export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
+  if (series.length === 0) return { rows: [], chart: [] };
+  const rows: { t: string; text: string; h: string; a: string; chg: boolean }[] = [];
+  let prevLine: number | null = null;
+  series.forEach((s, i) => {
+    const chg = prevLine != null && s.line !== prevLine;
+    const isEdge = i === 0 || i === series.length - 1;
+    if (isEdge || chg) {
+      rows.push({
+        t: i === 0 ? "初盘" : hhmm(s.captured_at, tz),
+        text: market === "ah" ? ahText(s.line ?? 0) : ouText(s.line ?? 0),
+        h: f2(s.h),
+        a: f2(s.a),
+        chg,
+      });
+    }
+    prevLine = s.line;
+  });
+  const capped = rows.length > 8 ? [rows[0], ...rows.slice(-7)] : rows;
+  const step = Math.max(1, Math.ceil(series.length / 40));
+  const chart = series.filter((_, i) => i % step === 0 || i === series.length - 1).map((s) => ({
+    t: hhmm(s.captured_at, tz),
+    h: s.h,
+    a: s.a,
+    chg: false,
+  }));
+  return { rows: capped, chart };
+}
+
+export function euRows(series: SnapRow[], tz: string) {
+  const pick = series.length > 5 ? [series[0], ...series.slice(-4)] : series;
+  return pick.map((s, i) => ({
+    t: i === 0 ? "初盘" : hhmm(s.captured_at, tz),
+    h: f2(s.h),
+    d: f2(s.d ?? 0),
+    a: f2(s.a),
+  }));
+}
+
+/* ── 技术面 ── */
+const STAT_ZH: [string, string][] = [
+  ["Ball Possession", "控球率"],
+  ["expected_goals", "预期进球 xG"],
+  ["Total Shots", "射门"],
+  ["Shots on Goal", "射正"],
+  ["Corner Kicks", "角球"],
+  ["Fouls", "犯规"],
+];
+
+function liveStats(bundle: Record<string, unknown>, homeId: number | null) {
+  const blocks = arr(bundle.statistics);
+  if (blocks.length < 2) return null;
+  const side = (b: unknown) => (Number(dig(b, "team", "id")) === homeId ? "h" : "a");
+  const get = (b: unknown, type: string) => {
+    const row = arr(dig(b, "statistics")).find((s) => dig(s, "type") === type);
+    const v = row ? dig(row, "value") : null;
+    return v == null ? null : String(v);
+  };
+  const home = blocks.find((b) => side(b) === "h");
+  const away = blocks.find((b) => side(b) === "a");
+  if (!home || !away) return null;
+  return STAT_ZH.map(([type, label]) => {
+    const lv = get(home, type) ?? "0";
+    const rv = get(away, type) ?? "0";
+    const num = (s: string) => parseFloat(s.replace("%", "")) || 0;
+    return { label, lv, rv, l: num(lv), r: num(rv) };
+  }).filter((row) => row.lv !== "0" || row.rv !== "0");
+}
+
+const EVENT_KIND: Record<string, string> = { Goal: "goal", Card: "yellow", subst: "sub", Var: "var" };
+
+function eventsView(bundle: Record<string, unknown>, homeId: number | null) {
+  const evs = arr(bundle.events);
+  if (evs.length === 0) return null;
+  return evs.map((e) => {
+    const type = String(dig(e, "type") ?? "");
+    const detail = String(dig(e, "detail") ?? "");
+    let k = EVENT_KIND[type] ?? "var";
+    if (type === "Card" && /red/i.test(detail)) k = "red";
+    const player = String(dig(e, "player", "name") ?? "");
+    const assist = dig(e, "assist", "name");
+    let x = player;
+    if (type === "Goal") x = `${player}${assist ? `(助攻:${assist})` : ""}${/penalty/i.test(detail) ? "(点球)" : ""}`;
+    else if (type === "subst") x = `${player} ⇄ ${assist ?? ""}`;
+    else if (type === "Var") x = `VAR:${detail}`;
+    return {
+      m: `${dig(e, "time", "elapsed") ?? ""}${dig(e, "time", "extra") ? "+" + dig(e, "time", "extra") : ""}'`,
+      s: Number(dig(e, "team", "id")) === homeId ? "主" : "客",
+      k,
+      x,
+    };
+  });
+}
+
+function minutesView(pred: Record<string, unknown> | null) {
+  if (!pred) return null;
+  const slots = ["0-15", "16-30", "31-45", "46-60", "61-75", "76-90"];
+  const get = (side: string, slot: string) =>
+    parseFloat(String(dig(pred, "teams", side, "league", "goals", "for", "minute", slot, "percentage") ?? "").replace("%", "")) || 0;
+  const rows = slots.map((slot) => ({ label: slot, h: Math.round(get("home", slot)), a: Math.round(get("away", slot)) }));
+  if (rows.every((r) => r.h === 0 && r.a === 0)) return null;
+  let mi = 0;
+  rows.forEach((r, i) => {
+    if (r.h + r.a > rows[mi].h + rows[mi].a) mi = i;
+  });
+  return { rows, note: `双方合计进球占比最高时段:${slots[mi]}′(${rows[mi].h + rows[mi].a}%)` };
+}
+
+function h2hView(pred: Record<string, unknown> | null, homeId: number | null, tz: string) {
+  if (!pred) return [];
+  return arr(dig(pred, "h2h"))
+    .slice(0, 6)
+    .map((g) => {
+      const gh = Number(dig(g, "goals", "home"));
+      const ga = Number(dig(g, "goals", "away"));
+      const curHomeIsHome = Number(dig(g, "teams", "home", "id")) === homeId;
+      const my = curHomeIsHome ? gh : ga;
+      const op = curHomeIsHome ? ga : gh;
+      const date = Date.parse(String(dig(g, "fixture", "date") ?? ""));
+      return {
+        d: Number.isFinite(date) ? new Date(date + 8 * 3_600_000).toISOString().slice(2, 10).replace(/-/g, "-") : "",
+        c: leagueZh(Number(dig(g, "league", "id")), String(dig(g, "league", "name") ?? "")),
+        s: `${gh} - ${ga}`,
+        res: my > op ? "胜" : my < op ? "负" : "平",
+        ou: gh + ga > 2.5 ? "大" : "小",
+      };
+    });
+}
+
+async function standingsView(leagueId: number, season: number, homeId: number | null, awayId: number | null) {
+  try {
+    const table = await kvCached<unknown[]>(`lg:${leagueId}:${season}:standings`, 6 * 3_600_000, async () => {
+      const r = await runAfEndpoint("standings", { league: String(leagueId), season: String(season) });
+      const groups = arr(dig(arr(r.response)[0], "league", "standings"));
+      return arr(groups[0]);
+    });
+    const pickRow = (teamId: number | null) => table.find((row) => Number(dig(row, "team", "id")) === teamId);
+    return [pickRow(homeId), pickRow(awayId)]
+      .filter(Boolean)
+      .map((row) => ({
+        rk: Number(dig(row, "rank")) || 0,
+        team: String(dig(row, "team", "name") ?? ""),
+        rec: `${dig(row, "all", "win")}胜 ${dig(row, "all", "draw")}平 ${dig(row, "all", "lose")}负`,
+        gd: `${Number(dig(row, "goalsDiff")) >= 0 ? "+" : ""}${dig(row, "goalsDiff")}`,
+        pts: Number(dig(row, "points")) || 0,
+        ha: `主场 ${dig(row, "home", "win")}胜${dig(row, "home", "draw")}平${dig(row, "home", "lose")}负`,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/* ── 阵容 ── */
+function lineupSide(lu: unknown) {
+  const rowsMap = new Map<number, { col: number; name: string }[]>();
+  for (const p of arr(dig(lu, "startXI"))) {
+    const grid = String(dig(p, "player", "grid") ?? "");
+    const [row, col] = grid.split(":").map(Number);
+    const name = String(dig(p, "player", "name") ?? "");
+    if (!Number.isFinite(row)) continue;
+    if (!rowsMap.has(row)) rowsMap.set(row, []);
+    rowsMap.get(row)!.push({ col: col || 0, name });
+  }
+  const rows = [...rowsMap.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, ps]) => ps.sort((x, y) => x.col - y.col).map((p) => p.name));
+  return {
+    form: String(dig(lu, "formation") ?? ""),
+    coach: String(dig(lu, "coach", "name") ?? ""),
+    rows,
+  };
+}
+
+function lineupsView(bundle: Record<string, unknown>, homeId: number | null) {
+  const lus = arr(bundle.lineups);
+  if (lus.length < 2) return { ready: false as const };
+  const home = lus.find((l) => Number(dig(l, "team", "id")) === homeId) ?? lus[0];
+  const away = lus.find((l) => l !== home) ?? lus[1];
+  return { ready: true as const, home: lineupSide(home), away: lineupSide(away) };
+}
+
+/* ── 情报 ── */
+const INJURY_TAG: [RegExp, string][] = [
+  [/missing/i, "缺阵"],
+  [/questionable|doubtful/i, "存疑"],
+];
+function intelView(injuries: unknown[], homeId: number | null) {
+  return injuries.slice(0, 12).map((i) => {
+    const type = String(dig(i, "player", "type") ?? "");
+    const tag = INJURY_TAG.find(([re]) => re.test(type))?.[1] ?? "存疑";
+    return {
+      side: Number(dig(i, "team", "id")) === homeId ? "主" : "客",
+      tag,
+      x: `${dig(i, "player", "name") ?? ""} · ${dig(i, "player", "reason") ?? "未注明原因"}`,
+    };
+  });
+}
+
+/* ── 深挖 ── */
+async function deepView(p: Panorama) {
+  if (!p.deep) return null;
+  const d = p.deep;
+  const fx = p.fixture;
+  const statName = (it: unknown) => String(dig(it, "player", "name") ?? "");
+  const stat0 = (it: unknown, ...path: (string | number)[]) => dig(arr(dig(it, "statistics"))[0], ...path);
+  const lb = [
+    { tag: "射手王", tagC: "#e9b949", it: d.topscorers[0], v: (it: unknown) => `${stat0(it, "goals", "total") ?? 0} 球` },
+    { tag: "助攻王", tagC: "#5b9dff", it: d.topassists[0], v: (it: unknown) => `${stat0(it, "goals", "assists") ?? 0} 助攻` },
+    { tag: "黄牌王", tagC: "#e9b949", it: d.topyellow[0], v: (it: unknown) => `${stat0(it, "cards", "yellow") ?? 0} 黄` },
+    { tag: "红牌王", tagC: "#f0434f", it: d.topred[0], v: (it: unknown) => `${stat0(it, "cards", "red") ?? 0} 红` },
+  ].map((r) => ({ tag: r.tag, tagC: r.tagC, name: r.it ? statName(r.it) : "—", v: r.it ? r.v(r.it) : "数据积累中" }));
+
+  // 球场:fixture payload 自带 venue 名称/城市;容量等取 /venues?id=
+  const venueId = Number(dig(p.bundle, "fixture", "venue", "id")) || null;
+  let venue: { name: string; city: string; cap: string; surface: string; country: string } = {
+    name: String(dig(p.bundle, "fixture", "venue", "name") ?? "—"),
+    city: String(dig(p.bundle, "fixture", "venue", "city") ?? ""),
+    cap: "—", surface: "—", country: "",
+  };
+  if (venueId) {
+    try {
+      const v = await kvCached<unknown>(`venue:${venueId}`, 30 * 86_400_000, async () => {
+        const r = await runAfEndpoint("venues", { id: String(venueId) });
+        return arr(r.response)[0] ?? null;
+      });
+      if (v) {
+        const capN = Number(dig(v, "capacity"));
+        venue = {
+          name: String(dig(v, "name") ?? venue.name),
+          city: String(dig(v, "city") ?? venue.city),
+          cap: capN ? `${(capN / 10_000).toFixed(1)} 万` : "—",
+          surface: /grass/i.test(String(dig(v, "surface") ?? "")) ? "天然草" : String(dig(v, "surface") ?? "—"),
+          country: String(dig(v, "country") ?? ""),
+        };
+      }
+    } catch {
+      /* 留默认 */
+    }
+  }
+
+  const pred = p.prediction;
+  const teamGoals = (side: string) => Number(dig(pred, "teams", side, "league", "goals", "for", "total", "total")) || 0;
+  const scorersOf = (teamId: number | null, side: "h" | "a") =>
+    d.topscorers
+      .filter((it) => Number(dig(it, "statistics", 0, "team", "id")) === teamId)
+      .slice(0, 1)
+      .map((it) => {
+        const goals = Number(stat0(it, "goals", "total")) || 0;
+        const total = teamGoals(side === "h" ? "home" : "away");
+        const share = total > 0 ? Math.round((goals / total) * 100) : null;
+        return { side, name: statName(it), pos: String(stat0(it, "games", "position") ?? ""), goals, share };
+      });
+  const scorers = [...scorersOf(fx.home_id, "h"), ...scorersOf(fx.away_id, "a")];
+
+  const ratingsOf = (teamId: number | null, side: "h" | "a") =>
+    d.topscorers
+      .filter((it) => Number(dig(it, "statistics", 0, "team", "id")) === teamId)
+      .slice(0, 3)
+      .map((it) => ({
+        side,
+        name: statName(it),
+        pos: String(stat0(it, "games", "position") ?? "").slice(0, 2).toUpperCase(),
+        r: Number(parseFloat(String(stat0(it, "games", "rating") ?? ""))) || null,
+      }))
+      .filter((r) => r.r != null);
+  const ratings = [...ratingsOf(fx.home_id, "h"), ...ratingsOf(fx.away_id, "a")];
+
+  const coachView = (c: unknown, trophies: unknown[], side: "h" | "a") => {
+    if (!c) return null;
+    const job = arr(dig(c, "career")).find((j) => dig(j, "end") == null);
+    const start = String(dig(job, "start") ?? "").slice(0, 4);
+    return {
+      side,
+      name: String(dig(c, "name") ?? ""),
+      meta: start ? `${start} 上任` : "现任主帅",
+      trophies: trophies.length,
+    };
+  };
+  const coaches = [coachView(d.coachHome, d.trophiesHomeCoach, "h"), coachView(d.coachAway, d.trophiesAwayCoach, "a")].filter(
+    Boolean,
+  ) as { side: string; name: string; meta: string; trophies: number }[];
+
+  const transferView = (list: unknown[], team: string, teamId: number | null) => {
+    const last = list
+      .flatMap((it) => arr(dig(it, "transfers")).map((tr) => ({ tr, player: dig(it, "player", "name") })))
+      .sort((x, y) => Date.parse(String(dig(y.tr, "date") ?? 0)) - Date.parse(String(dig(x.tr, "date") ?? 0)))[0];
+    if (!last) return { team, tag: "无变动", x: "近两个转会窗无一线队进出记录" };
+    const inbound = Number(dig(last.tr, "teams", "in", "id")) === teamId;
+    return {
+      team,
+      tag: inbound ? "转入" : "转出",
+      x: `${last.player}(${String(dig(last.tr, "date") ?? "").slice(0, 10)} · ${dig(last.tr, "type") ?? "转会"})`,
+    };
+  };
+  const transfers = [transferView(d.transfersHome, fx.home_name, fx.home_id), transferView(d.transfersAway, fx.away_name, fx.away_id)];
+
+  const depthOf = (squad: unknown, team: string) => {
+    const players = arr(dig(squad, "players"));
+    if (players.length === 0) return { team, x: "名单数据积累中" };
+    const ages = players.map((pl) => Number(dig(pl, "age"))).filter(Boolean);
+    const avg = ages.length > 0 ? (ages.reduce((s, v) => s + v, 0) / ages.length).toFixed(1) : "—";
+    return { team, x: `一线队 ${players.length} 人 · 平均年龄 ${avg} 岁` };
+  };
+  const depth = [depthOf(d.squadHome, fx.home_name), depthOf(d.squadAway, fx.away_name)];
+
+  const motiv = coaches.map((c) => `${c.name}:执教生涯冠军 ${c.trophies} 座`);
+
+  return { lb, venue, scorers, ratings, coaches, transfers, depth, motiv };
+}
+
+/* ── 汇总 ── */
+export async function detailView(p: Panorama, tz: string, opts: { deep: boolean }) {
+  const fx = p.fixture;
+  const now = Date.now();
+  const live = isLive(fx.status);
+  const pred = p.prediction;
+  const ps = predSummary(pred, fx.home_id);
+  const ah = seriesRows(p.odds.ah, "ah", tz);
+  const ou = seriesRows(p.odds.ou, "ou", tz);
+  const lastOf = (s: SnapRow[]) => (s.length > 0 ? s[s.length - 1] : null);
+  const ahL = lastOf(p.odds.ah);
+  const ouL = lastOf(p.odds.ou);
+  const euL = lastOf(p.odds.eu);
+
+  // 滚球实时盘(worker 每分钟落 kv)
+  let liveOdds: { mk: string; v: string; susp: boolean }[] | null = null;
+  if (live) {
+    try {
+      const raw = kvGet(`fx:${fx.fixture_id}:liveodds`);
+      const data = raw ? (JSON.parse(raw) as { at: number; data: unknown }).data : null;
+      const odds = arr(dig(data, "odds"));
+      const find = (re: RegExp) => odds.find((o) => re.test(String(dig(o, "name") ?? "")));
+      const fmtAh = (o: unknown) => {
+        const vals = arr(dig(o, "values"));
+        const h = vals.find((v) => dig(v, "value") === "Home" || /home/i.test(String(dig(v, "value"))));
+        const a = vals.find((v) => dig(v, "value") === "Away" || /away/i.test(String(dig(v, "value"))));
+        const hc = parseFloat(String(dig(h, "handicap") ?? ""));
+        if (!h || !a) return null;
+        const suspended = Boolean(dig(h, "suspended")) || Boolean(dig(a, "suspended"));
+        return {
+          text: Number.isFinite(hc) ? ahText(-hc) : "",
+          v: `${f2(parseFloat(String(dig(h, "odd"))) - 1)} / ${f2(parseFloat(String(dig(a, "odd"))) - 1)}`,
+          susp: suspended,
+        };
+      };
+      const rowsOut: { mk: string; v: string; susp: boolean }[] = [];
+      const ahO = find(/asian handicap/i);
+      const ouO = find(/over\/under/i);
+      const x12 = find(/fulltime result|match winner|1x2/i);
+      if (ahO) {
+        const r = fmtAh(ahO);
+        if (r) rowsOut.push({ mk: "亚盘", v: r.susp ? "" : `${r.text} · ${r.v}`, susp: r.susp });
+      }
+      if (ouO) {
+        const vals = arr(dig(ouO, "values"));
+        const over = vals.find((v) => /over/i.test(String(dig(v, "value"))));
+        const under = vals.find((v) => /under/i.test(String(dig(v, "value"))));
+        const susp = Boolean(dig(over, "suspended")) || Boolean(dig(under, "suspended"));
+        if (over && under) {
+          const hc = parseFloat(String(dig(over, "handicap") ?? ""));
+          rowsOut.push({
+            mk: "大小",
+            v: susp ? "" : `${Number.isFinite(hc) ? hc + " 球" : ""} · ${f2(parseFloat(String(dig(over, "odd"))) - 1)} / ${f2(parseFloat(String(dig(under, "odd"))) - 1)}`,
+            susp,
+          });
+        }
+      }
+      if (x12) {
+        const vals = arr(dig(x12, "values"));
+        const g = (name: string) => vals.find((v) => String(dig(v, "value")) === name);
+        const h = g("Home"), dd = g("Draw"), a = g("Away");
+        const susp = [h, dd, a].some((v) => Boolean(dig(v, "suspended")));
+        if (h && dd && a)
+          rowsOut.push({
+            mk: "胜平负",
+            v: susp ? "" : `${f2(parseFloat(String(dig(h, "odd"))))} / ${f2(parseFloat(String(dig(dd, "odd"))))} / ${f2(parseFloat(String(dig(a, "odd"))))}`,
+            susp,
+          });
+      }
+      liveOdds = rowsOut.length > 0 ? rowsOut : null;
+    } catch {
+      liveOdds = null;
+    }
+  }
+
+  const compMap = (list: Panorama["odds"]["compareAh"], market: "ah" | "ou") =>
+    list.slice(0, 6).map((c) => ({
+      co: c.bookmaker,
+      iText: market === "ah" ? ahText(c.first.line ?? 0) : ouText(c.first.line ?? 0),
+      iW: `${f2(c.first.h)} / ${f2(c.first.a)}`,
+      nText: market === "ah" ? ahText(c.last.line ?? 0) : ouText(c.last.line ?? 0),
+      nW: `${f2(c.last.h)} / ${f2(c.last.a)}`,
+      changed: c.first.line !== c.last.line,
+    }));
+  const compEu = p.odds.compareEu.slice(0, 6).map((c) => ({
+    co: c.bookmaker,
+    iW: `${f2(c.first.h)} / ${f2(c.first.d ?? 0)} / ${f2(c.first.a)}`,
+    nW: `${f2(c.last.h)} / ${f2(c.last.d ?? 0)} / ${f2(c.last.a)}`,
+  }));
+
+  return {
+    header: {
+      id: fx.fixture_id,
+      leagueId: fx.league_id,
+      league: leagueZh(fx.league_id, fx.league_name),
+      round: roundZh(fx.round),
+      home: fx.home_name,
+      away: fx.away_name,
+      live,
+      finished: isFinished(fx.status),
+      score: fx.goals_home != null ? `${fx.goals_home}-${fx.goals_away}` : null,
+      elapsed: fx.elapsed,
+      kickoff: fx.kickoff_utc,
+      fresh: freshLine(fx.kickoff_utc, now, fx.status),
+    },
+    summary: {
+      ah: ahL ? { text: ahText(ahL.line ?? 0), w: `${f2(ahL.h)}/${f2(ahL.a)}` } : null,
+      ou: ouL ? { text: ouText(ouL.line ?? 0), w: `${f2(ouL.h)}/${f2(ouL.a)}` } : null,
+      eu: euL ? { w: `${f2(euL.h)}/${f2(euL.d ?? 0)}/${f2(euL.a)}` } : null,
+    },
+    liveOdds,
+    odds: { ah, ou, eu: euRows(p.odds.eu, tz), euChart: p.odds.eu.slice(-40).map((s) => ({ t: hhmm(s.captured_at, tz), h: s.h, a: s.a, d: s.d ?? 0 })) },
+    comp: { ah: compMap(p.odds.compareAh, "ah"), ou: compMap(p.odds.compareOu, "ou"), eu: compEu },
+    tech: {
+      events: eventsView(p.bundle, fx.home_id),
+      stats: liveStats(p.bundle, fx.home_id),
+      formHome: ps ? formZh(ps.formHome) : [],
+      formAway: ps ? formZh(ps.formAway) : [],
+      h2h: h2hView(pred, fx.home_id, tz),
+      minutes: minutesView(pred),
+      standings: await standingsView(fx.league_id, fx.season, fx.home_id, fx.away_id),
+    },
+    lineups: lineupsView(p.bundle, fx.home_id),
+    intel: intelView(p.injuries, fx.home_id),
+    deep: opts.deep ? await deepView(p) : null,
+  };
+}

@@ -1,0 +1,189 @@
+/**
+ * 平台数据库:node:sqlite(Node ≥ 22,零外部依赖),WAL,单例。
+ * 路径:env PLAYTOP_DB(默认 data/playtop.db;测试用 :memory:)。
+ * 表分两域:平台账务(users/ledger/unlocks…)与数据层归档(fixtures_cache/odds_*…)。
+ */
+import { DatabaseSync } from "node:sqlite";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL UNIQUE,
+  pass_hash TEXT NOT NULL,
+  pts INTEGER NOT NULL DEFAULT 0,
+  invite_code TEXT NOT NULL UNIQUE,
+  invited_by INTEGER,
+  gift_claimed INTEGER NOT NULL DEFAULT 0,
+  first_recharged INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ledger (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,
+  delta INTEGER NOT NULL,
+  balance INTEGER NOT NULL,
+  note TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ledger_user ON ledger(user_id, id DESC);
+CREATE TABLE IF NOT EXISTS unlocks (
+  user_id INTEGER NOT NULL,
+  fixture_id INTEGER NOT NULL,
+  price INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, fixture_id)
+);
+CREATE TABLE IF NOT EXISTS redeem_codes (
+  code TEXT PRIMARY KEY,
+  points INTEGER NOT NULL,
+  max_uses INTEGER NOT NULL DEFAULT 1,
+  used_count INTEGER NOT NULL DEFAULT 0,
+  expires_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS redemptions (
+  code TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (code, user_id)
+);
+CREATE TABLE IF NOT EXISTS invites (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  inviter_id INTEGER NOT NULL,
+  invitee_id INTEGER NOT NULL UNIQUE,
+  credited INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_invites_inviter ON invites(inviter_id, created_at);
+CREATE TABLE IF NOT EXISTS tickets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  body TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT '处理中',
+  created_at INTEGER NOT NULL
+);
+
+-- ── 数据层归档(AF 快照;赛前 odds 仅 1–14 天窗口,必须持续落库)──
+CREATE TABLE IF NOT EXISTS fixtures_cache (
+  fixture_id INTEGER PRIMARY KEY,
+  league_id INTEGER NOT NULL,
+  season INTEGER NOT NULL,
+  league_name TEXT NOT NULL DEFAULT '',
+  round TEXT NOT NULL DEFAULT '',
+  kickoff_utc INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'NS',
+  elapsed INTEGER,
+  home_id INTEGER, home_name TEXT NOT NULL DEFAULT '',
+  away_id INTEGER, away_name TEXT NOT NULL DEFAULT '',
+  goals_home INTEGER, goals_away INTEGER,
+  payload TEXT NOT NULL DEFAULT '{}',
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_fixtures_kickoff ON fixtures_cache(kickoff_utc);
+CREATE TABLE IF NOT EXISTS odds_raw (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fixture_id INTEGER NOT NULL,
+  payload TEXT NOT NULL,
+  captured_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_odds_raw_fixture ON odds_raw(fixture_id, captured_at);
+CREATE TABLE IF NOT EXISTS odds_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fixture_id INTEGER NOT NULL,
+  bookmaker_id INTEGER NOT NULL,
+  bookmaker TEXT NOT NULL,
+  market TEXT NOT NULL,          -- 'ah' 亚盘 | 'ou' 大小 | 'eu' 胜平负
+  line REAL,                     -- ah/ou 盘口;eu 为 NULL
+  h REAL, a REAL, d REAL,        -- ah:主/客水 ou:大/小水 eu:主/客/平
+  captured_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_odds_snap ON odds_snapshots(fixture_id, market, bookmaker_id, captured_at);
+CREATE TABLE IF NOT EXISTS movements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fixture_id INTEGER NOT NULL,
+  market TEXT NOT NULL,
+  bookmaker TEXT NOT NULL,
+  type TEXT NOT NULL,            -- 升盘 | 降盘 | 水位
+  from_line REAL, to_line REAL,
+  from_h REAL, to_h REAL, from_a REAL, to_a REAL,
+  sev INTEGER NOT NULL DEFAULT 0,
+  t0 INTEGER NOT NULL,
+  t1 INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_movements_time ON movements(t1 DESC);
+CREATE TABLE IF NOT EXISTS predictions_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fixture_id INTEGER NOT NULL,
+  payload TEXT NOT NULL,
+  captured_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pred_snap ON predictions_snapshots(fixture_id, captured_at);
+CREATE TABLE IF NOT EXISTS model_records (
+  fixture_id INTEGER PRIMARY KEY,
+  date TEXT NOT NULL,
+  match_name TEXT NOT NULL DEFAULT '',
+  pick TEXT NOT NULL DEFAULT '',
+  score TEXT,
+  hit INTEGER,
+  settled_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_model_records_date ON model_records(date);
+CREATE TABLE IF NOT EXISTS daily_free (
+  date TEXT PRIMARY KEY,
+  fixture_id INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS kv (
+  k TEXT PRIMARY KEY,
+  v TEXT NOT NULL
+);
+`;
+
+let _db: DatabaseSync | null = null;
+
+export function db(): DatabaseSync {
+  if (_db) return _db;
+  const path = process.env.PLAYTOP_DB || "data/playtop.db";
+  if (path !== ":memory:") {
+    try {
+      mkdirSync(dirname(path), { recursive: true });
+    } catch {
+      /* 已存在 */
+    }
+  }
+  _db = new DatabaseSync(path);
+  if (path !== ":memory:") _db.exec("PRAGMA journal_mode = WAL;");
+  _db.exec(SCHEMA);
+  return _db;
+}
+
+/** 事务包装(node:sqlite 无内置 helper) */
+export function tx<T>(fn: () => T): T {
+  const d = db();
+  d.exec("BEGIN IMMEDIATE");
+  try {
+    const r = fn();
+    d.exec("COMMIT");
+    return r;
+  } catch (e) {
+    d.exec("ROLLBACK");
+    throw e;
+  }
+}
+
+/** 仅测试用:关闭并重置单例(配合 PLAYTOP_DB=:memory:) */
+export function _resetDbForTest(): void {
+  try {
+    _db?.close();
+  } catch {
+    /* ignore */
+  }
+  _db = null;
+}
