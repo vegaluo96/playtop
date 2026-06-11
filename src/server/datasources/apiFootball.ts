@@ -619,19 +619,23 @@ export interface AfFormMatch {
   goalsAgainst: number;
   shots?: number;
   shotsOnTarget?: number;
+  /** 本队该场 xG（进攻质量） */
   xg?: number;
+  /** 对手该场 xG = 本队被创造的预期失球（防守质量） */
+  xgAgainst?: number;
   possession?: number;
 }
 
-/** 某队近 N 场已完赛（相对该队的进失球/对手/主客） */
-export function parseAfTeamFixtures(json: unknown, teamId: number): { fixtureId: number; m: AfFormMatch }[] {
-  const out: { fixtureId: number; m: AfFormMatch }[] = [];
+/** 某队近 N 场已完赛（相对该队的进失球/对手/主客 + 对手 id 供取防守 xG） */
+export function parseAfTeamFixtures(json: unknown, teamId: number): { fixtureId: number; opponentId: number; m: AfFormMatch }[] {
+  const out: { fixtureId: number; opponentId: number; m: AfFormMatch }[] = [];
   for (const f of parseAfFixtures(json)) {
     if (f.ftHome === null || f.ftAway === null) continue;
     const isHome = f.homeId === teamId;
     if (!isHome && f.awayId !== teamId) continue;
     out.push({
       fixtureId: f.fixtureId,
+      opponentId: isHome ? f.awayId : f.homeId,
       m: {
         playedAt: f.kickoffAt,
         opponent: isHome ? f.awayName : f.homeName,
@@ -671,16 +675,25 @@ export function parseAfFixtureStats(json: unknown, teamId: number): Pick<AfFormM
   };
 }
 
-async function fetchAfFixtureStats(fixtureId: number, teamId: number, force = false) {
-  return parseAfFixtureStats(await afGet(`/fixtures/statistics?fixture=${fixtureId}&team=${teamId}`, force), teamId);
+/** 单场统计：一次请求拿回两队 → 本队 xG（进攻）+ 对手 xG（防守失） */
+async function fetchAfFixtureStatsBoth(
+  fixtureId: number,
+  teamId: number,
+  opponentId: number,
+  force = false,
+): Promise<Pick<AfFormMatch, "shots" | "shotsOnTarget" | "xg" | "possession" | "xgAgainst">> {
+  const json = await afGet(`/fixtures/statistics?fixture=${fixtureId}`, force);
+  const mine = parseAfFixtureStats(json, teamId);
+  const opp = parseAfFixtureStats(json, opponentId);
+  return { ...mine, xgAgainst: opp.xg };
 }
 
-/** 球队近 N 场状态（含射门质量）：1 次 fixtures + N 次 statistics。Ultra 配额下取满 10 场 */
+/** 球队近 N 场状态（含两侧 xG）：1 次 fixtures + N 次 statistics。Ultra 配额下取满 10 场 */
 export async function fetchAfTeamForm(teamId: number, last = 10, force = false): Promise<AfFormMatch[]> {
   const recent = parseAfTeamFixtures(await afGet(`/fixtures?team=${teamId}&last=${last}`, force), teamId);
   const enriched = await Promise.all(
-    recent.map(async ({ fixtureId, m }) => {
-      const st = await fetchAfFixtureStats(fixtureId, teamId, force).catch(() => ({}));
+    recent.map(async ({ fixtureId, opponentId, m }) => {
+      const st = await fetchAfFixtureStatsBoth(fixtureId, teamId, opponentId, force).catch(() => ({}));
       return { ...m, ...st };
     }),
   );

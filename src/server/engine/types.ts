@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ENGINE_MODEL_VERSION = "engine-1.2.0";
+export const ENGINE_MODEL_VERSION = "engine-1.3.0";
 
 /** 三向概率/赔率 */
 export const threeWaySchema = z.object({
@@ -72,6 +72,11 @@ export interface EngineParams {
   bookWeights: Record<string, number>;
   /** 锐价真值锚书商（硬庄口径）：单独去水做"市场真值"，用于价差监测/滞后偏离 */
   sharpBooks: string[];
+  /**
+   * xG 融合系数 θ_xg∈[0,1]：把近期 xG 推算的期望进球与 Dixon-Coles 历史估计融合。
+   * xG 比进球更早反映实力（短期更稳）；0 = 关闭；缺 xG 数据时自动跳过。
+   */
+  xgBlend: number;
   kellyFraction: number;
   kellyCap: number;
   evThreshold: number;
@@ -96,6 +101,14 @@ export interface EngineBundle {
   odds?: NormalizedOdds;
   /** 多家书商各自最新盘口（缺省时回落到 odds 单家）；引擎内做共识与最优价 */
   books?: NormalizedOdds[];
+  /**
+   * 近期 xG 聚合（来自 AF fixtures/statistics）：每队近 N 场场均 xG（进攻）与场均被创造 xG（防守失）。
+   * 缺数据时省略，引擎自动跳过 xG 融合。
+   */
+  xg?: {
+    home: { forAvg: number; againstAvg: number; n: number };
+    away: { forAvg: number; againstAvg: number; n: number };
+  };
   oddsSeries?: NormalizedOdds[];
   injuries?: InjuryItem[];
   weather?: WeatherInfo;

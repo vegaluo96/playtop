@@ -99,6 +99,8 @@ export const engineConfigSchema = z.object({
   sharpBooks: z.array(z.string()).default(["Pinnacle"]),
   /** 射门质量混合系数 θ（Wheatcroft 2020），0 关闭 */
   shotsBlendTheta: z.number().min(0).max(1).default(0.35),
+  /** xG 融合系数 θ_xg（近期 xG 推算期望进球与 DC 估计融合），0 关闭 */
+  xgBlend: z.number().min(0).max(1).default(0.3),
   kellyFraction: z.number().default(0.25),
   kellyCap: z.number().default(0.05),
   /** EV 超过该阈值才标记价值偏差/生成 pick */

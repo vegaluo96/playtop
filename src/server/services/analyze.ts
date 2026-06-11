@@ -60,6 +60,7 @@ export function engineParamsFromConfig(): EngineParams {
     ensembleWeights: cfg.ensembleWeights,
     bookWeights: cfg.bookWeights,
     sharpBooks: cfg.sharpBooks,
+    xgBlend: cfg.xgBlend,
     kellyFraction: cfg.kellyFraction,
     kellyCap: cfg.kellyCap,
     evThreshold: cfg.evThreshold,
@@ -154,6 +155,19 @@ export async function analyzeMatch(
   const snaps = latestSnapshots(matchId);
 
   const odds = snapshotPayload<NormalizedOdds>(snaps.get("odds"));
+  const formPayload = snapshotPayload<z.infer<typeof formPayloadSchema>>(snaps.get("form"));
+  // 近期 xG 聚合（AF fixtures/statistics）：场均进攻 xG 与被创造 xG（防守失），喂引擎 xG 融合
+  const xgAgg = (side: "home" | "away") => {
+    const recent = formPayload?.[side].recent ?? [];
+    const f = recent.map((r) => r.xg).filter((x): x is number => x !== undefined);
+    const a = recent.map((r) => r.xgAgainst).filter((x): x is number => x !== undefined);
+    const n = Math.min(f.length, a.length);
+    if (n < 3) return null;
+    const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+    return { forAvg: mean(f), againstAvg: mean(a), n };
+  };
+  const xgHome = xgAgg("home");
+  const xgAway = xgAgg("away");
   const injuriesPayload = snapshotPayload<z.infer<typeof injuriesPayloadSchema>>(snaps.get("injuries"));
   const suspensionsPayload = snapshotPayload<z.infer<typeof injuriesPayloadSchema>>(snaps.get("suspensions"));
   const weather = snapshotPayload<z.infer<typeof weatherPayloadSchema>>(snaps.get("weather"));
@@ -173,6 +187,7 @@ export async function analyzeMatch(
     odds: odds ?? undefined,
     books: latestOddsBooks(matchId),
     oddsSeries: oddsSeries(matchId),
+    xg: xgHome && xgAway ? { home: xgHome, away: xgAway } : undefined,
     injuries,
     weather: weather
       ? {

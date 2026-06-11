@@ -157,6 +157,30 @@ export function runEngine(bundle: EngineBundle, params: EngineParams): EngineOut
     trace.push("既无足够历史也无盘口，无法构建比分分布（等级 4）");
   }
 
+  // ---------- 2b. xG 融合（近期 xG 推算期望进球，与 DC 估计加权融合） ----------
+  // xG 比进球更早反映实力（Brechot & Flepp 2020 等）；两侧口径：
+  // λ_xg = 主队近期场均 xG（进攻）× 客队近期场均被创造 xG / 联赛基线（防守）。
+  if (fallbackLevel < 4 && params.xgBlend > 0 && bundle.xg && bundle.xg.home.n >= 3 && bundle.xg.away.n >= 3) {
+    const xh = bundle.xg.home;
+    const xa = bundle.xg.away;
+    // 联赛 xG 基线 = 四个分量均值（典型单队场均 xG ≈ 1.2-1.4），用于把"对手防守"归一为相对强弱
+    const baseline = Math.max(0.3, (xh.forAvg + xh.againstAvg + xa.forAvg + xa.againstAvg) / 4);
+    const lambdaXg = xh.forAvg * (xa.againstAvg / baseline);
+    const muXg = xa.forAvg * (xh.againstAvg / baseline);
+    if (lambdaXg > 0 && muXg > 0) {
+      const t = params.xgBlend;
+      const lambdaPrev = lambda;
+      const muPrev = mu;
+      lambda = (1 - t) * lambda + t * lambdaXg;
+      mu = (1 - t) * mu + t * muXg;
+      trace.push(
+        `xG 融合（θ=${t}）：近期 主 xG攻 ${xh.forAvg.toFixed(2)}/被攻 ${xh.againstAvg.toFixed(2)}，` +
+          `客 xG攻 ${xa.forAvg.toFixed(2)}/被攻 ${xa.againstAvg.toFixed(2)} → λ_xg=${lambdaXg.toFixed(3)}/μ_xg=${muXg.toFixed(3)}；` +
+          `λ ${lambdaPrev.toFixed(3)}→${lambda.toFixed(3)}，μ ${muPrev.toFixed(3)}→${mu.toFixed(3)}`,
+      );
+    }
+  }
+
   // ---------- 3. 情境修正层 ----------
   let adjustments: EngineOutput["adjustments"] = [];
   if (fallbackLevel < 4) {
