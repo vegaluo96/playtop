@@ -132,6 +132,16 @@ describe("getLlmReport 开赛锁定", () => {
     expect(listReportVersions(9)).toHaveLength(0);
   });
 
+  it("已开赛时拒绝复用旧事实指纹缓存", async () => {
+    db()
+      .prepare("INSERT INTO report_cache (fixture_id, fingerprint, content, model, tokens, gen_at) VALUES (?,?,?,?,?,?)")
+      .run(9, "old-fingerprint", JSON.stringify([{ h: "旧报告", ps: ["33/33/33"] }]), "old-model", 10, now - 60_000);
+
+    await expect(getLlmReport(pano("1H"), secs)).resolves.toBeNull();
+    expect(chatComplete).not.toHaveBeenCalled();
+    expect(listReportVersions(9)).toHaveLength(0);
+  });
+
   it("未开赛可正常调用模型并追加版本", async () => {
     await expect(getLlmReport(pano("NS"), secs)).resolves.toMatchObject({ by: expect.any(String) });
     expect(chatComplete).toHaveBeenCalledTimes(1);
