@@ -18,7 +18,6 @@ import { useRechargeTiers } from "@/components/unlock-flow";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
-import { useWatchlist, WatchStar } from "@/components/watch";
 import { MarketValue } from "@/components/market-cell";
 import { ProbBar } from "@/components/charts";
 import {
@@ -78,7 +77,6 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   selRef.current = sel;
   const siteCfg = useSiteConfig();
   const leagueChips = siteCfg?.leagues ?? LEAGUES.map((l) => ({ id: l.id, zh: l.zh, color: l.color, on: true, wc: l.wc }));
-  const watch = useWatchlist(me.loggedIn);
   const [radar, setRadar] = useState<V[]>([]); // 滚球雷达:全部进行中场次(右栏全局视野)
   const [compactDesktop, setCompactDesktop] = useState(false);
 
@@ -311,7 +309,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 const active = league === l.id;
                 return l.wc ? (
                   <div key={l.id} onClick={() => setLeague(l.id)} className={active ? "wcglow" : undefined} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, cursor: "pointer", background: active ? "var(--selected-bg-strong)" : "var(--card)", color: active ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${active ? "var(--selected-border-strong)" : "var(--selected-border-soft)"}` }}>
-                    <span style={{ color: "var(--gold)" }}>★</span> {l.zh}
+                    {l.zh}
                   </div>
                 ) : (
                   <div key={l.id} onClick={() => setLeague(l.id)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", background: active ? "var(--selected-bg)" : "var(--card)", color: active ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${active ? "var(--selected-border)" : "var(--line)"}` }}>
@@ -324,9 +322,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
             {(() => {
               const kw = search.trim().toLowerCase();
-              const filtered = kw ? rows.filter((m) => `${m.home}${m.away}`.toLowerCase().includes(kw)) : rows;
-              // 关注置顶(组内保持开球时间序)
-              const shown = [...filtered.filter((m) => watch.ids.has(m.id)), ...filtered.filter((m) => !watch.ids.has(m.id))];
+              const shown = kw ? rows.filter((m) => `${m.home}${m.away}`.toLowerCase().includes(kw)) : rows;
               return (
                 <>
                   {shown.length === 0 && (
@@ -359,7 +355,6 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                           {[m.ex.ht ? `半 ${m.ex.ht}` : null, m.ex.cor ? `角 ${m.ex.cor}` : null, m.ex.red ? `红 ${m.ex.red}` : null].filter(Boolean).join(" · ")}
                         </span>
                       )}
-                      {!m.masked && <WatchStar on={watch.ids.has(m.id)} onToggle={() => watch.toggle(m.id)} size={11} style={{ marginLeft: "auto" }} />}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
                       <TeamLogo id={m.homeId} name={m.home} src={m.homeLogo} size={14} />

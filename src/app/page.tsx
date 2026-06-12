@@ -15,7 +15,6 @@ import { hhmm, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
 import { Flash, useUnifiedPoll } from "@/components/live";
 import { MarketCell, type MarketCellData } from "@/components/market-cell";
-import { useWatchlist, WatchStar } from "@/components/watch";
 import { useIsDesktop } from "@/components/use-viewport";
 import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 
@@ -72,8 +71,7 @@ function MobileMatchesPage() {
   const [liveCount, setLiveCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
-  const { prefs, me } = useApp();
-  const watch = useWatchlist(me.loggedIn);
+  const { prefs } = useApp();
   const router = useRouter();
   // 联赛 chips:后台配置(含顺序)优先,静态表兜底
   const siteCfg = useSiteConfig();
@@ -163,7 +161,6 @@ function MobileMatchesPage() {
                 {tag}
               </span>
             )}
-            {!m.masked && <WatchStar on={watch.ids.has(m.id)} onToggle={() => watch.toggle(m.id)} size={13} style={{ marginRight: -6 }} />}
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 70px 70px 70px", gap: 8, alignItems: "center" }}>
@@ -251,7 +248,6 @@ function MobileMatchesPage() {
         <Chip label="全部" active={league === "all"} onClick={() => setLeague("all")} style={{ padding: "5px 12px", fontSize: 11 }} />
         {leagueChips.map((l) =>
           l.wc ? (
-            // 世界杯:仅以 ★ 与微弱描边突出,未选中态不得与「选中」混淆(选中=金底填充,与其他 chip 同语义)
             <div
               key={l.id}
               onClick={() => setLeague(String(l.id))}
@@ -266,7 +262,7 @@ function MobileMatchesPage() {
               {league === String(l.id) && (
                 <span className="wcsweep" style={{ position: "absolute", top: 0, left: 0, width: 36, height: "100%", background: "transparent" }} />
               )}
-              <span style={{ position: "relative" }}><span style={{ color: "var(--gold)" }}>★</span> {l.zh}</span>
+              <span style={{ position: "relative" }}>{l.zh}</span>
             </div>
           ) : (
             <Chip key={l.id} label={l.zh} active={league === String(l.id)} onClick={() => setLeague(String(l.id))} style={{ padding: "6px 12px", fontSize: 12 }} />
@@ -284,24 +280,7 @@ function MobileMatchesPage() {
         {loaded && rows.length === 0 && (
           <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>{emptyText}</div>
         )}
-        {(() => {
-          const watched = rows.filter((r) => watch.ids.has(r.id));
-          const others = rows.filter((r) => !watch.ids.has(r.id));
-          const section = (label: string) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px 6px" }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)" }}>{label}</span>
-              <span style={{ flex: 1, height: 1, background: "var(--line-soft)" }} />
-            </div>
-          );
-          const blocks: React.ReactNode[] = [];
-          if (watched.length > 0) {
-            blocks.push(section(`★ 关注 ${watched.length}`));
-            blocks.push(...watched.map(renderRow));
-            if (others.length > 0) blocks.push(section("全部"));
-          }
-          blocks.push(...others.map(renderRow));
-          return blocks;
-        })()}
+        {rows.map(renderRow)}
         {loaded && <RiskFooter />}
       </div>
       <Sheet open={dateOpen} onClose={() => setDateOpen(false)}>

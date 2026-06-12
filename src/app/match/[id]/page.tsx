@@ -20,7 +20,6 @@ import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
 import { CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
 import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
-import { useWatchlist, WatchStar } from "@/components/watch";
 import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -73,7 +72,6 @@ function MobileMatchDetail({ id }: { id: string }) {
   const [history, setHistory] = useState<HistoryTarget | null>(null);
   const workerAt = useWorkerBeat();
   const { prefs, me } = useApp();
-  const watch = useWatchlist(me.loggedIn);
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -254,7 +252,6 @@ function MobileMatchDetail({ id }: { id: string }) {
         <div style={{ flex: 1, textAlign: "center" }}>
           <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 600, whiteSpace: "nowrap" }}>{h.league} · {h.round}</span>
         </div>
-        <WatchStar on={watch.ids.has(h.id)} onToggle={() => watch.toggle(h.id)} size={16} style={{ width: 30, height: 34 }} />
         <div onClick={openShare} style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--fg-2)" }}>
           <ShareIcon />
         </div>

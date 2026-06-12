@@ -10,7 +10,6 @@ import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
 import { CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
 import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
-import { useWatchlist, WatchStar } from "@/components/watch";
 import { Flash } from "@/components/live";
 import { MarketCell, MarketValue, type MarketCellData } from "@/components/market-cell";
 import { ahText, dayLabel, hhmm } from "@/lib/format";
@@ -63,7 +62,6 @@ export function CenterPane({
   const [player, setPlayer] = useState<PlayerTarget | null>(null);
   const [history, setHistory] = useState<HistoryTarget | null>(null);
   const [oddsSub, setOddsSub] = useState("trend");
-  const watch = useWatchlist(loggedIn);
   const router = useRouter();
   const fid = v?.header?.id ?? null;
 
@@ -246,7 +244,6 @@ export function CenterPane({
           </span>
           <span style={{ flex: 1 }} />
           <span style={{ fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap" }}>{h.finished ? "已完场 · 数据已固化" : `⟳ ${h.fresh.freq}刷新`}{v.summary.oddsAt ? ` · 指数 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}</span>
-          <WatchStar on={watch.ids.has(h.id)} onToggle={() => watch.toggle(h.id)} size={14} />
           {copied && <span style={{ fontSize: 11, color: "var(--up)", fontWeight: 700, whiteSpace: "nowrap" }}>链接已复制</span>}
           <span onClick={copyLink} style={{ cursor: "pointer", color: "var(--fg-2)", display: "flex", alignItems: "center", flexShrink: 0 }}>
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

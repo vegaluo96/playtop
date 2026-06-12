@@ -219,7 +219,7 @@ export function MatchesView() {
                     onClick={() => void act({ action: "league", id: l.id, on: !l.on })}
                     style={{ flex: 1, fontSize: 11, fontWeight: l.on ? 700 : 600, cursor: "pointer", color: l.on ? "var(--gold)" : "var(--fg-3)" }}
                   >
-                    {l.zh} {l.on ? "✓" : "(已关闭)"}{l.wc ? " ★" : ""}
+                    {l.zh} {l.on ? "✓" : "(已关闭)"}
                   </span>
                   <span onClick={() => i > 0 && void act({ action: "league_up", id: l.id })} style={{ cursor: i > 0 ? "pointer" : "default", fontSize: 12, color: i > 0 ? "var(--fg-2)" : "var(--fg-4)", padding: "0 4px" }}>↑</span>
                   <span onClick={() => i < all.length - 1 && void act({ action: "league_down", id: l.id })} style={{ cursor: i < all.length - 1 ? "pointer" : "default", fontSize: 12, color: i < all.length - 1 ? "var(--fg-2)" : "var(--fg-4)", padding: "0 4px" }}>↓</span>
