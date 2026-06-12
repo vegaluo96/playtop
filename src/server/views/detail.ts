@@ -243,7 +243,8 @@ interface LineupPlayer {
 }
 /**
  * AF lineup.grid = "行:列":行 1 = 门将,行号沿进攻方向递增;列在行内从 1 递增。
- * 单队球场图标准画法:门将在底、前锋在顶(与 Sofascore/FotMob 一致)→ 行号降序渲染。
+ * 朝向对齐百度体育(中文用户基准):门将在顶、前锋在底 → 行号升序渲染。
+ * 列向实测:AF 列 1 对应百度的最右(墨西哥后防 雷耶斯…加莱尔多 与列升序相反)→ 列降序。
  * 主客两卡均为独立单队视图,朝向一致(不做镜像)。无 grid 的球员不丢弃,落入末行兜底。
  */
 function lineupSide(lu: unknown) {
@@ -265,12 +266,11 @@ function lineupSide(lu: unknown) {
     if (!rowsMap.has(row)) rowsMap.set(row, []);
     rowsMap.get(row)!.push({ col: col || 0, p: player });
   });
-  // 行号降序:前锋在顶、门将在底;列号降序:AF 列 1 = 球员右侧,降序后观众视角左→右正确
-  // (实测 grid:Walker 2:1=右后卫 → 须排到最右,Gvardiol 2:4=左后卫 → 最左)
+  // 行号升序:门将在顶、前锋在底(对齐百度);列号降序:AF 列 1 对应最右(实测墨西哥后防与百度比对)
   const rows = [...rowsMap.entries()]
-    .sort((a, b) => b[0] - a[0])
+    .sort((a, b) => a[0] - b[0])
     .map(([, ps]) => ps.sort((x, y) => y.col - x.col).map((c) => c.p));
-  if (noGrid.length > 0) rows.push(noGrid.sort((x, y) => x.col - y.col).map((c) => c.p));
+  if (noGrid.length > 0) rows.push(noGrid.sort((x, y) => y.col - x.col).map((c) => c.p));
   const subs: LineupPlayer[] = arr(dig(lu, "substitutes")).map((p) => ({
     n: nameZh(String(dig(p, "player", "name") ?? ""), "player"),
     num: (Number(dig(p, "player", "number")) || null) as number | null,
