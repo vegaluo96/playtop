@@ -719,10 +719,10 @@ export function CenterPane({
                 )}
                 <Card style={{ padding: "8px 14px 4px" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, padding: "4px 0 6px" }}>联赛榜单 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>各榜前 5 · 点击看球员</span></div>
+                  {(deepV.lb ?? []).length === 0 && <div style={{ fontSize: 10.5, color: "var(--fg-3)", padding: "7px 0" }}>官方榜单数据积累中</div>}
                   {deepV.lb?.map((b: V) => (
                     <div key={b.tag} style={{ paddingBottom: 6 }}>
                       <div style={{ fontSize: 11.5, fontWeight: 800, color: b.tagC, padding: "5px 0 2px" }}>{b.tag}</div>
-                      {(b.rows ?? []).length === 0 && <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "3px 0" }}>榜单暂无官方返回</div>}
                       {(b.rows ?? []).map((r: V) => (
                         <div key={r.rk} onClick={() => r.pid && setPlayer({ id: r.pid, name: r.name, season: h.season })} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: "1px solid var(--line-soft)", cursor: r.pid ? "pointer" : "default" }}>
                           <span className="mono" style={{ width: 14, fontSize: 11, fontWeight: 800, color: r.rk === 1 ? "var(--gold)" : "var(--fg-3)" }}>{r.rk}</span>

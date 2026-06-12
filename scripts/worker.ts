@@ -5,7 +5,8 @@
  *   /odds?fixture= 随分层,每次快照落库,相邻快照 diff 生成异动
  *   /odds/live      仅滚球期每 1min(落 kv)
  *   /predictions    开盘抓 1 次;开赛前 1h 复抓 1 次
- *   /fixtures?id=   T-60min 起每 5min(拿到首发即停;滚球期本身就是 1min)
+ *   /fixtures/lineups T-60min 起每 5min(拿到首发即停)
+ *   /fixtures/events|statistics|lineups|players 滚球期独立端点补抓并合并到 fixture payload
  *   完场 → 模型战绩结算;每日选定 1 场免费分析
  * 配额保护:相邻出网调用间隔 AF_DELAY_MS(默认 300ms),叠加 client 层 2s 同 URL 防抖。
  */
@@ -23,6 +24,7 @@ import {
   kvSet,
   setDailyFree,
   freeFixtureCount,
+  mergeFixturePayload,
   settleFixture,
   upsertFixture,
 } from "../src/server/af/store";
@@ -92,6 +94,8 @@ const day8 = (nowMs: number, offset = 0) => new Date(nowMs + TZ8 + offset * 86_4
 
 const lastOdds = new Map<number, number>();
 const lastHalf = new Map<number, number>();
+const lastDetail = new Map<number, number>();
+const lastLineup = new Map<number, number>();
 const lineupDone = new Set<number>();
 const predRefetched = new Set<number>();
 
@@ -125,7 +129,7 @@ async function tickLive(now: number): Promise<void> {
       log(`live 拉取失败:${msg(e)}`);
     }
   }
-  // 滚球 bundle 批量拉取(fixtures?ids= 一次最多 20 场,省配额;events/statistics/players 同请求带回)
+  // 滚球基础比分批量拉取(fixtures?ids= 一次最多 20 场,省配额);详情字段由独立端点补抓
   const lives = fixturesBetween(now - 4 * H, now).filter((x) => isLive(x.status));
   for (let i = 0; i < lives.length; i += 20) {
     const chunk = lives.slice(i, i + 20);
@@ -155,6 +159,19 @@ async function tickLive(now: number): Promise<void> {
       }
     }
   }
+  // 单场详情独立端点补抓:不依赖 /fixtures?id 是否携带 events/statistics/lineups/players。
+  for (const f of lives) {
+    const last = lastDetail.get(f.fixture_id) ?? 0;
+    if (now - last >= 60_000) {
+      lastDetail.set(f.fixture_id, now);
+      await refreshFixtureDetails(f.fixture_id, "滚球详情 60s", {
+        events: true,
+        statistics: true,
+        lineups: true,
+        players: Math.floor(now / 300_000) !== Math.floor(last / 300_000),
+      }).catch((e) => log(`fixture details ${f.fixture_id} 失败:${msg(e)}`));
+    }
+  }
   // 统计差分合成事件(角球/射正/射偏/越位 + 开赛/中场/完场节点 → 详情页「赛况」时间轴);
   // 窗口不滤完场:刚完场的场次还要落「完场」节点,幂等无变化零写入
   for (const f of fixturesBetween(now - 4 * H, now + 5 * 60_000)) {
@@ -179,6 +196,36 @@ async function tickLive(now: number): Promise<void> {
       /* 滚球赔率非必得 */
     }
   }
+}
+
+async function refreshFixtureDetails(
+  fixtureId: number,
+  tier: string,
+  parts: { events?: boolean; statistics?: boolean; lineups?: boolean; players?: boolean },
+): Promise<Record<string, unknown>> {
+  const patch: Record<string, unknown> = {};
+  const pull = async (key: string, path: string) => {
+    const env = await paced(() => tracked(key, tier, () => afGet(path, { force: true })));
+    return Array.isArray(env.response) ? env.response : [];
+  };
+  if (parts.events) {
+    const events = await pull("fixtures.events", `/fixtures/events?fixture=${fixtureId}`);
+    if (events.length > 0) patch.events = events;
+  }
+  if (parts.statistics) {
+    const statistics = await pull("fixtures.statistics", `/fixtures/statistics?fixture=${fixtureId}`);
+    if (statistics.length > 0) patch.statistics = statistics;
+  }
+  if (parts.lineups) {
+    const lineups = await pull("fixtures.lineups", `/fixtures/lineups?fixture=${fixtureId}`);
+    if (lineups.length > 0) patch.lineups = lineups;
+  }
+  if (parts.players) {
+    const players = await pull("fixtures.players", `/fixtures/players?fixture=${fixtureId}`);
+    if (players.length > 0) patch.players = players;
+  }
+  if (Object.keys(patch).length > 0) mergeFixturePayload(fixtureId, patch);
+  return patch;
 }
 
 async function tickFixture(fxId: number, now: number): Promise<void> {
@@ -237,18 +284,16 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
       log(`predictions ${fxId} 失败:${msg(e)}`);
     }
   }
-  // 首发:T-60 起每 5min 拉 bundle,拿到即停
-  if (minsTo <= 60 && minsTo > 0 && !lineupDone.has(fxId) && Math.floor(now / 300_000) !== Math.floor(last / 300_000)) {
+  // 首发:T-60 起每 5min 拉 AF 独立 lineups 端点,拿到即停
+  const lastLu = lastLineup.get(fxId) ?? 0;
+  if (minsTo <= 60 && minsTo > 0 && !lineupDone.has(fxId) && now - lastLu >= 300_000) {
+    lastLineup.set(fxId, now);
     try {
-      const env = await paced(() => tracked("fixtures.lineups", "T-60m 5min", () => afGet(`/fixtures?id=${fxId}`, { force: true })));
-      const item = Array.isArray(env.response) ? env.response[0] : null;
-      if (item) {
-        upsertFixture(item);
-        const lineups = (item as { lineups?: unknown[] }).lineups;
-        if (Array.isArray(lineups) && lineups.length >= 2) {
-          lineupDone.add(fxId);
-          log(`首发已到:${f.home_name} vs ${f.away_name}`);
-        }
+      const patch = await refreshFixtureDetails(fxId, "T-60m 5min", { lineups: true });
+      const lineups = patch.lineups;
+      if (Array.isArray(lineups) && lineups.length >= 2) {
+        lineupDone.add(fxId);
+        log(`首发已到:${f.home_name} vs ${f.away_name}`);
       }
     } catch {
       /* 下轮再试 */

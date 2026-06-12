@@ -645,10 +645,14 @@ function MobileMatchDetail({ id }: { id: string }) {
               )}
 
               <SectionTitle title="联赛榜单" right="各榜前 5 · 点击看球员" />
+              {(deepV.lb ?? []).length === 0 && (
+                <Card style={{ padding: "12px 14px", marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>官方榜单数据积累中</div>
+                </Card>
+              )}
               {deepV.lb?.map((b: V) => (
                 <Card key={b.tag} style={{ padding: "8px 14px", marginBottom: 8 }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: b.tagC, marginBottom: 4 }}>{b.tag}</div>
-                  {(b.rows ?? []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--fg-3)", padding: "4px 0" }}>榜单暂无官方返回</div>}
                   {(b.rows ?? []).map((r: V) => (
                     <div key={r.rk} onClick={() => r.pid && setPlayer({ id: r.pid, name: r.name, season: h.season })} style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 0", borderBottom: r.rk < (b.rows?.length ?? 0) ? "1px solid var(--line-soft)" : "none", cursor: r.pid ? "pointer" : "default" }}>
                       <span className="mono" style={{ width: 16, fontSize: 11.5, fontWeight: 800, color: r.rk === 1 ? "var(--gold)" : "var(--fg-3)" }}>{r.rk}</span>

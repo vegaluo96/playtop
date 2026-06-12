@@ -1,6 +1,6 @@
 /**
  * matchPanorama(fixtureId):详情页/AI 报告的一次性拼装层。
- * 核心 = /fixtures?id=(单请求带回 events/lineups/statistics/players)
+ * 核心 = fixtures_cache 基础赛程 + worker 从 AF 独立详情端点合并的 events/lineups/statistics/players
  *      + 平台快照库(odds 走势/百家/异动、predictions)
  *      + 低频维度(伤停/榜单/教练/转会/荣誉/球队名单,kv 缓存)。
  * 滚球与 T-30min 内 force=true 绕 client 缓存;其余沿用缓存与 kv TTL。
@@ -34,7 +34,7 @@ function dig(obj: unknown, ...path: (string | number)[]): unknown {
 
 export interface Panorama {
   fixture: FixtureRow;
-  /** /fixtures?id= 的完整 payload(events/lineups/statistics/players 内嵌) */
+  /** fixture payload:基础赛程 + 已合并的 events/lineups/statistics/players 详情 */
   bundle: Record<string, unknown>;
   odds: {
     ah: SnapRow[];
@@ -65,7 +65,7 @@ export interface Panorama {
   } | null;
 }
 
-/** 确保 fixtures_cache 里有带 events/lineups 的完整 bundle(必要时出网拉一枪) */
+/** 确保 fixtures_cache 里有基础 bundle(必要时出网拉一枪);详情字段由 worker 独立端点补齐 */
 async function ensureBundle(fixtureId: number): Promise<FixtureRow | null> {
   let fx = fixtureById(fixtureId);
   const now = Date.now();

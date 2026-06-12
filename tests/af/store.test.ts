@@ -9,6 +9,7 @@ import {
   archivePrediction,
   fixtureById,
   mainOddsSnapshot,
+  mergeFixturePayload,
   modelStats,
   movementsOf,
   oddsCompare,
@@ -52,14 +53,41 @@ beforeEach(() => {
 });
 
 describe("fixtures_cache", () => {
-  it("upsert 解析关键列;短 payload 不覆盖长 payload(保 bundle)", () => {
+  it("upsert 用最新基础赛程,但保留已有详情数组", () => {
     upsertFixture(afFixture(100));
     const fx = fixtureById(100)!;
     expect(fx).toMatchObject({ league_id: 39, home_name: "曼城", away_name: "阿森纳", status: "NS" });
     const long = { ...afFixture(100), events: [{ type: "Goal" }] };
     upsertFixture(long);
-    upsertFixture(afFixture(100)); // 较短的列表帧
-    expect(fixtureById(100)!.payload).toContain("events");
+    const latest = afFixture(100, { status: "FT", gh: 2, ga: 1 });
+    (latest.fixture.status as { elapsed: number | null }).elapsed = 90;
+    upsertFixture(latest); // 较短的列表帧,但基础状态/比分更新
+
+    const next = fixtureById(100)!;
+    const payload = JSON.parse(next.payload);
+    expect(next).toMatchObject({ status: "FT", elapsed: 90, goals_home: 2, goals_away: 1 });
+    expect(payload.fixture.status.short).toBe("FT");
+    expect(payload.goals.home).toBe(2);
+    expect(payload.events).toEqual([{ type: "Goal" }]);
+  });
+
+  it("mergeFixturePayload 合并独立详情端点,不改基础赛程字段", () => {
+    upsertFixture(afFixture(101));
+    expect(mergeFixturePayload(101, {
+      events: [{ type: "Goal" }],
+      lineups: [{ team: { id: 50 }, coach: { name: "Coach A" } }],
+      statistics: [{ team: { id: 50 }, statistics: [] }],
+    }, 12345)).toBe(true);
+
+    const fx = fixtureById(101)!;
+    expect(fx.home_name).toBe("曼城");
+    expect(fx.away_name).toBe("阿森纳");
+    expect(fx.updated_at).toBe(12345);
+    expect(JSON.parse(fx.payload)).toMatchObject({
+      events: [{ type: "Goal" }],
+      lineups: [{ team: { id: 50 }, coach: { name: "Coach A" } }],
+      statistics: [{ team: { id: 50 }, statistics: [] }],
+    });
   });
 });
 
@@ -82,6 +110,17 @@ describe("odds 归档与异动", () => {
     archiveOdds(201, odds(1, 0.9, 0.96), 1000);
     archiveOdds(201, odds(1, 0.9, 0.96), 2000);
     expect(oddsSeries(201, "ah")).toHaveLength(1);
+  });
+
+  it("归一化暂未识别市场时仍保留 odds_raw,方便重放修复", () => {
+    upsertFixture(afFixture(203));
+    expect(archiveOdds(203, { fixture: { id: 203 }, bookmakers: [{ id: 8, name: "Bet365", bets: [] }] }, 3000)).toBe(0);
+    const raw = db().prepare("SELECT fixture_id, captured_at, payload FROM odds_raw WHERE fixture_id=?").get(203) as
+      | { fixture_id: number; captured_at: number; payload: string }
+      | undefined;
+    expect(raw).toMatchObject({ fixture_id: 203, captured_at: 3000 });
+    expect(JSON.parse(raw!.payload)).toMatchObject({ bookmakers: [{ id: 8, name: "Bet365" }] });
+    expect(oddsSeries(203, "ah")).toEqual([]);
   });
 
   it("主盘按共识盘口+主流书商优先,不被最新离群书商带偏", () => {

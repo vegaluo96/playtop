@@ -10,9 +10,10 @@ import { loginOrRegister } from "../../src/server/platform/auth";
 import { claimGift, recharge } from "../../src/server/platform/wallet";
 
 const TZ8 = 8 * 3_600_000;
-const today8 = () => new Date(Date.now() + TZ8).toISOString().slice(0, 10);
+const FIXED_NOW = Date.parse("2026-06-12T04:00:00Z");
+const today8 = (now = Date.now()) => new Date(now + TZ8).toISOString().slice(0, 10);
 
-function seedHealthy(now = Date.now()) {
+function seedHealthy(now = FIXED_NOW) {
   const d = db();
   process.env.API_FOOTBALL_KEY = "test-key-selfcheck";
   d.prepare("INSERT OR REPLACE INTO admins (email, role, status, created_at) VALUES ('boss@x.com','超级管理员','启用',?)").run(now);
@@ -31,7 +32,7 @@ function seedHealthy(now = Date.now()) {
   archiveOdds(7001, odds(0.25), now - 60_000);
   archiveOdds(7001, odds(0.5), now - 30_000); // 真实变盘 → 必须有 movement
   archivePrediction(7001, { predictions: { winner: { id: 1, name: "A" }, percent: { home: "50%", draw: "25%", away: "25%" } } });
-  setDailyFree(today8(), 7001);
+  setDailyFree(today8(now), 7001);
 }
 
 beforeEach(() => {
@@ -40,17 +41,17 @@ beforeEach(() => {
 
 describe("checkReadonly(只读层判定)", () => {
   it("健康库:除出网项外全部 ✓,无 fail", async () => {
-    seedHealthy();
-    const rows = await checkReadonly({ skipNetwork: true });
+    seedHealthy(FIXED_NOW);
+    const rows = await checkReadonly({ skipNetwork: true, now: FIXED_NOW });
     const fails = rows.filter((r) => r.status === "fail");
     expect(fails).toEqual([]);
     expect(rows.find((r) => r.key === "异动生成")?.status).toBe("ok"); // 有真实变盘 → 必须查到 movement
   });
 
   it("worker 心跳超时 → 如实 ✗ 并给修复提示", async () => {
-    seedHealthy();
-    kvSet("worker_heartbeat", String(Date.now() - 10 * 60_000));
-    const rows = await checkReadonly({ skipNetwork: true });
+    seedHealthy(FIXED_NOW);
+    kvSet("worker_heartbeat", String(FIXED_NOW - 10 * 60_000));
+    const rows = await checkReadonly({ skipNetwork: true, now: FIXED_NOW });
     const beat = rows.find((r) => r.key === "worker 心跳 <3min")!;
     expect(beat.status).toBe("fail");
     expect(beat.note).toContain("前");
@@ -81,18 +82,18 @@ describe("checkReadonly(只读层判定)", () => {
   });
 
   it("有变盘却无 movement → 异动生成 ✗(衍生链路断裂可被发现)", async () => {
-    seedHealthy();
+    seedHealthy(FIXED_NOW);
     db().prepare("DELETE FROM movements").run();
-    const rows = await checkReadonly({ skipNetwork: true });
+    const rows = await checkReadonly({ skipNetwork: true, now: FIXED_NOW });
     expect(rows.find((r) => r.key === "异动生成")?.status).toBe("fail");
   });
 });
 
 describe("summarize / formatReport", () => {
   it("任一 fail 使该层标 ✗;闭环行可读", async () => {
-    seedHealthy();
+    seedHealthy(FIXED_NOW);
     kvSet("worker_heartbeat", "0");
-    const rep = summarize(await checkReadonly({ skipNetwork: true }));
+    const rep = summarize(await checkReadonly({ skipNetwork: true, now: FIXED_NOW }));
     expect(rep.summary.fail).toBeGreaterThan(0);
     expect(rep.chain).toContain("抓取 ✗");
     expect(formatReport(rep)).toContain("合计:");

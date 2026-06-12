@@ -32,6 +32,24 @@ function dig(obj: unknown, ...path: (string | number)[]): unknown {
   }
   return cur;
 }
+const asArr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+const FIXTURE_DETAIL_KEYS = ["events", "statistics", "lineups", "players"] as const;
+
+function fixturePayloadForUpsert(id: number, item: unknown): Record<string, unknown> {
+  const next = item && typeof item === "object" ? { ...(item as Record<string, unknown>) } : {};
+  const fx = fixtureById(id);
+  if (!fx) return next;
+  let prev: Record<string, unknown> = {};
+  try {
+    prev = JSON.parse(fx.payload) as Record<string, unknown>;
+  } catch {
+    prev = {};
+  }
+  for (const key of FIXTURE_DETAIL_KEYS) {
+    if (asArr(next[key]).length === 0 && asArr(prev[key]).length > 0) next[key] = prev[key];
+  }
+  return next;
+}
 
 /* ── 赛程 ── */
 
@@ -66,12 +84,12 @@ export function upsertFixture(item: unknown): number | null {
       `INSERT INTO fixtures_cache (fixture_id, league_id, season, league_name, round, kickoff_utc, status, elapsed,
          home_id, home_name, away_id, away_name, goals_home, goals_away, payload, updated_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-       ON CONFLICT(fixture_id) DO UPDATE SET
+      ON CONFLICT(fixture_id) DO UPDATE SET
          league_id=excluded.league_id, season=excluded.season, league_name=excluded.league_name, round=excluded.round,
          kickoff_utc=excluded.kickoff_utc, status=excluded.status, elapsed=excluded.elapsed,
          home_id=excluded.home_id, home_name=excluded.home_name, away_id=excluded.away_id, away_name=excluded.away_name,
          goals_home=excluded.goals_home, goals_away=excluded.goals_away,
-         payload=CASE WHEN length(excluded.payload) >= length(fixtures_cache.payload) THEN excluded.payload ELSE fixtures_cache.payload END,
+         payload=excluded.payload,
          updated_at=excluded.updated_at`,
     )
     .run(
@@ -89,7 +107,7 @@ export function upsertFixture(item: unknown): number | null {
       String(dig(item, "teams", "away", "name") ?? ""),
       (dig(item, "goals", "home") as number | null) ?? null,
       (dig(item, "goals", "away") as number | null) ?? null,
-      JSON.stringify(item),
+      JSON.stringify(fixturePayloadForUpsert(id, item)),
       Date.now(),
     );
   return id;
@@ -97,6 +115,21 @@ export function upsertFixture(item: unknown): number | null {
 
 export function fixtureById(id: number): FixtureRow | null {
   return (db().prepare("SELECT * FROM fixtures_cache WHERE fixture_id = ?").get(id) as FixtureRow | undefined) ?? null;
+}
+
+/** 将 AF 独立详情端点(events/statistics/lineups/players 等)并入已缓存 fixture payload。 */
+export function mergeFixturePayload(fixtureId: number, patch: Record<string, unknown>, updatedAt = Date.now()): boolean {
+  const fx = fixtureById(fixtureId);
+  if (!fx) return false;
+  let base: Record<string, unknown> = {};
+  try {
+    base = JSON.parse(fx.payload) as Record<string, unknown>;
+  } catch {
+    base = {};
+  }
+  const next = { ...base, ...patch };
+  db().prepare("UPDATE fixtures_cache SET payload = ?, updated_at = ? WHERE fixture_id = ?").run(JSON.stringify(next), updatedAt, fixtureId);
+  return true;
 }
 
 export function fixturesBetween(fromUtc: number, toUtc: number): FixtureRow[] {
@@ -125,12 +158,13 @@ export interface SnapRow {
  */
 export function archiveOdds(fixtureId: number, oddsItem: unknown, capturedAt = Date.now()): number {
   const books = normalizeOddsItem(oddsItem);
-  if (books.length === 0) return 0;
   return tx(() => {
     const d = db();
+    // 原始 AF 包先落库:即使当前归一化没有吃到市场,后续也能重放排查解析/玩法口径问题。
     d.prepare("INSERT INTO odds_raw (fixture_id, payload, captured_at) VALUES (?,?,?)").run(
       fixtureId, JSON.stringify(oddsItem), capturedAt,
     );
+    if (books.length === 0) return 0;
     let moves = 0;
     const prevStmt = d.prepare(
       "SELECT * FROM odds_snapshots WHERE fixture_id = ? AND bookmaker_id = ? AND market = ? ORDER BY captured_at DESC LIMIT 1",

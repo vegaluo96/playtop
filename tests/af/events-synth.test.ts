@@ -94,6 +94,15 @@ describe("timelineView", () => {
     expect(tl.corners).toEqual({ h: 5, a: 2 });
   });
 
+  it("真实事件先按比赛时间排序再累计比分,不受 AF 返回顺序影响", () => {
+    const reversed = { ...bundle, events: [...bundle.events].reverse() };
+    const tl = timelineView(reversed, f, []);
+    const goals = tl.rows.filter((r) => r.kind === "goal");
+
+    expect(goals[0].text).toContain("1-1");
+    expect(goals[1].text).toContain("1-0");
+  });
+
   it("乌龙/点球打标;未开赛不出节点", () => {
     const og = {
       events: [{ type: "Goal", detail: "Own Goal", time: { elapsed: 10, extra: null }, team: { id: 100 }, player: { name: "X" }, assist: {} }],
