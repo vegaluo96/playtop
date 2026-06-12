@@ -1,13 +1,41 @@
 /** 列表页 DB 取数小件(从 store 转出,带轻量缓存语义) */
 import { db } from "../db";
 import { dailyFreeFixtureIds } from "../platform/wallet";
-import { oddsSeries, type SnapRow } from "../af/store";
+import { oddsSeries, PRIMARY_BOOKMAKERS, type SnapRow } from "../af/store";
 import { liveOddsSeries } from "../af/live-store";
 
 export { fixturesBetween, oddsSeries } from "../af/store";
 
+type Market = "ah" | "ou" | "eu";
+
+function placeholders(n: number): string {
+  return Array.from({ length: n }, () => "?").join(",");
+}
+
+function bookmakerRank(name: string): number {
+  const i = PRIMARY_BOOKMAKERS.indexOf(name);
+  return i < 0 ? 99 : i;
+}
+
+function mainMarketCandidates(rows: SnapRow[], market: Market): SnapRow[] {
+  if (market === "eu") return rows;
+  const lined = rows.filter((r) => r.line != null);
+  if (lined.length === 0) return rows;
+  const sortedLines = lined.map((r) => r.line as number).sort((a, b) => a - b);
+  const consensus = sortedLines[Math.floor((sortedLines.length - 1) / 2)];
+  return lined.filter((r) => r.line === consensus);
+}
+
+function latestMainBookSeries(rowsByBookmaker: Map<string, SnapRow[]>, market: Market): SnapRow[] {
+  const latestRows = [...rowsByBookmaker.values()].map((rows) => rows[rows.length - 1]).filter(Boolean);
+  const pick = [...mainMarketCandidates(latestRows, market)].sort(
+    (x, y) => bookmakerRank(x.bookmaker) - bookmakerRank(y.bookmaker) || y.captured_at - x.captured_at,
+  )[0];
+  return pick ? rowsByBookmaker.get(pick.bookmaker)?.slice(-2) ?? [] : [];
+}
+
 /** 列表行情序列:滚球场拼上实时帧尾巴(最近 2 帧,保留涨跌方向),数值随 5s 抓取真实跳动 */
-export function liveAwareSeries(fixtureId: number, market: "ah" | "ou" | "eu", live: boolean): SnapRow[] {
+export function liveAwareSeries(fixtureId: number, market: Market, live: boolean): SnapRow[] {
   const pre = oddsSeries(fixtureId, market);
   if (!live) return pre;
   const lv = liveOddsSeries(fixtureId, market).filter((r) => !r.suspended);
@@ -17,6 +45,57 @@ export function liveAwareSeries(fixtureId: number, market: "ah" | "ou" | "eu", l
     line: r.line, h: r.h, a: r.a, d: r.d, captured_at: r.captured_at,
   }));
   return [...pre, ...mapped];
+}
+
+/** 列表批量行情序列:保留 oddsSeries 的主盘选择口径,避免每行每市场重复查库。 */
+export function liveAwareSeriesBatch(fixtureIds: number[], market: Market, liveFixtureIds: Set<number>): Map<number, SnapRow[]> {
+  const ids = [...new Set(fixtureIds)];
+  const result = new Map<number, SnapRow[]>();
+  if (ids.length === 0) return result;
+
+  const sql = `SELECT * FROM odds_snapshots WHERE market = ? AND fixture_id IN (${placeholders(ids.length)}) ORDER BY fixture_id, bookmaker, captured_at`;
+  const rows = db().prepare(sql).all(market, ...ids) as unknown as SnapRow[];
+  const byFixture = new Map<number, Map<string, SnapRow[]>>();
+  for (const row of rows) {
+    let byBookmaker = byFixture.get(row.fixture_id);
+    if (!byBookmaker) {
+      byBookmaker = new Map<string, SnapRow[]>();
+      byFixture.set(row.fixture_id, byBookmaker);
+    }
+    const series = byBookmaker.get(row.bookmaker) ?? [];
+    series.push(row);
+    byBookmaker.set(row.bookmaker, series);
+  }
+  for (const [fixtureId, byBookmaker] of byFixture) result.set(fixtureId, latestMainBookSeries(byBookmaker, market));
+
+  const liveIds = ids.filter((id) => liveFixtureIds.has(id));
+  if (liveIds.length === 0) return result;
+  const liveSql = `SELECT fixture_id, line, h, a, d, suspended, captured_at FROM live_odds_snapshots WHERE market = ? AND fixture_id IN (${placeholders(liveIds.length)}) ORDER BY fixture_id, captured_at`;
+  const liveRows = db().prepare(liveSql).all(market, ...liveIds) as unknown as (SnapRow & { suspended: number })[];
+  const liveByFixture = new Map<number, (SnapRow & { suspended: number })[]>();
+  for (const row of liveRows) {
+    const rowsForFixture = liveByFixture.get(row.fixture_id) ?? [];
+    rowsForFixture.push(row);
+    liveByFixture.set(row.fixture_id, rowsForFixture);
+  }
+  for (const [fixtureId, rowsForFixture] of liveByFixture) {
+    const mapped: SnapRow[] = rowsForFixture
+      .filter((r) => !r.suspended)
+      .slice(-2)
+      .map((r) => ({
+        fixture_id: fixtureId,
+        bookmaker_id: 0,
+        bookmaker: "实时盘",
+        market,
+        line: r.line,
+        h: r.h,
+        a: r.a,
+        d: r.d,
+        captured_at: r.captured_at,
+      }));
+    if (mapped.length > 0) result.set(fixtureId, [...(result.get(fixtureId) ?? []), ...mapped]);
+  }
+  return result;
 }
 
 /** 今日免费场集合(可多场) */
@@ -71,4 +150,16 @@ export function movedRecently(fixtureId: number): boolean {
   return !!db()
     .prepare("SELECT 1 FROM movements WHERE fixture_id = ? AND t1 >= ? LIMIT 1")
     .get(fixtureId, Date.now() - 12 * 3_600_000);
+}
+
+/** 近 12h 异动批量查询,供列表页避免逐行查库。 */
+export function movedRecentlyMap(fixtureIds: number[], since = Date.now() - 12 * 3_600_000): Map<number, boolean> {
+  const ids = [...new Set(fixtureIds)];
+  const result = new Map<number, boolean>();
+  if (ids.length === 0) return result;
+  const rows = db()
+    .prepare(`SELECT fixture_id FROM movements WHERE fixture_id IN (${placeholders(ids.length)}) AND t1 >= ? GROUP BY fixture_id`)
+    .all(...ids, since) as unknown as { fixture_id: number }[];
+  for (const row of rows) result.set(row.fixture_id, true);
+  return result;
 }

@@ -4,12 +4,19 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { parseTzOffset } from "@/lib/format";
-import { fixturesBetween, dailyFreeSetToday, liveAwareSeries, liveExtras, movedRecently, hiddenFixtureIds } from "@/server/views/list-helpers";
+import {
+  fixturesBetween,
+  dailyFreeSetToday,
+  hiddenFixtureIds,
+  liveAwareSeriesBatch,
+  liveExtras,
+  movedRecentlyMap,
+} from "@/server/views/list-helpers";
 import { marketCell } from "@/server/views/common";
 import { isLive, isFinished } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
 import { guestMasked } from "@/server/platform/rules";
-import { isUnlocked } from "@/server/platform/wallet";
+import { unlockedIds } from "@/server/platform/wallet";
 import { nameZh } from "@/server/views/names";
 
 export async function GET(req: NextRequest) {
@@ -54,17 +61,30 @@ export async function GET(req: NextRequest) {
   fixtures.sort((a, b) => a.kickoff_utc - b.kickoff_utc);
 
   const freeSet = dailyFreeSetToday();
+  const unlockedSet = user ? new Set(unlockedIds(user.id)) : new Set<number>();
   const liveCount = fixturesBetween(now - 4 * 3_600_000, now + 5 * 60_000).filter((f) => isLive(f.status)).length;
+  const maskedByFixture = new Map<number, boolean>();
+  let previewMaskIndex = 0;
+  for (const f of fixtures) {
+    const live = isLive(f.status);
+    maskedByFixture.set(f.fixture_id, !user && guestMasked(live ? 0 : previewMaskIndex++, live));
+  }
+  const visibleFixtureIds = fixtures.filter((f) => !maskedByFixture.get(f.fixture_id)).map((f) => f.fixture_id);
+  const liveFixtureIds = new Set(fixtures.filter((f) => !maskedByFixture.get(f.fixture_id) && isLive(f.status)).map((f) => f.fixture_id));
+  const ahSeries = liveAwareSeriesBatch(visibleFixtureIds, "ah", liveFixtureIds);
+  const ouSeries = liveAwareSeriesBatch(visibleFixtureIds, "ou", liveFixtureIds);
+  const euSeries = liveAwareSeriesBatch(visibleFixtureIds, "eu", liveFixtureIds);
+  const movedMap = movedRecentlyMap(visibleFixtureIds);
+  const today = todayStr();
 
-  let maskIndex = 0;
   const rows = fixtures.map((f) => {
     const live = isLive(f.status);
     const fin = isFinished(f.status);
-    const masked = !user && guestMasked(live ? 0 : maskIndex++, live);
-    const ah = marketCell(liveAwareSeries(f.fixture_id, "ah", live), "ah");
-    const ou = marketCell(liveAwareSeries(f.fixture_id, "ou", live), "ou");
-    const eu = marketCell(liveAwareSeries(f.fixture_id, "eu", live), "eu");
-    const unlocked = user ? isUnlocked(user.id, f.fixture_id, todayStr()) : false;
+    const masked = maskedByFixture.get(f.fixture_id) ?? false;
+    const ah = masked ? null : marketCell(ahSeries.get(f.fixture_id) ?? [], "ah");
+    const ou = masked ? null : marketCell(ouSeries.get(f.fixture_id) ?? [], "ou");
+    const eu = masked ? null : marketCell(euSeries.get(f.fixture_id) ?? [], "eu");
+    const unlocked = user ? freeSet.has(f.fixture_id) || unlockedSet.has(f.fixture_id) : false;
     return {
       id: f.fixture_id,
       leagueId: f.league_id,
@@ -79,14 +99,14 @@ export async function GET(req: NextRequest) {
       away: nameZh(f.away_name),
       homeId: f.home_id,
       awayId: f.away_id,
-      moved: !masked && movedRecently(f.fixture_id),
+      moved: !masked && (movedMap.get(f.fixture_id) ?? false),
       ex: live && !masked ? liveExtras(f.payload) : null,
       masked,
       free: freeSet.has(f.fixture_id),
       unlocked,
-      ah: masked ? null : ah,
-      ou: masked ? null : ou,
-      eu: masked ? null : eu,
+      ah,
+      ou,
+      eu,
     };
   });
 

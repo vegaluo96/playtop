@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS movements (
   t1 INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_movements_time ON movements(t1 DESC);
+CREATE INDEX IF NOT EXISTS idx_movements_fixture_time ON movements(fixture_id, t1 DESC);
 CREATE TABLE IF NOT EXISTS predictions_snapshots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   fixture_id INTEGER NOT NULL,

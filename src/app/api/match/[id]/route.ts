@@ -13,10 +13,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const q = req.nextUrl.searchParams;
   const deep = q.get("deep") === "1";
   const tz = q.get("tz") || "UTC+8";
+  const userPromise = currentUser();
   const p = await matchPanorama(fid, { deep });
   if (!p) return NextResponse.json({ ok: false, error: "比赛不存在或数据未就绪" }, { status: 404 });
   const view = await detailView(p, tz, { deep });
-  const user = await currentUser();
+  const user = await userPromise;
   const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
   return NextResponse.json({
     ok: true,
