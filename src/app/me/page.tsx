@@ -143,8 +143,8 @@ function MobileMePage() {
                 <span style={{ display: "block", fontSize: 11.5, color: "var(--fg-2)", marginBottom: 3 }}>账户额度</span>
                 <span className="mono" style={{ fontSize: 30, lineHeight: 1, fontWeight: 800, color: "var(--gold)" }}>{me.pts}</span>
               </span>
-              <div onClick={() => { setRdMsg(null); setSheet("redeem"); }} style={{ border: "1px solid var(--selected-border-strong)", color: "var(--gold)", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>兑换</div>
-              <div onClick={flow.openRecharge} style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>购买额度</div>
+              <div onClick={() => { setRdMsg(null); setSheet("redeem"); }} style={{ height: 40, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--selected-border-strong)", color: "var(--gold)", borderRadius: 9, padding: "0 16px", fontSize: 13, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>兑换</div>
+              <div onClick={flow.openRecharge} style={{ height: 40, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--cta)", color: "var(--on-cta)", borderRadius: 9, padding: "0 16px", fontSize: 13, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>购买额度</div>
             </div>
           </div>
         ) : (
