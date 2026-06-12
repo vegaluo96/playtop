@@ -122,7 +122,6 @@ function MobileMatchesPage() {
       : "该时段暂无已开盘赛事";
 
   const renderRow = (m: Row) => {
-    const tag = m.masked ? "注册可见" : m.free ? "免费报告" : m.unlocked ? "报告已解锁" : "";
     const exLine = m.ex ? [m.ex.ht ? `半场 ${m.ex.ht}` : null, m.ex.cor ? `角 ${m.ex.cor}` : null, m.ex.red ? `红 ${m.ex.red}` : null].filter(Boolean).join(" · ") : "";
     return (
       <div
@@ -143,24 +142,9 @@ function MobileMatchesPage() {
                 </span>
               )}
             </div>
-            {exLine && <div className="mono" style={{ marginTop: 3, paddingLeft: 13, fontSize: 11.5, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{exLine}</div>}
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, minWidth: 0 }}>
-            {m.moved && (
-              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid var(--selected-border)", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" }}>异动</span>
-            )}
-            {tag && (
-              <span
-                style={{
-                  flexShrink: 0, fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap",
-                  background: m.masked ? "var(--selected-bg)" : m.free ? "var(--success-bg)" : "var(--inset)",
-                  color: m.masked ? "var(--gold)" : m.free ? "var(--green)" : "var(--fg-2)",
-                  border: `1px solid ${m.masked ? "var(--selected-border)" : m.free ? "var(--success-border)" : "var(--line)"}`,
-                }}
-              >
-                {tag}
-              </span>
-            )}
+            {exLine && <span className="mono" style={{ maxWidth: 150, fontSize: 11.5, color: "var(--fg-3)", fontWeight: 650, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{exLine}</span>}
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 70px 70px 70px", gap: 8, alignItems: "center" }}>
