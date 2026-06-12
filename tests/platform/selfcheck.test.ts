@@ -65,6 +65,21 @@ describe("checkReadonly(只读层判定)", () => {
     expect(rows.find((r) => r.key === "盘口快照新鲜度")?.status).toBe("skip"); // 无在售场次
   });
 
+  it("完场预测缺 winner.id 时,战绩结算 skip 而非误报 fail", async () => {
+    process.env.API_FOOTBALL_KEY = "test-key-selfcheck";
+    upsertFixture({
+      fixture: { id: 7101, date: new Date(Date.now() - 2 * 3_600_000).toISOString(), status: { short: "FT", elapsed: 90 } },
+      league: { id: 39, season: 2025, name: "PL", round: "Regular Season - 1" },
+      teams: { home: { id: 1, name: "A" }, away: { id: 2, name: "B" } },
+      goals: { home: 1, away: 1 },
+    });
+    archivePrediction(7101, { predictions: { percent: { home: "34%", draw: "33%", away: "33%" } } });
+    const rows = await checkReadonly({ skipNetwork: true });
+    const settle = rows.find((r) => r.key === "战绩结算")!;
+    expect(settle.status).toBe("skip");
+    expect(settle.note).toContain("winner");
+  });
+
   it("有变盘却无 movement → 异动生成 ✗(衍生链路断裂可被发现)", async () => {
     seedHealthy();
     db().prepare("DELETE FROM movements").run();

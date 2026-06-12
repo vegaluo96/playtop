@@ -5,7 +5,7 @@
  */
 import { db, tx } from "./db";
 import { afGet } from "./af/client";
-import { archiveOdds, fixturesBetween, hasPrediction, kvGet, kvSet, mainOddsSnapshot } from "./af/store";
+import { archiveOdds, fixturesBetween, hasPrediction, kvGet, kvSet, latestPrediction, mainOddsSnapshot } from "./af/store";
 import { normalizeOddsItem, pairMargin } from "./af/normalize";
 import { tierFor } from "./af/schedule";
 import { cfgAfKey, cfgFirstBonusOn, cfgLlmKey, cfgRechargeTiers, cfgTierIntervals, cfgUnlockPrice } from "./platform/config";
@@ -31,6 +31,15 @@ const todayStartMs = (now = Date.now()) => Math.floor((now + TZ8) / 86_400_000) 
 
 function row(layer: string, key: string, status: CheckRow["status"], note?: string): CheckRow {
   return { layer, key, status, note };
+}
+
+function dig(obj: unknown, ...path: (string | number)[]): unknown {
+  let cur = obj;
+  for (const k of path) {
+    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
+    else return undefined;
+  }
+  return cur;
 }
 
 /* ── L0–L2:只读层(worker 每日自检 / 后台按钮 / CLI 共用)── */
@@ -151,15 +160,17 @@ export async function checkReadonly(opts: { skipNetwork?: boolean; now?: number 
     );
   }
 
-  const settleable = d
+  const settleableRows = d
     .prepare(
       `SELECT f.fixture_id FROM fixtures_cache f
        WHERE f.status IN ('FT','AET','PEN') AND f.goals_home IS NOT NULL
-         AND EXISTS (SELECT 1 FROM predictions_snapshots p WHERE p.fixture_id=f.fixture_id) LIMIT 1`,
+         AND EXISTS (SELECT 1 FROM predictions_snapshots p WHERE p.fixture_id=f.fixture_id)
+       ORDER BY f.kickoff_utc DESC LIMIT 20`,
     )
-    .get() as { fixture_id: number } | undefined;
+    .all() as unknown as { fixture_id: number }[];
+  const settleable = settleableRows.find((r) => Number(dig(latestPrediction(r.fixture_id), "predictions", "winner", "id")));
   if (!settleable) {
-    rows.push(row("L2 衍生", "战绩结算", "skip", "暂无「完场且有预测」的场次"));
+    rows.push(row("L2 衍生", "战绩结算", "skip", "暂无「完场且预测含 winner」的场次"));
   } else {
     const rec = d.prepare("SELECT 1 FROM model_records WHERE fixture_id=?").get(settleable.fixture_id);
     rows.push(row("L2 衍生", "战绩结算", rec ? "ok" : "fail", `样本 fixture=${settleable.fixture_id}`));
