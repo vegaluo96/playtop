@@ -1,7 +1,7 @@
 # PlayTop / ZSKY External Calibration Audit - 2026-06-12
 
 > Current slice only. Do not read this as a whole-site completion statement.
-> Capture time: 2026-06-12T14:17:40Z / 2026-06-12 22:17 CST.
+> Capture time: 2026-06-12T14:47:48Z / 2026-06-12 22:47 CST.
 > Target repo: `/Users/vega/Documents/Codex/playtop-zsky-copy`, branch `main`.
 
 ## Scope And Rules
@@ -9,8 +9,10 @@
 - Platform positioning: football data and information terminal, not a betting service.
 - Red line: no fabricated data. If no real source is available, UI must show "积累中", "未公布", "暂无官方数据/返回", or hide the card.
 - Public production entry: `https://zsky.com`; `play.top` and `47.82.67.99` are known to redirect to `zsky.com`.
-- This audit used the public production API only. No production deploy, no secret write, no DB write.
-- AF selfcheck remains internal verification; it is not counted as external calibration.
+- Public production entry checked: `https://zsky.com`.
+- Production deploy completed at commit `d8055e6`; `playtop-web` and `playtop-worker` were online after `scripts/deploy.sh`.
+- No secret was written to the repo. AF/API checks used the production server environment.
+- AF detail calibration is source-of-truth verification against the platform upstream. It is separate from media/external-source corroboration.
 
 ## Production Public Fixtures Checked
 
@@ -41,15 +43,15 @@ This table is the operator-facing answer to "which parts are calibrated, which s
 | Red cards / VAR | Mexico-South Africa three red cards and Zwane VAR card upgrade externally corroborated. South Korea-Czechia offside/VAR disallowed-goal event corroborated. | South Korea-Czechia production has one 90+6' yellow; no full external card table captured. |
 | Starting XI personnel | South Africa XI PASS. South Korea and Czechia XI PASS. Mexico XI now PASS/WARN after Times of India corroborated the XI including Alvarado. | Mexico formation remains WARN because external sources label the shape as 4-3-3 / 4-1-2-3 while production normalizes it as 4-1-4-1. |
 | Pre-match null states | Canada-Bosnia and USA-Paraguay correctly keep `score:null`, `timeline:null`, `stats:null`, and `lineups.ready:false`. | Re-check after official lineups and match events publish. |
-| Standings | Group A top-line points/goal difference are consistent with the two finished results. Group B/D 0-point pre-match tables are plausible. | Production public may still show extra generic `Group Stage` rows until deploy. Local UI filtering is fixed; keep external standings WARN until an official standings table snapshot is captured. |
-| Odds / handicap | Production public odds are reachable and sampleable for all four fixtures. | No odds row is PASS. 10 external samples are WARN only because none is same-line/same-time. AH and live/in-play remain OPEN. |
-| Technical stats | Production exposes full stat arrays for Mexico-South Africa and South Korea-Czechia. | Exact possession/xG/shots/corners/fouls stat values remain OPEN; no trusted match-centre table captured with identical numbers. |
-| Team form / injuries | Empty recent-form arrays display "数据积累中"; Canada injury concerns are externally mentioned only as preview/news. | Official injury source not captured; player ratings and season panels remain WARN/OPEN where source provenance is weak. Empty leaderboard shells and unusable transfer rows are fixed locally, not deployed. |
+| Standings | Group A table now shows only the shared group rows for the two finished Group A matches; generic duplicate group rows are filtered. | Keep media/external standings WARN until an official standings table snapshot is captured. |
+| Odds / handicap | Production AF source audit has no line mismatch: future 48h selfcheck returned ✓9 / △3 water-basis differences / ✗0 / ⊘0. | Media/external odds still have no PASS. 10 samples are WARN only because none is same-line/same-time. AH and live/in-play external evidence remain OPEN. |
+| Technical stats | AF detail calibration PASS for the two finished matches: Mexico-South Africa 17 public stat rows match AF; South Korea-Czechia 16 rows match AF. | Media/external exact stat tables remain OPEN; no trusted match-centre table captured with identical full numbers. |
+| Team form / injuries | Empty recent-form arrays display "数据积累中"; empty official injuries remain no official report. Leaderboard shells and unusable transfer rows are now filtered in production. | Player ratings and season panels are AF-sourced but still need optional external/media spot checks if non-AF corroboration is required. |
 | Fake-function scan | No match-data fabrication FAIL found in this pass; empty modules mostly show "暂无/未公布/数据积累中". | Recharge/demo payment remains product-policy WARN/OPEN; real payment or production hiding/gating still needs a decision. |
 
 ## Corrections Applied In Repo
 
-Status: fixed in repo; production deployment is blocked in this environment by SSH authentication.
+Status: fixed, pushed to GitHub `main`, and deployed to production.
 
 - Source-of-truth stance: API-Football is treated as the upstream source of truth. External calibration is used to find our ingestion, merge, cache, taxonomy, and display defects; it is not used to overwrite AF values with media/blog values.
 - Fixture detail fetch: `scripts/worker.ts` now fetches match detail slices from the dedicated API-Football endpoints `/fixtures/events`, `/fixtures/statistics`, `/fixtures/lineups`, and `/fixtures/players`, then merges non-empty responses into the fixture payload. This fixes the previous weak assumption that `/fixtures?id=<fixture>` would always carry complete detail arrays.
@@ -61,11 +63,36 @@ Status: fixed in repo; production deployment is blocked in this environment by S
 - Timeline ordering: real AF events are sorted by elapsed/extra time before score labels are accumulated, so goal score text no longer depends on provider array order.
 - Standings display: `src/server/views/detail.ts` now prefers the home/away shared standings group when API-Football returns both a concrete group (for example `Group Stage - Group A`) and an extra generic `Group Stage` block. This prevents the South Korea-Czechia detail table from showing duplicate/out-of-group rows.
 - Coach cards: deep coach cards now prefer the fixture-level lineup coach from `/fixtures/lineups` over stale team-level `/coachs` profiles. If the fixture coach differs from the team profile, the UI keeps the match coach name and marks profile/trophy metadata as pending instead of showing the wrong coach's biography.
-- Empty data shells: deep league leaderboards now return/render only populated boards; if all boards are empty, mobile and desktop show one official pending state instead of four empty cards. Unusable transfer rows such as missing date or "Data unavailable" are converted to an official-pending state, not displayed as concrete transactions.
+- Empty data shells: deep league leaderboards now return/render only populated boards; if all boards are empty, mobile and desktop show one official pending state instead of four empty cards. Unusable transfer rows such as missing date, unusable type, or player names like "Data unavailable"/"数据不可用" are converted to an official-pending state, not displayed as concrete transactions.
+- AF detail public calibration: added `scripts/af-detail-public-calibrate.ts` and `npm run calibrate:af-detail`. It compares AF `/fixtures`, `/fixtures/events`, `/fixtures/statistics`, and `/fixtures/lineups` with public `/api/match/<fixtureId>?deep=1` without DB/KV writes.
 - Regression tests: added `tests/platform/detail-calibration.test.ts` to lock the standings, coach-card, leaderboard, and transfer fixes; added fixture-payload merge and odds raw-retention coverage in `tests/af/store.test.ts`; added timeline ordering coverage in `tests/af/events-synth.test.ts`; added `tests/af/fixture-details.test.ts` for AF detail fetch planning and non-empty-only merge behavior.
 - Test stability: `tests/platform/selfcheck.test.ts` now uses a fixed midday timestamp, avoiding false failures when the test runs late in the day and its seeded `now + 2h` fixture crosses into tomorrow.
 
 API-Football reference note: the public documentation page at `https://www.api-football.com/documentation-v3` returned 403 to direct `curl` in this environment, but the repo's `src/server/af/catalog.ts` is already structured around that documentation and enumerates the relevant source endpoints: `/standings`, `/fixtures`, `/fixtures/statistics`, `/fixtures/events`, `/fixtures/lineups`, `/fixtures/players`, `/injuries`, `/coachs`, `/players`, `/players/squads`, `/players/topscorers`, `/odds`, and `/odds/live`. Treat this as source-provenance support for AF fields, not as external calibration against a second source.
+
+## AF Detail Public Calibration
+
+Status: PASS for the current production slice.
+
+Command run on production:
+
+```text
+npm run calibrate:af-detail -- --base https://zsky.com --max 8
+```
+
+Result:
+
+```text
+■ AF detail public calibration · fixtures 8 · ✓32 △0 ✗0 ⊘0
+```
+
+Covered:
+
+- Mexico-South Africa: score 2-0, event counts, 17 stat rows, and XI/substitute player IDs all match AF.
+- South Korea-Czechia: score 2-1, event counts, 16 stat rows, and XI/substitute player IDs all match AF.
+- Canada-Bosnia, USA-Paraguay, Qatar-Switzerland, Brazil-Morocco, Haiti-Scotland, Australia-Turkiye: AF has no score/events/stats/official lineups yet; production public correctly keeps score/timeline/stats null and `lineups.ready:false`.
+
+This closes the AF-source calibration for current scores, events, stats, and official lineups in this slice. It does not close media/external corroboration where no public match-centre table was captured.
 
 ## Public Odds Calibration
 
@@ -138,8 +165,8 @@ OPEN:
 | Recent form (`formHome/formAway`) | PASS | Production returns empty arrays and UI shows "数据积累中"; no fake form streaks injected. |
 | Injuries / intel | WARN | Empty official-injury state is displayed as no official report. Canada preview injury concerns require official source before failing production. |
 | Player ratings | OPEN | Production shows ratings, but no external player-rating source was captured this pass. Need FotMob/SofaScore/FIFA match centre or AF source audit. |
-| League leaderboards | WARN | Local fix collapses four empty leaderboard shells into one official-pending state. Still WARN until deployed and until AF/source provenance for populated rows is spot-checked. |
-| Transfers | WARN/OPEN | Local fix filters unusable transfer rows and shows official-pending state instead of concrete-looking "Data unavailable" transactions. National-team transfer relevance remains weak. |
+| League leaderboards | WARN | Production now collapses four empty leaderboard shells into one official-pending state. Still WARN until AF/source provenance for populated rows is spot-checked. |
+| Transfers | WARN/OPEN | Production now filters unusable transfer rows and shows official-pending state instead of concrete-looking "Data unavailable" transactions. National-team transfer relevance remains weak. |
 | Season panel | WARN | Production values for played/record now reflect early tournament state; external standings source still needed for full closure. |
 | Weather | PASS/WARN | Canada/USA weather appears with MET Norway attribution; Mexico/South Korea weather null and hidden. Need location/time spot-check if this becomes user-critical. |
 
@@ -181,5 +208,4 @@ Status: WARN, no immediate data-fabrication FAIL found.
 4. Capture an official FIFA/FotMob/SofaScore lineup table for Mexico-South Africa to close the remaining formation wording conflict and remove the residual Guardian text mismatch WARN.
 5. Re-check Canada-Bosnia and USA-Paraguay after official lineups and match events are published.
 6. Decide product policy for recharge: connect real payment, keep demo explicitly gated, or hide recharge entirely in production.
-7. Deploy the local source-grab, payload-merge, standings, coach-card, leaderboard, transfer, and timeline fixes only after review; this audit did not deploy production.
-8. Provide production SSH only if deeper DB/source provenance is required; current public API checks did not require SSH.
+7. Continue media/external odds sourcing; without same-line/same-time public evidence, odds rows remain WARN rather than PASS even though AF-source audit has no line mismatch.
