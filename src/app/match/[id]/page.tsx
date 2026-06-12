@@ -16,6 +16,7 @@ import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 import { PlayerAvatar, TeamLogo } from "@/components/img";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
+import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
 import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -364,32 +365,13 @@ function MobileMatchDetail({ id }: { id: string }) {
 
         {tab === "match" && (
           <>
-            {h.live && (
-              <>
-                <SectionTitle title="实时事件" />
-                {!v.tech.events && <Card style={{ padding: "16px 12px", textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>暂无事件数据,随官方接口实时更新</Card>}
-                {v.tech.events && <Card style={{ padding: "4px 12px" }}>
-                  {(v.tech.events ?? []).map((e: V, i: number) => {
-                    const icons: Record<string, [string, string, string]> = {
-                      goal: ["●", "rgba(46,204,138,.16)", "var(--green)"],
-                      yellow: ["▮", "rgba(233,185,73,.16)", "#e9b949"],
-                      red: ["▮", "rgba(240,67,79,.16)", "var(--red)"],
-                      sub: ["⇄", "rgba(91,157,255,.16)", "#5b9dff"],
-                      var: ["VAR", "rgba(139,148,168,.16)", "#959ba6"],
-                    };
-                    const ic = icons[e.k] ?? icons.var;
-                    return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                        <span className="mono" style={{ width: 36, fontSize: 11, color: "var(--fg-2)" }}>{e.m}</span>
-                        <span style={{ width: 20, height: 20, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, background: ic[1], color: ic[2] }}>{ic[0]}</span>
-                        <span style={{ flex: 1, fontSize: 13, color: "var(--fg-mid)" }}>{e.x}</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: e.s === "主" ? "var(--home)" : "var(--gold)" }}>{e.s}</span>
-                      </div>
-                    );
-                  })}
-                </Card>}
-              </>
+            {v.tech.timeline && (
+              <div style={{ marginTop: 6 }}>
+                <MatchTimeline tl={v.tech.timeline} home={h.home} away={h.away} live={h.live} />
+              </div>
             )}
+            {/* 赛前置顶(影响盘口的赛前因素),开赛后跟在直播时间轴后 */}
+            <WeatherCard w={v.weather} style={{ marginTop: 8 }} />
             {h.live && (
               <>
                 <SectionTitle title="实时技术统计" />

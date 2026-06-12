@@ -31,6 +31,7 @@ import { dailyReadonlyCheck } from "../src/server/selfcheck";
 import { fetchLlmBalance } from "../src/server/llm/client";
 import { archiveLiveOdds, pruneLiveData } from "../src/server/af/live-store";
 import { normalizeLiveOddsItem } from "../src/server/af/normalize";
+import { synthFromFixture } from "../src/server/af/events-synth";
 import { getLlmReport, shouldPregenReport } from "../src/server/llm/report";
 import { buildReport } from "../src/server/views/report";
 import { matchPanorama } from "../src/server/af/panorama";
@@ -149,6 +150,15 @@ async function tickLive(now: number): Promise<void> {
       } catch {
         /* 半场统计非必得 */
       }
+    }
+  }
+  // 统计差分合成事件(角球/射正/射偏/越位 + 开赛/中场/完场节点 → 详情页「赛况」时间轴);
+  // 窗口不滤完场:刚完场的场次还要落「完场」节点,幂等无变化零写入
+  for (const f of fixturesBetween(now - 4 * H, now + 5 * 60_000)) {
+    try {
+      synthFromFixture(f);
+    } catch (e) {
+      log(`事件合成 ${f.fixture_id} 异常:${msg(e)}`);
     }
   }
   // 滚球实时盘(逐场,odds/live 按 fixture 过滤):kv 给实时盘卡,同步归档变化帧 → 走势图滚球段 + 滚球异动

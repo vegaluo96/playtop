@@ -7,6 +7,7 @@ import { type ChartRow } from "@/components/charts";
 import { IndexChart } from "@/components/index-chart";
 import { PlayerAvatar, TeamLogo } from "@/components/img";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
+import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
 import { Flash } from "@/components/live";
 import { ahText, dayLabel, hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
@@ -359,6 +360,14 @@ export function CenterPane({
 
         {tab === "match" && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14 }}>
+            {v.tech.timeline ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, alignSelf: "start" }}>
+                <MatchTimeline tl={v.tech.timeline} home={h.home} away={h.away} live={h.live} />
+                <WeatherCard w={v.weather} />
+              </div>
+            ) : (
+              <WeatherCard w={v.weather} style={{ alignSelf: "start" }} />
+            )}
             <Card style={{ padding: "12px 14px" }}>
               <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10 }}>近况 · 最近 6 场</div>
               {[[h.home, v.tech.formHome, false], [h.away, v.tech.formAway, true]].map(([name, form, away]) => (
@@ -428,18 +437,6 @@ export function CenterPane({
                 </div>
               ))}
               {v.tech.minutes && <div style={{ fontSize: 9.5, color: "var(--fg-3)", marginTop: 4 }}>{v.tech.minutes.note}</div>}
-              {h.live && (
-                <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 10, paddingTop: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>实时事件</div>
-                  {v.tech.events.slice(0, 8).map((e: V, i: number) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                      <span className="mono" style={{ width: 32, fontSize: 10, color: "var(--fg-2)" }}>{e.m}</span>
-                      <span style={{ flex: 1, fontSize: 11, color: "var(--fg-mid)" }}>{e.x}</span>
-                      <span style={{ fontSize: 9.5, fontWeight: 700, color: e.s === "主" ? "var(--home)" : "var(--gold)" }}>{e.s}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </Card>
             <Card style={{ padding: "12px 14px", alignSelf: "start" }}>
               <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>历史交锋</div>

@@ -11,6 +11,8 @@ import { compositeLive, compositePre, mergeComposite } from "./composite";
 import { nameZh } from "./names";
 import { kvCached, kvGet, latestOddsRaw } from "../af/store";
 import { parseExtraMarkets } from "../af/markets";
+import { synthEventsOf, type SynthEvent } from "../af/events-synth";
+import { matchWeather } from "../platform/weather";
 import { runAfEndpoint } from "../af/catalog";
 import type { Panorama } from "../af/panorama";
 import { formZh, predSummary } from "./common";
@@ -109,29 +111,127 @@ function liveStats(bundle: Record<string, unknown>, homeId: number | null) {
   }).filter((row) => row.lv !== "0" || row.rv !== "0");
 }
 
-const EVENT_KIND: Record<string, string> = { Goal: "goal", Card: "yellow", subst: "sub", Var: "var" };
+/* ── 比赛直播时间轴:真实事件 + 统计差分合成事件 + 状态节点,双列直播页用 ── */
+export interface TimelineRow {
+  o: number; // 排序键(分钟 + 补时/100;状态节点带偏移保证夹在正确位置)
+  m: string; // 分钟标签 "45+2'";状态节点为空
+  side: "h" | "a" | "mid";
+  kind: string; // goal|own|pen|yellow|red|sub|var|corner|sot|soff|offside|kickoff|ht|2h|ft
+  text: string; // 双列时间轴短文案
+  live: string; // 文字直播整句
+}
 
-function eventsView(bundle: Record<string, unknown>, homeId: number | null) {
-  const evs = arr(bundle.events);
-  if (evs.length === 0) return null;
-  return evs.map((e) => {
+const SYNTH_TL: Record<string, { short: string; unit: string; live: (t: string, seq: number, m: number) => string }> = {
+  corner: { short: "角球", unit: "个", live: (t, seq, m) => `第 ${m} 分钟,${t}获得角球,这是他们本场第 ${seq} 个角球。` },
+  sot: { short: "射正", unit: "次", live: (t, seq, m) => `第 ${m} 分钟,${t}完成一次射正(本队第 ${seq} 次)。` },
+  soff: { short: "射偏", unit: "次", live: (t, seq, m) => `第 ${m} 分钟,${t}射门偏出(本队第 ${seq} 次射偏)。` },
+  offside: { short: "越位", unit: "次", live: (t, seq, m) => `第 ${m} 分钟,${t}进攻越位(本队第 ${seq} 次)。` },
+};
+
+export function timelineView(
+  bundle: Record<string, unknown>,
+  fx: { status: string; elapsed: number | null; home_id: number | null; home_name: string; away_name: string; goals_home: number | null; goals_away: number | null },
+  synth: SynthEvent[],
+) {
+  const home = nameZh(fx.home_name);
+  const away = nameZh(fx.away_name);
+  const teamOf = (s: "h" | "a") => (s === "h" ? home : away);
+  const rows: TimelineRow[] = [];
+
+  // ① 真实事件(AF events):进球带实时比分、红黄牌、换人、VAR
+  let gh = 0;
+  let ga = 0;
+  for (const e of arr(bundle.events)) {
     const type = String(dig(e, "type") ?? "");
     const detail = String(dig(e, "detail") ?? "");
-    let k = EVENT_KIND[type] ?? "var";
-    if (type === "Card" && /red/i.test(detail)) k = "red";
+    const m = Number(dig(e, "time", "elapsed")) || 0;
+    const extra = Number(dig(e, "time", "extra")) || 0;
+    const side: "h" | "a" = Number(dig(e, "team", "id")) === fx.home_id ? "h" : "a";
     const player = nameZh(String(dig(e, "player", "name") ?? ""), "player");
-    const assist = dig(e, "assist", "name");
-    let x = player;
-    if (type === "Goal") x = `${player}${assist ? `(助攻:${assist})` : ""}${/penalty/i.test(detail) ? "(点球)" : ""}`;
-    else if (type === "subst") x = `${player} ⇄ ${assist ?? ""}`;
-    else if (type === "Var") x = `VAR:${detail}`;
-    return {
-      m: `${dig(e, "time", "elapsed") ?? ""}${dig(e, "time", "extra") ? "+" + dig(e, "time", "extra") : ""}'`,
-      s: Number(dig(e, "team", "id")) === homeId ? "主" : "客",
-      k,
-      x,
+    const assistRaw = dig(e, "assist", "name");
+    const assist = assistRaw ? nameZh(String(assistRaw), "player") : "";
+    const ml = extra > 0 ? `${m}+${extra}'` : `${m}'`;
+    const o = m + extra / 100;
+    if (type === "Goal" && !/missed/i.test(detail)) {
+      if (side === "h") gh++;
+      else ga++;
+      const tag = /penalty/i.test(detail) ? "(点球)" : /own goal/i.test(detail) ? "(乌龙)" : "";
+      rows.push({
+        o, m: ml, side, kind: "goal",
+        text: `${player}${tag} ${gh}-${ga}`,
+        live: `第 ${m} 分钟,进球!${teamOf(side)} ${player} 破门${tag}${assist ? `,${assist} 助攻` : ""},当前比分 ${gh}-${ga}。`,
+      });
+    } else if (type === "Card") {
+      const red = /red/i.test(detail);
+      rows.push({
+        o, m: ml, side, kind: red ? "red" : "yellow",
+        text: player || "—",
+        live: `第 ${m} 分钟,${teamOf(side)} ${player} 被出示${red ? "红牌" : "黄牌"}。`,
+      });
+    } else if (type === "subst") {
+      rows.push({
+        o, m: ml, side, kind: "sub",
+        text: `${player} ⇄ ${assist}`,
+        live: `第 ${m} 分钟,${teamOf(side)}进行人员调整:${player} ⇄ ${assist}。`,
+      });
+    } else if (type === "Var") {
+      rows.push({ o, m: ml, side, kind: "var", text: `VAR:${detail}`, live: `第 ${m} 分钟,VAR 介入审核:${detail}。` });
+    }
+  }
+
+  // ② 合成事件(滚球统计差分):角球/射正/射偏/越位,带本队序号
+  for (const s of synth) {
+    if (s.side === "mid") continue; // 状态节点下方统一处理(含兜底)
+    const t = SYNTH_TL[s.kind];
+    if (!t) continue;
+    rows.push({
+      o: s.m + 0.005,
+      m: `${s.m}'`,
+      side: s.side,
+      kind: s.kind,
+      text: s.seq != null ? `${t.short} 第${s.seq}${t.unit}` : t.short,
+      live: t.live(teamOf(s.side), s.seq ?? 0, s.m),
+    });
+  }
+
+  // ③ 状态节点:优先用合成记录(当时比分);中途部署/历史场次由真实状态+半场比分兜底,不虚构
+  const nodes = new Map<string, { m: number; score: string | null }>();
+  for (const s of synth) if (s.side === "mid") nodes.set(s.kind, { m: s.m, score: s.score ?? null });
+  const started = isLive(fx.status) || isFinished(fx.status);
+  const hth = dig(bundle, "score", "halftime", "home");
+  const htScore = hth != null ? `${hth}-${dig(bundle, "score", "halftime", "away")}` : null;
+  const finScore = fx.goals_home != null ? `${fx.goals_home}-${fx.goals_away}` : null;
+  if (started && !nodes.has("kickoff")) nodes.set("kickoff", { m: 0, score: "0-0" });
+  if (started && fx.status !== "1H" && !nodes.has("ht") && htScore) nodes.set("ht", { m: 45, score: htScore });
+  if ((["2H", "ET", "BT", "P"].includes(fx.status) || isFinished(fx.status)) && nodes.has("ht") && !nodes.has("2h"))
+    nodes.set("2h", { m: 46, score: nodes.get("ht")!.score });
+  if (isFinished(fx.status) && !nodes.has("ft")) nodes.set("ft", { m: fx.elapsed ?? 90, score: finScore });
+  const NODE_TXT: Record<string, { o: number; text: (s: string | null) => string; live: (s: string | null) => string }> = {
+    kickoff: { o: -1, text: () => "比赛开始", live: () => "比赛正式开始。" },
+    ht: { o: 45.98, text: (s) => `中场 ${s ?? ""}`.trim(), live: (s) => `上半场结束${s ? `,半场比分 ${s}` : ""}。` },
+    "2h": { o: 45.99, text: () => "下半场", live: () => "下半场比赛开始。" },
+    ft: { o: 999, text: (s) => `完场 ${s ?? ""}`.trim(), live: (s) => `全场比赛结束${s ? `,最终比分 ${s}` : ""}。` },
+  };
+  for (const [kind, n] of nodes) {
+    const t = NODE_TXT[kind];
+    if (t) rows.push({ o: t.o, m: "", side: "mid", kind, text: t.text(n.score), live: t.live(n.score) });
+  }
+
+  rows.sort((a, b) => a.o - b.o).reverse(); // 最新在上,直播阅读习惯
+
+  // 角球数(统计现值,头部「角 5-3」)
+  let corners: { h: number; a: number } | null = null;
+  const blocks = arr(bundle.statistics);
+  if (blocks.length >= 2) {
+    const of = (b: unknown) => {
+      const row = arr(dig(b, "statistics")).find((s) => dig(s, "type") === "Corner Kicks");
+      return Number(dig(row, "value")) || 0;
     };
-  });
+    const hb = blocks.find((b) => Number(dig(b, "team", "id")) === fx.home_id);
+    const ab = blocks.find((b) => Number(dig(b, "team", "id")) !== fx.home_id);
+    if (hb && ab) corners = { h: of(hb), a: of(ab) };
+  }
+  return { rows: rows.slice(0, 200), corners, ht: htScore };
 }
 
 function minutesView(pred: Record<string, unknown> | null) {
@@ -653,7 +753,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     },
     comp: { ah: compMap(p.odds.compareAh, "ah"), ou: compMap(p.odds.compareOu, "ou"), eu: compEu },
     tech: {
-      events: eventsView(p.bundle, fx.home_id),
+      timeline: live || isFinished(fx.status) ? timelineView(p.bundle, fx, synthEventsOf(fx.fixture_id)) : null,
       stats: liveStats(p.bundle, fx.home_id),
       formHome: ps ? formZh(ps.formHome) : [],
       formAway: ps ? formZh(ps.formAway) : [],
@@ -666,6 +766,8 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       const raw = latestOddsRaw(fx.fixture_id);
       return raw ? parseExtraMarkets(raw).map((m) => ({ ...m, bk: maskBookmaker(m.bk) })) : [];
     })(),
+    // 开球时刻球场天气(MET Norway,免费官方源;拿不到即 null,前端隐藏,绝不伪造)
+    weather: await matchWeather(String(dig(p.bundle, "fixture", "venue", "city") ?? ""), fx.kickoff_utc),
     lineups: lineupsView(p.bundle, fx.home_id, fx.home_name, fx.away_name),
     intel: intelView(p.injuries, fx.home_id),
     deep: opts.deep ? await deepView(p) : null,
