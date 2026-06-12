@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 队徽/球员头像(API-SPORTS CDN 或 AF 返回 URL):懒加载,加载失败回退首字母/号码圆形,
+ * 队徽/球员头像(远端图片或官方返回 URL):懒加载,加载失败回退首字母/号码圆形,
  * 绝不显示破图。dark 背景下用浅色衬底保证深色队徽可见。
  */
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
