@@ -466,6 +466,35 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
   } catch (e) {
     lines.push(`  ① AF 实时拉取失败:${e instanceof Error ? e.message : e}`);
   }
+  // 主盘速览:AF 源共识盘(各书商中位数)对照我方落库与前端,3 行看齐
+  if (liveRaw) {
+    const books = normalizeOddsItem(liveRaw);
+    const median = (xs: number[]) => {
+      const s = [...xs].sort((p, q) => p - q);
+      return s.length ? s[Math.floor((s.length - 1) / 2)] : null;
+    };
+    const consensus = (mk: "ah" | "ou") => {
+      const ms = books.flatMap((b) => b.markets.filter((m) => m.market === mk));
+      if (ms.length === 0) return null;
+      const line = median(ms.map((m) => m.line ?? 0));
+      const at = ms.filter((m) => (m.line ?? 0) === line);
+      return { line, h: median(at.map((m) => m.h))!, a: median(at.map((m) => m.a))!, n: at.length, tot: ms.length };
+    };
+    const dbMain = (mk: "ah" | "ou") => {
+      const r = d
+        .prepare(`SELECT bookmaker, line, h, a FROM odds_snapshots WHERE fixture_id=? AND market=? ORDER BY captured_at DESC LIMIT 1`)
+        .get(fixtureId, mk) as { bookmaker: string; line: number; h: number; a: number } | undefined;
+      return r;
+    };
+    const fmt = (x: { line: number | null; h: number; a: number } | null | undefined) =>
+      x ? `line=${x.line} 水=${x.h}/${x.a}` : "—";
+    lines.push("  ★ 主盘速览(AF 源共识 vs 我方落库):");
+    for (const mk of ["ah", "ou"] as const) {
+      const c = consensus(mk);
+      const m = dbMain(mk);
+      lines.push(`     ${mk}  AF共识 ${fmt(c)}${c ? `(${c.n}/${c.tot}家)` : ""}  ｜  我方 ${fmt(m)}${m ? `(${m.bookmaker})` : ""}`);
+    }
+  }
   if (liveRaw) {
     lines.push("  ① AF 实时原始(欧赔)→ 归一化(亚盘/大小为净水=欧赔-1,line 正=主让):");
     for (const bm of normalizeOddsItem(liveRaw).slice(0, 25)) {
@@ -535,6 +564,6 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
   } catch (e) {
     lines.push(`  ⑤ AF 实时阵容拉取失败:${e instanceof Error ? e.message : e}`);
   }
-  lines.push("  口径说明:平台水位为净水(港盘),= 书商欧赔 − 1;主盘 = 两侧净水最均衡的盘口线;同场三市场固定同一主书商。");
+  lines.push("  口径说明:平台水位为净水(港盘),= 书商欧赔 − 1;主盘 = 两侧净水最均衡的盘口线;各市场独立取最新书商,不强制同一书商。");
   return lines.join("\n");
 }
