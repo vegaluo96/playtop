@@ -5,7 +5,7 @@
  * - 多 line 时取主盘:两侧净水最均衡(|h-a| 最小)且水位在合理区间
  */
 
-import { isFulltimeResultMarketName, isHalfPeriodMarketName, isValidAhLine, isValidDecimalOdd, isValidEuTriplet, isValidOuLine } from "./odds-quality";
+import { isDisplayableLiveEuTriplet, isFulltimeResultMarketName, isHalfPeriodMarketName, isValidAhLine, isValidDecimalOdd, isValidEuTriplet, isValidOuLine } from "./odds-quality";
 
 export interface NormalizedMarket {
   market: "ah" | "ou" | "eu";
@@ -388,7 +388,7 @@ export function normalizeLiveOddsItem(item: unknown, opts: NormalizeOptions = {}
       const hv = num(dig(h, "odd"));
       const dv = num(dig(dd, "odd"));
       const av = num(dig(a, "odd"));
-      if (isValidEuTriplet(hv, dv, av))
+      if (isDisplayableLiveEuTriplet(hv, dv, av))
         out.push({
           market: "eu",
           line: null,
@@ -398,7 +398,7 @@ export function normalizeLiveOddsItem(item: unknown, opts: NormalizeOptions = {}
           suspended: [h, dd, a].some((v) => Boolean(dig(v, "suspended"))),
         });
       else
-        issue(opts, { endpoint: "odds.live", betId: Number(dig(x12, "id")) || null, rawValue: vals, parsedValue: { h: hv, d: dv, a: av }, errorType: "ODDS_OUT_OF_RANGE", errorReason: "滚球胜平负赔率或满水率不在可信范围" });
+        issue(opts, { endpoint: "odds.live", betId: Number(dig(x12, "id")) || null, rawValue: vals, parsedValue: { h: hv, d: dv, a: av }, errorType: "ODDS_OUT_OF_RANGE", errorReason: "滚球胜平负赔率超过展示阈值或满水率不在可信范围" });
     } else if (x12) {
       issue(opts, { endpoint: "odds.live", betId: Number(dig(x12, "id")) || null, rawValue: vals, errorType: "MISSING_SIDE", errorReason: "滚球胜平负缺少 HOME/DRAW/AWAY 任意一项" });
     }

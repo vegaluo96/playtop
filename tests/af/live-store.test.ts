@@ -229,6 +229,16 @@ describe("normalizeLiveOddsItem", () => {
     ).toBe(false);
   });
 
+  it("滚球胜平负超过展示阈值时整组拒收,避免可疑 15/1.04/29 进入 summary", () => {
+    const frames = normalizeLiveOddsItem({
+      odds: [{ name: "Fulltime Result", values: [
+        { value: "Home", odd: "15" }, { value: "Draw", odd: "1.04" }, { value: "Away", odd: "29" },
+      ] }],
+    });
+
+    expect(frames.some((f) => f.market === "eu")).toBe(false);
+  });
+
   it("滚球 parser 输出 DiagnosticIssue 草稿", () => {
     const issues: unknown[] = [];
     const frames = normalizeLiveOddsItem({

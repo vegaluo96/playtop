@@ -1,6 +1,6 @@
 /** Odds quality gates shared by ingestion and public views. */
 
-export const LIVE_EU_DISPLAY_MAX_ODD = 30;
+export const LIVE_EU_DISPLAY_MAX_ODD = 20;
 export const MIN_DECIMAL_ODD = 1.01;
 export const MAX_DECIMAL_ODD = 30;
 
