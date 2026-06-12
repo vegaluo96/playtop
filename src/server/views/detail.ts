@@ -490,6 +490,12 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   const live = isLive(fx.status);
   const pred = p.prediction;
   const lastOf = (s: SnapRow[]) => (s.length > 0 ? s[s.length - 1] : null);
+  // 该市场最近真实变化时间(进入页面近窗变化也要闪)
+  const chgAtOf = (s: SnapRow[]) => {
+    if (s.length < 2) return null;
+    const [p2, l2] = [s[s.length - 2], s[s.length - 1]];
+    return l2.h !== p2.h || l2.a !== p2.a || l2.line !== p2.line || (l2.d ?? null) !== (p2.d ?? null) ? l2.captured_at : null;
+  };
   const hintOf = (s: SnapRow[]) => {
     const r = lastOf(s);
     return r ? { line: r.line, h: r.h, a: r.a } : null;
@@ -576,9 +582,9 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       fresh: freshLine(fx.kickoff_utc, now, fx.status, cfgTierIntervals()),
     },
     summary: {
-      ah: ahL ? { text: ahText(ahL.line ?? 0), w: `${f2(ahL.h)}/${f2(ahL.a)}` } : null,
-      ou: ouL ? { text: ouText(ouL.line ?? 0), w: `${f2(ouL.h)}/${f2(ouL.a)}` } : null,
-      eu: euL ? { w: `${f2(euL.h)}/${f2(euL.d ?? 0)}/${f2(euL.a)}` } : null,
+      ah: ahL ? { text: ahText(ahL.line ?? 0), w: `${f2(ahL.h)}/${f2(ahL.a)}`, chgAt: chgAtOf(ahAll) } : null,
+      ou: ouL ? { text: ouText(ouL.line ?? 0), w: `${f2(ouL.h)}/${f2(ouL.a)}`, chgAt: chgAtOf(ouAll) } : null,
+      eu: euL ? { w: `${f2(euL.h)}/${f2(euL.d ?? 0)}/${f2(euL.a)}`, chgAt: chgAtOf(euAll) } : null,
       oddsAt: Math.max(ahL?.captured_at ?? 0, ouL?.captured_at ?? 0, euL?.captured_at ?? 0) || null,
     },
     liveOdds,

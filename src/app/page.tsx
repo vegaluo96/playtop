@@ -25,6 +25,7 @@ interface Cell {
   hd: number;
   ad: number;
   line: number | null;
+  chgAt: number | null;
 }
 interface Row {
   id: number;
@@ -51,11 +52,11 @@ interface Row {
 
 const X = "-.--";
 
-function ArrowVal({ v, d, masked }: { v: number | undefined; d: number | undefined; masked: boolean }) {
+function ArrowVal({ v, d, masked, chgAt }: { v: number | undefined; d: number | undefined; masked: boolean; chgAt?: number | null }) {
   const ch = !masked && d ? (d > 0 ? "▲" : "▼") : "";
   return (
     <div style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
-      <Flash v={masked || v == null ? X : f2(v)} className="mono" style={{ fontSize: 13.5, fontWeight: 600 }} />
+      <Flash v={masked || v == null ? X : f2(v)} pulse={masked ? null : chgAt} pulseDir={d} className="mono" style={{ fontSize: 13.5, fontWeight: 600 }} />
       <span style={{ fontSize: 8, color: d && d > 0 ? "var(--up)" : "var(--down)" }}>{ch}</span>
     </div>
   );
@@ -226,23 +227,23 @@ function MobileMatchesPage() {
                   </div>
                 </div>
                 <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
-                  <ArrowVal v={m.ah?.h} d={m.ah?.hd} masked={m.masked} />
+                  <ArrowVal v={m.ah?.h} d={m.ah?.hd} masked={m.masked} chgAt={m.ah?.chgAt} />
                   <div style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700, color: "var(--gold)" }}>
                     <Flash v={m.masked ? "●●" : (m.ah?.text ?? "—")} />
                   </div>
-                  <ArrowVal v={m.ah?.a} d={m.ah?.ad} masked={m.masked} />
+                  <ArrowVal v={m.ah?.a} d={m.ah?.ad} masked={m.masked} chgAt={m.ah?.chgAt} />
                 </div>
                 <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
-                  <ArrowVal v={m.ou?.h} d={m.ou?.hd} masked={m.masked} />
+                  <ArrowVal v={m.ou?.h} d={m.ou?.hd} masked={m.masked} chgAt={m.ou?.chgAt} />
                   <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>
                     <Flash v={m.masked ? "●●" : m.ou?.line != null ? m.ou.line.toFixed(2) : "—"} />
                   </div>
-                  <ArrowVal v={m.ou?.a} d={m.ou?.ad} masked={m.masked} />
+                  <ArrowVal v={m.ou?.a} d={m.ou?.ad} masked={m.masked} chgAt={m.ou?.chgAt} />
                 </div>
                 <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
                   {[m.eu?.h, m.eu?.d, m.eu?.a].map((v, i) => (
                     <div key={i} className="mono" style={{ height: i === 1 ? 16 : 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: i === 1 ? 11 : 12.5, fontWeight: i === 1 ? 700 : 600, color: i === 1 ? "var(--gold)" : undefined }}>
-                      <Flash v={m.masked || v == null ? X : f2(v)} />
+                      <Flash v={m.masked || v == null ? X : f2(v)} pulse={m.masked ? null : m.eu?.chgAt} pulseDir={i === 0 ? m.eu?.hd : i === 2 ? m.eu?.ad : 0} />
                     </div>
                   ))}
                 </div>

@@ -25,10 +25,28 @@ export function agoText(at: number | null | undefined, now = Date.now()): string
   return s < 2 ? "刚刚" : s < 60 ? `${s}s前` : s < 3600 ? `${Math.floor(s / 60)}m前` : `${Math.floor(s / 3600)}h前`;
 }
 
-/** 值变化 → 闪动+方向;数值用 ▲▼,非数值(盘口文本)闪金 */
-export function Flash({ v, arrow = false, className, style }: { v: string | number | null | undefined; arrow?: boolean; className?: string; style?: CSSProperties }) {
+/** 近窗变化进场即闪的时间窗:刚打开页面也能看到「刚刚变过」的字段在跳 */
+const PULSE_WINDOW_MS = 5 * 60_000;
+
+/**
+ * 值变化 → 闪动+方向;数值用 ▲▼,非数值(盘口文本)闪金。
+ * pulse(该值最近真实变化的时间戳)+ pulseDir:挂载时若变化发生在近窗内,主动闪一次——
+ * 解决「变化发生在打开页面之前/轮询间隙,用户永远看不到跳动」;仍然只闪真实变化。
+ */
+export function Flash({ v, arrow = false, className, style, pulse, pulseDir }: { v: string | number | null | undefined; arrow?: boolean; className?: string; style?: CSSProperties; pulse?: number | null; pulseDir?: number }) {
   const prevRef = useRef<typeof v>(undefined);
+  const pulsedRef = useRef(false);
   const [fx, setFx] = useState<{ dir: -1 | 0 | 1; key: number } | null>(null);
+  useEffect(() => {
+    if (pulsedRef.current) return;
+    pulsedRef.current = true; // 仅挂载时机检查一次,后续交给真实值变化路径
+    if (!pulse || Date.now() - pulse > PULSE_WINDOW_MS) return;
+    const dir: -1 | 0 | 1 = pulseDir && pulseDir > 0 ? 1 : pulseDir && pulseDir < 0 ? -1 : 0;
+    setFx({ dir, key: Date.now() });
+    const t = setTimeout(() => setFx(null), 2400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     const prev = prevRef.current;
     prevRef.current = v;

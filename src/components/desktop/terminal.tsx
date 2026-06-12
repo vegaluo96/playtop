@@ -323,17 +323,17 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                     </div>
                   </div>
                   <div style={{ flexShrink: 0, textAlign: "right", width: 54 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked ? "●●" : (m.ah?.text ?? "—")} /></div>
-                    <div className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ah ? X : `${f2(m.ah.h)}/${f2(m.ah.a)}`} /></div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked ? "●●" : (m.ah?.text ?? "—")} pulse={m.masked ? null : m.ah?.chgAt} /></div>
+                    <div className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ah ? X : `${f2(m.ah.h)}/${f2(m.ah.a)}`} pulse={m.masked ? null : m.ah?.chgAt} pulseDir={m.ah?.hd} /></div>
                   </div>
                   <div style={{ flexShrink: 0, textAlign: "right", width: 54 }}>
-                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || m.ou?.line == null ? X : m.ou.line.toFixed(2)} /></div>
-                    <div className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ou ? X : `${f2(m.ou.h)}/${f2(m.ou.a)}`} /></div>
+                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || m.ou?.line == null ? X : m.ou.line.toFixed(2)} pulse={m.masked ? null : m.ou?.chgAt} /></div>
+                    <div className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ou ? X : `${f2(m.ou.h)}/${f2(m.ou.a)}`} pulse={m.masked ? null : m.ou?.chgAt} pulseDir={m.ou?.hd} /></div>
                   </div>
                   <div style={{ flexShrink: 0, textAlign: "right", width: 44 }}>
                     {[m.eu?.h, m.eu?.d, m.eu?.a].map((vv, i) => (
                       <div key={i} className="mono" style={{ fontSize: 9, lineHeight: "12px", color: i === 1 ? "var(--fg-3)" : "var(--fg-2)", display: "flex", justifyContent: "flex-end" }}>
-                        <Flash v={m.masked || vv == null ? X : f2(vv)} />
+                        <Flash v={m.masked || vv == null ? X : f2(vv)} pulse={m.masked ? null : m.eu?.chgAt} pulseDir={i === 0 ? m.eu?.hd : i === 2 ? m.eu?.ad : 0} />
                       </div>
                     ))}
                   </div>

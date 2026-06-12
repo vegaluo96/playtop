@@ -19,6 +19,8 @@ export interface MarketCell {
   d: number | null;
   hd: number;
   ad: number;
+  /** 该市场最近一次真实变化的时间(进入页面时近窗变化也要可见地闪动) */
+  chgAt: number | null;
 }
 
 /** 序列尾两帧 → 列表单元格(含涨跌方向) */
@@ -27,6 +29,8 @@ export function marketCell(series: SnapRow[], market: "ah" | "ou" | "eu"): Marke
   const last = series[series.length - 1];
   const prev = series.length > 1 ? series[series.length - 2] : null;
   const sgn = (a: number, b: number | null | undefined) => (b == null ? 0 : a > b ? 1 : a < b ? -1 : 0);
+  const changed =
+    !!prev && (last.h !== prev.h || last.a !== prev.a || last.line !== prev.line || (last.d ?? null) !== (prev.d ?? null));
   return {
     line: last.line,
     text: market === "ah" ? ahText(last.line ?? 0) : market === "ou" ? ouText(last.line ?? 0) : "",
@@ -35,6 +39,7 @@ export function marketCell(series: SnapRow[], market: "ah" | "ou" | "eu"): Marke
     d: last.d,
     hd: sgn(last.h, prev?.h),
     ad: sgn(last.a, prev?.a),
+    chgAt: changed ? last.captured_at : null,
   };
 }
 

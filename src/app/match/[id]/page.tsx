@@ -241,15 +241,15 @@ function MobileMatchDetail({ id }: { id: string }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, padding: "0 14px 10px" }}>
         {[
-          ["亚盘", v.summary.ah ? `${v.summary.ah.text}` : "—", v.summary.ah?.w ?? ""],
-          ["大小", v.summary.ou ? `${v.summary.ou.text}` : "—", v.summary.ou?.w ?? ""],
-          ["胜平负", "", v.summary.eu?.w ?? "—"],
-        ].map(([k, t, w]) => (
+          ["亚盘", v.summary.ah ? `${v.summary.ah.text}` : "—", v.summary.ah?.w ?? "", v.summary.ah?.chgAt],
+          ["大小", v.summary.ou ? `${v.summary.ou.text}` : "—", v.summary.ou?.w ?? "", v.summary.ou?.chgAt],
+          ["胜平负", "", v.summary.eu?.w ?? "—", v.summary.eu?.chgAt],
+        ].map(([k, t, w, at]) => (
           <Card key={k as string} style={{ borderRadius: 8, padding: "6px 2px", textAlign: "center" }}>
             <div style={{ fontSize: 9, color: "var(--fg-3)", marginBottom: 2 }}>{k}</div>
             <div style={{ fontSize: 10.5, display: "flex", justifyContent: "center", gap: 3 }}>
-              {t ? <Flash v={t} style={{ color: "var(--gold)", fontWeight: 700 }} /> : null}
-              <Flash v={w} className="mono" style={{ color: "var(--fg-mid)" }} />
+              {t ? <Flash v={t as string} pulse={at as number | null} style={{ color: "var(--gold)", fontWeight: 700 }} /> : null}
+              <Flash v={w as string} pulse={at as number | null} className="mono" style={{ color: "var(--fg-mid)" }} />
             </div>
           </Card>
         ))}
