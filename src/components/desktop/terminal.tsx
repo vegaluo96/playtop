@@ -494,12 +494,12 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: "var(--home)", fontWeight: 750 }}>主胜 <span className="mono">{pred.pH}%</span></span>
                     <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 750 }}>平 <span className="mono">{pred.pD}%</span></span>
-                    <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 750 }}>客胜 <span className="mono">{pred.pA}%</span></span>
+                    <span style={{ fontSize: 11, color: "var(--team-away)", fontWeight: 750 }}>客胜 <span className="mono">{pred.pA}%</span></span>
                   </div>
                   <div style={{ display: "flex", height: 5, borderRadius: 3, overflow: "hidden", gap: 2, marginBottom: 10 }}>
                     <div style={{ background: "var(--home)", width: `${pred.pH}%` }} />
                     <div style={{ background: "var(--line)", width: `${pred.pD}%` }} />
-                    <div style={{ background: "var(--gold)", width: `${pred.pA}%` }} />
+                    <div style={{ background: "var(--team-away)", width: `${pred.pA}%` }} />
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
                     {[["胜平负方向", pred.winnerText], ["大小方向", pred.uoText], ["进球上限", pred.goalsText]].map(([label, v]) => (

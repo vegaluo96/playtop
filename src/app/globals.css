@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ── 设计 token:Robinhood 极简行情终端基调 ──
-   绿色只保留给少量 CTA / success / 真实行情变化;选中态、客队、品牌与面板强调走中性 token。 */
+   主客队只用红/绿区分;选中态、品牌与面板强调走中性 token。 */
 :root {
   --bg: #0b0d0f;
   --card: #111418;
@@ -43,11 +43,11 @@
   --overlay-soft: rgba(4, 5, 9, 0.60);
   --overlay-strong: rgba(4, 5, 9, 0.78);
   --surface-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
-  --team-home: #78a8ff;
-  --team-away: #d8c99b;
-  --team-home-bg: rgba(120, 168, 255, 0.12);
-  --team-home-bg-soft: rgba(120, 168, 255, 0.08);
-  --team-away-bg: rgba(216, 201, 155, 0.12);
+  --team-home: var(--red);
+  --team-away: var(--green);
+  --team-home-bg: rgba(255, 92, 92, 0.13);
+  --team-home-bg-soft: rgba(255, 92, 92, 0.09);
+  --team-away-bg: rgba(0, 200, 5, 0.11);
   --event-corner: #6ec1ff;
   --event-corner-bg: rgba(110, 193, 255, 0.14);
   --chart-primary: var(--cta);
@@ -112,11 +112,11 @@
   --overlay-soft: rgba(16, 20, 24, 0.34);
   --overlay-strong: rgba(16, 20, 24, 0.52);
   --surface-shadow: 0 18px 60px rgba(16, 20, 24, 0.14);
-  --team-home: #2563eb;
-  --team-away: #8b6f31;
-  --team-home-bg: rgba(37, 99, 235, 0.10);
-  --team-home-bg-soft: rgba(37, 99, 235, 0.07);
-  --team-away-bg: rgba(139, 111, 49, 0.10);
+  --team-home: var(--red);
+  --team-away: var(--green);
+  --team-home-bg: rgba(217, 48, 48, 0.10);
+  --team-home-bg-soft: rgba(217, 48, 48, 0.07);
+  --team-away-bg: rgba(0, 168, 5, 0.10);
   --event-corner: #0f78a8;
   --event-corner-bg: rgba(15, 120, 168, 0.10);
   --chart-primary: var(--cta);

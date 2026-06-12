@@ -102,9 +102,9 @@ function MobileReportPage({ id }: { id: string }) {
                 </div>
                 <span style={{ fontSize: 11.5, color: "var(--fg-3)", textAlign: "center" }}>{label}</span>
                 <div style={{ height: 4, background: "var(--inset)", borderRadius: 2, overflow: "hidden" }}>
-                  <div style={{ height: "100%", background: "var(--gold)", width: `${c.away}%` }} />
+                  <div style={{ height: "100%", background: "var(--team-away)", width: `${c.away}%` }} />
                 </div>
-                <span className="mono" style={{ fontSize: 11.5, color: "var(--gold)", textAlign: "right" }}>{c.away}%</span>
+                <span className="mono" style={{ fontSize: 11.5, color: "var(--team-away)", textAlign: "right" }}>{c.away}%</span>
               </div>
             ))}
           </div>

@@ -123,7 +123,7 @@ export function SameOddsCard({ so }: { so: V }) {
       ) : (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-            {[["主胜", so.w, "var(--green)"], ["平局", so.dr, "var(--fg-3)"], ["客胜", so.l, "var(--red)"]].map(([lab, n, c]) => (
+            {[["主胜", so.w, "var(--home)"], ["平局", so.dr, "var(--fg-3)"], ["客胜", so.l, "var(--team-away)"]].map(([lab, n, c]) => (
               <div key={lab as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "7px 0", textAlign: "center" }}>
                 <MarketValue v={`${pct(n as number)}%`} className="mono" small style={{ justifyContent: "center", color: c as string, fontSize: 14, fontWeight: 800 }} />
                 <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 1 }}>{lab as string} {n as number} 场</div>
