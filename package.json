@@ -11,6 +11,7 @@
     "calibrate": "tsx scripts/odds-calibrate.ts",
     "calibrate:af-detail": "tsx scripts/af-detail-public-calibrate.ts",
     "calibrate:public": "tsx scripts/odds-public-calibrate.ts",
+    "calibrate:stats-public": "tsx scripts/stats-public-calibrate.ts",
     "worker": "tsx scripts/worker.ts",
     "selfcheck": "tsx scripts/selfcheck.ts",
     "test": "vitest run",

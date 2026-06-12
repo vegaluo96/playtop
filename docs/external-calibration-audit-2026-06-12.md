@@ -3,6 +3,7 @@
 > Current slice only. Do not read this as a whole-site completion statement.
 > Capture time: 2026-06-12T14:47:48Z / 2026-06-12 22:47 CST.
 > Continuation update: 2026-06-12T16:37:29Z / 2026-06-13 00:37 CST.
+> Stats calibration update: 2026-06-12T16:57:09Z / 2026-06-13 00:57 CST.
 > Target repo: `/Users/vega/Documents/Codex/playtop-zsky-copy`, branch `main`.
 
 ## Scope And Rules
@@ -22,6 +23,7 @@ Current status: this is a continuation slice, not a whole-site completion claim.
 - Production read-only DB check found the current sample finished matches already have non-empty AF detail payloads: Mexico-South Africa has events 18 / statistics 2 / lineups 2 / players 2; South Korea-Czechia has events 14 / statistics 2 / lineups 2 / players 2.
 - AF detail public calibration was rerun for fixtures `1489369,1538999,1539000,1489370`: `✓16 △0 ✗0 ⊘0`. Scores, events, stats, official lineup state, and pre-match null states match AF for this slice.
 - Public external odds calibration was rerun from `docs/external-odds-samples-2026-06-12.json`: `✓0 △10 ✗0 ⊘0`. This remains WARN because the samples are not same-line/same-time and several are partial tip markets.
+- Public external technical-stats calibration was added and run from `docs/external-stats-samples-2026-06-12.json`: `✓0 △2 ✗0 ⊘0`. It confirms the partial ET score/red-card snapshots do not contradict production, but keeps both rows WARN because no full FIFA/FotMob/SofaScore-style match-centre table was captured.
 - Applied code corrections in this continuation: terminal detail refresh after FT now retries AF `events/statistics/lineups/players` three times over the post-match window; AF empty-result caches for injuries, standings, rankings, ratings, formations, squads, coaches, transfers, and H2H now use a shorter negative TTL; list odds reads only the last two unsuspended live frames per fixture/market instead of scanning all historical live frames.
 - Fake-function correction: user recharge dialogs no longer say "演示环境:点击档位即模拟支付到账" while the channel is under maintenance, and the admin overview no longer labels disabled production purchase flow as "演示支付". Real payment integration is still a product-policy OPEN item.
 - Selfcheck correction: production L4 selfcheck now skips the demo first-purchase assertion when the purchase channel is maintenance-gated, while still checking gift, unlock, ledger, invite, redemption, and cleanup flows.
@@ -33,7 +35,7 @@ Current status: this is a continuation slice, not a whole-site completion claim.
 | 1489369 | Mexico-South Africa | PASS for reachable public detail | Finished 2-0; summary odds AH 1.25 1.10/0.78, OU 2.25 0.98/0.93, EU 1.40/4.50/8.50. |
 | 1538999 | South Korea-Czechia | PASS for reachable public detail | Finished 2-1; summary odds AH 0 0.80/1.05, OU 2.25 0.98/0.93, EU 2.62/3.00/3.00. |
 | 1539000 | Canada-Bosnia and Herzegovina | PASS for reachable public detail | Pre-match; lineups `ready:false`; timeline/stats null; EU 1.80/3.60/4.50. |
-| 1489370 | USA-Paraguay | PASS for reachable public detail | Pre-match; lineups `ready:false`; timeline/stats null; latest sampled EU 2.10/3.20/3.80. |
+| 1489370 | USA-Paraguay | PASS for reachable public detail | Pre-match; lineups `ready:false`; timeline/stats null; latest sampled EU 2.10/3.25/3.70. |
 
 Production URLs used:
 
@@ -57,7 +59,7 @@ This table is the operator-facing answer to "which parts are calibrated, which s
 | Pre-match null states | Canada-Bosnia and USA-Paraguay correctly keep `score:null`, `timeline:null`, `stats:null`, and `lineups.ready:false`. | Re-check after official lineups and match events publish. |
 | Standings | Group A table now shows only the shared group rows for the two finished Group A matches; generic duplicate group rows are filtered. | Keep media/external standings WARN until an official standings table snapshot is captured. |
 | Odds / handicap | Production AF source audit has no line mismatch: future 48h selfcheck returned ✓9 / △3 water-basis differences / ✗0 / ⊘0. | Media/external odds still have no PASS. 10 samples are WARN only because none is same-line/same-time. AH and live/in-play external evidence remain OPEN. |
-| Technical stats | AF detail calibration PASS for the two finished matches: Mexico-South Africa 17 public stat rows match AF; South Korea-Czechia 16 rows match AF. | Media/external exact stat tables remain OPEN; no trusted match-centre table captured with identical full numbers. |
+| Technical stats | AF detail calibration PASS for the two finished matches: Mexico-South Africa 17 public stat rows match AF; South Korea-Czechia 16 rows match AF. Partial ET external snapshots do not contradict score/red-card facts. | Media/external exact stat tables remain OPEN/WARN; `calibrate:stats-public` is now available, but current samples are partial article evidence rather than full trusted match-centre tables. |
 | Team form / injuries | Empty recent-form arrays display "数据积累中"; empty official injuries remain no official report. Leaderboard shells and unusable transfer rows are now filtered in production. | Player ratings and season panels are AF-sourced but still need optional external/media spot checks if non-AF corroboration is required. |
 | Fake-function scan | No match-data fabrication FAIL found in this pass; empty modules mostly show "暂无/未公布/数据积累中". Production recharge simulation copy was removed from disabled user/admin states in the continuation update. | Real payment integration remains product-policy WARN/OPEN; production should stay maintenance-gated until a real gateway exists. |
 
@@ -77,6 +79,7 @@ Status: fixed, pushed to GitHub `main`, and deployed to production.
 - Coach cards: deep coach cards now prefer the fixture-level lineup coach from `/fixtures/lineups` over stale team-level `/coachs` profiles. If the fixture coach differs from the team profile, the UI keeps the match coach name and marks profile/trophy metadata as pending instead of showing the wrong coach's biography.
 - Empty data shells: deep league leaderboards now return/render only populated boards; if all boards are empty, mobile and desktop show one official pending state instead of four empty cards. Unusable transfer rows such as missing date, unusable type, or player names like "Data unavailable"/"数据不可用" are converted to an official-pending state, not displayed as concrete transactions.
 - AF detail public calibration: added `scripts/af-detail-public-calibrate.ts` and `npm run calibrate:af-detail`. It compares AF `/fixtures`, `/fixtures/events`, `/fixtures/statistics`, and `/fixtures/lineups` with public `/api/match/<fixtureId>?deep=1` without DB/KV writes.
+- External technical-stats calibration: added `scripts/stats-public-calibrate.ts`, `npm run calibrate:stats-public`, and `docs/external-stats-samples-2026-06-12.json`. It compares external score/stat samples with production public `/api/match/<fixtureId>?deep=1` without DB/KV writes, and forces non-full-match-centre evidence to WARN rather than PASS.
 - Post-match AF detail refresh: worker now retries the official AF detail endpoints after FT so final events/statistics/player ratings that arrive after the last live tick can replace partial live payloads.
 - AF negative-cache correction: empty official arrays/nulls use short TTL when appropriate, so AF data that appears after an initial empty response is not hidden for 6-24 hours.
 - Live odds list performance: list endpoints now read only the last two unsuspended live odds frames per fixture/market from SQLite, instead of loading every historical live frame and slicing in JavaScript.
@@ -110,6 +113,31 @@ Covered:
 
 This closes the AF-source calibration for current scores, events, stats, and official lineups in this slice. It does not close media/external corroboration where no public match-centre table was captured.
 
+## Public Technical Stats External Calibration
+
+Status: WARN overall.
+
+Added `scripts/stats-public-calibrate.ts`, `npm run calibrate:stats-public`, and `docs/external-stats-samples-2026-06-12.json`. The script only reads the external sample file and production public `/api/match/<fixtureId>?deep=1`; it does not import DB helpers and does not write SQLite/KV. Evidence marked `partial-article`, `live-report`, `search-snippet`, or `manual-snapshot` can never become PASS; it can only detect contradictions or keep the row WARN until a full match-centre table is captured.
+
+Run result:
+
+```text
+■ Public external stats calibration · samples 2 · ✓0 △2 ✗0 ⊘0
+```
+
+Key observations:
+
+| Match | External source | External sample | ZSKY public | Status |
+|---|---|---|---|---|
+| Mexico-South Africa | [Economic Times](https://economictimes.indiatimes.com/news/new-updates/fifa-world-cup-2026-stats-mexico-vs-south-africa-first-match-full-time-score-goal-scorers-match-statistics-and-what-the-results-mean/articleshow/131672153.cms) | Score 2-0; red cards 1-2. | Score 2-0; red cards 1-2; full AF stat table has 17 rows. | WARN, partial article only. |
+| South Korea-Czechia | [Economic Times](https://economictimes.indiatimes.com/news/new-updates/south-korea-vs-czechia-fifa-world-cup-2026-highlights-stats-scores-and-how-the-match-unfolded/articleshow/131674064.cms) | Score 2-1 and scorers only. | Score 2-1; full AF stat table has 16 rows. | WARN, no comparable full technical stat table. |
+
+OPEN:
+
+- Need a public FIFA/FotMob/SofaScore/ESPN-style full stat table for Mexico-South Africa with possession, xG, shots, shots on target, corners, fouls, cards, saves, and passes.
+- Need the same for South Korea-Czechia.
+- When found, add it to `docs/external-stats-samples-2026-06-12.json` with `evidence:"full-match-centre"` and rerun `npm run calibrate:stats-public -- docs/external-stats-samples-2026-06-12.json`.
+
 ## Public Odds Calibration
 
 Status: WARN overall.
@@ -133,7 +161,7 @@ Key observations:
 | South Korea-Czechia | OU | [The Sun UK / Betfair](https://www.thesun.co.uk/sport/39337711/south-korea-czechia-world-cup-betting-tips/) | Under 1.5 at 15/8 | O/U 2.25, 0.98/0.93 | WARN, different line/tip market. |
 | Canada-Bosnia | 1X2 partial | [The Sun UK / Betfair](https://www.thesun.co.uk/sport/39310810/canada-vs-bosnia-preview-betting-tips-predictions-world-cup/) | Draw 5/2 | 1.80/3.60/4.50 | WARN, partial tip market. |
 | Canada-Bosnia | OU | [The Sun UK / Playzee](https://www.thesun.co.uk/betting/39314635/world-cup-2026-acca-tips-11-12-june/) | Under 2.5 at 16/25 | O/U 2.25, 1.07/0.85 | WARN, different line/tip market. |
-| USA-Paraguay | 1X2 partial | [New York Post / bet365](https://nypost.com/2026/06/12/betting/bet365-bonus-code-bet-10-get-365-in-bonus-bets-for-usa-vs-paraguay/) | USA -110, Paraguay +320 | 2.10/3.20/3.80 | WARN, no draw price. |
+| USA-Paraguay | 1X2 partial | [New York Post / bet365](https://nypost.com/2026/06/12/betting/bet365-bonus-code-bet-10-get-365-in-bonus-bets-for-usa-vs-paraguay/) | USA -110, Paraguay +320 | 2.10/3.25/3.70 | WARN, no draw price. |
 
 OPEN:
 
@@ -148,14 +176,14 @@ OPEN:
 - Score/goals: PASS. Production 2-0, goals at 9' Julian Quinones and 67' Raul Jimenez match [Guardian live report](https://www.theguardian.com/football/live/2026/jun/11/mexico-v-south-africa-world-cup-2026-opening-match-live), [AP](https://apnews.com/article/4c9de5961b70f1b2cc6e754ff2db57c2), and [FMF State of Mind](https://www.fmfstateofmind.com/world-cup/27214/mexico-defeat-south-africa-to-finally-win-a-world-cup-opener).
 - Cards/VAR: PASS/WARN. Production has South Africa reds at 49' and 84', Mexico red at 90+2', plus VAR card upgrade at 82'. Guardian and FMF both corroborate the three reds and Zwane VAR upgrade; minute naming differs slightly by source, so keep WARN for exact minute.
 - Substitutions: PASS/WARN. FMF narrative corroborates the major second-half changes, including Luis Chavez/Gilberto Mora, Edson Alvarez/Armando Gonzalez, Alexis Vega, and South Africa changes. Not a full substitution table from an official match centre.
-- Technical stats: OPEN. Production exposes 17 stats (61%-39% possession, 16-3 shots, 4-2 shots on target, 3-1 corners, 1-2 red cards, etc.), but this pass did not find an external match-centre page with exact same full numeric stats. Economic Times only corroborates the score/red-card/points snapshot, not the full stat table.
+- Technical stats: WARN/OPEN. Production exposes 17 stats (61%-39% possession, 16-3 shots, 4-2 shots on target, 3-1 corners, 1-2 red cards, etc.). `calibrate:stats-public` confirms the Economic Times partial score/red-card snapshot does not contradict production, but no external match-centre page with the exact full numeric table was captured.
 
 ### South Korea-Czechia
 
 - Score/goals: PASS. Production 2-1, Czechia 59' Ladislav Krejci, South Korea 67' Hwang In-beom and 80' Oh Hyeon-gyu match [Guardian](https://www.theguardian.com/football/live/2026/jun/12/fifa-world-cup-2026-live-south-korea-v-czechia-updates-kor-vs-cze-group-a-match-score-latest) and [AP](https://apnews.com/article/world-cup-south-korea-czech-republic-score-496e7772dde95ca0af90b5074fdb13d9).
 - VAR/offside: PASS/WARN. Production records a 77' VAR disallowed goal for offside; Guardian and AP both describe the late Czech set-piece header being ruled offside. Exact VAR event taxonomy remains source-specific.
 - Cards: PASS/WARN. Production records only a 90+6' South Korea yellow. Guardian noted no cards by 90+2; no conflicting external card table found.
-- Technical stats: OPEN. Production exposes 17 stats (62%-38% possession, 15-7 shots, 6-4 shots on target, 4-5 corners, etc.). AP and Economic Times corroborate Korea's comeback and match direction, but no exact full stat table was captured.
+- Technical stats: WARN/OPEN. Production exposes 16 stats (62%-38% possession, 15-8 shots, 6-4 shots on target, 4-5 corners, etc.). `calibrate:stats-public` confirms the Economic Times partial score snapshot does not contradict production, but AP/Guardian/Economic Times still do not provide an exact full stat table.
 
 ### Canada-Bosnia / USA-Paraguay
 
@@ -220,7 +248,7 @@ Status: WARN, no immediate data-fabrication FAIL found.
 
 1. Find at least one real AH source with URL, capture time, market, line, h/a for each sampled match.
 2. Find live/in-play sources with URL, capture time, market, line, h/a/d; otherwise keep live odds calibration OPEN.
-3. Capture an official or trusted match-centre full stat table for Mexico-South Africa and South Korea-Czechia to close exact possession/shots/cards/corners/xG values.
+3. Capture an official or trusted match-centre full stat table for Mexico-South Africa and South Korea-Czechia, add it to `docs/external-stats-samples-2026-06-12.json` with `evidence:"full-match-centre"`, then rerun `npm run calibrate:stats-public -- docs/external-stats-samples-2026-06-12.json` to close exact possession/shots/cards/corners/xG values.
 4. Capture an official FIFA/FotMob/SofaScore lineup table for Mexico-South Africa to close the remaining formation wording conflict and remove the residual Guardian text mismatch WARN.
 5. Re-check Canada-Bosnia and USA-Paraguay after official lineups and match events are published.
 6. Decide product policy for recharge: connect real payment, keep demo explicitly gated for non-production, or keep recharge hidden/maintenance-gated in production.

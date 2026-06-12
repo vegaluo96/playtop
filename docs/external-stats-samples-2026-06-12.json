@@ -1,0 +1,26 @@
+[
+  {
+    "fixtureId": 1489369,
+    "match": "Mexico-South Africa",
+    "source": "The Economic Times",
+    "url": "https://economictimes.indiatimes.com/news/new-updates/fifa-world-cup-2026-stats-mexico-vs-south-africa-first-match-full-time-score-goal-scorers-match-statistics-and-what-the-results-mean/articleshow/131672153.cms",
+    "capturedAt": "2026-06-12T02:58:00Z",
+    "evidence": "partial-article",
+    "score": [2, 0],
+    "stats": {
+      "Red Cards": [1, 2]
+    },
+    "note": "ET only publishes score/red-card snapshot, not a full match-centre technical table. Keep WARN even when comparable values match."
+  },
+  {
+    "fixtureId": 1538999,
+    "match": "South Korea-Czechia",
+    "source": "The Economic Times",
+    "url": "https://economictimes.indiatimes.com/news/new-updates/south-korea-vs-czechia-fifa-world-cup-2026-highlights-stats-scores-and-how-the-match-unfolded/articleshow/131674064.cms",
+    "capturedAt": "2026-06-12T04:48:00Z",
+    "evidence": "partial-article",
+    "score": [2, 1],
+    "stats": {},
+    "note": "ET corroborates the result and scorers but does not expose possession/shots/corners/xG or a full technical-stat table."
+  }
+]
