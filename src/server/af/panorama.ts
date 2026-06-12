@@ -172,7 +172,7 @@ async function loadDeep(fx: FixtureRow): Promise<Panorama["deep"]> {
   };
 }
 
-export async function matchPanorama(fixtureId: number, opts: { deep?: boolean } = {}): Promise<Panorama | null> {
+export async function matchPanorama(fixtureId: number, opts: { deep?: boolean; injuries?: boolean } = {}): Promise<Panorama | null> {
   const fx = await ensureBundle(fixtureId, opts);
   if (!fx) return null;
   let bundle: Record<string, unknown> = {};
@@ -181,10 +181,13 @@ export async function matchPanorama(fixtureId: number, opts: { deep?: boolean } 
   } catch {
     /* keep empty */
   }
-  const injuriesPromise = kvCached<unknown[]>(`fx:${fixtureId}:injuries`, 6 * H, async () => {
-    const r = await runAfEndpoint("injuries", { fixture: String(fixtureId) });
-    return Array.isArray(r.response) ? r.response : [];
-  }).catch(() => [] as unknown[]);
+  const injuriesPromise =
+    opts.injuries === false
+      ? Promise.resolve([] as unknown[])
+      : kvCached<unknown[]>(`fx:${fixtureId}:injuries`, 6 * H, async () => {
+          const r = await runAfEndpoint("injuries", { fixture: String(fixtureId) });
+          return Array.isArray(r.response) ? r.response : [];
+        }).catch(() => [] as unknown[]);
   const deepPromise = opts.deep ? loadDeep(fx) : Promise.resolve(null);
   const odds = oddsBundle(fixtureId);
   const movements = movementsOf(fixtureId);
