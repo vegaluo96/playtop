@@ -16,10 +16,23 @@ export async function GET() {
   if (!admin) return NextResponse.json({ ok: false }, { status: 401 });
   const members = db().prepare("SELECT email, role, status FROM admins ORDER BY created_at").all();
   const llmBalance = readLlmBalance();
+  const lastSelftestRaw = JSON.parse(kvGet("last_selftest") || "null") as
+    | { at?: number; ok?: number; empty?: number; error?: number; skipped?: number; total?: number; reachable?: number }
+    | null;
+  const lastSelftest = lastSelftestRaw
+    ? (() => {
+        const ok = Number(lastSelftestRaw.ok) || 0;
+        const total = Number(lastSelftestRaw.total) || 0;
+        const error = Number(lastSelftestRaw.error) || 0;
+        const skipped = Number(lastSelftestRaw.skipped) || 0;
+        const empty = lastSelftestRaw.empty ?? Math.max(0, total - ok - error - skipped);
+        return { ...lastSelftestRaw, ok, total, error, skipped, empty, reachable: lastSelftestRaw.reachable ?? ok + empty };
+      })()
+    : null;
   return NextResponse.json({
     ok: true,
     role: admin.role,
-    af: { masked: maskKey(cfgAfKey()), connected: !!cfgAfKey(), status: JSON.parse(kvGet("af_status") || "null"), lastSelftest: JSON.parse(kvGet("last_selftest") || "null") },
+    af: { masked: maskKey(cfgAfKey()), connected: !!cfgAfKey(), status: JSON.parse(kvGet("af_status") || "null"), lastSelftest },
     llm: {
       keyMasked: maskKey(cfgLlmKey()), balanceKeyMasked: maskKey(cfgLlmBalanceKey()),
       base: cfgLlmBase(), model: cfgLlmModel(), budget: cfgLlmDailyBudget(),
