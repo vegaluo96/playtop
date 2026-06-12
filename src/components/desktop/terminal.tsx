@@ -21,6 +21,19 @@ import { useSiteConfig } from "@/components/site-config";
 import { useWatchlist, WatchStar } from "@/components/watch";
 import { MarketValue } from "@/components/market-cell";
 import { ProbBar } from "@/components/charts";
+import {
+  MOVE_FILTERS,
+  moveArrowStyle,
+  moveCardStyle,
+  moveNoteStyle,
+  movePillStyle,
+  moveTimeStyle,
+  moveTitleStyle,
+  moveTypeColor,
+  moveTypeStyle,
+  moveValueFromStyle,
+  moveValueToStyle,
+} from "@/components/move-styles";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -36,10 +49,6 @@ export type DModal =
   | { kind: "invlog" }
   | { kind: "unlock"; data: { id: number; match: string; price: number } }
   | null;
-
-export function typeColor(t: string): string {
-  return t === "升盘" ? "var(--up)" : t === "降盘" ? "var(--down)" : "var(--gold)";
-}
 
 export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initialMatchId?: number; initialTab?: DTab; initialDrawer?: boolean }) {
   const { prefs, me, refreshMe } = useApp();
@@ -425,8 +434,8 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
               <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} rtt={rtt} />
             </div>
             <div style={{ flexShrink: 0, display: "flex", gap: 6, padding: "0 14px 8px" }}>
-              {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
-                <div key={l} onClick={() => setMonF(l)} style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: "pointer", background: monF === l ? "var(--selected-bg)" : "var(--card)", color: monF === l ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${monF === l ? "var(--selected-border)" : "var(--line)"}` }}>
+              {MOVE_FILTERS.map((l) => (
+                <div key={l} onClick={() => setMonF(l)} style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, cursor: "pointer", background: monF === l ? "var(--selected-bg)" : "var(--card)", color: monF === l ? "var(--accent)" : "var(--fg-2)", border: `1px solid ${monF === l ? "var(--selected-border)" : "var(--line)"}` }}>
                   {l}
                 </div>
               ))}
@@ -438,30 +447,30 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   key={f.id}
                   className={freshMoveIds.has(f.id) ? "feed-in" : undefined}
                   onClick={() => (f.masked ? router.push("/login") : setModal({ kind: "move", data: f }))}
-                  style={{ background: "var(--card)", border: "1px solid var(--line-soft)", borderRadius: 8, marginBottom: 6, padding: "8px 10px", cursor: "pointer" }}
+                  style={moveCardStyle(true)}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                    <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)" }}>{f.t}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.match}</span>
-                    {f.sev && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 3, padding: "1px 6px" }}>急变</span>}
+                    <span className="mono" style={moveTimeStyle(true)}>{f.t}</span>
+                    <span style={moveTitleStyle(true)}>{f.match}</span>
+                    {f.sev && <span style={movePillStyle("danger", true)}>急变</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 3, padding: "1px 6px" }}>滚球</span>}
-                    <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px" }}>{f.mk}</span>
-                    {f.bk && <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 64 }}>{f.bk}</span>}
-                    <span style={{ fontSize: 11.5, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
-                    <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={{ justifyContent: "flex-start", color: "var(--fg-2)" }} />
-                    <span style={{ fontSize: 11.5, color: typeColor(f.type) }}>→</span>
-                    <MarketValue v={f.masked ? "●●" : f.to} className="" small style={{ justifyContent: "flex-start", color: typeColor(f.type), fontWeight: 800 }} />
+                    {f.live && <span style={movePillStyle("danger", true)}>滚球</span>}
+                    <span style={movePillStyle("neutral", true)}>{f.mk}</span>
+                    {f.bk && <span style={movePillStyle("muted", true, 64)}>{f.bk}</span>}
+                    <span style={moveTypeStyle(f.type, true)}>{f.type}</span>
+                    <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={moveValueFromStyle} />
+                    <span style={moveArrowStyle(f.type, true)}>→</span>
+                    <MarketValue v={f.masked ? "●●" : f.to} className="" small style={moveValueToStyle(f.type)} />
                     <span style={{ flex: 1 }} />
-                    <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 96 }}>{f.masked ? "注册可见" : f.note}</span>
+                    <span className="mono" style={moveNoteStyle(true, 96)}>{f.masked ? "注册可见" : f.note}</span>
                   </div>
                 </div>
               ))}
               {!movesLoggedIn && moves.length > 0 && (
                 <div onClick={() => router.push("/login")} style={{ background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 8, padding: 12, textAlign: "center", cursor: "pointer" }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 800, marginBottom: 2 }}>登录后查看全部异动</div>
-                  <div style={{ fontSize: 11, color: "var(--fg-2)" }}>登录后查看完整异动流 · 新账号含基础报告额度</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 3 }}>登录后查看全部异动</div>
+                  <div style={{ fontSize: 11.5, color: "var(--fg-2)" }}>登录后查看完整异动流 · 新账号含基础报告额度</div>
                 </div>
               )}
             </div>
@@ -678,28 +687,28 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(modal.data.leagueId) }} />
-              <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}>{modal.data.league}</span>
+              <span style={{ fontSize: 11.5, color: "var(--fg-2)", fontWeight: 650 }}>{modal.data.league}</span>
               <span style={{ flex: 1 }} />
-              {modal.data.sev && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 4, padding: "2px 6px" }}>急变</span>}
+              {modal.data.sev && <span style={movePillStyle("danger")}>急变</span>}
             </div>
-            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 10 }}>{modal.data.match}</div>
+            <div style={{ fontSize: 16, fontWeight: 850, marginBottom: 10, color: "var(--fg)" }}>{modal.data.match}</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "3px 8px" }}>{modal.data.mkFull}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "3px 8px" }}>{modal.data.bk}</span>
-              <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "3px 8px", background: "var(--inset)", color: typeColor(modal.data.type) }}>{modal.data.type}</span>
+              <span style={movePillStyle("neutral")}>{modal.data.mkFull}</span>
+              <span style={movePillStyle("muted")}>{modal.data.bk}</span>
+              <span style={moveTypeStyle(modal.data.type)}>{modal.data.type}</span>
             </div>
             <div style={{ background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "8px 12px", borderBottom: "1px solid var(--line)" }}>
                 <span />
-                <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", textAlign: "right" }}>{modal.data.t0} 快照</span>
-                <span className="mono" style={{ fontSize: 11, color: "var(--gold)", textAlign: "right" }}>{modal.data.t} 快照</span>
+                <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)", textAlign: "right" }}>{modal.data.t0} 快照</span>
+                <span className="mono" style={{ fontSize: 11.5, color: "var(--fg)", fontWeight: 750, textAlign: "right" }}>{modal.data.t} 快照</span>
               </div>
               {modal.data.rows.map((r: V) => {
                 const na = parseFloat(r.a), nb = parseFloat(r.b);
-                const bC = r.k === "指数" ? (r.chg ? typeColor(modal.data.type) : "var(--fg)") : !isNaN(na) && !isNaN(nb) && na !== nb ? (nb > na ? "var(--up)" : "var(--down)") : "var(--fg)";
+                const bC = r.k === "指数" ? (r.chg ? moveTypeColor(modal.data.type) : "var(--fg)") : !isNaN(na) && !isNaN(nb) && na !== nb ? (nb > na ? "var(--up)" : "var(--down)") : "var(--fg)";
                 return (
                   <div key={r.k} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "9px 12px", borderBottom: "1px solid var(--line-soft)", alignItems: "center" }}>
-                    <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.k}</span>
+                    <span style={{ fontSize: 11.5, color: "var(--fg-2)", fontWeight: 650 }}>{r.k}</span>
                     <span className="mono" style={{ fontSize: 12.5, textAlign: "right", color: "var(--fg-2)" }}>{r.a}</span>
                     <span className="mono" style={{ fontSize: 12.5, fontWeight: 800, textAlign: "right", color: bC }}>{r.b}</span>
                   </div>
@@ -716,8 +725,8 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
       <Modal open={modal?.kind === "watch"} onClose={() => setModal(null)} width={560}>
         <ModalTitle title="盯盘" hint={`滚球 ${radar.length} · 异动 ${moves.length}`} />
         <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-          {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
-            <button key={l} type="button" onClick={() => setMonF(l)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: "pointer", background: monF === l ? "var(--selected-bg)" : "var(--inset)", color: monF === l ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${monF === l ? "var(--selected-border)" : "var(--line)"}` }}>
+          {MOVE_FILTERS.map((l) => (
+            <button key={l} type="button" onClick={() => setMonF(l)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, cursor: "pointer", background: monF === l ? "var(--selected-bg)" : "var(--inset)", color: monF === l ? "var(--accent)" : "var(--fg-2)", border: `1px solid ${monF === l ? "var(--selected-border)" : "var(--line)"}` }}>
               {l}
             </button>
           ))}
@@ -752,18 +761,18 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
             {moves.map((f) => (
               <div key={f.id} className={freshMoveIds.has(f.id) ? "feed-in" : undefined} onClick={() => (f.masked ? router.push("/login") : setModal({ kind: "move", data: f }))} style={{ padding: "9px 11px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
-                  <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", flexShrink: 0 }}>{f.t}</span>
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.match}</span>
-                  {f.sev && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 3, padding: "1px 6px" }}>急变</span>}
+                  <span className="mono" style={moveTimeStyle(true)}>{f.t}</span>
+                  <span style={moveTitleStyle(true)}>{f.match}</span>
+                  {f.sev && <span style={movePillStyle("danger", true)}>急变</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 3, padding: "1px 6px" }}>滚球</span>}
-                  <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px" }}>{f.mk}</span>
-                  {f.bk && <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px" }}>{f.bk}</span>}
-                  <span style={{ fontSize: 11.5, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
-                  <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={{ justifyContent: "flex-start", color: "var(--fg-2)" }} />
-                  <span style={{ fontSize: 11.5, color: typeColor(f.type) }}>→</span>
-                  <MarketValue v={f.masked ? "●●" : f.to} className="" small style={{ justifyContent: "flex-start", color: typeColor(f.type), fontWeight: 800 }} />
+                  {f.live && <span style={movePillStyle("danger", true)}>滚球</span>}
+                  <span style={movePillStyle("neutral", true)}>{f.mk}</span>
+                  {f.bk && <span style={movePillStyle("muted", true, 74)}>{f.bk}</span>}
+                  <span style={moveTypeStyle(f.type, true)}>{f.type}</span>
+                  <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={moveValueFromStyle} />
+                  <span style={moveArrowStyle(f.type, true)}>→</span>
+                  <MarketValue v={f.masked ? "●●" : f.to} className="" small style={moveValueToStyle(f.type)} />
                 </div>
               </div>
             ))}

@@ -12,6 +12,19 @@ import { SearchAction, type SearchItem } from "@/components/page-search";
 import { useIsDesktop } from "@/components/use-viewport";
 import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { MarketValue } from "@/components/market-cell";
+import {
+  MOVE_FILTERS,
+  moveArrowStyle,
+  moveCardStyle,
+  moveNoteStyle,
+  movePillStyle,
+  moveTimeStyle,
+  moveTitleStyle,
+  moveTypeColor,
+  moveTypeStyle,
+  moveValueFromStyle,
+  moveValueToStyle,
+} from "@/components/move-styles";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Move = any;
@@ -51,7 +64,6 @@ function MobileMovesPage() {
 
   const freshIds = useNewIds(rows.map((r) => r.id));
 
-  const typeColor = (t: string) => (t === "升盘" ? "var(--up)" : t === "降盘" ? "var(--down)" : "var(--gold)");
   const searchItems = useMemo<SearchItem[]>(
     () =>
       rows.map((f) => ({
@@ -74,16 +86,16 @@ function MobileMovesPage() {
         right={<SearchAction title="搜索异动" placeholder="球队 / 玩法 / 书商 / 类型" hint={`${rows.length} 条当前异动`} items={searchItems} />}
       />
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
-        {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
+        {MOVE_FILTERS.map((l) => (
           <Chip key={l} label={l} active={filter === l} onClick={() => setFilter(l)} />
         ))}
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 12px", minHeight: 0 }}>
         {rows.length === 0 && (
-          <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0", lineHeight: 2 }}>
+          <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12.5, padding: "48px 0", lineHeight: 1.9 }}>
             暂无异动记录
             <br />
-            <span style={{ fontSize: 11 }}>开盘后的指数/水位变化会实时进入这里</span>
+            <span style={{ fontSize: 11.5 }}>开盘后的指数/水位变化会实时进入这里</span>
           </div>
         )}
         {rows.map((f) => (
@@ -91,27 +103,27 @@ function MobileMovesPage() {
             key={f.id}
             className={freshIds.has(f.id) ? "feed-in" : undefined}
             onClick={() => (f.masked ? router.push("/login") : setSel(f))}
-            style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, marginBottom: 8, padding: "10px 12px", cursor: "pointer" }}
+            style={moveCardStyle(false)}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{f.t}</span>
-              <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{f.match}</span>
+              <span className="mono" style={moveTimeStyle(false)}>{f.t}</span>
+              <span style={moveTitleStyle(false)}>{f.match}</span>
               {f.sev && (
-                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 4, padding: "2px 7px" }}>急变</span>
+                <span style={movePillStyle("danger")}>急变</span>
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 4, padding: "2px 7px" }}>滚球</span>}
-              <span style={{ fontSize: 11, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.mk}</span>
-              {f.bk && <span style={{ fontSize: 11, fontWeight: 750, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.bk}</span>}
-              <span style={{ fontSize: 11, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
-              <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={{ justifyContent: "flex-start", color: "var(--fg-2)" }} />
-              <span style={{ fontSize: 11, color: typeColor(f.type) }}>→</span>
-              <MarketValue v={f.masked ? "●●" : f.to} className="" small style={{ justifyContent: "flex-start", color: typeColor(f.type), fontWeight: 800 }} />
+              {f.live && <span style={movePillStyle("danger")}>滚球</span>}
+              <span style={movePillStyle("neutral")}>{f.mk}</span>
+              {f.bk && <span style={movePillStyle("muted")}>{f.bk}</span>}
+              <span style={moveTypeStyle(f.type)}>{f.type}</span>
+              <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={moveValueFromStyle} />
+              <span style={moveArrowStyle(f.type)}>→</span>
+              <MarketValue v={f.masked ? "●●" : f.to} className="" small style={moveValueToStyle(f.type)} />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
               <MarketValue v={f.masked ? "●●" : f.water} small dim={!!f.masked} style={{ justifyContent: "flex-start" }} />
-              <span style={{ fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.note}</span>
+              <span style={moveNoteStyle(false)}>{f.note}</span>
             </div>
           </div>
         ))}
@@ -120,8 +132,8 @@ function MobileMovesPage() {
             onClick={() => router.push("/login")}
             style={{ background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 12, padding: 14, textAlign: "center", cursor: "pointer" }}
           >
-            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 3 }}>登录后查看全部异动</div>
-            <div style={{ fontSize: 11, color: "var(--fg-2)" }}>登录后查看完整异动流 · 新账号含基础报告额度</div>
+            <div style={{ fontSize: 13.5, fontWeight: 800, marginBottom: 4 }}>登录后查看全部异动</div>
+            <div style={{ fontSize: 11.5, color: "var(--fg-2)" }}>登录后查看完整异动流 · 新账号含基础报告额度</div>
           </div>
         )}
       </div>
@@ -131,31 +143,29 @@ function MobileMovesPage() {
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(sel.leagueId) }} />
-              <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}>{sel.league}</span>
+              <span style={{ fontSize: 11.5, color: "var(--fg-2)", fontWeight: 650 }}>{sel.league}</span>
               <span style={{ flex: 1 }} />
               {sel.sev && (
-                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 4, padding: "2px 7px" }}>急变</span>
+                <span style={movePillStyle("danger")}>急变</span>
               )}
             </div>
-            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 10 }}>{sel.match}</div>
+            <div style={{ fontSize: 16, fontWeight: 850, marginBottom: 10, color: "var(--fg)" }}>{sel.match}</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 11, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "3px 8px" }}>{sel.mkFull}</span>
-              <span style={{ fontSize: 11, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "3px 8px" }}>{sel.bk}</span>
-              <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "3px 8px", background: "var(--inset)", color: typeColor(sel.type) }}>{sel.type}</span>
+              <span style={movePillStyle("neutral")}>{sel.mkFull}</span>
+              <span style={movePillStyle("muted")}>{sel.bk}</span>
+              <span style={moveTypeStyle(sel.type)}>{sel.type}</span>
             </div>
             <div style={{ background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "8px 12px", borderBottom: "1px solid var(--line)" }}>
                 <span />
-                <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", textAlign: "right" }}>{sel.t0} 快照</span>
-                <span className="mono" style={{ fontSize: 11, color: "var(--gold)", textAlign: "right" }}>{sel.t} 快照</span>
+                <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)", textAlign: "right" }}>{sel.t0} 快照</span>
+                <span className="mono" style={{ fontSize: 11.5, color: "var(--fg)", fontWeight: 750, textAlign: "right" }}>{sel.t} 快照</span>
               </div>
               {sel.rows.map((r: Move) => {
                 const na = parseFloat(r.a), nb = parseFloat(r.b);
                 const bC =
                   r.k === "指数"
-                    ? r.chg
-                      ? typeColor(sel.type)
-                      : "var(--fg)"
+                    ? (r.chg ? moveTypeColor(sel.type) : "var(--fg)")
                     : !isNaN(na) && !isNaN(nb) && na !== nb
                       ? nb > na
                         ? "var(--up)"
@@ -163,14 +173,14 @@ function MobileMovesPage() {
                       : "var(--fg)";
                 return (
                   <div key={r.k} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "9px 12px", borderBottom: "1px solid var(--line-soft)", alignItems: "center" }}>
-                    <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.k}</span>
+                    <span style={{ fontSize: 11.5, color: "var(--fg-2)", fontWeight: 650 }}>{r.k}</span>
                     <MarketValue v={r.a} small dim style={{ justifyContent: "flex-end" }} />
                     <MarketValue v={r.b} small style={{ justifyContent: "flex-end", color: bC, fontWeight: 800 }} />
                   </div>
                 );
               })}
             </div>
-            <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 14 }}>变化幅度:{sel.note}</div>
+            <div style={{ fontSize: 11.5, color: "var(--fg-2)", marginBottom: 14, lineHeight: 1.5 }}>变化幅度:{sel.note}</div>
             <GoldBtn label="查看本场指数走势" onClick={() => router.push(`/match/${sel.fixtureId}`)} />
           </>
         )}
