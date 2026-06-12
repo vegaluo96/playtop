@@ -35,8 +35,11 @@ function enqueue(raw: string, kind: string): void {
 /** 名称 → 中文(kind: team|player|coach;未命中返回原名并入队) */
 export function nameZh(raw: string, kind: "team" | "player" | "coach" = "team"): string {
   const n = raw.trim();
-  if (!n || /[一-鿿]/.test(n)) return n; // 已是中文
-  const hit = NAMES_ZH[n] ?? tableMap().get(n);
+  if (!n) return n;
+  const dictHit = NAMES_ZH[n];
+  if (dictHit) return dictHit;
+  if (/[一-鿿]/.test(n)) return n; // 已是中文且无固定短名别名
+  const hit = tableMap().get(n);
   if (hit) return hit;
   enqueue(n, kind);
   return n;
