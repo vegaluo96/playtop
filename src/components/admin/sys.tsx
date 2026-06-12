@@ -188,6 +188,21 @@ export function DataMonView() {
               </div>
             </div>
           </ACard>
+          <ACard title="主盘口决策">
+            {(v.marketDecision ?? []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>暂无可诊断场次</div>}
+            {(v.marketDecision ?? []).map((m: V) => (
+              <div key={m.market} style={{ padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span className="mono" style={{ width: 26, fontSize: 11, fontWeight: 800 }}>{m.market}</span>
+                  <span className="mono" style={{ fontSize: 11, color: m.qualityScore >= 85 ? "var(--green)" : m.qualityScore >= 70 ? "var(--gold)" : "var(--red)", fontWeight: 800 }}>{m.qualityScore}</span>
+                  <span style={{ fontSize: 11, color: "var(--fg-3)" }}>覆盖 {m.selectedBooks}/{m.books} · 主流 {m.primaryBooks}</span>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--fg-mid)", lineHeight: 1.45 }}>{m.reason}</div>
+                {(m.warnings ?? []).length > 0 && <div style={{ fontSize: 10.5, color: "var(--gold)", marginTop: 3 }}>{m.warnings.join(" / ")}</div>}
+              </div>
+            ))}
+            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>按最近未完场比赛抽样;用于排查主盘口选择,不直接改写原始 AF 数据。</div>
+          </ACard>
           <ACard
             title="AF 抓取频率配置"
             right={<ABtn small kind="line" label="编辑" onClick={async () => {

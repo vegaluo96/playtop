@@ -540,17 +540,17 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
   if (!fx) return `fixture ${fixtureId} 不在库中`;
   lines.push(`  ${fx.home_name} vs ${fx.away_name} · 状态 ${fx.status} · 开球 ${new Date(fx.kickoff_utc + 8 * 3_600_000).toISOString().slice(0, 16).replace("T", " ")}(UTC+8)`);
 
-  // ① AF 实时原始(1 req)
-  let liveRaw: unknown = null;
+  // ① AF 赛前赔率原始(1 req)。不要和 /odds/live 滚球赔率混用。
+  let prematchRaw: unknown = null;
   try {
     const env = await afGet(`/odds?fixture=${fixtureId}`, { force: true });
-    liveRaw = Array.isArray(env.response) ? env.response[0] : null;
+    prematchRaw = Array.isArray(env.response) ? env.response[0] : null;
   } catch (e) {
-    lines.push(`  ① AF 实时拉取失败:${e instanceof Error ? e.message : e}`);
+    lines.push(`  ① AF 赛前赔率拉取失败:${e instanceof Error ? e.message : e}`);
   }
   // 主盘速览:AF 源共识盘(各书商中位数)对照我方落库与前端,3 行看齐
-  if (liveRaw) {
-    const books = normalizeOddsItem(liveRaw);
+  if (prematchRaw) {
+    const books = normalizeOddsItem(prematchRaw);
     const median = (xs: number[]) => {
       const s = [...xs].sort((p, q) => p - q);
       return s.length ? s[Math.floor((s.length - 1) / 2)] : null;
@@ -572,9 +572,9 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
       lines.push(`     ${mk}  AF共识 ${fmt(c)}${c ? `(${c.n}/${c.tot}家)` : ""}  ｜  我方 ${fmt(m)}${m ? `(${m.bookmaker})` : ""}`);
     }
   }
-  if (liveRaw) {
-    lines.push("  ① AF 实时原始(胜平负)→ 归一化(让球/大小为净水=欧赔-1,line 正=主让):");
-    for (const bm of normalizeOddsItem(liveRaw).slice(0, 25)) {
+  if (prematchRaw) {
+    lines.push("  ① AF 赛前赔率原始(胜平负)→ 归一化(让球/大小为净水=欧赔-1,line 正=主让):");
+    for (const bm of normalizeOddsItem(prematchRaw).slice(0, 25)) {
       for (const mk of bm.markets) {
         lines.push(`     ${bm.bookmaker.padEnd(12)} ${mk.market} line=${mk.line ?? "—"} h=${mk.h} a=${mk.a}${mk.d != null ? ` d=${mk.d}` : ""}`);
       }

@@ -186,6 +186,36 @@ describe("odds 归档与异动", () => {
     expect(oddsSeries(202, "ou").at(-1)).toMatchObject({ bookmaker: "Bet365", line: 2.25 });
   });
 
+  it("主盘选择先看盘口线覆盖数,覆盖数明显领先时不被少数主流书商带偏", () => {
+    upsertFixture(afFixture(209));
+    const ins = db().prepare(
+      "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)",
+    );
+    ["小1", "小2", "小3", "小4", "小5", "小6", "小7", "小8", "小9", "小10", "小11", "小12", "小13", "小14"].forEach((book, i) => {
+      ins.run(209, 100 + i, book, "ah", 0.5, 0.9 + (i % 3) * 0.01, 0.96, null, 1000 + i);
+    });
+    ["Bet365", "平博", "马拉松", "Bwin", "1xBet"].forEach((book, i) => {
+      ins.run(209, 8 + i, book, "ah", 0.25, 0.88, 0.98, null, 5000 + i);
+    });
+
+    expect(mainOddsSnapshot(209, "ah")).toMatchObject({ line: 0.5 });
+  });
+
+  it("主盘选择在覆盖数接近时使用主流书商权重", () => {
+    upsertFixture(afFixture(210));
+    const ins = db().prepare(
+      "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)",
+    );
+    ["小1", "小2", "小3", "小4", "小5", "小6", "小7", "小8", "小9", "小10"].forEach((book, i) => {
+      ins.run(210, 200 + i, book, "ou", 2.25, 0.92, 0.94, null, 1000 + i);
+    });
+    ["Bet365", "平博", "马拉松", "Bwin", "1xBet", "必发", "WilliamHill", "Unibet"].forEach((book, i) => {
+      ins.run(210, 300 + i, book, "ou", 2.5, 0.9, 0.95, null, 2000 + i);
+    });
+
+    expect(mainOddsSnapshot(210, "ou")).toMatchObject({ bookmaker: "Bet365", line: 2.5 });
+  });
+
   it("oddsBundle 与单市场走势/百家对比口径一致", () => {
     upsertFixture(afFixture(204));
     const ins = db().prepare(

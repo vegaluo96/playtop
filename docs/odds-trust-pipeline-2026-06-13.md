@@ -23,7 +23,13 @@ Canada vs Bosnia & Herzegovina 滚球阶段,详情页胜平负一度展示 `251.
 - `/odds/live` 胜平负只接受 `Fulltime Result` / `Match Winner` / 精确 `1x2`,不再模糊吃 `1x2 - 80 minutes`。
 - `main` 标记只作为滚球主盘口候选加分项,不再绝对覆盖水位更均衡、满水率更合理的盘口线。
 - 新增 `diagnostic_issues` 诊断表与后台“盘口适配诊断”列表,记录 endpoint、fixture、bookmaker、bet、raw/parsed、错误类型和原因。
+- 后台“数据与模型监控”新增“主盘口决策”卡片,显示最近未完场样本的 `qualityScore`、覆盖数、主流书商覆盖、选择原因和警告。
 - prematch `/odds` 与 live `/odds/live` 使用独立 adapter 入口:赛前可按 bet id/name 双保险识别,滚球不使用赛前 bet id。
+- 赛前主盘口选择已从“单一主源/数组顺序”升级为多书商共识决策:
+  - 先取每家书商最新帧;
+  - 亚盘/大小按盘口线覆盖数选候选;
+  - 覆盖数接近时按主流书商权重、同线水位均衡、更新时间排序;
+  - 决策层返回 `qualityScore`、覆盖数、主流书商覆盖和选择原因,供后台/后续 ViewModel 披露。
 - 用户展示层过滤历史脏帧:
   - 首页列表;
   - 详情 summary/liveOdds;
@@ -42,7 +48,6 @@ API-Football 是原材料,不是产品答案。ZSKY 的展示链路必须是:
 
 ## 后续 OPEN
 
-- 为每个展示 market 输出 `confidence` 和 `reason`,前端可显示“高可信/可信/一般/暂不展示”。
-- 主盘口选择继续从“单书商主源优先”升级到“bookmaker 覆盖数 + 一级公司权重 + 水位均衡 + 更新时间”的评分模型。
+- 将数据层 `qualityScore/reason` 接入用户端小字提示,前端可显示“高可信/可信/一般/暂不展示”。
 - 异动等级从单市场阈值升级为 S/A/B/C:三盘共振、多家主流确认、单市场明显变化、单家公司观察。
 - 生成统一 `MarketOverview`,让首页、详情、报告页共享同一个盘口总览 payload。

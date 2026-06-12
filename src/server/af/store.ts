@@ -24,7 +24,7 @@ export function bookmakerZh(name: string): string {
   for (const [re, zh] of BOOKMAKER_ZH) if (re.test(name)) return zh;
   return name;
 }
-/** 主源书商优先级(列表/走势的「主盘」取第一个有数据的) */
+/** 主源书商优先级(列表/走势的「主盘」同线下优先取第一个有数据的) */
 export const PRIMARY_BOOKMAKERS = ["Bet365", "平博", "马拉松", "Bwin", "1xBet", "必发"];
 
 function dig(obj: unknown, ...path: (string | number)[]): unknown {
@@ -172,9 +172,29 @@ export interface OddsBundle {
   compareEu: OddsCompareRow[];
 }
 
+export interface MainOddsDecision {
+  market: OddsMarket;
+  rows: SnapRow[];
+  source: SnapRow | null;
+  books: number;
+  selectedBooks: number;
+  primaryBooks: number;
+  qualityScore: number;
+  reason: string;
+  warnings: string[];
+}
+
 function bookmakerRank(name: string): number {
   const i = PRIMARY_BOOKMAKERS.indexOf(name);
   return i < 0 ? 99 : i;
+}
+
+function bookmakerWeight(name: string): number {
+  const rank = bookmakerRank(name);
+  if (rank === 0) return 5;
+  if (rank <= 2) return 4;
+  if (rank <= 5) return 3;
+  return 1;
 }
 
 function placeholders(n: number): string {
@@ -191,24 +211,106 @@ function rowsByBookmaker(rows: SnapRow[]): Map<string, SnapRow[]> {
   return byBook;
 }
 
-function latestMainRows(rows: SnapRow[], market: OddsMarket): SnapRow[] {
-  if (rows.length === 0) return [];
-  if (market === "eu") return rows;
-  const lined = rows.filter((r) => r.line != null);
-  if (lined.length === 0) return rows;
-  const sorted = lined.map((r) => r.line as number).sort((a, b) => a - b);
-  const consensus = sorted[Math.floor((sorted.length - 1) / 2)];
-  return lined.filter((r) => r.line === consensus);
+function qualityScore(args: { books: number; selectedBooks: number; primaryBooks: number; latestAt: number | null }): number {
+  if (args.selectedBooks === 0) return 0;
+  let score = 58;
+  score += Math.min(24, args.selectedBooks * 4);
+  score += Math.min(10, args.primaryBooks * 4);
+  score += Math.min(8, Math.max(0, args.books - args.selectedBooks));
+  if (args.latestAt) {
+    const age = Date.now() - args.latestAt;
+    if (age <= 15 * 60_000) score += 8;
+    else if (age <= 30 * 60_000) score += 4;
+  }
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+/** 从某场某市场全量快照内选择主盘口,并返回可审计的选择原因。 */
+export function mainOddsDecisionFromRows(rows: SnapRow[], market: OddsMarket): MainOddsDecision {
+  const empty = (reason = "暂无可用快照"): MainOddsDecision => ({
+    market,
+    rows: [],
+    source: null,
+    books: 0,
+    selectedBooks: 0,
+    primaryBooks: 0,
+    qualityScore: 0,
+    reason,
+    warnings: [reason],
+  });
+  if (rows.length === 0) return empty();
+  const byBook = rowsByBookmaker(rows);
+  const latestRows = [...byBook.values()].map((list) => list[list.length - 1]).filter(Boolean);
+  if (latestRows.length === 0) return empty();
+  if (market === "eu") {
+    const sorted = [...latestRows].sort((x, y) => bookmakerRank(x.bookmaker) - bookmakerRank(y.bookmaker) || y.captured_at - x.captured_at);
+    const source = sorted[0] ?? null;
+    const primaryBooks = latestRows.filter((row) => bookmakerRank(row.bookmaker) <= 2).length;
+    const q = qualityScore({ books: latestRows.length, selectedBooks: latestRows.length, primaryBooks, latestAt: source?.captured_at ?? null });
+    const warnings = latestRows.length < 3 ? ["胜平负样本少于 3 家,仅作单源参考"] : [];
+    return {
+      market,
+      rows: source ? byBook.get(source.bookmaker) ?? [] : [],
+      source,
+      books: latestRows.length,
+      selectedBooks: latestRows.length,
+      primaryBooks,
+      qualityScore: q,
+      reason: source ? `胜平负无盘口线,按主流书商优先展示 ${source.bookmaker};共 ${latestRows.length} 家` : "胜平负暂无完整快照",
+      warnings,
+    };
+  }
+  const lined = latestRows.filter((r) => r.line != null);
+  if (lined.length === 0) return empty("没有合法盘口线");
+  const byLine = new Map<number, SnapRow[]>();
+  for (const row of lined) {
+    const line = row.line as number;
+    const list = byLine.get(line) ?? [];
+    list.push(row);
+    byLine.set(line, list);
+  }
+  const scored = [...byLine.entries()].map(([line, list]) => {
+    const weights = list.reduce((sum, row) => sum + bookmakerWeight(row.bookmaker), 0);
+    const primary = list.filter((row) => bookmakerRank(row.bookmaker) <= 2).length;
+    const balance = list.reduce((sum, row) => sum + Math.abs(row.h - row.a), 0) / list.length;
+    const latest = Math.max(...list.map((row) => row.captured_at));
+    return { line, list, count: list.length, weights, primary, balance, latest };
+  });
+  const maxCount = Math.max(...scored.map((s) => s.count));
+  const closeWindow = Math.max(1, Math.ceil(maxCount * 0.25));
+  const candidates = scored.filter((s) => maxCount - s.count <= closeWindow);
+  candidates.sort(
+    (x, y) =>
+      y.primary - x.primary ||
+      y.weights - x.weights ||
+      y.count - x.count ||
+      x.balance - y.balance ||
+      y.latest - x.latest ||
+      Math.abs(x.line) - Math.abs(y.line),
+  );
+  const best = candidates[0] ?? null;
+  if (!best) return empty("没有可选主盘口");
+  const source = [...best.list].sort((x, y) => bookmakerRank(x.bookmaker) - bookmakerRank(y.bookmaker) || y.captured_at - x.captured_at)[0] ?? null;
+  const q = qualityScore({ books: latestRows.length, selectedBooks: best.count, primaryBooks: best.primary, latestAt: best.latest });
+  const warnings: string[] = [];
+  if (q < 70) warnings.push("质量分低于展示阈值");
+  if (best.count < 3) warnings.push("同线覆盖少于 3 家");
+  return {
+    market,
+    rows: source ? byBook.get(source.bookmaker) ?? [] : [],
+    source,
+    books: latestRows.length,
+    selectedBooks: best.count,
+    primaryBooks: best.primary,
+    qualityScore: q,
+    reason: `共识线 ${best.line}:覆盖 ${best.count}/${latestRows.length} 家,主流 ${best.primary} 家,展示源 ${source?.bookmaker ?? "—"}`,
+    warnings,
+  };
 }
 
 /** 从某场某市场全量快照内选出列表/走势主盘序列;供批量视图复用同一口径。 */
 export function mainOddsSeriesFromRows(rows: SnapRow[], market: OddsMarket): SnapRow[] {
-  const byBook = rowsByBookmaker(rows);
-  const latestRows = [...byBook.values()].map((list) => list[list.length - 1]).filter(Boolean);
-  const pick = [...latestMainRows(latestRows, market)].sort(
-    (x, y) => bookmakerRank(x.bookmaker) - bookmakerRank(y.bookmaker) || y.captured_at - x.captured_at,
-  )[0];
-  return pick ? byBook.get(pick.bookmaker) ?? [] : [];
+  return mainOddsDecisionFromRows(rows, market).rows;
 }
 
 /** 从某场某市场全量快照生成百家对比首帧/即时盘。 */
@@ -273,6 +375,14 @@ export function archiveOdds(fixtureId: number, oddsItem: unknown, capturedAt = D
 export function mainOddsSnapshot(fixtureId: number, market: OddsMarket): SnapRow | null {
   const series = oddsSeries(fixtureId, market);
   return series[series.length - 1] ?? null;
+}
+
+/** 某场某市场主盘口决策说明:后台诊断/后续 MarketOverview 复用。 */
+export function mainOddsDecision(fixtureId: number, market: OddsMarket): MainOddsDecision {
+  const rows = db()
+    .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND market = ? ORDER BY bookmaker, captured_at")
+    .all(fixtureId, market) as unknown as SnapRow[];
+  return mainOddsDecisionFromRows(rows, market);
 }
 
 /** 某场某市场的主盘快照序列:全部书商数据都在,百家对比可查任一家。 */
