@@ -457,12 +457,6 @@ export function renormalizeOdds(fixtureId?: number): { fixtures: number; raws: n
       }
     }
   }
-  // 去掉历史上可能已存在的重复 raw(保留原 id 较小者)
-  d.prepare(
-    `DELETE FROM odds_raw WHERE id NOT IN (
-       SELECT MIN(id) FROM odds_raw GROUP BY fixture_id, captured_at, payload
-     )${fixtureId ? " AND fixture_id = " + Number(fixtureId) : ""}`,
-  ).run();
   return { fixtures: fids.length, raws: rawsCount, moves };
 }
 
