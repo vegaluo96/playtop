@@ -217,13 +217,13 @@ function MobileMatchDetail({ id }: { id: string }) {
   const lineupPitch = (side: V, color: string) =>
     side && (
       <>
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "14px 8px", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 300, boxSizing: "border-box" }}>
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "14px 8px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8, minHeight: 320, boxSizing: "border-box" }}>
           {side.rows.map((row: V[], i: number) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-evenly" }}>
+            <div key={i} style={{ display: "flex", justifyContent: "space-evenly", alignItems: "flex-start", gap: 6, minWidth: 0 }}>
               {row.map((p: V) => (
-                <div key={p.n} onClick={() => p.id && setPlayer({ id: p.id, name: p.n, season: h.season })} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 62, cursor: p.id ? "pointer" : "default" }}>
+                <div key={p.n} onClick={() => p.id && setPlayer({ id: p.id, name: p.n, season: h.season })} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, width: row.length >= 5 ? 56 : row.length === 4 ? 70 : 82, minWidth: 0, flexShrink: 1, cursor: p.id ? "pointer" : "default" }}>
                   <PlayerAvatar id={p.id} name={p.n} num={p.num} size={28} ring={color} />
-                  <span style={{ fontSize: 11, color: "var(--fg-mid)", textAlign: "center", whiteSpace: "nowrap" }}>{p.n}</span>
+                  <span title={p.n} style={{ width: "100%", minHeight: 26, fontSize: 10.5, lineHeight: 1.2, color: "var(--fg-mid)", textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere", wordBreak: "break-word" }}>{p.n}</span>
                 </div>
               ))}
             </div>

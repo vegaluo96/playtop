@@ -190,13 +190,13 @@ export function CenterPane({
   };
 
   const pitch = (side: V, color: string) => (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "16px 8px", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 320, height: "100%", boxSizing: "border-box" }}>
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "16px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 10, minHeight: 340, height: "100%", boxSizing: "border-box" }}>
       {side.rows.map((row: V[], i: number) => (
-        <div key={i} style={{ display: "flex", justifyContent: "space-evenly" }}>
+        <div key={i} style={{ display: "flex", justifyContent: "space-evenly", alignItems: "flex-start", gap: 8, minWidth: 0 }}>
           {row.map((p: V) => (
-            <div key={p.n} onClick={() => p.id && setPlayer({ id: p.id, name: p.n, season: h.season })} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 64, cursor: p.id ? "pointer" : "default" }}>
+            <div key={p.n} onClick={() => p.id && setPlayer({ id: p.id, name: p.n, season: h.season })} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, width: row.length >= 5 ? 62 : row.length === 4 ? 76 : 88, minWidth: 0, flexShrink: 1, cursor: p.id ? "pointer" : "default" }}>
               <PlayerAvatar id={p.id} name={p.n} num={p.num} size={28} ring={color} />
-              <span style={{ fontSize: 11, color: "var(--fg-mid)", whiteSpace: "nowrap" }}>{p.n}</span>
+              <span title={p.n} style={{ width: "100%", minHeight: 26, fontSize: 10.5, lineHeight: 1.2, color: "var(--fg-mid)", textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere", wordBreak: "break-word" }}>{p.n}</span>
             </div>
           ))}
         </div>
