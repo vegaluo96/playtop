@@ -7,6 +7,7 @@ import { DashView } from "@/components/admin/dash";
 import { MatchesView, MktView, OrdersView, UsersView } from "@/components/admin/ops";
 import { DataMonView, RiskView, SettingsView, TicketsView } from "@/components/admin/sys";
 import { useNow, agoText } from "@/components/live";
+import { AdminDialogHost } from "@/components/admin/dialogs";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -115,6 +116,7 @@ export default function AdminPage() {
         </div>
         <div style={{ overflowY: "auto", minHeight: 0, padding: "16px 22px 24px" }}>{views[view]}</div>
       </div>
+      <AdminDialogHost />
     </div>
   );
 }

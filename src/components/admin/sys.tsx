@@ -1,8 +1,9 @@
 "use client";
 
 /** 风控与审计 / 工单处理 / 数据与模型监控 / 系统设置(四个系统模块) */
+import { aAlert, aConfirm, aPrompt } from "./dialogs";
 import { useCallback, useEffect, useState } from "react";
-import { ABtn, ACard, AChip, AGrid, AInput, Th, confirm2, fmtT, post, val } from "./ui";
+import { ABtn, ACard, AChip, AGrid, AInput, Th, fmtT, post, val } from "./ui";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -15,7 +16,7 @@ export function RiskView() {
   }, [load]);
   const decide = async (id: number, decision: string) => {
     const j = await post("/api/admin/risk", { id, decision });
-    if (!j.ok) alert(j.error);
+    if (!j.ok) void aAlert(j.error);
     void load();
   };
   return (
@@ -34,7 +35,7 @@ export function RiskView() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ flex: 1, fontSize: 11, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.detail}</span>
-              <ABtn small kind="red" label="拦截" onClick={() => confirm2(`拦截:${r.detail}`) && void decide(r.id, "拦截")} />
+              <ABtn small kind="red" label="拦截" onClick={async () => (await aConfirm(`拦截:${r.detail}`)) && void decide(r.id, "拦截")} />
               <ABtn small kind="green" label="放行" onClick={() => void decide(r.id, "放行")} />
             </div>
           </div>
@@ -115,19 +116,19 @@ export function TicketsView() {
               <span style={{ flex: 1 }}>
                 <ABtn label="回复并标记已解决" onClick={async () => {
                   const text = val("tk-reply");
-                  if (!text) return alert("回复内容为空");
+                  if (!text) return void aAlert("回复内容为空");
                   const j = await post("/api/admin/tickets", { action: "reply", id: sel.id, text });
-                  if (!j.ok) alert(j.error);
+                  if (!j.ok) void aAlert(j.error);
                   void load();
                 }} />
               </span>
               <ABtn kind="line" label="补偿积分" onClick={async () => {
-                const pts = Number(prompt("补偿积分(客服 ≤100):") ?? 0);
+                const pts = Number(await aPrompt("补偿积分(客服 ≤100):") ?? 0);
                 if (!(pts > 0)) return;
-                const reason = prompt("补偿原因:") ?? "";
+                const reason = await aPrompt("补偿原因:") ?? "";
                 const j = await post("/api/admin/tickets", { action: "compensate", id: sel.id, points: pts, reason });
-                if (!j.ok) alert(j.error);
-                else alert("已补偿");
+                if (!j.ok) void aAlert(j.error);
+                else void aAlert("已补偿");
               }} />
             </div>
           </ACard>
@@ -185,11 +186,11 @@ export function DataMonView() {
             title="AF 抓取频率配置"
             right={<ABtn small kind="line" label="编辑" onClick={async () => {
               const cur = v.intervals.map((x: V) => Math.round(x.ms / 1000)).join(",");
-              const next = prompt("各档间隔(秒,逗号分隔;滚球两档可至 5,其余下限 60):", cur);
+              const next = await aPrompt("各档间隔(秒,逗号分隔;滚球两档可至 5,其余下限 60):", cur);
               if (!next || next === cur) return;
-              if (!confirm2(`抓取频率 → ${next}(秒)`)) return;
+              if (!await aConfirm(`抓取频率 → ${next}(秒)`)) return;
               const j = await post("/api/admin/monitor", { action: "intervals", values: next.split(",").map((x) => Number(x.trim()) * 1000) });
-              if (!j.ok) alert(j.error);
+              if (!j.ok) void aAlert(j.error);
               void load();
             }} />}
           >
@@ -205,7 +206,7 @@ export function DataMonView() {
               <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>紧急降频模式(配额 &gt;85% 自动)</span>
               <span
                 onClick={async () => {
-                  if (!confirm2(`紧急降频 → ${v.emergency ? "关" : "开"}(全档位 ×2)`)) return;
+                  if (!await aConfirm(`紧急降频 → ${v.emergency ? "关" : "开"}(全档位 ×2)`)) return;
                   await post("/api/admin/monitor", { action: "emergency", on: !v.emergency });
                   void load();
                 }}
@@ -253,18 +254,18 @@ export function SettingsView() {
   if (!v) return <div style={{ color: "var(--fg-3)", fontSize: 12, padding: 40, textAlign: "center" }}>加载中…</div>;
 
   const setKey = async (which: string, label: string) => {
-    const value = prompt(`输入新的 ${label}(仅保存在服务端,不回显明文):`);
+    const value = await aPrompt(`输入新的 ${label}(仅保存在服务端,不回显明文):`);
     if (!value) return;
-    if (!confirm2(`更换 ${label}`)) return;
+    if (!await aConfirm(`更换 ${label}`)) return;
     const j = await post("/api/admin/settings", { action: "set_key", which, value });
-    if (!j.ok) alert(j.error);
+    if (!j.ok) void aAlert(j.error);
     void load();
   };
   const run = async (action: string, label: string, extra: Record<string, unknown> = {}) => {
     setBusy(action);
     try {
       const j = await post("/api/admin/settings", { action, ...extra });
-      alert(j.ok ? `${label} 完成:${JSON.stringify(j).slice(0, 300)}` : `${label} 失败:${j.error}`);
+      void aAlert(j.ok ? `${label} 完成:${JSON.stringify(j).slice(0, 300)}` : `${label} 失败:${j.error}`);
       void load();
     } finally {
       setBusy("");
@@ -325,8 +326,8 @@ export function SettingsView() {
             <span style={{ flex: 1 }}><ABtn label={busy === "llm_test" ? "测试中…" : "发送测试请求"} onClick={() => busy || void run("llm_test", "LLM 测试")} /></span>
             <ABtn kind="line" label="改模型" onClick={() => void setKey("llm_model", "报告模型名")} />
             <ABtn kind="line" label="改预算" onClick={async () => {
-              const value = prompt("日预算(tokens):", String(v.llm.budget));
-              if (value && confirm2(`日预算 → ${value}`)) {
+              const value = await aPrompt("日预算(tokens):", String(v.llm.budget));
+              if (value && await aConfirm(`日预算 → ${value}`)) {
                 await post("/api/admin/settings", { action: "set_budget", value: Number(value) });
                 void load();
               }
@@ -336,11 +337,11 @@ export function SettingsView() {
       </div>
 
       <ACard title="管理员与权限" style={{ marginTop: 14 }} pad={false} right={<ABtn small kind="line" label="+ 邀请成员" onClick={async () => {
-        const email = prompt("成员邮箱(需先在前台注册):");
+        const email = await aPrompt("成员邮箱(需先在前台注册):");
         if (!email) return;
-        const role = prompt("角色(超级管理员/运营/客服/风控):", "运营") ?? "运营";
+        const role = await aPrompt("角色(超级管理员/运营/客服/风控):", "运营") ?? "运营";
         const j = await post("/api/admin/settings", { action: "member_add", email, role });
-        if (!j.ok) alert(j.error);
+        if (!j.ok) void aAlert(j.error);
         void load();
       }} />}>
         <AGrid cols="1.4fr 110px 1.6fr 70px 130px" head>
@@ -367,7 +368,7 @@ export function SettingsView() {
                 ) : (
                   <>
                     <ABtn small kind="line" label="改角色" onClick={async () => {
-                      const role = prompt("新角色(超级管理员/运营/客服/风控):", m.role);
+                      const role = await aPrompt("新角色(超级管理员/运营/客服/风控):", m.role);
                       if (role) {
                         await post("/api/admin/settings", { action: "member_set", email: m.email, role });
                         void load();

@@ -79,7 +79,7 @@ function MobileMovesPage() {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{f.t}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, flex: 1 }}>{f.match}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{f.match}</span>
               {f.sev && (
                 <span style={{ fontSize: 9, fontWeight: 800, color: "var(--red)", background: "rgba(240,67,79,.14)", borderRadius: 4, padding: "2px 6px" }}>急变</span>
               )}
@@ -89,9 +89,9 @@ function MobileMovesPage() {
               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.mk}</span>
               {f.bk && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.bk}</span>}
               <span style={{ fontSize: 10, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--fg-2)" }}>{f.from}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fg-2)" }}>{f.from}</span>
               <span style={{ fontSize: 11, color: typeColor(f.type) }}>→</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: typeColor(f.type) }}>{f.to}</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: typeColor(f.type) }}>{f.to}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
               <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap", flexShrink: 0 }}>{f.water}</span>

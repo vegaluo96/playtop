@@ -55,7 +55,7 @@ function ArrowVal({ v, d, masked }: { v: number | undefined; d: number | undefin
   const ch = !masked && d ? (d > 0 ? "▲" : "▼") : "";
   return (
     <div style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
-      <Flash v={masked || v == null ? X : f2(v)} className="mono" style={{ fontSize: 12.5, fontWeight: 600 }} />
+      <Flash v={masked || v == null ? X : f2(v)} className="mono" style={{ fontSize: 13.5, fontWeight: 600 }} />
       <span style={{ fontSize: 8, color: d && d > 0 ? "var(--up)" : "var(--down)" }}>{ch}</span>
     </div>
   );
@@ -214,7 +214,7 @@ function MobileMatchesPage() {
                   <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
                     <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--home)", background: "rgba(91,157,255,.12)", borderRadius: 3, padding: "1px 4px" }}>主</span>
                     <TeamLogo id={m.homeId} name={m.home} size={16} />
-                    <span style={{ fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
                   </div>
                   <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", fontSize: 11, color: m.live ? "var(--gold)" : "var(--fg-4)", paddingLeft: 1, whiteSpace: "nowrap" }}>
                     <Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} />
@@ -222,7 +222,7 @@ function MobileMatchesPage() {
                   <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
                     <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--gold)", background: "rgba(233,185,73,.12)", borderRadius: 3, padding: "1px 4px" }}>客</span>
                     <TeamLogo id={m.awayId} name={m.away} size={16} />
-                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.away}</span>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.away}</span>
                   </div>
                 </div>
                 <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>

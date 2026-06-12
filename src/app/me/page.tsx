@@ -207,6 +207,7 @@ function MobileMePage() {
             </div>
           )}
           <MenuRow label="时区" sum={TZS.find((z) => z[0] === prefs.tz)?.[1] ?? prefs.tz} onClick={() => setSheet("tz")} />
+          <MenuRow label="常见问题" sum="积分 · 数据口径 · 刷新规则" onClick={() => router.push("/faq")} />
           <MenuRow label="系统工单" sum={ticketNew ? "● 有新回复" : "提交问题"} sumColor={ticketNew ? "var(--red)" : undefined} onClick={() => router.push("/me/tickets")} />
         </div>
 

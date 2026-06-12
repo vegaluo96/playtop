@@ -164,7 +164,7 @@ function MobileReportPage({ id }: { id: string }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {sec.ps.map((x: string, i: number) => (
-                <div key={i} style={{ fontSize: 12, color: "var(--fg-mid)", lineHeight: 1.8 }}>{x}</div>
+                <div key={i} style={{ fontSize: 13, color: "var(--fg-mid)", lineHeight: 1.85 }}>{x}</div>
               ))}
             </div>
           </Card>

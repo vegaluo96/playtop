@@ -131,8 +131,8 @@ function MobileMatchDetail({ id }: { id: string }) {
               <span style={{ fontSize: 12, fontWeight: 700, color: r.chg ? "var(--gold)" : "var(--fg-mid)" }}>{r.text}</span>
               {r.chg && <span style={{ fontSize: 9, fontWeight: 700, color: "var(--gold)" }}>变盘</span>}
             </span>
-            <span className="mono" style={{ fontSize: 12, textAlign: "right" }}>{r.h}</span>
-            <span className="mono" style={{ fontSize: 12, textAlign: "right" }}>{r.a}</span>
+            <span className="mono" style={{ fontSize: 13, textAlign: "right" }}>{r.h}</span>
+            <span className="mono" style={{ fontSize: 13, textAlign: "right" }}>{r.a}</span>
           </div>
         ))}
       </Card>
@@ -306,9 +306,9 @@ function MobileMatchDetail({ id }: { id: string }) {
               {v.odds.eu.map((r: V, i: number) => (
                 <div key={i} style={{ display: "grid", gridTemplateColumns: "62px 1fr 1fr 1fr", padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
                   <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.t}</span>
-                  <span className="mono" style={{ fontSize: 12, textAlign: "right" }}>{r.h}</span>
+                  <span className="mono" style={{ fontSize: 13, textAlign: "right" }}>{r.h}</span>
                   <span className="mono" style={{ fontSize: 12, textAlign: "right", color: "var(--fg-2)" }}>{r.d}</span>
-                  <span className="mono" style={{ fontSize: 12, textAlign: "right" }}>{r.a}</span>
+                  <span className="mono" style={{ fontSize: 13, textAlign: "right" }}>{r.a}</span>
                 </div>
               ))}
             </Card>
@@ -344,7 +344,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
                         <span className="mono" style={{ width: 36, fontSize: 11, color: "var(--fg-2)" }}>{e.m}</span>
                         <span style={{ width: 20, height: 20, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, background: ic[1], color: ic[2] }}>{ic[0]}</span>
-                        <span style={{ flex: 1, fontSize: 12, color: "var(--fg-mid)" }}>{e.x}</span>
+                        <span style={{ flex: 1, fontSize: 13, color: "var(--fg-mid)" }}>{e.x}</span>
                         <span style={{ fontSize: 10, fontWeight: 700, color: e.s === "主" ? "var(--home)" : "var(--gold)" }}>{e.s}</span>
                       </div>
                     );

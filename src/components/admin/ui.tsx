@@ -97,7 +97,4 @@ export async function post(url: string, body: Record<string, unknown>): Promise<
   return r.json();
 }
 
-/** 二次确认(营销/密钥等敏感写操作) */
-export function confirm2(text: string): boolean {
-  return window.confirm(`${text}\n\n该操作将写入审计日志,确认执行?`);
-}
+

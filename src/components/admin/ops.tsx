@@ -1,8 +1,9 @@
 "use client";
 
 /** 用户管理 / 订单与积分 / 赛事与内容 / 营销配置(四个运营模块) */
+import { aAlert, aConfirm, aPrompt } from "./dialogs";
 import { useCallback, useEffect, useState } from "react";
-import { ABtn, ACard, AChip, AGrid, AInput, Th, confirm2, fmtT, post, val } from "./ui";
+import { ABtn, ACard, AChip, AGrid, AInput, Th, fmtT, post, val } from "./ui";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -23,7 +24,7 @@ export function UsersView() {
 
   const act = async (action: string, userId: number, extra: Record<string, unknown> = {}) => {
     const j = await post("/api/admin/users", { action, userId, ...extra });
-    if (!j.ok) alert(j.error);
+    if (!j.ok) void aAlert(j.error);
     void load();
   };
 
@@ -58,16 +59,16 @@ export function UsersView() {
               <span className="mono" style={{ fontSize: 11, textAlign: "right", color: "var(--fg-2)" }}>{u.iv}</span>
               <span style={{ fontSize: 10, fontWeight: 800, textAlign: "center", color: ST_COLOR[st] ?? "#959ba6" }}>{st}</span>
               <span style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <ABtn small kind="line" label="调积分" onClick={() => {
-                  const dv = prompt(`为 ${u.email} 调整积分(正补偿/负扣减):`);
+                <ABtn small kind="line" label="调积分" onClick={async () => {
+                  const dv = await aPrompt(`为 ${u.email} 调整积分(正补偿/负扣减):`);
                   if (dv == null || !Number(dv)) return;
-                  const reason = prompt("原因(写入流水与审计):") ?? "";
+                  const reason = (await aPrompt("原因(写入流水与审计):")) ?? "";
                   void act("adjust", u.id, { delta: Number(dv), reason });
                 }} />
                 {u.status === "已封禁" ? (
                   <ABtn small kind="green" label="解封" onClick={() => void act("unban", u.id)} />
                 ) : (
-                  <ABtn small kind="red" label="封禁" onClick={() => confirm2(`封禁 ${u.email}?将立即踢下线`) && void act("ban", u.id)} />
+                  <ABtn small kind="red" label="封禁" onClick={async () => (await aConfirm(`封禁 ${u.email}?将立即踢下线`)) && void act("ban", u.id)} />
                 )}
               </span>
             </AGrid>
@@ -120,13 +121,13 @@ export function OrdersView() {
         <ACard
           title="兑换码批次"
           right={<ABtn small kind="line" label="+ 生成批次" onClick={async () => {
-            const code = prompt("码(4-16 位字母数字,如 WC2026):")?.toUpperCase();
+            const code = (await aPrompt("码(4-16 位字母数字,如 WC2026):"))?.toUpperCase();
             if (!code) return;
-            const points = Number(prompt("面值(积分):") ?? 0);
-            const maxUses = Number(prompt("可领次数(批次容量):") ?? 0);
-            if (!confirm2(`生成 ${code}:+${points} 分 × ${maxUses} 次`)) return;
+            const points = Number((await aPrompt("面值(积分):")) ?? 0);
+            const maxUses = Number((await aPrompt("可领次数(批次容量):")) ?? 0);
+            if (!(await aConfirm(`生成 ${code}:+${points} 分 × ${maxUses} 次`))) return;
             const j = await post("/api/admin/codes", { code, points, maxUses });
-            if (!j.ok) alert(j.error);
+            if (!j.ok) void aAlert(j.error);
             void loadCodes();
           }} />}
         >
@@ -165,7 +166,7 @@ export function MatchesView() {
   }, [load]);
   const act = async (body: Record<string, unknown>) => {
     const j = await post("/api/admin/matches", body);
-    if (!j.ok) alert(j.error);
+    if (!j.ok) void aAlert(j.error);
     void load();
   };
 
@@ -198,17 +199,17 @@ export function MatchesView() {
         </ACard>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <ACard title="联赛开关" right={<ABtn small kind="line" label="+ 添加联赛" onClick={async () => {
-            const q = prompt("搜索联赛名(英文,如 Championship / J1):");
+            const q = await aPrompt("搜索联赛名(英文,如 Championship / J1):");
             if (!q) return;
             const r = await post("/api/admin/matches", { action: "league_search", text: q });
-            if (!r.ok) return alert(r.error);
+            if (!r.ok) return void aAlert(r.error);
             const list = (r.list ?? []) as { id: number; name: string; type: string; country: string }[];
-            if (list.length === 0) return alert("没有搜到联赛");
-            const pick = prompt("输入要添加的联赛 id:\n" + list.map((l) => `${l.id} · ${l.name}(${l.country} · ${l.type})`).join("\n"));
+            if (list.length === 0) return void aAlert("没有搜到联赛");
+            const pick = await aPrompt("输入要添加的联赛 id:\n" + list.map((l) => `${l.id} · ${l.name}(${l.country} · ${l.type})`).join("\n"));
             const sel = list.find((l) => String(l.id) === pick?.trim());
             if (!sel) return;
             const j = await post("/api/admin/matches", { action: "league_add", id: sel.id, text: sel.name });
-            if (!j.ok) alert(j.error);
+            if (!j.ok) void aAlert(j.error);
             void load();
           }} />}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -228,7 +229,7 @@ export function MatchesView() {
             <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 10 }}>开关决定抓取与展示范围;↑↓ 调整用户端 chips 顺序,保存即生效;worker 下一轮自动套用分层调度</div>
           </ACard>
           <ACard title="公告 / Banner" right={<ABtn small kind="line" label="+ 新建公告" onClick={async () => {
-            const text = prompt("公告内容:");
+            const text = await aPrompt("公告内容:");
             if (text) {
               await post("/api/admin/matches", { action: "ann_create", text });
               void load();
@@ -262,9 +263,9 @@ export function MktView() {
   if (!v) return <div style={{ color: "var(--fg-3)", fontSize: 12, padding: 40, textAlign: "center" }}>加载中…</div>;
 
   const save = async (body: Record<string, unknown>, label: string) => {
-    if (!confirm2(label)) return;
+    if (!(await aConfirm(label))) return;
     const j = await post("/api/admin/marketing", body);
-    if (!j.ok) alert(j.error);
+    if (!j.ok) void aAlert(j.error);
     void load();
   };
 
@@ -287,14 +288,14 @@ export function MktView() {
             </AGrid>
           ))}
           <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
-            <ABtn small kind="line" label="编辑档位(JSON)" onClick={() => {
+            <ABtn small kind="line" label="编辑档位(JSON)" onClick={async () => {
               const cur = JSON.stringify(v.tiers);
-              const next = prompt("档位 JSON([{rmb,pts,tag?,hot?},…]):", cur);
+              const next = await aPrompt("档位 JSON([{rmb,pts,tag?,hot?},…]):", cur);
               if (next && next !== cur) {
                 try {
                   void save({ action: "tiers", tiers: JSON.parse(next) }, "更新充值档位");
                 } catch {
-                  alert("JSON 无效");
+                  void aAlert("JSON 无效");
                 }
               }
             }} />
