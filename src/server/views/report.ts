@@ -12,6 +12,20 @@ export interface ReportSection {
   ps: string[];
 }
 
+function hintOf(s: { line: number | null; h: number; a: number }[]) {
+  return s.length > 0 ? { line: s[s.length - 1].line, h: s[s.length - 1].h, a: s[s.length - 1].a } : null;
+}
+
+export function buildReportSummary(p: Panorama): PredSummary | null {
+  const fx = p.fixture;
+  return predSummary(p.prediction, fx.home_id, {
+    ah: hintOf(p.odds.ah),
+    ou: hintOf(p.odds.ou),
+    homeName: nameZh(fx.home_name),
+    awayName: nameZh(fx.away_name),
+  });
+}
+
 function dig(obj: unknown, ...path: (string | number)[]): unknown {
   let cur: unknown = obj;
   for (const k of path) {
@@ -23,11 +37,7 @@ function dig(obj: unknown, ...path: (string | number)[]): unknown {
 
 export function buildReport(p: Panorama): { ps: PredSummary | null; secs: ReportSection[] } {
   const fx = p.fixture;
-  const hintOf = (s: { line: number | null; h: number; a: number }[]) =>
-    s.length > 0 ? { line: s[s.length - 1].line, h: s[s.length - 1].h, a: s[s.length - 1].a } : null;
-  const ps = predSummary(p.prediction, fx.home_id, {
-    ah: hintOf(p.odds.ah), ou: hintOf(p.odds.ou), homeName: nameZh(fx.home_name), awayName: nameZh(fx.away_name),
-  });
+  const ps = buildReportSummary(p);
   const secs: ReportSection[] = [];
 
   // ── 指数解读 ──

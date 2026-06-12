@@ -4,7 +4,7 @@ import { hhmm } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
 import { matchPanorama } from "@/server/af/panorama";
 import { isLive } from "@/server/af/schedule";
-import { buildReport } from "@/server/views/report";
+import { buildReport, buildReportSummary } from "@/server/views/report";
 import { getLlmReport, getReportVersion, listReportVersions, reportLocked } from "@/server/llm/report";
 import { currentUser } from "@/server/platform/session";
 import { cfgUnlockPrice } from "@/server/platform/config";
@@ -20,7 +20,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const unlocked = !!user && isUnlocked(user.id, fid, today);
   const p = await matchPanorama(fid, { injuries: unlocked });
   if (!p) return NextResponse.json({ ok: false, error: "比赛不存在或数据未就绪" }, { status: 404 });
-  const { ps, secs } = buildReport(p);
+  const built = unlocked ? buildReport(p) : { ps: buildReportSummary(p), secs: [] };
+  const { ps, secs } = built;
   let sections = secs;
   let genBy = "template";
   let versions: ReturnType<typeof listReportVersions> = [];
