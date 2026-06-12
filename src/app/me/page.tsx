@@ -220,7 +220,7 @@ function MobileMePage() {
           </div>
         )}
         <div className="mono" style={{ textAlign: "center", fontSize: 11.5, color: "var(--fg-3)", padding: "14px 0 0" }}>
-          足球终端 v{APP_VERSION} · <span onClick={() => router.push("/about")} style={{ cursor: "pointer", color: "var(--fg-3)" }}>关于 ›</span>
+          足球终端 v{APP_VERSION}
         </div>
         <RiskFooter />
       </div>

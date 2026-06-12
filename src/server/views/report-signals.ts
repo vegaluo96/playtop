@@ -296,6 +296,16 @@ export function hasUsableProbability(ps: PredSummary | null): boolean {
   return !(flat && !ps.winnerName && !ps.uoText && !comparisonReady);
 }
 
+export function publicProbability(ps: PredSummary | null): { pH: number; pD: number; pA: number; probReady: boolean } {
+  const probReady = hasUsableProbability(ps);
+  return {
+    pH: probReady && ps ? ps.pH : 0,
+    pD: probReady && ps ? ps.pD : 0,
+    pA: probReady && ps ? ps.pA : 0,
+    probReady,
+  };
+}
+
 export function buildReportSignals(
   ps: PredSummary | null,
   odds: { ah: SnapRow[]; ou: SnapRow[]; eu?: SnapRow[] },

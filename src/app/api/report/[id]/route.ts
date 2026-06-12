@@ -5,7 +5,7 @@ import { leagueZh } from "@/lib/leagues";
 import { matchPanorama } from "@/server/af/panorama";
 import { isLive } from "@/server/af/schedule";
 import { buildReport, buildReportSummary } from "@/server/views/report";
-import { buildReportSignals, hasUsableProbability } from "@/server/views/report-signals";
+import { buildReportSignals, publicProbability } from "@/server/views/report-signals";
 import { findPolymarketSignal } from "@/server/external/polymarket";
 import { getLlmReport, getReportVersion, listReportVersions, reportLocked } from "@/server/llm/report";
 import { currentUser } from "@/server/platform/session";
@@ -57,6 +57,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   }
   const fx = p.fixture;
   const lockedFinal = reportLocked(fx.status);
+  const prob = publicProbability(ps);
   return NextResponse.json({
     ok: true,
     id: fid,
@@ -64,8 +65,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     league: leagueZh(fx.league_id, fx.league_name),
     leagueId: fx.league_id,
     time: isLive(fx.status) ? `${fx.elapsed ?? ""}' 进行中` : `${hhmm(fx.kickoff_utc, tz)}`,
-    pH: ps?.pH ?? 0, pD: ps?.pD ?? 0, pA: ps?.pA ?? 0,
-    probReady: hasUsableProbability(ps),
+    pH: prob.pH, pD: prob.pD, pA: prob.pA,
+    probReady: prob.probReady,
     comparison: ps?.comparison ?? {},
     homeName: fx.home_name,
     awayName: fx.away_name,

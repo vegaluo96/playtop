@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildReportSignals, hasUsableProbability } from "../../src/server/views/report-signals";
+import { buildReportSignals, hasUsableProbability, publicProbability } from "../../src/server/views/report-signals";
 import type { PredSummary } from "../../src/server/views/common";
 
 function ps(overrides: Partial<PredSummary> = {}): PredSummary {
@@ -26,7 +26,9 @@ function ps(overrides: Partial<PredSummary> = {}): PredSummary {
 
 describe("AI 报告量化方向", () => {
   it("概率壳数据不当成可用概率", () => {
-    expect(hasUsableProbability(ps({ pH: 33, pD: 33, pA: 33, winnerName: "", uoText: null, comparison: { 综合: { home: 0, away: 0 } } }))).toBe(false);
+    const shell = ps({ pH: 33, pD: 33, pA: 33, winnerName: "", uoText: null, comparison: { 综合: { home: 0, away: 0 } } });
+    expect(hasUsableProbability(shell)).toBe(false);
+    expect(publicProbability(shell)).toEqual({ pH: 0, pD: 0, pA: 0, probReady: false });
   });
 
   it("用 AF 预测、赛前指数和预测市场动态加权生成 AH/OU 方向", () => {
