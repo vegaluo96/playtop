@@ -132,34 +132,39 @@ function MobileMatchesPage() {
         onClick={() => (m.masked ? router.push("/login") : router.push(`/match/${m.id}`))}
         style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, marginBottom: 8, padding: "9px 12px 10px", cursor: "pointer" }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(m.leagueId) }} />
-          <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 650 }}>{leagueZh(m.leagueId, m.leagueName)}</span>
-          <span className="mono" style={{ fontSize: 12, color: "var(--fg-3)" }}>{hhmm(m.kickoff, prefs.tz)}</span>
-          {m.live && (
-            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "var(--red)", fontWeight: 800 }}>
-              <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-              {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
-            </span>
-          )}
-          {exLine && <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{exLine}</span>}
-          <span style={{ flex: 1 }} />
-          {m.moved && (
-            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid var(--selected-border)", borderRadius: 4, padding: "1px 6px" }}>异动</span>
-          )}
-          {tag && (
-            <span
-              style={{
-                fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px",
-                background: m.masked ? "var(--selected-bg)" : m.free ? "var(--success-bg)" : "var(--inset)",
-                color: m.masked ? "var(--gold)" : m.free ? "var(--green)" : "var(--fg-2)",
-                border: `1px solid ${m.masked ? "var(--selected-border)" : m.free ? "var(--success-border)" : "var(--line)"}`,
-              }}
-            >
-              {tag}
-            </span>
-          )}
-          {!m.masked && <WatchStar on={watch.ids.has(m.id)} onToggle={() => watch.toggle(m.id)} size={13} style={{ marginRight: -6 }} />}
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 8, alignItems: "start", marginBottom: 7 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, whiteSpace: "nowrap" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(m.leagueId), flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 650, whiteSpace: "nowrap", flexShrink: 0 }}>{leagueZh(m.leagueId, m.leagueName)}</span>
+              <span className="mono" style={{ fontSize: 12, color: "var(--fg-3)", whiteSpace: "nowrap", flexShrink: 0 }}>{hhmm(m.kickoff, prefs.tz)}</span>
+              {m.live && (
+                <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "var(--red)", fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)", flexShrink: 0 }} />
+                  {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
+                </span>
+              )}
+            </div>
+            {exLine && <div className="mono" style={{ marginTop: 3, paddingLeft: 13, fontSize: 11.5, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{exLine}</div>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, minWidth: 0 }}>
+            {m.moved && (
+              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid var(--selected-border)", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" }}>异动</span>
+            )}
+            {tag && (
+              <span
+                style={{
+                  flexShrink: 0, fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap",
+                  background: m.masked ? "var(--selected-bg)" : m.free ? "var(--success-bg)" : "var(--inset)",
+                  color: m.masked ? "var(--gold)" : m.free ? "var(--green)" : "var(--fg-2)",
+                  border: `1px solid ${m.masked ? "var(--selected-border)" : m.free ? "var(--success-border)" : "var(--line)"}`,
+                }}
+              >
+                {tag}
+              </span>
+            )}
+            {!m.masked && <WatchStar on={watch.ids.has(m.id)} onToggle={() => watch.toggle(m.id)} size={13} style={{ marginRight: -6 }} />}
+          </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 70px 70px 70px", gap: 8, alignItems: "center" }}>
           <div style={{ minWidth: 0 }}>
