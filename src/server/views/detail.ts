@@ -619,14 +619,18 @@ async function deepView(p: Panorama, lineups: LineupsView) {
   ) as { side: string; name: string; meta: string; trophies: number | null }[];
 
   const transferView = (list: unknown[], team: string, teamId: number | null) => {
+    const unusable = (v: unknown) => /data\s*unavailable|not\s*available|unknown|n\/a|数据不可用|不可用|未知|未公布/i.test(String(v ?? ""));
     const last = list
-      .flatMap((it) => arr(dig(it, "transfers")).map((tr) => ({ tr, player: nameZh(String(dig(it, "player", "name") ?? ""), "player") })))
-      .filter(({ tr }) => {
+      .flatMap((it) => {
+        const rawPlayer = String(dig(it, "player", "name") ?? "");
+        return arr(dig(it, "transfers")).map((tr) => ({ tr, rawPlayer, player: nameZh(rawPlayer, "player") }));
+      })
+      .filter(({ tr, rawPlayer, player }) => {
         const date = String(dig(tr, "date") ?? "");
         const type = String(dig(tr, "type") ?? "");
         const inId = Number(dig(tr, "teams", "in", "id")) || null;
         const outId = Number(dig(tr, "teams", "out", "id")) || null;
-        return /^\d{4}-\d{2}-\d{2}/.test(date) && !/data\s*unavailable|not\s*available|unknown|n\/a/i.test(type) && (inId != null || outId != null);
+        return /^\d{4}-\d{2}-\d{2}/.test(date) && !unusable(type) && !unusable(rawPlayer) && !unusable(player) && (inId != null || outId != null);
       })
       .sort((x, y) => Date.parse(String(dig(y.tr, "date") ?? 0)) - Date.parse(String(dig(x.tr, "date") ?? 0)))[0];
     if (!last) return { team, tag: "官方未返回", x: "未获取到可用官方转会记录" };

@@ -149,6 +149,9 @@ describe("external calibration fixes", () => {
       transfersHome: [{
         player: { name: "Example Player" },
         transfers: [{ date: "", type: "Data unavailable", teams: { in: { id: 17 }, out: { id: 1 } } }],
+      }, {
+        player: { name: "Data unavailable" },
+        transfers: [{ date: "2019-01-07", type: "Transfer", teams: { in: { id: 17 }, out: { id: 1 } } }],
       }],
       transfersAway: [],
       squadHome: null,

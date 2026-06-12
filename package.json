@@ -9,6 +9,7 @@
     "start": "next start",
     "af": "tsx scripts/af-probe.ts",
     "calibrate": "tsx scripts/odds-calibrate.ts",
+    "calibrate:af-detail": "tsx scripts/af-detail-public-calibrate.ts",
     "calibrate:public": "tsx scripts/odds-public-calibrate.ts",
     "worker": "tsx scripts/worker.ts",
     "selfcheck": "tsx scripts/selfcheck.ts",
