@@ -1,7 +1,8 @@
 /** 数据与模型监控:端点健康/快照归档/抓取频率(可编辑)/急变事件/AI 报告服务 */
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/server/db";
+import { db, tx } from "@/server/db";
 import { audit, canWrite, currentAdmin } from "@/server/admin/auth";
+import { requireSameOrigin } from "@/server/platform/rate-limit";
 import { TIERS } from "@/server/af/schedule";
 import { cfgEmergencyThrottle, cfgSet, cfgTierIntervals } from "@/server/platform/config";
 import { recentMovements, kvGet } from "@/server/af/store";
@@ -52,6 +53,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ ok: false }, { status: 401 });
   if (!canWrite(admin, "*") && admin.role !== "超级管理员" && admin.role !== "运营")
@@ -60,11 +63,15 @@ export async function POST(req: NextRequest) {
   if (b.action === "intervals") {
     const v = (b.values ?? []).map((x, i) => Math.max(i >= TIERS.length - 2 ? 5_000 : 60_000, Math.trunc(Number(x)))); // 滚球两档可至 5s
     if (v.length !== TIERS.length) return NextResponse.json({ ok: false, error: "档位数量不符" }, { status: 400 });
-    cfgSet("tier_intervals", v);
-    audit(admin.email, "抓取频率配置", v.map((ms) => (ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60_000)}m`)).join("/"));
+    tx(() => {
+      cfgSet("tier_intervals", v);
+      audit(admin.email, "抓取频率配置", v.map((ms) => (ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60_000)}m`)).join("/"));
+    });
   } else if (b.action === "emergency") {
-    cfgSet("emergency_throttle", b.on ? 1 : 0);
-    audit(admin.email, "紧急降频", b.on ? "开" : "关");
+    tx(() => {
+      cfgSet("emergency_throttle", b.on ? 1 : 0);
+      audit(admin.email, "紧急降频", b.on ? "开" : "关");
+    });
   } else return NextResponse.json({ ok: false, error: "未知操作" }, { status: 400 });
   return NextResponse.json({ ok: true });
 }

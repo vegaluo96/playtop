@@ -1,7 +1,8 @@
 /** 风控与审计:三规则扫描入队 + 裁决(拦截=标记风控/封禁线索,放行=关闭) */
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/server/db";
+import { db, tx } from "@/server/db";
 import { audit, currentAdmin, listAudit } from "@/server/admin/auth";
+import { requireSameOrigin } from "@/server/platform/rate-limit";
 
 /** 扫描近 3 日数据,命中规则去重入队(dedup 唯一键) */
 function scan(): void {
@@ -42,6 +43,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ ok: false }, { status: 401 });
   if (!(admin.role === "超级管理员" || admin.role === "风控")) return NextResponse.json({ ok: false, error: "裁决需超级管理员或风控" }, { status: 403 });
@@ -51,10 +54,12 @@ export async function POST(req: NextRequest) {
     | { id: number; detail: string; user_email: string | null } | undefined;
   if (!item) return NextResponse.json({ ok: false, error: "条目不存在或已裁决" }, { status: 404 });
   if (decision !== "拦截" && decision !== "放行") return NextResponse.json({ ok: false, error: "裁决无效" }, { status: 400 });
-  d.prepare("UPDATE risk_queue SET status=?, decided_by=?, decided_at=? WHERE id=?").run(decision, admin.email, Date.now(), item.id);
-  if (decision === "拦截" && item.user_email) {
-    d.prepare("UPDATE users SET status='风控' WHERE email=? AND status='正常'").run(item.user_email);
-  }
-  audit(admin.email, `风控裁决 · ${decision}`, item.detail);
+  tx(() => {
+    d.prepare("UPDATE risk_queue SET status=?, decided_by=?, decided_at=? WHERE id=?").run(decision, admin.email, Date.now(), item.id);
+    if (decision === "拦截" && item.user_email) {
+      d.prepare("UPDATE users SET status='风控' WHERE email=? AND status='正常'").run(item.user_email);
+    }
+    audit(admin.email, `风控裁决 · ${decision}`, item.detail);
+  });
   return NextResponse.json({ ok: true });
 }

@@ -192,32 +192,32 @@ export function payoutRate(s: { h: number; a: number; d?: number | null } | null
 
 /* ── ③ 同赔历史 ── */
 
+function firstEuOf(fixtureId: number): { h: number; d: number; a: number } | null {
+  const first = oddsSeries(fixtureId, "eu")[0];
+  return first && first.d ? { h: first.h, d: first.d, a: first.a } : null;
+}
+
 function sameOddsOf(fx: FixtureRow) {
   const d = db();
-  const first = d
-    .prepare("SELECT h, d, a FROM odds_snapshots WHERE fixture_id = ? AND market = 'eu' ORDER BY captured_at LIMIT 1")
-    .get(fx.fixture_id) as { h: number; d: number; a: number } | undefined;
-  if (!first || !first.d) return null;
-  // 各场首帧欧赔(本站归档起点≈初盘)
-  const firsts = d
+  const first = firstEuOf(fx.fixture_id);
+  if (!first) return null;
+  // 各场首帧欧赔(本站归档起点≈初盘):与详情页主盘同源,避免同时间多书商导致行序漂移。
+  const fixtures = d
     .prepare(
-      `SELECT s.fixture_id fid, s.h, s.d, s.a, f.home_name, f.away_name, f.goals_home gh, f.goals_away ga, f.status, f.kickoff_utc
-       FROM odds_snapshots s
-       JOIN (SELECT fixture_id, MIN(captured_at) mat FROM odds_snapshots WHERE market = 'eu' GROUP BY fixture_id) t
-         ON s.fixture_id = t.fixture_id AND s.captured_at = t.mat
-       JOIN fixtures_cache f ON f.fixture_id = s.fixture_id
+      `SELECT DISTINCT f.fixture_id fid, f.home_name, f.away_name, f.goals_home gh, f.goals_away ga, f.status, f.kickoff_utc
+       FROM odds_snapshots s JOIN fixtures_cache f ON f.fixture_id = s.fixture_id
        WHERE s.market = 'eu'`,
     )
-    .all() as unknown as { fid: number; h: number; d: number; a: number; home_name: string; away_name: string; gh: number | null; ga: number | null; status: string; kickoff_utc: number }[];
+    .all() as unknown as { fid: number; home_name: string; away_name: string; gh: number | null; ga: number | null; status: string; kickoff_utc: number }[];
   const TOL = 0.03;
-  const seen = new Set<number>();
-  const hits = firsts.filter((r) => {
-    if (r.fid === fx.fixture_id || seen.has(r.fid)) return false;
-    seen.add(r.fid);
+  const hits = fixtures.flatMap((r) => {
+    if (r.fid === fx.fixture_id) return [];
+    const snap = firstEuOf(r.fid);
+    if (!snap) return [];
     return (
       isFinished(r.status) && r.gh != null && r.ga != null &&
-      Math.abs(r.h - first.h) <= TOL && Math.abs(r.d - first.d) <= TOL && Math.abs(r.a - first.a) <= TOL
-    );
+      Math.abs(snap.h - first.h) <= TOL && Math.abs(snap.d - first.d) <= TOL && Math.abs(snap.a - first.a) <= TOL
+    ) ? [r] : [];
   });
   if (hits.length === 0) return { triple: `${f2(first.h)}/${f2(first.d)}/${f2(first.a)}`, n: 0, w: 0, dr: 0, l: 0, samples: [] };
   const w = hits.filter((r) => r.gh! > r.ga!).length;

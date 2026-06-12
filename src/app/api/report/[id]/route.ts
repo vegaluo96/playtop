@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const { ps, secs } = buildReport(p);
   let sections = secs;
   let genBy = "template";
-  const versions = listReportVersions(fid);
+  let versions = listReportVersions(fid);
   const reqVer = Number(req.nextUrl.searchParams.get("v")) || null;
   let curVer: number | null = null;
   if (unlocked) {
@@ -41,6 +41,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       if (llm) {
         sections = llm.sections;
         genBy = llm.by;
+        versions = listReportVersions(fid);
         curVer = versions.length > 0 ? versions[versions.length - 1].ver : null;
       }
     }

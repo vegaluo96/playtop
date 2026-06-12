@@ -4,7 +4,7 @@
  * 所有后台写操作经 audit() 强制留痕(append-only)。
  */
 import { db } from "../db";
-import { loginOrRegister, type UserRow } from "../platform/auth";
+import { upsertSystemUser, type UserRow } from "../platform/auth";
 import { currentUser } from "../platform/session";
 
 export interface AdminRow {
@@ -31,17 +31,15 @@ export function canWrite(admin: AdminRow, scope: string): boolean {
 let seeded = false;
 export function ensureAdminSeed(): void {
   if (seeded) return;
-  seeded = true;
   const email = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
   const password = process.env.ADMIN_PASSWORD || "";
   if (!email || !password) return;
   const d = db();
-  if (!d.prepare("SELECT 1 FROM users WHERE email = ?").get(email)) {
-    loginOrRegister(email, password); // 自动建号(失败则下次访问重试)
-  }
+  if (!upsertSystemUser(email, password)) return; // 保留账号由 seed 路径创建/重置,防止抢注后提权
   d.prepare(
     "INSERT INTO admins (email, role, status, created_at) VALUES (?, '超级管理员', '启用', ?) ON CONFLICT(email) DO UPDATE SET role='超级管理员', status='启用'",
   ).run(email, Date.now());
+  seeded = true;
 }
 
 export async function currentAdmin(): Promise<(AdminRow & { user: UserRow }) | null> {

@@ -19,9 +19,12 @@ function seedFixture(id: number, daysAgo: number, homeId: number, awayId: number
   ).run(id, NOW - daysAgo * DAY, status, homeId, `T${homeId}`, awayId, `T${awayId}`, gh, ga, "{}", NOW);
 }
 function seedSnap(fid: number, market: string, line: number | null, h: number, a: number, d: number | null, at: number) {
+  seedSnapBook(fid, 8, "Bet365", market, line, h, a, d, at);
+}
+function seedSnapBook(fid: number, bookmakerId: number, bookmaker: string, market: string, line: number | null, h: number, a: number, d: number | null, at: number) {
   db().prepare(
-    "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,8,'Bet365',?,?,?,?,?,?)",
-  ).run(fid, market, line, h, a, d, at);
+    "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)",
+  ).run(fid, bookmakerId, bookmaker, market, line, h, a, d, at);
 }
 
 describe("盘路分类", () => {
@@ -110,5 +113,21 @@ describe("insightsView:同赔历史 + 疲劳", () => {
     expect(ins.sameOdds?.l).toBe(1);
     expect(ins.fatigue.home?.restDays).toBe(3);
     expect(ins.fatigue.home?.next7).toBe(1);
+  });
+
+  it("同赔历史按主盘稳定取首帧,不受同时间多书商行序影响", async () => {
+    seedFixture(20, -1, 100, 200, 0, 0, "NS");
+    seedSnapBook(20, 99, "OtherBook", "eu", null, 9.9, 9.8, 9.7, NOW - DAY); // 先插入但非主源
+    seedSnapBook(20, 8, "Bet365", "eu", null, 2.0, 3.6, 3.4, NOW - DAY);
+
+    seedFixture(21, 30, 300, 400, 2, 1);
+    seedSnapBook(21, 99, "OtherBook", "eu", null, 8.8, 8.7, 8.6, NOW - 31 * DAY);
+    seedSnapBook(21, 8, "Bet365", "eu", null, 2.01, 3.58, 3.42, NOW - 31 * DAY);
+
+    const fx = db().prepare("SELECT * FROM fixtures_cache WHERE fixture_id=20").get() as unknown as FixtureRow;
+    const ins = await insightsView(fx);
+    expect(ins.sameOdds?.triple).toBe("2.00/3.40/3.60");
+    expect(ins.sameOdds?.n).toBe(1);
+    expect(ins.sameOdds?.w).toBe(1);
   });
 });

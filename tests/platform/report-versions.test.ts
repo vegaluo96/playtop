@@ -1,11 +1,27 @@
 /** 报告版本化:开赛锁定 / 预生成判定(预算·冷却·需求门控)/ 版本读取 */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 process.env.PLAYTOP_DB = ":memory:";
 process.env.LLM_API_KEY = "test-key";
 
+vi.mock("../../src/server/llm/client", () => ({
+  chatComplete: vi.fn(async () => ({
+    text: JSON.stringify([
+      { h: "盘口解读", ps: ["a"] },
+      { h: "状态与盘路", ps: ["b"] },
+      { h: "进球模型", ps: ["c"] },
+      { h: "人员情报", ps: ["d"] },
+      { h: "结论与风险", ps: ["e"] },
+    ]),
+    tokens: 123,
+  })),
+}));
+
 import { db, _resetDbForTest } from "../../src/server/db";
-import { getReportVersion, listReportVersions, reportLocked, shouldPregenReport } from "../../src/server/llm/report";
+import { chatComplete } from "../../src/server/llm/client";
+import { getLlmReport, getReportVersion, listReportVersions, reportLocked, shouldPregenReport } from "../../src/server/llm/report";
+import type { Panorama } from "../../src/server/af/panorama";
+import type { ReportSection } from "../../src/server/views/report";
 
 const now = Date.parse("2026-06-11T12:00:00Z");
 const day = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
@@ -13,7 +29,45 @@ const day = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
 beforeEach(() => {
   _resetDbForTest();
   db();
+  vi.mocked(chatComplete).mockClear();
 });
+
+const secs: ReportSection[] = [
+  { h: "盘口解读", ps: ["盘口事实"] },
+  { h: "状态与盘路", ps: ["状态事实"] },
+  { h: "进球模型", ps: ["进球事实"] },
+  { h: "人员情报", ps: ["人员事实"] },
+  { h: "结论与风险", ps: ["结论事实"] },
+];
+
+function pano(status: string): Panorama {
+  return {
+    fixture: {
+      fixture_id: 9,
+      league_id: 39,
+      season: 2025,
+      league_name: "PL",
+      round: "1",
+      kickoff_utc: now + 3_600_000,
+      status,
+      elapsed: null,
+      home_id: 1,
+      home_name: "A",
+      away_id: 2,
+      away_name: "B",
+      goals_home: null,
+      goals_away: null,
+      payload: "{}",
+      updated_at: now,
+    },
+    bundle: {},
+    odds: { ah: [], ou: [], eu: [], compareAh: [], compareOu: [], compareEu: [] },
+    movements: [],
+    prediction: null,
+    injuries: [],
+    deep: null,
+  };
+}
 
 describe("reportLocked(开赛即锁定)", () => {
   it("未开赛族不锁,其余全锁", () => {
@@ -68,5 +122,19 @@ describe("版本读取", () => {
     expect(vs[1].changed).toEqual(["盘口解读"]);
     expect(getReportVersion(9, 1)?.sections[0].ps).toEqual(["a"]);
     expect(getReportVersion(9, 99)).toBeNull();
+  });
+});
+
+describe("getLlmReport 开赛锁定", () => {
+  it("已开赛且无缓存时不调用模型、不生成版本", async () => {
+    await expect(getLlmReport(pano("1H"), secs)).resolves.toBeNull();
+    expect(chatComplete).not.toHaveBeenCalled();
+    expect(listReportVersions(9)).toHaveLength(0);
+  });
+
+  it("未开赛可正常调用模型并追加版本", async () => {
+    await expect(getLlmReport(pano("NS"), secs)).resolves.toMatchObject({ by: expect.any(String) });
+    expect(chatComplete).toHaveBeenCalledTimes(1);
+    expect(listReportVersions(9).map((v) => v.ver)).toEqual([1]);
   });
 });

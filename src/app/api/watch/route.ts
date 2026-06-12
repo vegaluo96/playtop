@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/server/platform/session";
 import { db } from "@/server/db";
+import { requireSameOrigin } from "@/server/platform/rate-limit";
 
 export async function GET() {
   const u = await currentUser();
@@ -14,6 +15,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   const u = await currentUser();
   if (!u) return NextResponse.json({ ok: false, error: "请先登录" }, { status: 401 });
   let body: { id?: number; on?: boolean; ids?: number[] };

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loginOrRegister } from "@/server/platform/auth";
 import { REF_COOKIE, SESSION_COOKIE, sessionCookieOptions } from "@/server/platform/session";
-import { clearLoginFails, clientIp, loginLocked, rateLimit, recordLoginFail, sameOrigin } from "@/server/platform/rate-limit";
-import { SITE_HOST } from "@/lib/site";
+import { clearLoginFails, clientIp, loginLocked, rateLimit, recordLoginFail, requireSameOrigin } from "@/server/platform/rate-limit";
 
 export async function POST(req: NextRequest) {
-  if (!sameOrigin(req, SITE_HOST)) return NextResponse.json({ ok: false, error: "请求来源异常" }, { status: 403 });
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   if (!rateLimit(req, "login", 10, 60_000))
     return NextResponse.json({ ok: false, error: "操作过于频繁,请稍后再试" }, { status: 429 });
   const { email, password } = (await req.json().catch(() => ({}))) as { email?: string; password?: string };

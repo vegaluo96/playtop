@@ -4,13 +4,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 process.env.PLAYTOP_DB = ":memory:";
 
 import { _resetDbForTest, db } from "../../src/server/db";
-import { loginOrRegister, userByToken } from "../../src/server/platform/auth";
+import { loginOrRegister, upsertSystemUser, userByToken } from "../../src/server/platform/auth";
 import {
   balanceOf,
   claimGift,
   creditInvite,
   dailyFreeFixture,
   dailyFreeFixtureIds,
+  demoRechargeEnabled,
   inviteStats,
   isUnlocked,
   ledgerOf,
@@ -44,6 +45,21 @@ describe("账户", () => {
     expect(loginOrRegister("bad", "secret66").ok).toBe(false);
     expect(loginOrRegister("a@b.com", "12345").ok).toBe(false);
   });
+
+  it("ADMIN_EMAIL 为系统保留账号,seed 路径会创建/重置密码", () => {
+    const oldAdmin = process.env.ADMIN_EMAIL;
+    try {
+      process.env.ADMIN_EMAIL = "root@b.com";
+      expect(loginOrRegister("root@b.com", "attacker66")).toMatchObject({ ok: false });
+      const u = upsertSystemUser("root@b.com", "seedpass");
+      expect(u?.email).toBe("root@b.com");
+      expect(loginOrRegister("root@b.com", "attacker66").ok).toBe(false);
+      expect(loginOrRegister("root@b.com", "seedpass").ok).toBe(true);
+    } finally {
+      if (oldAdmin == null) delete process.env.ADMIN_EMAIL;
+      else process.env.ADMIN_EMAIL = oldAdmin;
+    }
+  });
 });
 
 describe("礼包与充值", () => {
@@ -61,6 +77,27 @@ describe("礼包与充值", () => {
     const ledger = ledgerOf(uid);
     expect(ledger).toHaveLength(2);
     expect(ledger[1].note).toContain("首充");
+  });
+
+  it("生产环境默认关闭演示充值,显式开关才允许", () => {
+    const oldEnv = process.env.NODE_ENV;
+    const oldDemo = process.env.PLAYTOP_DEMO_RECHARGE;
+    const env = process.env as Record<string, string | undefined>;
+    try {
+      env.NODE_ENV = "production";
+      delete env.PLAYTOP_DEMO_RECHARGE;
+      const uid = newUser("prod-pay@b.com");
+      expect(demoRechargeEnabled()).toBe(false);
+      expect(recharge(uid, 0)).toMatchObject({ ok: false });
+      env.PLAYTOP_DEMO_RECHARGE = "1";
+      expect(demoRechargeEnabled()).toBe(true);
+      expect(recharge(uid, 0)).toMatchObject({ ok: true, pts: 90 });
+    } finally {
+      if (oldEnv == null) delete env.NODE_ENV;
+      else env.NODE_ENV = oldEnv;
+      if (oldDemo == null) delete env.PLAYTOP_DEMO_RECHARGE;
+      else env.PLAYTOP_DEMO_RECHARGE = oldDemo;
+    }
   });
 });
 

@@ -3,7 +3,8 @@
  * 单机 pm2 部署下进程内状态足够;nginx 前置须传 X-Forwarded-For。
  * 超限/锁定写 risk_queue(dedup 防刷屏),风控页可见。
  */
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { SITE_HOST } from "@/lib/site";
 import { db } from "../db";
 
 interface Bucket {
@@ -80,6 +81,10 @@ export function sameOrigin(req: NextRequest, siteHost: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function requireSameOrigin(req: NextRequest, siteHost = SITE_HOST): NextResponse | null {
+  return sameOrigin(req, siteHost) ? null : NextResponse.json({ ok: false, error: "请求来源异常" }, { status: 403 });
 }
 
 /** 仅测试用 */

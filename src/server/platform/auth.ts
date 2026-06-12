@@ -33,15 +33,46 @@ function verifyPassword(password: string, stored: string): boolean {
   return got.length === want.length && timingSafeEqual(got, want);
 }
 
+function adminSeedEmail(): string {
+  return (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+}
+
+function validLoginInput(mail: string, password: string): string | null {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return "邮箱格式不正确";
+  if (password.length < 6) return "密码至少 6 位";
+  return null;
+}
+
 export type LoginResult =
   | { ok: true; user: UserRow; token: string; created: boolean }
   | { ok: false; error: string };
 
+/** 系统保留账号(seed):创建或重置密码,不创建登录会话。 */
+export function upsertSystemUser(email: string, password: string): UserRow | null {
+  const mail = email.trim().toLowerCase();
+  if (validLoginInput(mail, password)) return null;
+  const d = db();
+  return tx(() => {
+    const existing = d.prepare("SELECT * FROM users WHERE email = ?").get(mail) as unknown as UserRow | undefined;
+    const passHash = hashPassword(password);
+    if (existing) {
+      d.prepare("UPDATE users SET pass_hash = ?, status = '正常' WHERE email = ?").run(passHash, mail);
+      return d.prepare("SELECT * FROM users WHERE email = ?").get(mail) as unknown as UserRow;
+    }
+    let code = genInviteCode();
+    while (d.prepare("SELECT 1 FROM users WHERE invite_code = ?").get(code)) code = genInviteCode();
+    const r = d
+      .prepare("INSERT INTO users (email, pass_hash, invite_code, invited_by, created_at, reg_ip) VALUES (?,?,?,?,?,?)")
+      .run(mail, passHash, code, null, Date.now(), null);
+    return d.prepare("SELECT * FROM users WHERE id = ?").get(Number(r.lastInsertRowid)) as unknown as UserRow;
+  });
+}
+
 /** 登录;邮箱不存在则注册(可带邀请码归因) */
 export function loginOrRegister(email: string, password: string, refCode?: string | null, ip: string | null = null): LoginResult {
   const mail = email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return { ok: false, error: "邮箱格式不正确" };
-  if (password.length < 6) return { ok: false, error: "密码至少 6 位" };
+  const inputError = validLoginInput(mail, password);
+  if (inputError) return { ok: false, error: inputError };
   const d = db();
   const existing = d.prepare("SELECT * FROM users WHERE email = ?").get(mail) as unknown as (UserRow & { pass_hash: string }) | undefined;
   if (existing) {
@@ -49,6 +80,7 @@ export function loginOrRegister(email: string, password: string, refCode?: strin
     if ((existing as unknown as { status?: string }).status === "已封禁") return { ok: false, error: "账号已被封禁,请联系客服" };
     return { ok: true, user: existing, token: createSession(existing.id), created: false };
   }
+  if (mail === adminSeedEmail()) return { ok: false, error: "该邮箱为后台保留账号,请联系管理员初始化" };
   const user = tx(() => {
     let code = genInviteCode();
     while (d.prepare("SELECT 1 FROM users WHERE invite_code = ?").get(code)) code = genInviteCode();

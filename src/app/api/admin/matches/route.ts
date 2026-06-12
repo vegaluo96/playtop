@@ -1,6 +1,6 @@
 /** 赛事与内容:免费场/隐藏 + 联赛开关 + 公告(全部写审计) */
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/server/db";
+import { db, tx } from "@/server/db";
 import { audit, canWrite, currentAdmin } from "@/server/admin/auth";
 import { fixturesBetween, kvGet } from "@/server/af/store";
 import { cfgLeagues, cfgSet, cfgUnlockPrice } from "@/server/platform/config";
@@ -9,6 +9,7 @@ import { runAfEndpoint } from "@/server/af/catalog";
 import { hhmm } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
 import { isFinished, isLive } from "@/server/af/schedule";
+import { requireSameOrigin } from "@/server/platform/rate-limit";
 
 const TZ8 = 8 * 3_600_000;
 const day8 = () => new Date(Date.now() + TZ8).toISOString().slice(0, 10);
@@ -34,6 +35,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ ok: false }, { status: 401 });
   if (!canWrite(admin, "match")) return NextResponse.json({ ok: false, error: "无权限" }, { status: 403 });
@@ -41,17 +44,25 @@ export async function POST(req: NextRequest) {
   const d = db();
   if (b.action === "free") {
     // 多场免费:逐场追加,不再互相覆盖
-    d.prepare("INSERT OR IGNORE INTO free_fixtures (date, fixture_id) VALUES (?,?)").run(day8(), Number(b.fixtureId));
-    audit(admin.email, "设为今日免费场", String(b.fixtureId));
+    tx(() => {
+      d.prepare("INSERT OR IGNORE INTO free_fixtures (date, fixture_id) VALUES (?,?)").run(day8(), Number(b.fixtureId));
+      audit(admin.email, "设为今日免费场", String(b.fixtureId));
+    });
   } else if (b.action === "unfree") {
-    d.prepare("DELETE FROM free_fixtures WHERE date=? AND fixture_id=?").run(day8(), Number(b.fixtureId));
-    audit(admin.email, "取消免费场", String(b.fixtureId));
+    tx(() => {
+      d.prepare("DELETE FROM free_fixtures WHERE date=? AND fixture_id=?").run(day8(), Number(b.fixtureId));
+      audit(admin.email, "取消免费场", String(b.fixtureId));
+    });
   } else if (b.action === "hide") {
-    d.prepare("INSERT OR IGNORE INTO hidden_fixtures (fixture_id) VALUES (?)").run(Number(b.fixtureId));
-    audit(admin.email, "隐藏场次", String(b.fixtureId));
+    tx(() => {
+      d.prepare("INSERT OR IGNORE INTO hidden_fixtures (fixture_id) VALUES (?)").run(Number(b.fixtureId));
+      audit(admin.email, "隐藏场次", String(b.fixtureId));
+    });
   } else if (b.action === "show") {
-    d.prepare("DELETE FROM hidden_fixtures WHERE fixture_id=?").run(Number(b.fixtureId));
-    audit(admin.email, "恢复展示场次", String(b.fixtureId));
+    tx(() => {
+      d.prepare("DELETE FROM hidden_fixtures WHERE fixture_id=?").run(Number(b.fixtureId));
+      audit(admin.email, "恢复展示场次", String(b.fixtureId));
+    });
   } else if (b.action === "league_up" || b.action === "league_down") {
     // 联赛排序:数组顺序即用户端 chips 顺序
     const ls = cfgLeagues();
@@ -59,8 +70,10 @@ export async function POST(req: NextRequest) {
     const j = b.action === "league_up" ? i - 1 : i + 1;
     if (i >= 0 && j >= 0 && j < ls.length) {
       [ls[i], ls[j]] = [ls[j], ls[i]];
-      cfgSet("leagues", ls);
-      audit(admin.email, "联赛排序", `${ls[j].zh} ${b.action === "league_up" ? "上移" : "下移"}`);
+      tx(() => {
+        cfgSet("leagues", ls);
+        audit(admin.email, "联赛排序", `${ls[j].zh} ${b.action === "league_up" ? "上移" : "下移"}`);
+      });
     }
   } else if (b.action === "league_search") {
     // /leagues 端点:按名搜索可添加的联赛(当季有赔率覆盖优先展示)
@@ -82,24 +95,32 @@ export async function POST(req: NextRequest) {
     if (!ls.some((l) => l.id === id)) {
       const palette = ["#8e6cf0", "#f2a13b", "#d4524f", "#3f8cff", "#38bdd4", "#e98049", "#7aa7ff", "#4ad1a0", "#c66fd1", "#6fd1a8"];
       ls.push({ id, zh: name, color: palette[id % palette.length], on: true });
-      cfgSet("leagues", ls);
-      audit(admin.email, "添加联赛", `${name}(${id})`);
+      tx(() => {
+        cfgSet("leagues", ls);
+        audit(admin.email, "添加联赛", `${name}(${id})`);
+      });
     }
     return NextResponse.json({ ok: true });
   } else if (b.action === "league") {
     const ls = cfgLeagues().map((l) => (l.id === Number(b.id) ? { ...l, on: !!b.on } : l));
-    cfgSet("leagues", ls);
-    audit(admin.email, "联赛开关", `${leagueZh(Number(b.id))} → ${b.on ? "开" : "关"}`);
+    tx(() => {
+      cfgSet("leagues", ls);
+      audit(admin.email, "联赛开关", `${leagueZh(Number(b.id))} → ${b.on ? "开" : "关"}`);
+    });
   } else if (b.action === "ann_create") {
     const text = (b.text ?? "").trim().slice(0, 200);
     if (!text) return NextResponse.json({ ok: false, error: "公告内容为空" }, { status: 400 });
-    d.prepare("INSERT INTO announcements (text, status, created_at) VALUES (?,?,?)").run(text, "上线中", Date.now());
-    audit(admin.email, "新建公告", text);
+    tx(() => {
+      d.prepare("INSERT INTO announcements (text, status, created_at) VALUES (?,?,?)").run(text, "上线中", Date.now());
+      audit(admin.email, "新建公告", text);
+    });
   } else if (b.action === "ann_toggle") {
     const a = d.prepare("SELECT status FROM announcements WHERE id=?").get(Number(b.id)) as { status: string } | undefined;
     if (a) {
-      d.prepare("UPDATE announcements SET status=? WHERE id=?").run(a.status === "上线中" ? "已下线" : "上线中", Number(b.id));
-      audit(admin.email, "公告上下线", String(b.id));
+      tx(() => {
+        d.prepare("UPDATE announcements SET status=? WHERE id=?").run(a.status === "上线中" ? "已下线" : "上线中", Number(b.id));
+        audit(admin.email, "公告上下线", String(b.id));
+      });
     }
   } else return NextResponse.json({ ok: false, error: "未知操作" }, { status: 400 });
   return NextResponse.json({ ok: true });

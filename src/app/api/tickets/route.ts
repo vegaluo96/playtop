@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/server/platform/session";
 import { db } from "@/server/db";
-import { rateLimit } from "@/server/platform/rate-limit";
+import { rateLimit, requireSameOrigin } from "@/server/platform/rate-limit";
 
 export async function GET() {
   const u = await currentUser();
@@ -13,6 +13,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   if (!rateLimit(req, "tickets", 5, 60_000)) return NextResponse.json({ ok: false, error: "提交过于频繁,请稍后再试" }, { status: 429 });
   const u = await currentUser();
   if (!u) return NextResponse.json({ ok: false, error: "未登录" }, { status: 401 });

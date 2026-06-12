@@ -1,8 +1,9 @@
 /** 用户管理:搜索/筛选/调积分/封禁(RBAC:客服调分 ≤100,封禁需超管或风控) */
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/server/db";
+import { db, tx } from "@/server/db";
 import { audit, canWrite, currentAdmin } from "@/server/admin/auth";
 import { adjustPoints } from "@/server/platform/wallet";
+import { requireSameOrigin } from "@/server/platform/rate-limit";
 
 export async function GET(req: NextRequest) {
   if (!(await currentAdmin())) return NextResponse.json({ ok: false }, { status: 401 });
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ ok: false }, { status: 401 });
   const { action, userId, delta, reason } = (await req.json().catch(() => ({}))) as { action?: string; userId?: number; delta?: number; reason?: string };
@@ -33,15 +36,18 @@ export async function POST(req: NextRequest) {
     if (!dv) return NextResponse.json({ ok: false, error: "调整值无效" }, { status: 400 });
     if (admin.role === "客服" && Math.abs(dv) > 100) return NextResponse.json({ ok: false, error: "客服补偿上限 100 分,需超级管理员复核" }, { status: 403 });
     if (!canWrite(admin, "ticket") && !canWrite(admin, "user")) return NextResponse.json({ ok: false, error: "无权限" }, { status: 403 });
-    const r = adjustPoints(Number(userId), dv, `后台${dv > 0 ? "补偿" : "扣减"}:${reason || "未注明"}`);
-    audit(admin.email, "调积分", `${u.email} ${dv > 0 ? "+" : ""}${dv}(${reason || "未注明"})`);
+    const r = adjustPoints(Number(userId), dv, `后台${dv > 0 ? "补偿" : "扣减"}:${reason || "未注明"}`, () => {
+      audit(admin.email, "调积分", `${u.email} ${dv > 0 ? "+" : ""}${dv}(${reason || "未注明"})`);
+    });
     return NextResponse.json(r);
   }
   if (action === "ban" || action === "unban") {
     if (!(admin.role === "超级管理员" || admin.role === "风控")) return NextResponse.json({ ok: false, error: "封禁需超级管理员或风控" }, { status: 403 });
-    d.prepare("UPDATE users SET status=? WHERE id=?").run(action === "ban" ? "已封禁" : "正常", Number(userId));
-    if (action === "ban") d.prepare("DELETE FROM sessions WHERE user_id=?").run(Number(userId));
-    audit(admin.email, action === "ban" ? "封禁用户" : "解封用户", u.email);
+    tx(() => {
+      d.prepare("UPDATE users SET status=? WHERE id=?").run(action === "ban" ? "已封禁" : "正常", Number(userId));
+      if (action === "ban") d.prepare("DELETE FROM sessions WHERE user_id=?").run(Number(userId));
+      audit(admin.email, action === "ban" ? "封禁用户" : "解封用户", u.email);
+    });
     return NextResponse.json({ ok: true });
   }
   return NextResponse.json({ ok: false, error: "未知操作" }, { status: 400 });

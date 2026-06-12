@@ -130,8 +130,18 @@ export async function getLlmReport(p: Panorama, templateSecs: ReportSection[]): 
   const cached = d.prepare("SELECT fingerprint, content, model FROM report_cache WHERE fixture_id = ?").get(fid) as
     | { fingerprint: string; content: string; model: string }
     | undefined;
-  // 开赛锁定:有缓存即固化复用,指纹变化也不再生成(报告以临场版为准)
-  if (cached && (cached.fingerprint === fp || reportLocked(p.fixture.status))) {
+  const locked = reportLocked(p.fixture.status);
+  // 开赛锁定:有缓存即固化复用,指纹变化也不再生成;无缓存/缓存损坏则回落模板,绝不赛中补生成。
+  if (locked) {
+    if (!cached) return null;
+    try {
+      bumpUsage("hits");
+      return { sections: JSON.parse(cached.content) as ReportSection[], by: cached.model || "llm" };
+    } catch {
+      return null;
+    }
+  }
+  if (cached && cached.fingerprint === fp) {
     try {
       bumpUsage("hits");
       return { sections: JSON.parse(cached.content) as ReportSection[], by: cached.model || "llm" };

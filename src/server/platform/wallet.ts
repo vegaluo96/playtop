@@ -22,13 +22,21 @@ function append(userId: number, kind: string, delta: number, note: string, rmb: 
 }
 
 /** 后台调积分(补偿/扣减),由调用方做 RBAC 与审计 */
-export function adjustPoints(userId: number, delta: number, reason: string): WalletResult {
-  return tx(() => ({ ok: true as const, pts: append(userId, "adjust", delta, reason || "后台调整") }));
+export function adjustPoints(userId: number, delta: number, reason: string, afterAppend?: (pts: number) => void): WalletResult {
+  return tx(() => {
+    const pts = append(userId, "adjust", delta, reason || "后台调整");
+    afterAppend?.(pts);
+    return { ok: true as const, pts };
+  });
 }
 
 export function balanceOf(userId: number): number {
   const u = db().prepare("SELECT pts FROM users WHERE id = ?").get(userId) as { pts: number } | undefined;
   return u?.pts ?? 0;
+}
+
+export function demoRechargeEnabled(): boolean {
+  return process.env.PLAYTOP_DEMO_RECHARGE === "1" || process.env.NODE_ENV !== "production";
 }
 
 /** 新人礼包 +58(一次性) */
@@ -45,6 +53,7 @@ export function claimGift(userId: number): WalletResult {
 
 /** 充值(当前为演示支付:选档即到账;接入支付网关后在此校验回调) */
 export function recharge(userId: number, tierIndex: number): WalletResult {
+  if (!demoRechargeEnabled()) return { ok: false, error: "充值通道维护中,请稍后再试" };
   const tier = cfgRechargeTiers()[tierIndex];
   if (!tier) return { ok: false, error: "档位不存在" };
   return tx(() => {

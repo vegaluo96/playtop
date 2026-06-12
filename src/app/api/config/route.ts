@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { cfgLeagues, cfgRechargeMaintenance } from "@/server/platform/config";
+import { demoRechargeEnabled } from "@/server/platform/wallet";
 import { APP_VERSION } from "@/lib/version";
 
 export async function GET() {
@@ -16,6 +17,6 @@ export async function GET() {
     leagues: cfgLeagues().filter((l) => l.on),
     announcements,
     version: APP_VERSION,
-    rechargeMaintenance: cfgRechargeMaintenance(),
+    rechargeMaintenance: cfgRechargeMaintenance() || !demoRechargeEnabled(),
   });
 }

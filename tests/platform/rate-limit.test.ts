@@ -11,6 +11,7 @@ import {
   loginLocked,
   rateLimit,
   recordLoginFail,
+  requireSameOrigin,
   sameOrigin,
 } from "../../src/server/platform/rate-limit";
 
@@ -59,5 +60,11 @@ describe("sameOrigin", () => {
     expect(sameOrigin(req({ referer: "http://localhost:3000/x" }), "play.top")).toBe(true);
     expect(sameOrigin(req({ origin: "https://evil.com" }), "play.top")).toBe(false);
     expect(sameOrigin(req(), "play.top")).toBe(true);
+  });
+
+  it("requireSameOrigin 返回可直接复用的 403 响应", () => {
+    expect(requireSameOrigin(req({ origin: "https://play.top" }))).toBeNull();
+    const res = requireSameOrigin(req({ origin: "https://evil.com" }));
+    expect(res?.status).toBe(403);
   });
 });
