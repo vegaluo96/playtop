@@ -40,11 +40,16 @@ export async function GET(req: NextRequest) {
   } else if (day === "live") {
     from = now - 4 * 3_600_000;
     to = now + 5 * 60_000;
+  } else if (day === "soon") {
+    // 即将(默认视图):滚球在最上 + 未来 24h 即将开赛,跨自然日连续,对齐球盘站习惯
+    from = now - 4 * 3_600_000;
+    to = now + 24 * 3_600_000;
   }
 
   const hidden = hiddenFixtureIds();
   let fixtures = fixturesBetween(from, to).filter((f) => !hidden.has(f.fixture_id));
   if (day === "live") fixtures = fixtures.filter((f) => isLive(f.status));
+  if (day === "soon") fixtures = fixtures.filter((f) => isLive(f.status) || (!isFinished(f.status) && f.kickoff_utc >= now - 10 * 60_000));
   if (league !== "all") fixtures = fixtures.filter((f) => f.league_id === Number(league));
   fixtures.sort((a, b) => a.kickoff_utc - b.kickoff_utc);
 

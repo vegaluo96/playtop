@@ -55,11 +55,11 @@ export default function AdminPage() {
     if (!a.ok) setErr("该账号不是管理员");
   };
 
-  if (me === undefined) return <div style={{ height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-3)", fontSize: 12 }}>加载中…</div>;
+  if (me === undefined) return <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-3)", fontSize: 12 }}>加载中…</div>;
 
   if (!me)
     return (
-      <div className="desktop-root" style={{ height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
+      <div className="desktop-root" style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
         <div style={{ width: 380 }}>
           <div style={{ textAlign: "center", marginBottom: 6 }}>
             <span style={{ fontSize: 24, fontWeight: 800 }}>足球<span style={{ color: "var(--gold)" }}>终端</span></span>
@@ -81,7 +81,7 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="desktop-root" style={{ width: "100%", height: "100dvh", minWidth: 1180, display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", overflow: "hidden" }}>
+    <div className="desktop-root" style={{ width: "100%", height: "100%", minWidth: 1180, display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", overflow: "hidden", overflowX: "auto" }}>
       <div style={{ flexShrink: 0, height: 52, display: "flex", alignItems: "center", gap: 14, padding: "0 20px", borderBottom: "1px solid var(--line)", background: "#0e1015" }}>
         <span style={{ fontSize: 17, fontWeight: 800 }}>足球<span style={{ color: "var(--gold)" }}>终端</span></span>
         <span style={{ fontSize: 10, fontWeight: 800, color: "var(--home)", border: "1px solid rgba(91,157,255,.4)", borderRadius: 4, padding: "2px 7px" }}>管理后台</span>

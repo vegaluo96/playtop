@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { RiskFooter } from "@/components/consent-bar";
 import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
-import { Chip } from "@/components/ui";
+import { Chip, Sheet } from "@/components/ui";
 import { f2, hhmm, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
 import { Flash, useUnifiedPoll } from "@/components/live";
@@ -70,11 +70,12 @@ export default function MatchesRoute() {
 }
 
 function MobileMatchesPage() {
-  const [day, setDay] = useState("today");
+  const [day, setDay] = useState("soon"); // 默认「即将」:滚球+未来24h,对齐球盘站
   const [league, setLeague] = useState("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [liveCount, setLiveCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [dateOpen, setDateOpen] = useState(false);
   const { prefs, me } = useApp();
   const watch = useWatchlist(me.loggedIn);
   const router = useRouter();
@@ -103,17 +104,19 @@ function MobileMatchesPage() {
   // 四菜单统一节奏:平台有滚球 3s(交易所级跳动,只渲染真实变化),否则 10s;后台 tab 暂停
   const beat = useUnifiedPoll(load);
 
-  // 14 天日期带:直播 | 今日 | 明日 | 周X 日期…(worker 提前 14 天归档赛程与赔率)
+  // 日期带精简:直播/即将/今日/明日 四个常用 + 「更多日期」弹层收纳未来 12 天
   const off = parseTzOffset(prefs.tz);
+  const futureDays = Array.from({ length: 12 }, (_, i) => {
+    const n = i + 2;
+    const d = new Date(Date.now() + off * 3_600_000 + n * 86_400_000);
+    return { k: `d${n}`, label: `${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")} 周${"日一二三四五六"[d.getUTCDay()]}` };
+  });
+  const pickedDate = futureDays.find((d) => d.k === day);
   const dateChips = [
     { k: "live", label: `直播 ${liveCount}` },
+    { k: "soon", label: "即将" },
     { k: "today", label: "今日" },
     { k: "tmr", label: "明日" },
-    ...Array.from({ length: 12 }, (_, i) => {
-      const n = i + 2;
-      const d = new Date(Date.now() + off * 3_600_000 + n * 86_400_000);
-      return { k: `d${n}`, label: `周${"日一二三四五六"[d.getUTCDay()]} ${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}` };
-    }),
   ];
 
   const renderRow = (m: Row) => {
@@ -205,6 +208,7 @@ function MobileMatchesPage() {
         {dateChips.map((c) => (
           <Chip key={c.k} label={c.label} active={day === c.k} onClick={() => setDay(c.k)} />
         ))}
+        <Chip label={pickedDate ? `${pickedDate.label} ▾` : "更多日期 ▾"} active={!!pickedDate} onClick={() => setDateOpen(true)} />
       </div>
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
         <Chip label="全部" active={league === "all"} onClick={() => setLeague("all")} style={{ padding: "5px 12px", fontSize: 11 }} />
@@ -241,7 +245,7 @@ function MobileMatchesPage() {
 
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 12px", minHeight: 0 }}>
         {loaded && rows.length === 0 && (
-          <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>该时段暂无已开盘赛事</div>
+          <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>{day === "soon" ? "未来 24 小时暂无即将开赛的场次" : "该时段暂无已开盘赛事"}</div>
         )}
         {(() => {
           const watched = rows.filter((r) => watch.ids.has(r.id));
@@ -263,6 +267,26 @@ function MobileMatchesPage() {
         })()}
         {loaded && <RiskFooter />}
       </div>
+      <Sheet open={dateOpen} onClose={() => setDateOpen(false)}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ fontSize: 15, fontWeight: 800 }}>选择日期</span>
+          <span style={{ fontSize: 10, color: "var(--fg-3)" }}>赛程与盘口提前 14 天归档</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+          {futureDays.map((d) => (
+            <div
+              key={d.k}
+              onClick={() => {
+                setDay(d.k);
+                setDateOpen(false);
+              }}
+              style={{ textAlign: "center", padding: "10px 0", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", background: day === d.k ? "rgba(233,185,73,.14)" : "var(--inset)", color: day === d.k ? "var(--gold)" : "var(--fg-mid)" }}
+            >
+              {d.label}
+            </div>
+          ))}
+        </div>
+      </Sheet>
     </div>
   );
 }

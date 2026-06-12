@@ -10,7 +10,7 @@ import { RefreshSheet } from "@/components/refresh-sheet";
 import { ShareSheet, type ShareData } from "@/components/share-sheet";
 import { Card, Chip, EmptyBox, SectionTitle, ShareIcon } from "@/components/ui";
 import { ahText, dayLabel, hhmm } from "@/lib/format";
-import { leagueColor } from "@/lib/leagues";
+
 import { Flash, HeartBeat, usePoll, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
@@ -244,10 +244,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       <div style={{ display: "flex", alignItems: "center", padding: "10px 12px 6px" }}>
         <div onClick={() => router.back()} style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--fg-2)", fontSize: 22, lineHeight: 1 }}>‹</div>
         <div style={{ flex: 1, textAlign: "center" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(h.leagueId) }} />
-            <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 600, whiteSpace: "nowrap" }}>{h.league} · {h.round}</span>
-          </div>
+          <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 600, whiteSpace: "nowrap" }}>{h.league} · {h.round}</span>
         </div>
         <WatchStar on={watch.ids.has(h.id)} onToggle={() => watch.toggle(h.id)} size={16} style={{ width: 30, height: 34 }} />
         <div onClick={openShare} style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--fg-2)" }}>
@@ -258,8 +255,8 @@ function MobileMatchDetail({ id }: { id: string }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center", padding: "2px 16px 10px" }}>
         <div style={{ textAlign: "right", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
-            <TeamLogo id={h.homeId} name={h.home} size={22} />
             <span style={{ fontSize: 16, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.home}</span>
+            <TeamLogo id={h.homeId} name={h.home} size={22} />
           </div>
           <div style={{ fontSize: 9, fontWeight: 800, color: "var(--home)", marginTop: 2 }}>主场</div>
         </div>
@@ -296,10 +293,13 @@ function MobileMatchDetail({ id }: { id: string }) {
         ))}
       </div>
 
-      <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 8px", cursor: "pointer", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 9.5, color: "var(--fg-3)" }}>⟳ {h.fresh.line}{v.summary.oddsAt ? ` · 盘口更新于 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}</span>
-        <span style={{ fontSize: 9.5, color: "var(--gold)", fontWeight: 700 }}>规则 ›</span>
+      <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 8px", cursor: "pointer" }}>
         {!h.finished && <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} rtt={rtt} />}
+        <span style={{ fontSize: 9.5, color: "var(--fg-3)", whiteSpace: "nowrap" }}>
+          {h.finished ? "已完场 · 数据已固化" : `⟳ ${h.fresh.freq}刷新`}
+          {v.summary.oddsAt ? ` · 盘口 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}
+        </span>
+        <span style={{ fontSize: 9.5, color: "var(--gold)", fontWeight: 700, whiteSpace: "nowrap" }}>规则 ›</span>
       </div>
 
       <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", overflowX: "auto", flexShrink: 0 }}>

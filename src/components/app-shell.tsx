@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // 桌面(≥1080):去掉移动壳与底部导航,页面自行渲染三栏终端
   if (isDesktop) {
     return (
-      <div className="app-shell desktop-root" style={{ width: "100%", height: "100dvh", background: "var(--bg)", color: "var(--fg)", overflow: "hidden" }}>
+      <div className="app-shell desktop-root" style={{ width: "100%", height: "100%", background: "var(--bg)", color: "var(--fg)", overflow: "hidden" }}>
         {children}
         <ConsentBar />
       </div>
@@ -57,7 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         position: "relative",
         maxWidth: 430,
         margin: "0 auto",
-        height: "100dvh",
+        height: "100%",
         display: "flex",
         flexDirection: "column",
         background: "var(--bg)",

@@ -30,8 +30,11 @@ export function leagueColor(id: number): string {
 export function roundZh(round: string): string {
   let m = /Regular Season\s*-\s*(\d+)/i.exec(round);
   if (m) return `第 ${m[1]} 轮`;
-  m = /Group\s+([A-Z\d]+)\s*-\s*(\d+)/i.exec(round);
-  if (m) return `${m[1]}组 第 ${m[2]} 轮`;
+  m = /Group\s+Stage\s*-\s*(\d+)/i.exec(round);
+  if (m) return `小组赛 第 ${m[1]} 轮`;
+  if (/^Group\s+Stage$/i.test(round)) return "小组赛";
+  m = /Group\s+([A-Z\d]{1,2})\s*-\s*(\d+)/i.exec(round); // 组名仅 1-2 位(A组/B组),防误吞单词
+  if (m) return `${m[1].toUpperCase()}组 第 ${m[2]} 轮`;
   const map: Record<string, string> = {
     "Round of 32": "1/16 决赛", "Round of 16": "1/8 决赛", "Quarter-finals": "1/4 决赛",
     "Semi-finals": "半决赛", Final: "决赛", "3rd Place Final": "季军赛",

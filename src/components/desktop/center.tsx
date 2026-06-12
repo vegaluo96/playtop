@@ -234,7 +234,7 @@ export function CenterPane({
             {h.live ? (h.ht ? "中场休息" : `${h.elapsed ?? ""}' 进行中`) : h.finished ? "已完场" : `${dayLabel(h.kickoff, tz)} ${hhmm(h.kickoff, tz)} 开赛`}
           </span>
           <span style={{ flex: 1 }} />
-          <span style={{ fontSize: 10, color: "var(--fg-3)", whiteSpace: "nowrap" }}>⟳ {h.fresh.line}{v.summary.oddsAt ? ` · 盘口 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}</span>
+          <span style={{ fontSize: 10, color: "var(--fg-3)", whiteSpace: "nowrap" }}>{h.finished ? "已完场 · 数据已固化" : `⟳ ${h.fresh.freq}刷新`}{v.summary.oddsAt ? ` · 盘口 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}</span>
           <WatchStar on={watch.ids.has(h.id)} onToggle={() => watch.toggle(h.id)} size={14} />
           {copied && <span style={{ fontSize: 9, color: "var(--up)", fontWeight: 700, whiteSpace: "nowrap" }}>链接已复制</span>}
           <span onClick={copyLink} style={{ cursor: "pointer", color: "var(--fg-2)", display: "flex", alignItems: "center", flexShrink: 0 }}>
@@ -246,8 +246,8 @@ export function CenterPane({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <TeamLogo id={h.homeId} name={h.home} size={26} />
             <span style={{ fontSize: 22, fontWeight: 800, whiteSpace: "nowrap" }}>{h.home}</span>
+            <TeamLogo id={h.homeId} name={h.home} size={26} />
             <span style={{ fontSize: 10, fontWeight: 800, color: "var(--home)" }}>主</span>
           </div>
           <span className="mono" style={{ fontSize: 24, fontWeight: 800, color: h.live || h.finished ? "var(--gold)" : "var(--fg-4)", whiteSpace: "nowrap" }}>

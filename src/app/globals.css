@@ -34,6 +34,11 @@ body {
   padding: 0;
   background: #060709;
   color: var(--fg);
+  /* 锁死文档滚动:页面滚动只发生在应用内部容器,杜绝移动端地址栏伸缩导致
+     的整页滚动(头部滚走/底栏悬空/下方留白) */
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 * {
   box-sizing: border-box;

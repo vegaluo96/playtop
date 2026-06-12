@@ -42,7 +42,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   const { prefs, me, refreshMe } = useApp();
   const router = useRouter();
   const [league, setLeague] = useState("all");
-  const [day, setDay] = useState("today");
+  const [day, setDay] = useState("soon"); // 默认「即将」:滚球+未来24h
   const [liveCount, setLiveCount] = useState(0);
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<V[]>([]);
@@ -209,7 +209,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   const X = "-.--";
 
   return (
-    <div className="desktop-root" style={{ position: "relative", width: "100%", height: "100dvh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", overflow: "hidden" }}>
+    <div className="desktop-root" style={{ position: "relative", width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", overflow: "hidden" }}>
       <AnnouncementBar compact />
       {/* ===== 顶栏 ===== */}
       <div style={{ flexShrink: 0, height: 52, display: "flex", alignItems: "center", gap: 18, padding: "0 20px", borderBottom: "1px solid var(--line)", background: "#0e1015" }}>
@@ -257,7 +257,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           <div style={{ flexShrink: 0, padding: "12px 14px 8px" }}>
             <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto", paddingBottom: 2 }}>
               {[
-                ["live", `直播 ${liveCount}`], ["today", "今日"], ["tmr", "明日"],
+                ["live", `直播 ${liveCount}`], ["soon", "即将"], ["today", "今日"], ["tmr", "明日"],
                 ...Array.from({ length: 12 }, (_, i) => {
                   const n = i + 2;
                   const d = new Date(Date.now() + parseTzOffset(prefs.tz) * 3_600_000 + n * 86_400_000);
