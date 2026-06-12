@@ -1,6 +1,6 @@
 /**
  * 球员资料卡:GET /api/player/<id>?season=&name=
- * players(赛季统计)+ sidelined(伤停/停赛史),kv 缓存,中文化输出。
+ * players(赛季统计)+ profiles(档案)+ seasons(可用赛季)+ teams(效力队)+ sidelined(伤停/停赛史)。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { kvCached } from "@/server/af/store";
@@ -32,20 +32,32 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const season = Number(req.nextUrl.searchParams.get("season")) || new Date().getFullYear();
 
   try {
-    // 并行拉取:players 与 sidelined 互不阻塞,首开延迟减半
-    const [item, sidelined] = await Promise.all([
+    // 并行拉取:球员卡不再只靠 players 单端点,避免档案/赛季/效力轨迹空缺。
+    const [item, profile, seasons, careerTeams, sidelined] = await Promise.all([
       kvCached<unknown>(`player:${pid}:${season}`, 24 * 3_600_000, async () => {
         const r = await runAfEndpoint("players", { id: String(pid), season: String(season) });
         return arr(r.response)[0] ?? null;
       }),
+      kvCached<unknown>(`player:${pid}:profile`, 7 * 86_400_000, async () => {
+        const r = await runAfEndpoint("players.profiles", { player: String(pid) });
+        return arr(r.response)[0] ?? null;
+      }).catch(() => null),
+      kvCached<unknown[]>(`player:${pid}:seasons`, 7 * 86_400_000, async () => {
+        const r = await runAfEndpoint("players.seasons", { player: String(pid) });
+        return arr(r.response);
+      }).catch(() => [] as unknown[]),
+      kvCached<unknown[]>(`player:${pid}:teams`, 7 * 86_400_000, async () => {
+        const r = await runAfEndpoint("players.teams", { player: String(pid) });
+        return arr(r.response);
+      }).catch(() => [] as unknown[]),
       kvCached<unknown[]>(`player:${pid}:sidelined`, 7 * 86_400_000, async () => {
         const r = await runAfEndpoint("sidelined", { player: String(pid) });
         return arr(r.response).slice(0, 6);
       }).catch(() => [] as unknown[]),
     ]);
-    if (!item) return NextResponse.json({ ok: false, error: "暂无该球员赛季数据" }, { status: 404 });
+    if (!item && !profile) return NextResponse.json({ ok: false, error: "暂无该球员资料" }, { status: 404 });
 
-    const pl = dig(item, "player");
+    const pl = dig(profile, "player") ?? dig(item, "player");
     // 取出场最多的一条联赛统计为主行,其余列为次要
     const stats = arr(dig(item, "statistics"))
       .map((st) => ({
@@ -77,6 +89,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       weight: String(dig(pl, "weight") ?? "") || null,
       injured: Boolean(dig(pl, "injured")),
       stats,
+      seasons: seasons.map((s) => Number(s)).filter(Boolean).sort((a, b) => b - a).slice(0, 8),
+      careerTeams: careerTeams.slice(0, 8).map((row) => {
+        const ss = arr(dig(row, "seasons")).map((s) => Number(s)).filter(Boolean).sort((a, b) => b - a);
+        return {
+          id: Number(dig(row, "team", "id")) || null,
+          name: nameZh(String(dig(row, "team", "name") ?? "")),
+          seasons: ss.slice(0, 4),
+        };
+      }).filter((r) => r.name),
       sidelined: sidelined.map((sd) => ({
         type: sideZh(String(dig(sd, "type") ?? "")),
         from: String(dig(sd, "start") ?? "").slice(0, 10),

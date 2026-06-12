@@ -529,7 +529,7 @@ async function deepView(p: Panorama) {
     if (!teamId) return [];
     const players = await kvCached<unknown[]>(`team:${teamId}:${fx.season}:ratings`, 24 * H, async () => {
       const out: unknown[] = [];
-      for (let page = 1; page <= 2; page++) {
+      for (let page = 1; page <= 10; page++) {
         const r = await runAfEndpoint("players", { team: String(teamId), season: String(fx.season), page: String(page) });
         const arr2 = Array.isArray(r.response) ? r.response : [];
         out.push(...arr2);
@@ -591,7 +591,7 @@ async function deepView(p: Panorama) {
     const last = list
       .flatMap((it) => arr(dig(it, "transfers")).map((tr) => ({ tr, player: nameZh(String(dig(it, "player", "name") ?? ""), "player") })))
       .sort((x, y) => Date.parse(String(dig(y.tr, "date") ?? 0)) - Date.parse(String(dig(x.tr, "date") ?? 0)))[0];
-    if (!last) return { team, tag: "无变动", x: "近两个转会窗无一线队进出记录" };
+    if (!last) return { team, tag: "暂无记录", x: "未获取到官方转会记录" };
     const inbound = Number(dig(last.tr, "teams", "in", "id")) === teamId;
     return {
       team,

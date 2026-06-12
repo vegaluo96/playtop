@@ -100,7 +100,20 @@ export function PlayerSheet({ target, onClose }: { target: PlayerTarget | null; 
               ))}
             </div>
           )}
-          {v && !v.stats?.length && !v.sidelined?.length && (
+          {v?.careerTeams?.length > 0 && (
+            <div style={{ background: "var(--inset)", borderRadius: 10, padding: "9px 12px", marginTop: 8 }}>
+              <div style={{ fontSize: 10, color: "var(--fg-3)", marginBottom: 6 }}>
+                效力球队{v.seasons?.length > 0 ? ` · 数据赛季 ${v.seasons.slice(0, 4).join("/")}` : ""}
+              </div>
+              {v.careerTeams.map((tm: V, i: number) => (
+                <div key={`${tm.id ?? tm.name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: i < v.careerTeams.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-mid)", flex: 1 }}>{tm.name}</span>
+                  <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>{(tm.seasons ?? []).slice(0, 3).join("/") || "—"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {v && !v.stats?.length && !v.sidelined?.length && !v.careerTeams?.length && (
             <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)", padding: "14px 0" }}>该球员本赛季暂无统计数据</div>
           )}
         </>

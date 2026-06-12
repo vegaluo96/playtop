@@ -156,6 +156,20 @@ CREATE TABLE IF NOT EXISTS live_odds_snapshots (
   captured_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_live_odds ON live_odds_snapshots(fixture_id, market, captured_at);
+-- 外部盘口校准样本(百度/足球财富/其它公开源人工或 adapter 导入;不参与业务展示)
+CREATE TABLE IF NOT EXISTS odds_external_samples (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fixture_id INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  market TEXT NOT NULL,          -- 'ah' | 'ou' | 'eu'
+  line REAL,
+  h REAL, a REAL, d REAL,
+  captured_at INTEGER NOT NULL,
+  raw TEXT NOT NULL DEFAULT '{}',
+  created_at INTEGER NOT NULL,
+  UNIQUE (fixture_id, source, market, captured_at)
+);
+CREATE INDEX IF NOT EXISTS idx_external_odds ON odds_external_samples(fixture_id, market, captured_at);
 -- AI 报告版本历史(report_cache 仍是「最新版」指针)
 CREATE TABLE IF NOT EXISTS report_versions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
