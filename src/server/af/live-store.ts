@@ -5,6 +5,7 @@
  */
 import { db } from "../db";
 import { detectMovement, type LiveMarketFrame } from "./normalize";
+import { isDisplayableLiveEuTriplet } from "./odds-quality";
 
 const HEARTBEAT_MS = 5 * 60_000;
 const MOVE_COOLDOWN_MS = 60_000;
@@ -57,6 +58,7 @@ export function archiveLiveOdds(fixtureId: number, frames: LiveMarketFrame[], ca
     if (!prev || !changed || prev.suspended || f.suspended) continue;
     if (capturedAt - lastMoveAt(fixtureId, f.market) < MOVE_COOLDOWN_MS) continue;
     if (f.market === "eu") {
+      if (!isDisplayableLiveEuTriplet(prev.h, prev.d, prev.a) || !isDisplayableLiveEuTriplet(f.h, f.d, f.a)) continue;
       if (Math.abs(f.h - prev.h) >= EU_MOVE_MIN) {
         d.prepare(
           "INSERT INTO movements (fixture_id, market, bookmaker, type, from_line, to_line, from_h, to_h, from_a, to_a, sev, t0, t1, phase) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'滚球')",

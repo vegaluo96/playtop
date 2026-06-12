@@ -87,6 +87,28 @@ describe("normalizeOddsItem", () => {
     expect(normalizeOddsItem({})).toEqual([]);
     expect(normalizeOddsItem({ bookmakers: [{ id: 1, name: "X", bets: [] }] })).toEqual([]);
   });
+
+  it("赛前总览拦截非法盘口线和极端欧赔", () => {
+    const books = normalizeOddsItem({
+      bookmakers: [{
+        id: 8,
+        name: "Bet365",
+        bets: [
+          { id: 1, name: "Match Winner", values: [
+            { value: "Home", odd: "51" }, { value: "Draw", odd: "5" }, { value: "Away", odd: "1.14" },
+          ] },
+          { id: 4, name: "Asian Handicap", values: [
+            { value: "Home -0.3", odd: "1.90" }, { value: "Away +0.3", odd: "1.96" },
+          ] },
+          { id: 5, name: "Goals Over/Under", values: [
+            { value: "Over 9", odd: "1.90" }, { value: "Under 9", odd: "1.96" },
+          ] },
+        ],
+      }],
+    });
+
+    expect(books).toEqual([]);
+  });
 });
 
 describe("parseAh 腿标签格式无关(满水率自证)", () => {

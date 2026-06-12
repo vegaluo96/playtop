@@ -3,6 +3,7 @@ import { db } from "../db";
 import { dailyFreeFixtureIds } from "../platform/wallet";
 import { oddsSeries, oddsSeriesBatch, type OddsMarket, type SnapRow } from "../af/store";
 import { liveOddsSeries } from "../af/live-store";
+import { isDisplayableLiveEuTriplet } from "../af/odds-quality";
 
 export { fixturesBetween, oddsSeries } from "../af/store";
 
@@ -14,8 +15,13 @@ function placeholders(n: number): string {
 export function liveAwareSeries(fixtureId: number, market: OddsMarket, live: boolean): SnapRow[] {
   const pre = oddsSeries(fixtureId, market);
   if (!live) return pre;
-  const lv = liveOddsSeries(fixtureId, market).filter((r) => !r.suspended);
-  if (lv.length === 0) return pre;
+  const rawLive = liveOddsSeries(fixtureId, market).filter((r) => !r.suspended);
+  if (market === "eu" && rawLive.length > 0) {
+    const latest = rawLive[rawLive.length - 1];
+    if (!isDisplayableLiveEuTriplet(latest.h, latest.d, latest.a)) return [];
+  }
+  const lv = rawLive.filter((r) => market !== "eu" || isDisplayableLiveEuTriplet(r.h, r.d, r.a));
+  if (lv.length === 0) return market === "eu" && rawLive.length > 0 ? [] : pre;
   const mapped: SnapRow[] = lv.slice(-2).map((r) => ({
     fixture_id: fixtureId, bookmaker_id: 0, bookmaker: "实时盘", market,
     line: r.line, h: r.h, a: r.a, d: r.d, captured_at: r.captured_at,
@@ -45,8 +51,14 @@ export function liveAwareSeriesBatch(fixtureIds: number[], market: OddsMarket, l
     ORDER BY fixture_id, captured_at
   `;
   const liveRows = db().prepare(liveSql).all(market, ...liveIds) as unknown as (SnapRow & { suspended: number })[];
+  const liveSeen = new Set<number>();
+  const latestByFixture = new Map<number, SnapRow & { suspended: number }>();
   const liveByFixture = new Map<number, (SnapRow & { suspended: number })[]>();
   for (const row of liveRows) {
+    liveSeen.add(row.fixture_id);
+    const latest = latestByFixture.get(row.fixture_id);
+    if (!latest || row.captured_at > latest.captured_at) latestByFixture.set(row.fixture_id, row);
+    if (market === "eu" && !isDisplayableLiveEuTriplet(row.h, row.d, row.a)) continue;
     const rowsForFixture = liveByFixture.get(row.fixture_id) ?? [];
     rowsForFixture.push(row);
     liveByFixture.set(row.fixture_id, rowsForFixture);
@@ -65,6 +77,13 @@ export function liveAwareSeriesBatch(fixtureIds: number[], market: OddsMarket, l
         captured_at: r.captured_at,
       }));
     if (mapped.length > 0) result.set(fixtureId, [...(result.get(fixtureId) ?? []), ...mapped]);
+  }
+  if (market === "eu") {
+    for (const fixtureId of liveSeen) {
+      const latest = latestByFixture.get(fixtureId);
+      if (!latest || !isDisplayableLiveEuTriplet(latest.h, latest.d, latest.a)) result.set(fixtureId, []);
+      else if (!liveByFixture.has(fixtureId)) result.set(fixtureId, []);
+    }
   }
   return result;
 }

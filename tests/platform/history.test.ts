@@ -26,6 +26,11 @@ function seedLive(line: number, h: number, a: number, at: number) {
     "INSERT INTO live_odds_snapshots (fixture_id, market, line, h, a, d, suspended, captured_at) VALUES (9,'ah',?,?,?,NULL,0,?)",
   ).run(line, h, a, at);
 }
+function seedLiveEu(h: number, d: number, a: number, at: number) {
+  db().prepare(
+    "INSERT INTO live_odds_snapshots (fixture_id, market, line, h, a, d, suspended, captured_at) VALUES (9,'eu',NULL,?,?,?,?,?)",
+  ).run(h, a, d, 0, at);
+}
 
 describe("quoteHistory", () => {
   it("盘前+滚球合并,最新在上,变盘行打标,滚球帧带标", () => {
@@ -52,5 +57,19 @@ describe("quoteHistory", () => {
     expect(v.rows).toHaveLength(500);
     expect(v.rows.every((r) => !r.live)).toBe(true);
     expect(quoteHistory(404, "ah", "UTC+8")).toBeNull();
+  });
+
+  it("胜平负历史过滤极端滚球帧", () => {
+    seedFx();
+    db().prepare(
+      "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (9,8,'Bet365','eu',NULL,?,?,?,?)",
+    ).run(1.8, 4.5, 3.6, KICK - 7_200_000);
+    seedLiveEu(6.5, 3, 1.73, KICK + 300_000);
+    seedLiveEu(251, 9.5, 1.05, KICK + 600_000);
+
+    const v = quoteHistory(9, "eu", "UTC+8")!;
+
+    expect(v.rows.some((r) => r.h === "251.00")).toBe(false);
+    expect(v.rows[0].h).toBe("6.50");
   });
 });

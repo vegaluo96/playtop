@@ -60,6 +60,33 @@ describe("list helpers", () => {
     expect(series?.at(-1)).toMatchObject({ bookmaker: "实时盘", line: 0.75, h: 0.84 });
   });
 
+  it("滚球胜平负最新帧不可信时不回退展示赛前欧盘", () => {
+    insertOdds(11, 8, "Bet365", "eu", null, 1.8, 4.5, 3.6, 1000);
+    const ins = db().prepare(
+      "INSERT INTO live_odds_snapshots (fixture_id, market, line, h, a, d, suspended, captured_at) VALUES (?,?,?,?,?,?,?,?)",
+    );
+    ins.run(11, "eu", null, 6.5, 1.73, 3, 0, 2000);
+    ins.run(11, "eu", null, 251, 1.05, 9.5, 0, 3000);
+
+    const series = liveAwareSeriesBatch([11], "eu", new Set([11])).get(11);
+
+    expect(series).toEqual([]);
+  });
+
+  it("滚球胜平负最新帧可信时只追加可信实时帧", () => {
+    insertOdds(12, 8, "Bet365", "eu", null, 1.8, 4.5, 3.6, 1000);
+    const ins = db().prepare(
+      "INSERT INTO live_odds_snapshots (fixture_id, market, line, h, a, d, suspended, captured_at) VALUES (?,?,?,?,?,?,?,?)",
+    );
+    ins.run(12, "eu", null, 51, 1.14, 5, 0, 2000);
+    ins.run(12, "eu", null, 6.5, 1.73, 3, 0, 3000);
+
+    const series = liveAwareSeriesBatch([12], "eu", new Set([12])).get(12);
+
+    expect(series?.at(-1)).toMatchObject({ bookmaker: "实时盘", h: 6.5, d: 3, a: 1.73 });
+    expect(series?.some((r) => r.h === 51)).toBe(false);
+  });
+
   it("批量异动标记只返回近窗内有记录的场次", () => {
     const now = 1_000_000_000;
     const ins = db().prepare(

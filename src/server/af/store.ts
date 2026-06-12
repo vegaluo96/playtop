@@ -4,6 +4,7 @@
  */
 import { db, tx } from "../db";
 import { detectMovement, normalizeOddsItem } from "./normalize";
+import { LIVE_EU_DISPLAY_MAX_ODD } from "./odds-quality";
 import { isFinished } from "./schedule";
 import { ahText, ouText } from "@/lib/format";
 
@@ -384,15 +385,26 @@ export interface MovementRow {
 
 export function recentMovements(limit = 80, type?: string): (MovementRow & { home_name: string; away_name: string; league_name: string; league_id: number })[] {
   // type 既支持异动类型(升盘/降盘/水位)也支持阶段筛选(滚球)
-  const where = type === "滚球" ? "WHERE m.phase = ?" : type && type !== "全部" ? "WHERE m.type = ?" : "";
-  const args: unknown[] = type && type !== "全部" ? [type, limit] : [limit];
+  const clauses = [
+    "NOT (m.market = 'eu' AND m.phase = '滚球' AND (m.from_h > ? OR m.to_h > ? OR m.from_a > ? OR m.to_a > ?))",
+  ];
+  const args: (number | string)[] = [LIVE_EU_DISPLAY_MAX_ODD, LIVE_EU_DISPLAY_MAX_ODD, LIVE_EU_DISPLAY_MAX_ODD, LIVE_EU_DISPLAY_MAX_ODD];
+  if (type === "滚球") {
+    clauses.push("m.phase = ?");
+    args.push(type);
+  } else if (type && type !== "全部") {
+    clauses.push("m.type = ?");
+    args.push(type);
+  }
+  args.push(limit);
+  const where = `WHERE ${clauses.join(" AND ")}`;
   return db()
     .prepare(
       `SELECT m.*, f.home_name, f.away_name, f.league_name, f.league_id
        FROM movements m JOIN fixtures_cache f ON f.fixture_id = m.fixture_id
        ${where} ORDER BY m.t1 DESC LIMIT ?`,
     )
-    .all(...(args as [string, number] | [number])) as unknown as (MovementRow & { home_name: string; away_name: string; league_name: string; league_id: number })[];
+    .all(...args) as unknown as (MovementRow & { home_name: string; away_name: string; league_name: string; league_id: number })[];
 }
 
 export function movementsOf(fixtureId: number): MovementRow[] {

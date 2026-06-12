@@ -173,6 +173,48 @@ describe("normalizeLiveOddsItem", () => {
     expect(ouF.line).toBe(3);
   });
 
+  it("滚球胜平负只接收全场 FT market,不把分钟段 1x2 当成主欧盘", () => {
+    const item = {
+      odds: [
+        {
+          name: "1x2 - 80 minutes",
+          values: [
+            { value: "Home", odd: "41" }, { value: "Draw", odd: "4.33" }, { value: "Away", odd: "1.20" },
+          ],
+        },
+        {
+          name: "Fulltime Result",
+          values: [
+            { value: "Home", odd: "6.50" }, { value: "Draw", odd: "3.00" }, { value: "Away", odd: "1.73" },
+          ],
+        },
+      ],
+    };
+
+    const euF = normalizeLiveOddsItem(item).find((f) => f.market === "eu")!;
+
+    expect(euF.h).toBe(6.5);
+    expect(euF.d).toBe(3);
+    expect(euF.a).toBe(1.73);
+  });
+
+  it("滚球胜平负缺少 FT market 或出现极端赔率时不进入结构化主盘", () => {
+    expect(
+      normalizeLiveOddsItem({
+        odds: [{ name: "1x2 - 80 minutes", values: [
+          { value: "Home", odd: "41" }, { value: "Draw", odd: "4.33" }, { value: "Away", odd: "1.20" },
+        ] }],
+      }).some((f) => f.market === "eu"),
+    ).toBe(false);
+    expect(
+      normalizeLiveOddsItem({
+        odds: [{ name: "Fulltime Result", values: [
+          { value: "Home", odd: "251" }, { value: "Draw", odd: "9.5" }, { value: "Away", odd: "1.05" },
+        ] }],
+      }).some((f) => f.market === "eu"),
+    ).toBe(false);
+  });
+
   it("坏数据安全返回空", () => {
     expect(normalizeLiveOddsItem({})).toEqual([]);
     expect(normalizeLiveOddsItem(null)).toEqual([]);

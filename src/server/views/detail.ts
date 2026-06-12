@@ -7,6 +7,7 @@ import { freshLine, isFinished, isLive } from "../af/schedule";
 import { cfgTierIntervals } from "../platform/config";
 import { normalizeLiveOddsItem } from "../af/normalize";
 import { liveOddsSeriesByMarket } from "../af/live-store";
+import { isDisplayableLiveEuTriplet } from "../af/odds-quality";
 import { compositeLive, compositePre, mergeComposite } from "./composite";
 import { nameZh } from "./names";
 import { kvCached, kvGet, latestOddsRaw } from "../af/store";
@@ -443,16 +444,25 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   };
   // 走势序列 = 赛前书商快照 + 滚球实时帧(归档于 live_odds_snapshots),开赛后图表持续生长
   const liveByMarket = live || isFinished(fx.status) ? liveOddsSeriesByMarket(fx.fixture_id) : { ah: [], ou: [], eu: [] };
-  const liveExt = (mk: "ah" | "ou" | "eu"): SnapRow[] =>
-    liveByMarket[mk].length > 0
-      ? liveByMarket[mk]
-          .filter((r) => !r.suspended)
-          .map((r) => ({
-            fixture_id: fx.fixture_id, bookmaker_id: 0, bookmaker: "实时盘", market: mk,
-            line: r.line, h: r.h, a: r.a, d: r.d, captured_at: r.captured_at,
-          }))
-      : [];
-  const merged = (pre: SnapRow[], mk: "ah" | "ou" | "eu") => [...pre, ...liveExt(mk)].sort((x, y) => x.captured_at - y.captured_at);
+  const liveExt = (mk: "ah" | "ou" | "eu"): SnapRow[] => {
+    const rawRows = liveByMarket[mk].filter((r) => !r.suspended);
+    if (mk === "eu" && rawRows.length > 0) {
+      const latest = rawRows[rawRows.length - 1];
+      if (!isDisplayableLiveEuTriplet(latest.h, latest.d, latest.a)) return [];
+    }
+    return rawRows
+      .filter((r) => mk !== "eu" || isDisplayableLiveEuTriplet(r.h, r.d, r.a))
+      .map((r) => ({
+        fixture_id: fx.fixture_id, bookmaker_id: 0, bookmaker: "实时盘", market: mk,
+        line: r.line, h: r.h, a: r.a, d: r.d, captured_at: r.captured_at,
+      }));
+  };
+  const merged = (pre: SnapRow[], mk: "ah" | "ou" | "eu") => {
+    const liveRows = liveExt(mk);
+    const hasRawLive = (live || isFinished(fx.status)) && liveByMarket[mk].some((r) => !r.suspended);
+    if (mk === "eu" && hasRawLive && liveRows.length === 0) return [];
+    return [...pre, ...liveRows].sort((x, y) => x.captured_at - y.captured_at);
+  };
   const ahAll = merged(p.odds.ah, "ah");
   const ouAll = merged(p.odds.ou, "ou");
   const euAll = merged(p.odds.eu, "eu");
@@ -482,7 +492,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       const raw = kvGet(`fx:${fx.fixture_id}:liveodds`);
       const data = raw ? (JSON.parse(raw) as { at: number; data: unknown }).data : null;
       const frames = data ? normalizeLiveOddsItem(data) : [];
-      const rowsOut = frames.map((f) =>
+      const rowsOut = frames.filter((f) => f.market !== "eu" || isDisplayableLiveEuTriplet(f.h, f.d, f.a)).map((f) =>
         f.market === "ah"
           ? { mk: "让球", v: `${f.line != null ? ahText(f.line) : ""} · ${f2(f.h)} / ${f2(f.a)}`, susp: f.suspended }
           : f.market === "ou"

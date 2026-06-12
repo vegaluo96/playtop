@@ -5,6 +5,8 @@
  * - 多 line 时取主盘:两侧净水最均衡(|h-a| 最小)且水位在合理区间
  */
 
+import { isFulltimeResultMarketName, isValidAhLine, isValidDecimalOdd, isValidEuTriplet, isValidOuLine } from "./odds-quality";
+
 export interface NormalizedMarket {
   market: "ah" | "ou" | "eu";
   line: number | null;
@@ -35,6 +37,14 @@ interface AfBookmaker {
 }
 
 const net = (odd: string | number) => Math.round((Number(odd) - 1) * 100) / 100;
+
+function euSide(value: unknown): "h" | "d" | "a" | null {
+  const val = String(value ?? "").trim().toLowerCase();
+  if (val === "home" || val === "1") return "h";
+  if (val === "draw" || val === "x") return "d";
+  if (val === "away" || val === "2") return "a";
+  return null;
+}
 
 function pickBalanced(pairs: { line: number; h: number; a: number }[]): { line: number; h: number; a: number } | null {
   const sane = pairs.filter((p) => p.h > 0.5 && p.h < 1.2 && p.a > 0.5 && p.a < 1.2);
@@ -70,7 +80,7 @@ function parseAh(bet: AfBet, euHint: { h: number; a: number } | null): Normalize
     const m = /^(Home|Away)\s*([+-]?\d+(?:\.\d+)?)$/.exec(String(v.value).trim());
     if (!m) continue;
     const dec = parseFloat(v.odd);
-    if (!Number.isFinite(dec) || dec <= 1) continue;
+    if (!isValidDecimalOdd(dec)) continue;
     (m[1] === "Home" ? homes : aways).push({ hcap: parseFloat(m[2]), dec });
   }
   if (homes.length === 0 || aways.length === 0) return null;
@@ -106,8 +116,9 @@ function parseAh(bet: AfBet, euHint: { h: number; a: number } | null): Normalize
       if (fits(sLine) && !fits(mLine)) chosen = sameSign;
     } else if (sameSign.dev < mirror.dev) chosen = sameSign;
   }
-  if (chosen.sane.length === 0) return null;
-  const main = pickBalanced(chosen.sane.map((p) => ({ line: p.line, h: net(p.decH), a: net(p.decA) })));
+  const valid = chosen.sane.filter((p) => isValidAhLine(p.line));
+  if (valid.length === 0) return null;
+  const main = pickBalanced(valid.map((p) => ({ line: p.line, h: net(p.decH), a: net(p.decA) })));
   return main ? { market: "ah", line: main.line, h: main.h, a: main.a, d: null } : null;
 }
 
@@ -117,8 +128,9 @@ function parseOu(bet: AfBet): NormalizedMarket | null {
     const m = /^(Over|Under)\s*(\d+(?:\.\d+)?)$/.exec(String(v.value).trim());
     if (!m) continue;
     const dec = parseFloat(v.odd);
-    if (!Number.isFinite(dec) || dec <= 1) continue;
+    if (!isValidDecimalOdd(dec)) continue;
     const line = parseFloat(m[2]);
+    if (!isValidOuLine(line)) continue;
     const slot = byLine.get(line) ?? {};
     if (m[1] === "Over") slot.h = net(dec);
     else slot.a = net(dec);
@@ -138,12 +150,12 @@ function parseOu(bet: AfBet): NormalizedMarket | null {
 function parseEu(bet: AfBet): NormalizedMarket | null {
   let h: number | undefined, d: number | undefined, a: number | undefined;
   for (const v of bet.values ?? []) {
-    const val = String(v.value).trim();
-    if (val === "Home") h = parseFloat(v.odd);
-    else if (val === "Draw") d = parseFloat(v.odd);
-    else if (val === "Away") a = parseFloat(v.odd);
+    const side = euSide(v.value);
+    if (side === "h") h = parseFloat(v.odd);
+    else if (side === "d") d = parseFloat(v.odd);
+    else if (side === "a") a = parseFloat(v.odd);
   }
-  return h != null && d != null && a != null ? { market: "eu", line: null, h, a, d } : null;
+  return h != null && d != null && a != null && isValidEuTriplet(h, d, a) ? { market: "eu", line: null, h, a, d } : null;
 }
 
 /** 一条 /odds response 项(单 fixture)→ 各书商归一化结果 */
@@ -214,7 +226,7 @@ export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
     const byLine = new Map<string, { a?: Leg; b?: Leg }>();
     for (const v of vals) {
       const odd = num(dig(v, "odd"));
-      if (!(odd > 1)) continue;
+      if (!isValidDecimalOdd(odd)) continue;
       const hc = num(dig(v, "handicap"));
       const key = Number.isFinite(hc) ? String(Math.abs(hc)) : "";
       const leg: Leg = { odd, suspended: Boolean(dig(v, "suspended")), main: dig(v, "main") === true, hc: Number.isFinite(hc) ? hc : 0 };
@@ -239,10 +251,11 @@ export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
   const ahO = find(/asian handicap/i);
   if (ahO) {
     const pair = pickMainPair(arr(dig(ahO, "values")), /home/i, /away/i);
-    if (pair)
+    const line = pair ? -pair.a.hc : null;
+    if (pair && line != null && isValidAhLine(line))
       out.push({
         market: "ah",
-        line: -pair.a.hc, // AF handicap 为主队受让数 → 取反得主让
+        line, // AF handicap 为主队受让数 → 取反得主让
         h: Math.round((pair.a.odd - 1) * 100) / 100,
         a: Math.round((pair.b.odd - 1) * 100) / 100,
         d: null,
@@ -252,28 +265,29 @@ export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
   const ouO = find(/over\/under/i);
   if (ouO) {
     const pair = pickMainPair(arr(dig(ouO, "values")), /over/i, /under/i);
-    if (pair)
+    const line = pair ? Math.abs(pair.a.hc) : null;
+    if (pair && line != null && isValidOuLine(line))
       out.push({
         market: "ou",
-        line: Math.abs(pair.a.hc),
+        line,
         h: Math.round((pair.a.odd - 1) * 100) / 100,
         a: Math.round((pair.b.odd - 1) * 100) / 100,
         d: null,
         suspended: pair.a.suspended || pair.b.suspended,
       });
   }
-  const x12 = find(/fulltime result|match winner|1x2/i);
+  const x12 = odds.find((o) => isFulltimeResultMarketName(String(dig(o, "name") ?? "")));
   if (x12) {
     const vals = arr(dig(x12, "values"));
-    const g = (name: string) => vals.find((v) => String(dig(v, "value")) === name);
-    const h = g("Home");
-    const dd = g("Draw");
-    const a = g("Away");
+    const g = (side: "h" | "d" | "a") => vals.find((v) => euSide(dig(v, "value")) === side);
+    const h = g("h");
+    const dd = g("d");
+    const a = g("a");
     if (h && dd && a) {
       const hv = num(dig(h, "odd"));
       const dv = num(dig(dd, "odd"));
       const av = num(dig(a, "odd"));
-      if (hv > 1 && dv > 1 && av > 1)
+      if (isValidEuTriplet(hv, dv, av))
         out.push({
           market: "eu",
           line: null,

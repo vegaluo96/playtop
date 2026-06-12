@@ -67,4 +67,15 @@ describe("compositeLive + mergeComposite", () => {
     expect(merged.markers).toHaveLength(1); // 0.5 → 0.25 变盘
     expect(merged.method).toContain("实时盘");
   });
+
+  it("滚球胜平负指数过滤极端实时帧", () => {
+    const t = 3_000_000;
+    archiveLiveOdds(9, [{ market: "eu", line: null, h: 6.5, d: 3, a: 1.73, suspended: false }], t);
+    archiveLiveOdds(9, [{ market: "eu", line: null, h: 251, d: 9.5, a: 1.05, suspended: false }], t + 120_000);
+
+    const liveSeg = compositeLive(9, "eu");
+
+    expect(liveSeg).toHaveLength(1);
+    expect(liveSeg[0].t).toBe(t);
+  });
 });

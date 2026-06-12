@@ -8,6 +8,7 @@
 import { db } from "../db";
 import type { SnapRow } from "../af/store";
 import { liveOddsSeries } from "../af/live-store";
+import { isDisplayableLiveEuTriplet } from "../af/odds-quality";
 
 export interface IndexPoint {
   t: number;
@@ -93,7 +94,7 @@ export function compositeLive(fixtureId: number, market: "ah" | "ou" | "eu"): In
   const lv = liveOddsSeries(fixtureId, market).filter((r) => !r.suspended);
   for (const r of lv.slice(-MAX_POINTS)) {
     if (market === "eu") {
-      if (r.h > 1 && (r.d ?? 0) > 1 && r.a > 1) points.push({ t: r.captured_at, v: euProb(r.h, r.d ?? 0, r.a), line: null, n: 1, phase: "live" });
+      if (isDisplayableLiveEuTriplet(r.h, r.d, r.a)) points.push({ t: r.captured_at, v: euProb(r.h, r.d ?? 0, r.a), line: null, n: 1, phase: "live" });
     } else if (r.line != null) {
       points.push({ t: r.captured_at, v: r.h, line: r.line, n: 1, phase: "live" });
     }

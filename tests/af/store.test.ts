@@ -16,6 +16,7 @@ import {
   oddsCompare,
   oddsSeries,
   oddsSeriesBatch,
+  recentMovements,
   kvCached,
   latestPredictionsMap,
   latestPredictionBefore,
@@ -203,6 +204,20 @@ describe("odds 归档与异动", () => {
 
     expect(batch.get(205)).toEqual(oddsSeries(205, "ah"));
     expect(batch.get(206)).toEqual(oddsSeries(206, "ah"));
+  });
+
+  it("用户端异动流过滤滚球胜平负极端脏帧", () => {
+    upsertFixture(afFixture(207, { status: "2H", gh: 0, ga: 1 }));
+    const ins = db().prepare(
+      "INSERT INTO movements (fixture_id, market, bookmaker, type, from_line, to_line, from_h, to_h, from_a, to_a, sev, t0, t1, phase) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    );
+    ins.run(207, "eu", "实时盘", "水位", null, null, 101, 251, 1.1, 1.05, 1, 1000, 2000, "滚球");
+    ins.run(207, "ah", "实时盘", "升盘", 0.25, 0.5, 0.9, 0.86, 0.96, 1, 1, 3000, 4000, "滚球");
+
+    const rows = recentMovements(10);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ market: "ah", type: "升盘" });
   });
 });
 
