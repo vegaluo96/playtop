@@ -43,6 +43,8 @@ const FORM_STYLE: Record<string, { bg: string; c: string }> = {
   平: { bg: "var(--neutral-bg)", c: "var(--fg-3)" },
   负: { bg: "var(--danger-bg)", c: "var(--red)" },
 };
+const EXTRA_MARKET_THREE_COL = new Set(["fh1x2", "double", "exact", "htft"]);
+const extraMarketGrid = (m: V) => EXTRA_MARKET_THREE_COL.has(String(m?.key)) ? "repeat(3,minmax(0,1fr))" : "repeat(2,minmax(0,1fr))";
 
 export function CenterPane({
   detail: v, tab, setTab, pred, requestUnlock, tz, loggedIn,
@@ -386,10 +388,10 @@ export function CenterPane({
                     <span style={{ fontSize: 12.5, fontWeight: 800 }}>{m.name}</span>
                     <span style={{ fontSize: 11, color: "var(--fg-3)" }}>{m.bk}</span>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: m.key === "exact" || m.key === "htft" ? "1fr 1fr 1fr" : "1fr 1fr", gap: 6 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: extraMarketGrid(m), gap: 6 }}>
                     {m.rows.map((r: V, i: number) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "var(--inset)", borderRadius: 8, padding: "7px 10px" }}>
-                        <span style={{ fontSize: 11.5, color: "var(--fg-2)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.v}</span>
+                      <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "var(--inset)", borderRadius: 8, padding: "7px 10px", minWidth: 0 }}>
+                        <span style={{ flex: 1, fontSize: 11.5, color: "var(--fg-2)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.v}</span>
                         <MarketValue v={r.odd} small style={{ color: "var(--gold)", justifyContent: "flex-end", fontWeight: 800 }} />
                       </div>
                     ))}

@@ -30,6 +30,14 @@ const item = {
           values: [{ value: "Over", handicap: "9.5", odd: "1.85" }, { value: "Under", handicap: "9.5", odd: "1.91" }],
         },
         {
+          id: 46, name: "First Half Asian Handicap",
+          values: [{ value: "Home -1.25", odd: "6.60" }, { value: "Away -1.25", odd: "1.11" }],
+        },
+        {
+          id: 47, name: "Goals Over/Under First Half",
+          values: [{ value: "Over 1.5", odd: "3.41" }, { value: "Under 1.5", odd: "1.33" }],
+        },
+        {
           id: 7, name: "HT/FT Double",
           values: [{ value: "Home/Home", odd: "2.50" }, { value: "Home/Draw", odd: "15.00" }, { value: "Draw/Home", odd: "5.00" }, { value: "Away/Away", odd: "9.00" }],
         },
@@ -64,6 +72,11 @@ describe("parseExtraMarkets", () => {
 
   it("角球盘 handicap 拼入标签", () => {
     expect(get("corners")?.rows.map((r) => r.v)).toEqual(["大 9.5", "小 9.5"]);
+  });
+
+  it("带盘口线的 Home/Away/Over/Under 标签也中文化", () => {
+    expect(get("fhah")?.rows.map((r) => r.v)).toEqual(["主 -1.25", "客 -1.25"]);
+    expect(get("fhou")?.rows.map((r) => r.v)).toEqual(["大 1.5", "小 1.5"]);
   });
 
   it("空/坏输入安全", () => {

@@ -37,19 +37,20 @@ const VAL_ZH: Record<string, string> = {
   "Home/Home": "主/主", "Home/Draw ": "主/平", "Draw/Home": "平/主", "Draw/Draw": "平/平",
   "Draw/Away ": "平/客", "Away/Home": "客/主", "Away/Draw": "客/平", "Away/Away": "客/客",
 };
+const SIDE_ZH: Record<string, string> = { Home: "主", Draw: "平", Away: "客", Over: "大", Under: "小" };
 const zh = (v: string, combo = false) => {
-  const t = v.trim();
+  const t = v.trim().replace(/\s+/g, " ");
   // 半全场等组合玩法:"Home/Draw" = 半场主/全场平,必须逐段翻,不能撞双重机会的「主或平」
   if (combo && /^(Home|Draw|Away)\/(Home|Draw|Away)$/.test(t)) {
-    const m: Record<string, string> = { Home: "主", Draw: "平", Away: "客" };
     const [a, b] = t.split("/");
-    return `${m[a]}/${m[b]}`;
+    return `${SIDE_ZH[a]}/${SIDE_ZH[b]}`;
   }
   if (VAL_ZH[t]) return VAL_ZH[t];
+  const sideLine = /^(Home|Draw|Away|Over|Under)\s+([+-]?\d+(?:\.\d+)?)$/.exec(t);
+  if (sideLine) return `${SIDE_ZH[sideLine[1]]} ${sideLine[2]}`;
   if (/^(Home|Draw|Away)\/(Home|Draw|Away)$/.test(t)) {
-    const m: Record<string, string> = { Home: "主", Draw: "平", Away: "客" };
     const [a, b] = t.split("/");
-    return `${m[a]}/${m[b]}`;
+    return `${SIDE_ZH[a]}/${SIDE_ZH[b]}`;
   }
   return t;
 };
