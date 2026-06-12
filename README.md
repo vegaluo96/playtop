@@ -79,7 +79,13 @@ npm run selfcheck -- audit <fid>      # 单场盘口四层保真审计
 ## 部署
 
 生产:pm2 双进程(`playtop-web` 跑 standalone server.js + `playtop-worker`),env 见 `/srv/playtop.env`;
-`git pull && npm ci && npm run build && pm2 restart playtop-web playtop-worker`。
+推荐使用快速部署脚本:
+
+```bash
+cd ~/playtop && bash scripts/deploy.sh
+```
+
+脚本会 `git pull --ff-only`;仅当 `package.json` / `package-lock.json` 变化或 `node_modules` 缺失时才执行 `npm ci`,其余部署直接 build + 重启 pm2。
 亦提供 `Dockerfile`(output: standalone)可容器化,worker 作第二进程同卷挂 `PLAYTOP_DB`。
 
 ## 已知待办(详见 HANDOFF.md §9)

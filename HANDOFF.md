@@ -34,7 +34,7 @@ npm run selfcheck      # 平台闭环体检 L0-L5(子命令见 §8)
 
 - **DB**:SQLite(node:sqlite,Node ≥22.5),路径 env `PLAYTOP_DB`(默认项目内)。WAL + busy_timeout 8000;web 与 worker 双进程共写,写路径必须走 `tx()`。
 - **生产**:阿里云 47.82.67.99,项目在 `/home/admin/playtop`,pm2 跑 `playtop-web` + `playtop-worker`(admin 用户),env 在 `/srv/playtop.env`(selfcheck CLI 会自动加载)。
-- **部署**:`cd ~/playtop && git pull && npm ci && npm run build && pm2 restart playtop-web playtop-worker`。
+- **部署**:`cd ~/playtop && bash scripts/deploy.sh`。脚本会 `git pull --ff-only`;仅在 `package.json` / `package-lock.json` 变化或 `node_modules` 缺失时跑 `npm ci`,平时直接 build + 重启 pm2。
 - 表结构在 `src/server/db.ts` 一处定义,启动时 `CREATE TABLE IF NOT EXISTS` 自动建,无独立迁移系统(加列需写兼容迁移,见 movements.phase 先例)。
 
 ---
