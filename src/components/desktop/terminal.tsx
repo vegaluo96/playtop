@@ -10,7 +10,7 @@ import { useApp } from "@/components/app-context";
 import { f2, hhmm, mdLabel, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
 import { Flash, HeartBeat, useNewIds, usePoll, useTierIntervals, useWorkerBeat } from "@/components/live";
-import { TIERS, tierFreqText } from "@/server/af/schedule";
+import { RefreshRules } from "@/components/refresh-sheet";
 import { Modal, ModalTitle } from "./modal";
 import { CenterPane } from "./center";
 import { AccountDrawer } from "./drawer";
@@ -211,13 +211,13 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           {mdLabel(Date.now(), prefs.tz)} · {prefs.tz}
         </span>
         <span style={{ flex: 1 }} />
-        <span
-          onClick={() => setModal({ kind: "refresh" })}
-          style={{ fontSize: 10, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, flexShrink: 1, cursor: "pointer" }}
-        >
-          ⟳ {detail?.header?.fresh?.line ?? "数据刷新规则"} ›
+        {/* 与移动端页头同构:第一行真实盯盘状态,第二行数据刷新规则入口 */}
+        <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
+          <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} showNext />
+          <span onClick={() => setModal({ kind: "refresh" })} style={{ fontSize: 9, color: "var(--gold)", fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer" }}>
+            ⟳ 数据刷新规则 ›
+          </span>
         </span>
-        <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} showNext />
         {me.loggedIn ? (
           <span onClick={() => setDrawer(true)} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "5px 10px", borderRadius: 8, border: "1px solid var(--line)" }}>
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--fg-2)" strokeWidth="1.7" strokeLinecap="round">
@@ -579,16 +579,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
 
       <Modal open={modal?.kind === "refresh"} onClose={() => setModal(null)} width={440}>
         <ModalTitle title="数据刷新规则" hint="越临近开球,刷新越快" />
-        {TIERS.map((r) => {
-          const active = detail?.header?.fresh?.idx === r.idx;
-          return (
-            <div key={r.idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8, marginBottom: 4, background: active ? "rgba(233,185,73,.12)" : "#0e1117" }}>
-              <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: active ? "var(--gold)" : "var(--fg-mid)" }}>{r.label}</span>
-              <span className="mono" style={{ fontSize: 11.5, fontWeight: 800, color: active ? "var(--gold)" : "var(--fg-2)" }}>{tierFreqText(r.idx, tierIntervals?.[r.idx] ?? r.intervalMs)}</span>
-            </div>
-          );
-        })}
-        <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 8, lineHeight: 1.7 }}>赔率、赛况与阵容数据来自官方接口,平台按上表频率自动抓取;频率为后台当前生效配置,调整后此处实时同步。</div>
+        <RefreshRules activeIdx={detail?.header?.fresh?.idx ?? null} intervals={tierIntervals} />
       </Modal>
 
       <Modal open={modal?.kind === "record"} onClose={() => setModal(null)} width={480}>

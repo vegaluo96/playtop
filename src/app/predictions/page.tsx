@@ -1,13 +1,14 @@
 "use client";
 
 /** 预测 tab:战绩横幅(详情弹层)+ 全部/已解锁筛选 + 轻量预测卡 → AI 报告 */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { PageHeader } from "@/components/page-header";
 import { ProbBar } from "@/components/charts";
 import { useUnlockFlow } from "@/components/unlock-flow";
 import { Chip, EmptyBox, LockIcon, Sheet } from "@/components/ui";
+import { usePoll, useWorkerBeat } from "@/components/live";
 import { leagueColor } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
@@ -27,6 +28,8 @@ function MobilePredictionsPage() {
   const [filter, setFilter] = useState("全部");
   const [recOpen, setRecOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [lastAt, setLastAt] = useState<number | null>(null);
+  const workerAt = useWorkerBeat();
   const { prefs } = useApp();
   const router = useRouter();
   const flow = useUnlockFlow(() => void load());
@@ -43,14 +46,12 @@ function MobilePredictionsPage() {
       /* keep */
     } finally {
       setLoaded(true);
+      setLastAt(Date.now());
     }
   }, [prefs.tz]);
 
-  useEffect(() => {
-    void load();
-    const t = setInterval(load, 60_000);
-    return () => clearInterval(t);
-  }, [load]);
+  // 统一轮询(后台 tab 暂停),与页头心跳同源
+  usePoll(load, 60_000);
 
   const unlockedCount = cards.filter((c) => !c.locked).length;
   const shown = filter === "已解锁" ? cards.filter((c) => !c.locked) : cards;
@@ -60,7 +61,7 @@ function MobilePredictionsPage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <PageHeader title="赛事预测" />
+      <PageHeader title="赛事预测" lastAt={lastAt} workerAt={workerAt} intervalMs={60_000} />
       <div style={{ display: "flex", gap: 8, padding: "0 12px 10px", flexShrink: 0 }}>
         {["全部", "已解锁"].map((l) => (
           <Chip key={l} label={l === "已解锁" ? `已解锁 ${unlockedCount}` : l} active={filter === l} onClick={() => setFilter(l)} />

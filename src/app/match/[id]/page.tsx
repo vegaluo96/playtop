@@ -18,6 +18,7 @@ import { PlayerAvatar, TeamLogo } from "@/components/img";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
 import { CompMetaBar, CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
+import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
 import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -52,6 +53,7 @@ function MobileMatchDetail({ id }: { id: string }) {
   const [err, setErr] = useState("");
   const [lastAt, setLastAt] = useState<number | null>(null);
   const [player, setPlayer] = useState<PlayerTarget | null>(null);
+  const [history, setHistory] = useState<HistoryTarget | null>(null);
   const workerAt = useWorkerBeat();
   const { prefs, me } = useApp();
   const router = useRouter();
@@ -142,6 +144,9 @@ function MobileMatchDetail({ id }: { id: string }) {
             <span className="mono" style={{ fontSize: 13, textAlign: "right" }}>{r.a}</span>
           </div>
         ))}
+        <div onClick={() => setHistory({ id: h.id, mk })} style={{ padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, color: "var(--gold)", cursor: "pointer" }}>
+          完整历史报价 ›
+        </div>
       </Card>
     </>
   );
@@ -336,6 +341,9 @@ function MobileMatchDetail({ id }: { id: string }) {
                   <span className="mono" style={{ fontSize: 13, textAlign: "right" }}>{r.a}</span>
                 </div>
               ))}
+              <div onClick={() => setHistory({ id: h.id, mk: "eu" })} style={{ padding: "9px 0", textAlign: "center", fontSize: 11, fontWeight: 700, color: "var(--gold)", cursor: "pointer" }}>
+                完整历史报价 ›
+              </div>
             </Card>
           </>
         )}
@@ -722,6 +730,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       </div>
 
       <RefreshSheet open={rfOpen} onClose={() => setRfOpen(false)} activeIdx={h.fresh.idx} />
+      <QuoteHistorySheet target={history} onClose={() => setHistory(null)} />
       <PlayerSheet target={player} onClose={() => setPlayer(null)} />
       <ShareSheet open={!!share} onClose={() => setShare(null)} data={share} />
     </div>

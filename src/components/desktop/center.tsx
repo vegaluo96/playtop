@@ -9,6 +9,7 @@ import { PlayerAvatar, TeamLogo } from "@/components/img";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
 import { CompMetaBar, CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
+import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
 import { Flash } from "@/components/live";
 import { ahText, dayLabel, hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
@@ -44,6 +45,7 @@ export function CenterPane({
   const [report, setReport] = useState<V | null>(null);
   const [copied, setCopied] = useState(false);
   const [player, setPlayer] = useState<PlayerTarget | null>(null);
+  const [history, setHistory] = useState<HistoryTarget | null>(null);
   const [oddsSub, setOddsSub] = useState("trend");
   const router = useRouter();
   const fid = v?.header?.id ?? null;
@@ -123,6 +125,9 @@ export function CenterPane({
             <span className="mono" style={{ fontSize: 11, textAlign: "right" }}>{r.a}</span>
           </div>
         ))}
+        <div onClick={() => setHistory({ id: h.id, mk })} style={{ padding: "8px 0", textAlign: "center", fontSize: 10.5, fontWeight: 700, color: "var(--gold)", cursor: "pointer" }}>
+          完整历史报价 ›
+        </div>
       </Card>
     </div>
   );
@@ -319,6 +324,9 @@ export function CenterPane({
                       <span className="mono" style={{ fontSize: 11, textAlign: "right" }}>{r.a}</span>
                     </div>
                   ))}
+                  <div onClick={() => setHistory({ id: h.id, mk: "eu" })} style={{ padding: "8px 0", textAlign: "center", fontSize: 10.5, fontWeight: 700, color: "var(--gold)", cursor: "pointer" }}>
+                    完整历史报价 ›
+                  </div>
                 </Card>
               </div>
             </div>
@@ -736,6 +744,7 @@ export function CenterPane({
             <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>深挖数据加载中…</div>
           ))}
       </div>
+      <QuoteHistorySheet target={history} onClose={() => setHistory(null)} />
       <PlayerSheet target={player} onClose={() => setPlayer(null)} />
     </div>
   );

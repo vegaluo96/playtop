@@ -4,7 +4,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
-import { RefreshSheet } from "@/components/refresh-sheet";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { PageHeader } from "@/components/page-header";
 import { RiskFooter } from "@/components/consent-bar";
@@ -74,7 +73,6 @@ function MobileMatchesPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [liveCount, setLiveCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
-  const [rfOpen, setRfOpen] = useState(false);
   const [lastAt, setLastAt] = useState<number | null>(null);
   const workerAt = useWorkerBeat();
   const { prefs } = useApp();
@@ -126,11 +124,7 @@ function MobileMatchesPage() {
         title={<>足球<span style={{ color: "var(--gold)" }}>终端</span></>}
         lastAt={lastAt}
         workerAt={workerAt}
-        right={
-          <div onClick={() => setRfOpen(true)} style={{ fontSize: 9, color: "var(--gold)", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-            ⟳ 数据刷新规则 ›
-          </div>
-        }
+        intervalMs={hasLive ? 3_000 : 10_000}
       />
 
       <div style={{ display: "flex", gap: 8, padding: "6px 16px 8px", overflowX: "auto", flexShrink: 0 }}>
@@ -253,7 +247,6 @@ function MobileMatchesPage() {
         })}
         {loaded && <RiskFooter />}
       </div>
-      <RefreshSheet open={rfOpen} onClose={() => setRfOpen(false)} activeIdx={null} />
     </div>
   );
 }
