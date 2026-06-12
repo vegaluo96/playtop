@@ -11,6 +11,7 @@ import type { ReportSection } from "../views/report";
 import { chatComplete } from "./client";
 
 const day8 = () => new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+const REPORT_FACTS_VERSION = "report-facts:v2:pre-kickoff-quant-signals";
 
 function usageRow(): { tokens: number; count: number; hits: number; fails: number } {
   const d = db();
@@ -36,6 +37,7 @@ function fingerprintOf(p: Panorama): string {
   return createHash("sha1")
     .update(
       JSON.stringify([
+        REPORT_FACTS_VERSION,
         last(p.odds.ah as never),
         last(p.odds.ou as never),
         p.bundle?.lineups ? (p.bundle.lineups as unknown[]).length : 0,
@@ -133,7 +135,7 @@ export async function getLlmReport(p: Panorama, templateSecs: ReportSection[]): 
   const locked = reportLocked(p.fixture.status);
   // 开赛锁定:有缓存即固化复用,指纹变化也不再生成;无缓存/缓存损坏则回落模板,绝不赛中补生成。
   if (locked) {
-    if (!cached) return null;
+    if (!cached || cached.fingerprint !== fp) return null;
     try {
       bumpUsage("hits");
       return { sections: JSON.parse(cached.content) as ReportSection[], by: cached.model || "llm" };

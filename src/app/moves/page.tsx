@@ -1,13 +1,14 @@
 "use client";
 
 /** 指数异动监控:筛选 chips + 异动流 + 快照对比弹层;免注册前 3 条完整 */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { Chip, GoldBtn, Sheet } from "@/components/ui";
 import { leagueColor } from "@/lib/leagues";
 import { useNewIds, useUnifiedPoll } from "@/components/live";
 import { PageHeader } from "@/components/page-header";
+import { SearchAction, type SearchItem } from "@/components/page-search";
 import { useIsDesktop } from "@/components/use-viewport";
 import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { MarketValue } from "@/components/market-cell";
@@ -51,10 +52,27 @@ function MobileMovesPage() {
   const freshIds = useNewIds(rows.map((r) => r.id));
 
   const typeColor = (t: string) => (t === "升盘" ? "var(--up)" : t === "降盘" ? "var(--down)" : "var(--gold)");
+  const searchItems = useMemo<SearchItem[]>(
+    () =>
+      rows.map((f) => ({
+        id: f.id,
+        title: f.match,
+        subtitle: `${f.t} · ${f.mkFull ?? f.mk} · ${f.type}`,
+        meta: [f.bk, f.note].filter(Boolean).join(" · "),
+        badge: f.live ? "滚球" : f.sev ? "急变" : f.type,
+        keywords: [f.fixtureId, f.match, f.league, f.mk, f.mkFull, f.bk, f.type, f.note, f.from, f.to, f.water],
+        onSelect: () => (f.masked ? router.push("/login") : setSel(f)),
+      })),
+    [rows, router],
+  );
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <PageHeader title="指数异动" {...beat} />
+      <PageHeader
+        title="指数异动"
+        {...beat}
+        right={<SearchAction title="搜索异动" placeholder="球队 / 玩法 / 书商 / 类型" hint={`${rows.length} 条当前异动`} items={searchItems} />}
+      />
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
         {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
           <Chip key={l} label={l} active={filter === l} onClick={() => setFilter(l)} />
