@@ -6,7 +6,7 @@ import { requireSameOrigin } from "@/server/platform/rate-limit";
 import { cfgAfKey, cfgGetRaw, cfgLlmBalanceKey, cfgLlmBase, cfgLlmDailyBudget, cfgLlmKey, cfgLlmModel, cfgSet, maskKey } from "@/server/platform/config";
 import { afGet } from "@/server/af/client";
 import { runSelftest } from "@/server/af/selftest";
-import { chatComplete, fetchLlmBalance } from "@/server/llm/client";
+import { chatComplete, fetchLlmBalance, readLlmBalance } from "@/server/llm/client";
 import { kvGet, kvSet } from "@/server/af/store";
 import { checkApi, checkReadonly, formatReport, summarize } from "@/server/selfcheck";
 import { llmStats } from "@/server/llm/report";
@@ -15,6 +15,7 @@ export async function GET() {
   const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ ok: false }, { status: 401 });
   const members = db().prepare("SELECT email, role, status FROM admins ORDER BY created_at").all();
+  const llmBalance = readLlmBalance();
   return NextResponse.json({
     ok: true,
     role: admin.role,
@@ -22,8 +23,8 @@ export async function GET() {
     llm: {
       keyMasked: maskKey(cfgLlmKey()), balanceKeyMasked: maskKey(cfgLlmBalanceKey()),
       base: cfgLlmBase(), model: cfgLlmModel(), budget: cfgLlmDailyBudget(),
-      balance: (JSON.parse(kvGet("llm_balance") || "null") as { usd: number } | null)?.usd ?? null,
-      balanceDetail: JSON.parse(kvGet("llm_balance") || "null") as { usd: number; limit?: number; used?: number; at?: number } | null,
+      balance: llmBalance?.usd ?? null,
+      balanceDetail: llmBalance,
       usage: llmStats(), customKey: !!cfgGetRaw("llm_key"),
     },
     members,
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
   if (b.action === "selftest") {
     audit(admin.email, "运行 selftest", "");
     const rep = await runSelftest({ delayMs: Number(b.delay) || 300 });
-    kvSet("last_selftest", JSON.stringify({ at: Date.now(), ok: rep.summary.ok, total: rep.summary.total, error: rep.summary.error }));
+    kvSet("last_selftest", JSON.stringify({ at: Date.now(), ...rep.summary, reachable: rep.summary.ok + rep.summary.empty }));
     return NextResponse.json({ ok: true, summary: rep.summary, account: rep.account });
   }
   if (b.action === "af_ping") {

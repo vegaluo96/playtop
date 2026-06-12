@@ -6,6 +6,7 @@ import { day8, metric, topMetrics } from "@/server/admin/metrics";
 import { dailyFreeFixtureIds } from "@/server/platform/wallet";
 import { kvGet } from "@/server/af/store";
 import { llmStats } from "@/server/llm/report";
+import { readLlmBalance } from "@/server/llm/client";
 
 const TZ8 = 8 * 3_600_000;
 const dayStartMs = (offset = 0) => Math.floor((Date.now() + TZ8) / 86_400_000 - offset) * 86_400_000 - TZ8;
@@ -72,8 +73,9 @@ export async function GET() {
   for (const c of lowCodes.slice(0, 2)) alerts.push(`${c.code} 兑换码即将售罄(${c.used_count} / ${c.max_uses})`);
   const beat = Number(kvGet("worker_heartbeat") ?? 0);
   if (!beat || Date.now() - beat > 3 * 60_000) alerts.push("worker 心跳超时,数据抓取可能已停止");
-  const bal = JSON.parse(kvGet("llm_balance") || "null") as { usd: number } | null;
-  if (bal && bal.usd < 100) alerts.push(`大模型余额不足($${bal.usd})`);
+  const bal = readLlmBalance();
+  if (bal?.error) alerts.push("大模型余额查询失败,请检查余额查询密钥");
+  else if (bal?.usd != null && bal.usd < 100) alerts.push(`大模型余额不足($${bal.usd})`);
   const pc = JSON.parse(kvGet("last_platform_check") || "null") as { at: number; fail: number } | null;
   if (!pc || Date.now() - pc.at > 24 * 3_600_000) alerts.push("超过 24h 未运行平台体检");
   else if (pc.fail > 0) alerts.push(`平台体检存在 ${pc.fail} 个失败项,详见系统设置`);

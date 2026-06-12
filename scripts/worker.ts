@@ -39,6 +39,7 @@ import { buildReport } from "../src/server/views/report";
 import { matchPanorama } from "../src/server/af/panorama";
 import { drainNameQueue } from "../src/server/views/names";
 import { db, tx } from "../src/server/db";
+import { endpointHealthStatus } from "../src/server/admin/monitoring";
 
 /** 联赛范围:后台「联赛开关」动态配置(env 兜底) */
 function FOLLOWED(): number[] {
@@ -60,7 +61,7 @@ function effIntervalMs(tierIdx: number): number {
 
 /** 端点健康上报(后台「数据与模型监控」) */
 function recordEp(k: string, tier: string, ms: number, ok: boolean): void {
-  const status = !ok ? "异常" : ms > 600 ? "慢" : "正常";
+  const status = endpointHealthStatus(ms, ok);
   db().prepare(
     "INSERT INTO endpoint_metrics (k, tier, last_at, ms, status) VALUES (?,?,?,?,?) ON CONFLICT(k) DO UPDATE SET tier=excluded.tier, last_at=excluded.last_at, ms=excluded.ms, status=excluded.status",
   ).run(k, tier, Date.now(), Math.round(ms), status);

@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { maskBookmaker } from "../../src/lib/format";
 import { predSummary } from "../../src/server/views/common";
-import { llmUsageWindow } from "../../src/server/llm/client";
+import { llmUsageWindow, parseBillingSubscription, parseBillingUsage } from "../../src/server/llm/client";
+import { endpointHealthStatus } from "../../src/server/admin/monitoring";
 
 describe("maskBookmaker(前台不显示全称但保留辨识度)", () => {
   it("英文保留前 2 + 末 1", () => {
@@ -69,5 +70,27 @@ describe("llmUsageWindow(usage 接口必须带日期窗口,缺参网关返回 0)
     const w = llmUsageWindow(now);
     expect(w.start).toBe("2026-03-13");
     expect(w.end).toBe("2026-06-12");
+  });
+});
+
+describe("LLM 余额解析", () => {
+  it("无法识别额度时返回 null,不能把查询失败写成 $0", () => {
+    expect(parseBillingSubscription({ error: { message: "invalid token" } })).toBeNull();
+    expect(parseBillingSubscription({ hard_limit_usd: 0 })).toBeNull();
+  });
+
+  it("兼容 OpenAI/OneAPI 余额字段与用量美分字段", () => {
+    expect(parseBillingSubscription({ system_hard_limit_usd: 200 })).toBe(200);
+    expect(parseBillingSubscription({ data: { hard_limit_usd: "150" } })).toBe(150);
+    expect(parseBillingUsage({ total_usage: 1234 })).toBe(12.34);
+    expect(parseBillingUsage({ data: { used_usd: "9.5" } })).toBe(9.5);
+  });
+});
+
+describe("endpointHealthStatus", () => {
+  it("亚秒级 AF 响应不标慢,真正超时才标慢", () => {
+    expect(endpointHealthStatus(695, true)).toBe("正常");
+    expect(endpointHealthStatus(1600, true)).toBe("慢");
+    expect(endpointHealthStatus(200, false)).toBe("异常");
   });
 });

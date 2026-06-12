@@ -11,6 +11,7 @@ import { hhmm } from "@/lib/format";
 import { ahText, ouText, f2 } from "@/lib/format";
 import { latestOddsRaw, fixturesBetween } from "@/server/af/store";
 import { parseExtraMarkets } from "@/server/af/markets";
+import { readLlmBalance } from "@/server/llm/client";
 
 export async function GET() {
   if (!(await currentAdmin())) return NextResponse.json({ ok: false }, { status: 401 });
@@ -47,7 +48,7 @@ export async function GET() {
     intervals: TIERS.map((t, i) => ({ label: t.label, ms: cfgTierIntervals()[i] })),
     emergency: cfgEmergencyThrottle(),
     af: JSON.parse(kvGet("af_status") || "null"),
-    llm: { ...llmStats(), balance: (JSON.parse(kvGet("llm_balance") || "null") as { usd: number } | null)?.usd ?? null },
+    llm: { ...llmStats(), balance: readLlmBalance()?.usd ?? null },
     alerts,
   });
 }

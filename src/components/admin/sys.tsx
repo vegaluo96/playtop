@@ -301,7 +301,14 @@ export function SettingsView() {
           <KeyRow masked={v.af.masked} which="af_key" label="API-Football 密钥" />
           <Row k="套餐(/status)" val={v.af.status ? `${v.af.status.plan ?? "—"} · ${v.af.status.limit?.toLocaleString() ?? "—"} req/日` : "—"} />
           <Row k="今日已用" val={v.af.status?.current != null ? `${v.af.status.current.toLocaleString()}(${v.af.status.limit ? Math.round((v.af.status.current / v.af.status.limit) * 100) : "—"}%)` : "—"} />
-          <Row k="最近自检" val={v.af.lastSelftest ? `${fmtT(v.af.lastSelftest.at)} · ${v.af.lastSelftest.ok}/${v.af.lastSelftest.total} 通过` : "未运行"} />
+          <Row
+            k="最近自检"
+            val={
+              v.af.lastSelftest
+                ? `${fmtT(v.af.lastSelftest.at)} · ${(v.af.lastSelftest.reachable ?? ((v.af.lastSelftest.ok ?? 0) + (v.af.lastSelftest.empty ?? 0)))}/${v.af.lastSelftest.total} 可达 · 回数据 ${v.af.lastSelftest.ok ?? 0} · 空 ${v.af.lastSelftest.empty ?? 0} · 错误 ${v.af.lastSelftest.error ?? 0}`
+                : "未运行"
+            }
+          />
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <span style={{ flex: 1 }}><ABtn label={busy === "selftest" ? "自检运行中(约 30s)…" : "运行 selftest(消耗约 45 req)"} onClick={() => busy || void run("selftest", "selftest")} /></span>
             <ABtn kind="line" label="测试连接" onClick={() => void run("af_ping", "连接测试")} />
@@ -314,8 +321,10 @@ export function SettingsView() {
         <ACard title="大模型密钥(AI 报告)" right={<span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: v.llm.usage.configured ? "var(--green)" : "var(--fg-3)", fontWeight: 700 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: v.llm.usage.configured ? "var(--green)" : "var(--fg-3)" }} />{v.llm.usage.configured ? "已连接" : "模板模式"}</span>}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={{ fontSize: 11, color: "var(--fg-2)" }}>服务商:API易(apiyi.com)聚合网关</span>
-            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: v.llm.balance != null && v.llm.balance < 100 ? "var(--red)" : "var(--green)" }}>
-              {v.llm.balance != null
+            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: v.llm.balanceDetail?.error ? "var(--gold)" : v.llm.balance != null && v.llm.balance < 100 ? "var(--red)" : "var(--green)" }}>
+              {v.llm.balanceDetail?.error
+                ? "余额查询失败"
+                : v.llm.balance != null
                 ? `余额 $${v.llm.balance}${v.llm.balanceDetail?.limit != null ? ` · 已用 $${v.llm.balanceDetail.used ?? 0}/$${v.llm.balanceDetail.limit}` : ""}`
                 : "余额 —"}
             </span>
