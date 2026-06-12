@@ -42,20 +42,23 @@ function panorama(): Panorama {
 describe("阵容朝向", () => {
   it("门将在第一行(顶),前锋在最后一行(底)——对齐百度体育", async () => {
     const v = await detailView(panorama(), "UTC+8", { deep: false });
-    const rows = v.lineups.home.rows;
+    const lu = v.lineups as { home: { rows: { n: string }[][] } };
+    const rows = lu.home.rows;
     expect(rows[0].map((p: { n: string }) => p.n)).toEqual(["埃德森"]); // 顶=门将
     expect(rows[rows.length - 1].map((p: { n: string }) => p.n)).toEqual(["哈兰德"]); // 底=前锋
   });
 
   it("后防线左→右:列 4 在最左、列 1 在最右(与百度后防顺序一致)", async () => {
     const v = await detailView(panorama(), "UTC+8", { deep: false });
-    const back = v.lineups.home.rows[1].map((p: { n: string }) => p.n); // 第二行(门将下方)=后卫线
+    const lu = v.lineups as { home: { rows: { n: string }[][] } };
+    const back = lu.home.rows[1].map((p: { n: string }) => p.n); // 第二行(门将下方)=后卫线
     expect(back[0]).toBe("格瓦迪奥尔"); // 最左 = grid 列 4
     expect(back[back.length - 1]).toBe("沃克"); // 最右 = grid 列 1
   });
 
   it("行数自顶(门将)到底(前锋)为 1/4/1/4/1", async () => {
     const v = await detailView(panorama(), "UTC+8", { deep: false });
-    expect(v.lineups.home.rows.map((r: unknown[]) => r.length)).toEqual([1, 4, 1, 4, 1]);
+    const lu = v.lineups as { home: { rows: { n: string }[][] } };
+    expect(lu.home.rows.map((r) => r.length)).toEqual([1, 4, 1, 4, 1]);
   });
 });

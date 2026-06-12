@@ -19,7 +19,8 @@ import {
   formatReport,
   summarize,
 } from "../src/server/selfcheck";
-import { kvSet } from "../src/server/af/store";
+import { fixturesBetween, kvSet } from "../src/server/af/store";
+import { isFinished } from "../src/server/af/schedule";
 import { loadEnvFile } from "../src/server/env-file";
 
 async function main() {
@@ -35,9 +36,27 @@ async function main() {
     return;
   }
   if (args[0] === "audit") {
+    // audit <fixtureId> 单场;audit upcoming [n] 自动审计最近 n 场即将开赛(默认 3)
+    if (args[1] === "upcoming" || args[1] === "next") {
+      const n = Number(args[2]) || 3;
+      const now = Date.now();
+      const all = fixturesBetween(now - 2 * 3_600_000, now + 14 * 24 * 3_600_000)
+        .filter((f) => !isFinished(f.status))
+        .sort((a, b) => a.kickoff_utc - b.kickoff_utc)
+        .slice(0, n);
+      if (all.length === 0) {
+        console.log("近期无未完场赛事可审计。");
+        return;
+      }
+      for (const f of all) {
+        console.log(`\n${"═".repeat(64)}\n${f.home_name} vs ${f.away_name} · fixture=${f.fixture_id} · 开球 ${new Date(f.kickoff_utc + 8 * 3_600_000).toISOString().slice(5, 16).replace("T", " ")}(UTC+8)`);
+        console.log(await auditOdds(f.fixture_id, base));
+      }
+      return;
+    }
     const fid = Number(args[1]);
     if (!fid) {
-      console.error("用法:npm run selfcheck -- audit <fixtureId>");
+      console.error("用法:npm run selfcheck -- audit <fixtureId>  |  audit upcoming [场数]");
       process.exit(1);
     }
     console.log(await auditOdds(fid, base));
