@@ -15,13 +15,14 @@ import { Flash, HeartBeat, usePoll, useWorkerBeat } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 import { PlayerAvatar, TeamLogo } from "@/components/img";
+import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any; // 视图模型由 /api/match/[id] 输出,字段见 src/server/views/detail.ts
 
 const TABS: [string, string][] = [
-  ["odds", "盘口走势"], ["comp", "百家对比"], ["tech", "技术面"], ["lineup", "阵容"], ["intel", "情报"], ["deep", "深挖"],
+  ["odds", "盘口走势"], ["comp", "百家对比"], ["markets", "玩法"], ["tech", "技术面"], ["lineup", "阵容"], ["intel", "情报"], ["deep", "深挖"],
 ];
 
 const FORM_STYLE: Record<string, { bg: string; c: string }> = {
@@ -45,6 +46,7 @@ function MobileMatchDetail({ id }: { id: string }) {
   const [share, setShare] = useState<ShareData | null>(null);
   const [err, setErr] = useState("");
   const [lastAt, setLastAt] = useState<number | null>(null);
+  const [player, setPlayer] = useState<PlayerTarget | null>(null);
   const workerAt = useWorkerBeat();
   const { prefs, me } = useApp();
   const router = useRouter();
@@ -175,7 +177,7 @@ function MobileMatchDetail({ id }: { id: string }) {
           {side.rows.map((row: V[], i: number) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-evenly" }}>
               {row.map((p: V) => (
-                <div key={p.n} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 62 }}>
+                <div key={p.n} onClick={() => p.id && setPlayer({ id: p.id, name: p.n, season: h.season })} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 62, cursor: p.id ? "pointer" : "default" }}>
                   <PlayerAvatar id={p.id} name={p.n} num={p.num} size={28} ring={color} />
                   <span style={{ fontSize: 9.5, color: "var(--fg-mid)", textAlign: "center", whiteSpace: "nowrap" }}>{p.n}</span>
                 </div>
@@ -324,6 +326,30 @@ function MobileMatchDetail({ id }: { id: string }) {
           </>
         )}
 
+        {tab === "markets" && (
+          <>
+            <SectionTitle title="更多玩法" right="数据随盘口归档实时更新" />
+            {(v.markets ?? []).length === 0 && <EmptyBox title="暂无扩展玩法数据" sub={"开盘后将自动解析半场盘/角球/罚牌/波胆等玩法"} />}
+            {(v.markets ?? []).map((m: V) => (
+              <Card key={m.key} style={{ padding: "10px 14px", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800 }}>{m.name}</span>
+                  <span style={{ fontSize: 9.5, color: "var(--fg-3)" }}>{m.bk}</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: m.key === "exact" || m.key === "htft" ? "1fr 1fr 1fr" : "1fr 1fr", gap: 6 }}>
+                  {m.rows.map((r: V, i: number) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--inset)", borderRadius: 8, padding: "7px 10px" }}>
+                      <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.v}</span>
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 800, color: "var(--gold)" }}>{r.odd}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ))}
+            <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "6px 4px 0", lineHeight: 1.6 }}>玩法赔率为欧赔原值,来自单一公司当帧报价;仅供数据参考。</div>
+          </>
+        )}
+
         {tab === "tech" && (
           <>
             {h.live && (
@@ -458,20 +484,27 @@ function MobileMatchDetail({ id }: { id: string }) {
               ))}
             </Card>
 
-            <SectionTitle title="联赛排名" />
+            <SectionTitle title="积分榜" right="完整榜单 · 两队高亮" />
             <Card style={{ overflow: "hidden" }}>
-              {v.tech.standings.length === 0 && <div style={{ padding: 14, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>杯赛/数据积累中</div>}
-              {v.tech.standings.map((r: V) => (
-                <div key={r.team} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: "1px solid var(--line-soft)" }}>
-                  <span className="mono" style={{ width: 24, height: 24, borderRadius: 6, background: "var(--inset)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "var(--gold)" }}>{r.rk}</span>
-                  <span style={{ flex: 1 }}>
-                    <span style={{ display: "block", fontSize: 12, fontWeight: 700 }}>{r.team}</span>
-                    <span style={{ fontSize: 10, color: "var(--fg-3)" }}>{r.ha}</span>
+              {(v.tech.standings?.table ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>杯赛/数据积累中</div>}
+              {(v.tech.standings?.table ?? []).length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 30px 64px 36px 36px", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
+                  {["#", "球队", "赛", "胜/平/负", "净胜", "积分"].map((hd, i) => (
+                    <span key={hd} style={{ fontSize: 9.5, color: "var(--fg-3)", textAlign: i >= 2 ? "center" : "left" }}>{hd}</span>
+                  ))}
+                </div>
+              )}
+              {(v.tech.standings?.table ?? []).map((r: V) => (
+                <div key={`${r.grp}-${r.rk}-${r.team}`} style={{ display: "grid", gridTemplateColumns: "28px 1fr 30px 64px 36px 36px", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.hl ? "rgba(233,185,73,.07)" : "transparent" }}>
+                  <span className="mono" style={{ fontSize: 11, fontWeight: 800, color: r.hl ? "var(--gold)" : "var(--fg-3)" }}>{r.rk}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                    <TeamLogo id={r.teamId} name={r.team} size={15} />
+                    <span style={{ fontSize: 12, fontWeight: r.hl ? 800 : 600, color: r.hl ? (r.hl === "h" ? "var(--home)" : "var(--gold)") : "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.team}</span>
                   </span>
-                  <span style={{ textAlign: "right" }}>
-                    <span className="mono" style={{ display: "block", fontSize: 11, color: "var(--fg-2)" }}>{r.rec}</span>
-                    <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>{r.gd} · {r.pts}分</span>
-                  </span>
+                  <span className="mono" style={{ fontSize: 11, textAlign: "center", color: "var(--fg-2)" }}>{r.p}</span>
+                  <span className="mono" style={{ fontSize: 11, textAlign: "center", color: "var(--fg-2)" }}>{r.w}/{r.dr}/{r.l}</span>
+                  <span className="mono" style={{ fontSize: 11, textAlign: "center", color: r.gd > 0 ? "var(--up)" : r.gd < 0 ? "var(--down)" : "var(--fg-2)" }}>{r.gd > 0 ? `+${r.gd}` : r.gd}</span>
+                  <span className="mono" style={{ fontSize: 11.5, fontWeight: 800, textAlign: "center", color: "var(--gold)" }}>{r.pts}</span>
                 </div>
               ))}
             </Card>
@@ -514,17 +547,48 @@ function MobileMatchDetail({ id }: { id: string }) {
         {tab === "deep" &&
           (deepV ? (
             <>
-              <SectionTitle title="联赛榜单" />
-              <Card style={{ padding: "4px 14px" }}>
-                {deepV.lb?.map((r: V) => (
-                  <div key={r.tag} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                    <span style={{ flexShrink: 0, width: 44, fontSize: 10, fontWeight: 800, borderRadius: 4, padding: "2px 0", textAlign: "center", background: "var(--inset)", color: r.tagC }}>{r.tag}</span>
-                    <span style={{ flex: 1, fontSize: 12, fontWeight: 700 }}>{r.name}</span>
-                    <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.v}</span>
-                  </div>
-                ))}
-                <div style={{ height: 5 }} />
-              </Card>
+              {deepV.seasonPanel && (deepV.seasonPanel.home || deepV.seasonPanel.away) && (
+                <>
+                  <SectionTitle title="赛季面板" right="主客拆分 · 官方统计" />
+                  <Card style={{ overflow: "hidden", marginBottom: 8 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 1fr", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
+                      <span style={{ fontSize: 9.5, color: "var(--fg-3)" }}>指标</span>
+                      <span style={{ fontSize: 9.5, color: "var(--home)", textAlign: "center", fontWeight: 700 }}>{h.home}</span>
+                      <span style={{ fontSize: 9.5, color: "var(--gold)", textAlign: "center", fontWeight: 700 }}>{h.away}</span>
+                    </div>
+                    {[
+                      ["总战绩", (x: V) => x?.rec, ""],
+                      ["主场", (x: V) => x?.recHome?.slice(2), ""],
+                      ["客场", (x: V) => x?.recAway?.slice(2), ""],
+                      ["场均进球", (x: V) => x?.gf, ""],
+                      ["场均失球", (x: V) => x?.ga, ""],
+                      ["零封场次", (x: V) => x?.clean, " 场"],
+                      ["最长连胜", (x: V) => x?.streak, " 连胜"],
+                    ].map(([label, get, suffix]) => (
+                      <div key={label as string} style={{ display: "grid", gridTemplateColumns: "72px 1fr 1fr", padding: "7px 12px", borderBottom: "1px solid var(--line-soft)" }}>
+                        <span style={{ fontSize: 10.5, color: "var(--fg-3)" }}>{label as string}</span>
+                        <span className="mono" style={{ fontSize: 11.5, textAlign: "center", color: "var(--fg-mid)" }}>{((get as V)(deepV.seasonPanel.home) ?? "—") + (suffix as string)}</span>
+                        <span className="mono" style={{ fontSize: 11.5, textAlign: "center", color: "var(--fg-mid)" }}>{((get as V)(deepV.seasonPanel.away) ?? "—") + (suffix as string)}</span>
+                      </div>
+                    ))}
+                  </Card>
+                </>
+              )}
+
+              <SectionTitle title="联赛榜单" right="各榜前 5 · 点击看球员" />
+              {deepV.lb?.map((b: V) => (
+                <Card key={b.tag} style={{ padding: "8px 14px", marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: b.tagC, marginBottom: 4 }}>{b.tag}</div>
+                  {(b.rows ?? []).length === 0 && <div style={{ fontSize: 10.5, color: "var(--fg-3)", padding: "4px 0" }}>数据积累中</div>}
+                  {(b.rows ?? []).map((r: V) => (
+                    <div key={r.rk} onClick={() => r.pid && setPlayer({ id: r.pid, name: r.name, season: h.season })} style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 0", borderBottom: r.rk < (b.rows?.length ?? 0) ? "1px solid var(--line-soft)" : "none", cursor: r.pid ? "pointer" : "default" }}>
+                      <span className="mono" style={{ width: 16, fontSize: 10.5, fontWeight: 800, color: r.rk === 1 ? "var(--gold)" : "var(--fg-3)" }}>{r.rk}</span>
+                      <span style={{ flex: 1, fontSize: 12, fontWeight: 700, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--fg-3)" }}>{r.team}</span></span>
+                      <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.v}</span>
+                    </div>
+                  ))}
+                </Card>
+              ))}
 
               <SectionTitle title="球场因素" />
               <Card style={{ padding: "12px 14px" }}>
@@ -630,6 +694,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       </div>
 
       <RefreshSheet open={rfOpen} onClose={() => setRfOpen(false)} activeIdx={h.fresh.idx} />
+      <PlayerSheet target={player} onClose={() => setPlayer(null)} />
       <ShareSheet open={!!share} onClose={() => setShare(null)} data={share} />
     </div>
   );

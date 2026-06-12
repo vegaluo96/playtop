@@ -330,6 +330,19 @@ export function modelStats(nowMs = Date.now()): ModelStats {
   };
 }
 
+/** 最新一帧原始赔率包(全书商全玩法;扩展玩法读时解析用) */
+export function latestOddsRaw(fixtureId: number): unknown | null {
+  const r = db().prepare("SELECT payload FROM odds_raw WHERE fixture_id = ? ORDER BY captured_at DESC LIMIT 1").get(fixtureId) as
+    | { payload: string }
+    | undefined;
+  if (!r) return null;
+  try {
+    return JSON.parse(r.payload);
+  } catch {
+    return null;
+  }
+}
+
 /* ── 每日免费场(可多场)+ kv 缓存 ── */
 
 export function setDailyFree(date: string, fixtureId: number): void {

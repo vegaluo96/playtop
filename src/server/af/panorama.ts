@@ -58,6 +58,8 @@ export interface Panorama {
     transfersAway: unknown[];
     squadHome: unknown | null;
     squadAway: unknown | null;
+    statsHome: unknown | null;
+    statsAway: unknown | null;
     trophiesHomeCoach: unknown[];
     trophiesAwayCoach: unknown[];
   } | null;
@@ -108,11 +110,15 @@ async function loadDeep(fx: FixtureRow): Promise<Panorama["deep"]> {
   ]);
 
   const teamBlock = async (teamId: number | null) => {
-    if (!teamId) return { coach: null, transfers: [] as unknown[], squad: null, trophies: [] as unknown[] };
-    const [coachs, transfers, squads] = await Promise.all([
+    if (!teamId) return { coach: null, transfers: [] as unknown[], squad: null, trophies: [] as unknown[], stats: null as unknown };
+    const [coachs, transfers, squads, stats] = await Promise.all([
       list(`team:${teamId}:coachs`, week, "coachs", { team: String(teamId) }),
       list(`team:${teamId}:transfers`, week, "transfers", { team: String(teamId) }),
       list(`team:${teamId}:squad`, day, "players.squads", { team: String(teamId) }),
+      kvCached<unknown>(`team:${teamId}:${season}:lgstats:${lg}`, 6 * H, async () => {
+        const r = await runAfEndpoint("teams.statistics", { league: String(lg), season: String(season), team: String(teamId) });
+        return r.response ?? null;
+      }).catch(() => null),
     ]);
     // 现任教练 = career 中该队且 end=null;退而取第一条
     const coach =
@@ -123,7 +129,7 @@ async function loadDeep(fx: FixtureRow): Promise<Panorama["deep"]> {
       ) ?? coachs[0] ?? null;
     const coachId = coach ? Number(dig(coach, "id")) : null;
     const trophies = coachId ? await list(`coach:${coachId}:trophies`, week, "trophies", { coach: String(coachId) }) : [];
-    return { coach, transfers, squad: squads[0] ?? null, trophies };
+    return { coach, transfers, squad: squads[0] ?? null, trophies, stats };
   };
 
   const [home, away] = await Promise.all([teamBlock(fx.home_id), teamBlock(fx.away_id)]);
@@ -132,6 +138,7 @@ async function loadDeep(fx: FixtureRow): Promise<Panorama["deep"]> {
     coachHome: home.coach, coachAway: away.coach,
     transfersHome: home.transfers, transfersAway: away.transfers,
     squadHome: home.squad, squadAway: away.squad,
+    statsHome: home.stats, statsAway: away.stats,
     trophiesHomeCoach: home.trophies, trophiesAwayCoach: away.trophies,
   };
 }

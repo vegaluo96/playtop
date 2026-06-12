@@ -1,0 +1,88 @@
+/**
+ * 球员资料卡:GET /api/player/<id>?season=&name=
+ * players(赛季统计)+ sidelined(伤停/停赛史),kv 缓存,中文化输出。
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { kvCached } from "@/server/af/store";
+import { runAfEndpoint } from "@/server/af/catalog";
+import { nameZh } from "@/server/views/names";
+
+function dig(obj: unknown, ...path: (string | number)[]): unknown {
+  let cur: unknown = obj;
+  for (const k of path) {
+    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
+    else return undefined;
+  }
+  return cur;
+}
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+const POS_ZH: Record<string, string> = { Goalkeeper: "门将", Defender: "后卫", Midfielder: "中场", Attacker: "前锋" };
+const SIDE_ZH: [RegExp, string][] = [
+  [/suspend/i, "停赛"], [/red card/i, "红牌停赛"], [/yellow/i, "累积黄牌"], [/injur/i, "伤病"],
+  [/knee/i, "膝伤"], [/hamstring/i, "腿筋伤"], [/ankle/i, "踝伤"], [/muscle|thigh|calf/i, "肌肉伤"],
+  [/illness|virus/i, "疾病"], [/knock/i, "碰伤"], [/groin/i, "腹股沟伤"], [/back/i, "背伤"],
+];
+const sideZh = (t: string) => SIDE_ZH.find(([re]) => re.test(t))?.[1] ?? t;
+
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  const pid = Number(id);
+  if (!pid) return NextResponse.json({ ok: false, error: "无效的球员 id" }, { status: 400 });
+  const season = Number(req.nextUrl.searchParams.get("season")) || new Date().getFullYear();
+
+  try {
+    const item = await kvCached<unknown>(`player:${pid}:${season}`, 24 * 3_600_000, async () => {
+      const r = await runAfEndpoint("players", { id: String(pid), season: String(season) });
+      return arr(r.response)[0] ?? null;
+    });
+    if (!item) return NextResponse.json({ ok: false, error: "暂无该球员赛季数据" }, { status: 404 });
+
+    const pl = dig(item, "player");
+    // 取出场最多的一条联赛统计为主行,其余列为次要
+    const stats = arr(dig(item, "statistics"))
+      .map((st) => ({
+        league: nameZh(String(dig(st, "league", "name") ?? "")),
+        team: nameZh(String(dig(st, "team", "name") ?? "")),
+        apps: Number(dig(st, "games", "appearences")) || 0,
+        minutes: Number(dig(st, "games", "minutes")) || 0,
+        goals: Number(dig(st, "goals", "total")) || 0,
+        assists: Number(dig(st, "goals", "assists")) || 0,
+        yellow: Number(dig(st, "cards", "yellow")) || 0,
+        red: Number(dig(st, "cards", "red")) || 0,
+        rating: (() => {
+          const r = parseFloat(String(dig(st, "games", "rating") ?? ""));
+          return Number.isFinite(r) ? r.toFixed(2) : null;
+        })(),
+        pos: POS_ZH[String(dig(st, "games", "position") ?? "")] ?? String(dig(st, "games", "position") ?? ""),
+      }))
+      .filter((st) => st.apps > 0)
+      .sort((a, b) => b.apps - a.apps)
+      .slice(0, 3);
+
+    // 停赛/伤停史(sidelined 端点,7 天缓存)
+    const sidelined = await kvCached<unknown[]>(`player:${pid}:sidelined`, 7 * 86_400_000, async () => {
+      const r = await runAfEndpoint("sidelined", { player: String(pid) });
+      return arr(r.response).slice(0, 6);
+    }).catch(() => [] as unknown[]);
+
+    return NextResponse.json({
+      ok: true,
+      id: pid,
+      name: nameZh(String(dig(pl, "name") ?? ""), "player"),
+      age: Number(dig(pl, "age")) || null,
+      nationality: nameZh(String(dig(pl, "nationality") ?? "")),
+      height: String(dig(pl, "height") ?? "") || null,
+      weight: String(dig(pl, "weight") ?? "") || null,
+      injured: Boolean(dig(pl, "injured")),
+      stats,
+      sidelined: sidelined.map((sd) => ({
+        type: sideZh(String(dig(sd, "type") ?? "")),
+        from: String(dig(sd, "start") ?? "").slice(0, 10),
+        to: String(dig(sd, "end") ?? "").slice(0, 10) || "至今",
+      })),
+    });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "拉取失败" }, { status: 502 });
+  }
+}

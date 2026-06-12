@@ -181,6 +181,12 @@ export function DataMonView() {
               </div>
             ))}
             <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 8 }}>断档 &gt;30min 自动告警;盘路/战绩依赖归档连续性</div>
+            <div style={{ borderTop: "1px solid var(--line-soft)", paddingTop: 8, marginTop: 8 }}>
+              <div style={{ fontSize: 10, color: "var(--fg-2)", marginBottom: 4 }}>扩展玩法解析(最近未完场样本)</div>
+              <div style={{ fontSize: 10.5, lineHeight: 1.6, color: v.extraMarkets ? "var(--green)" : "var(--fg-3)" }}>
+                {v.extraMarkets ? `${v.extraMarkets.fixture}:${v.extraMarkets.kinds.length} 种 · ${v.extraMarkets.kinds.join(" / ")}` : "暂无样本(待开盘归档)"}
+              </div>
+            </div>
           </ACard>
           <ACard
             title="AF 抓取频率配置"

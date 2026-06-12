@@ -9,7 +9,8 @@ import { normalizeLiveOddsItem } from "../af/normalize";
 import { liveOddsSeries } from "../af/live-store";
 import { compositeLive, compositePre, mergeComposite } from "./composite";
 import { nameZh } from "./names";
-import { kvCached, kvGet } from "../af/store";
+import { kvCached, kvGet, latestOddsRaw } from "../af/store";
+import { parseExtraMarkets } from "../af/markets";
 import { runAfEndpoint } from "../af/catalog";
 import type { Panorama } from "../af/panorama";
 import { formZh, predSummary } from "./common";
@@ -73,8 +74,19 @@ const STAT_ZH: [string, string][] = [
   ["expected_goals", "预期进球 xG"],
   ["Total Shots", "射门"],
   ["Shots on Goal", "射正"],
+  ["Shots off Goal", "射偏"],
+  ["Blocked Shots", "被封堵"],
+  ["Shots insidebox", "禁区内射门"],
+  ["Shots outsidebox", "禁区外射门"],
   ["Corner Kicks", "角球"],
+  ["Offsides", "越位"],
   ["Fouls", "犯规"],
+  ["Yellow Cards", "黄牌"],
+  ["Red Cards", "红牌"],
+  ["Goalkeeper Saves", "门将扑救"],
+  ["Total passes", "传球"],
+  ["Passes accurate", "传球成功"],
+  ["Passes %", "传球成功率"],
 ];
 
 function liveStats(bundle: Record<string, unknown>, homeId: number | null) {
@@ -179,19 +191,26 @@ async function standingsView(leagueId: number, season: number, homeId: number | 
       const groups = arr(dig(arr(r.response)[0], "league", "standings"));
       return groups.flatMap((g) => arr(g)); // 拍平全部小组:世界杯等多组赛事两队可能分属不同组
     });
-    const pickRow = (teamId: number | null) => table.find((row) => Number(dig(row, "team", "id")) === teamId);
-    return [pickRow(homeId), pickRow(awayId)]
-      .filter(Boolean)
-      .map((row) => ({
-        rk: Number(dig(row, "rank")) || 0,
-        team: String(dig(row, "team", "name") ?? ""),
-        rec: `${dig(row, "all", "win")}胜 ${dig(row, "all", "draw")}平 ${dig(row, "all", "lose")}负`,
-        gd: `${Number(dig(row, "goalsDiff")) >= 0 ? "+" : ""}${dig(row, "goalsDiff")}`,
-        pts: Number(dig(row, "points")) || 0,
-        ha: `主场 ${dig(row, "home", "win")}胜${dig(row, "home", "draw")}平${dig(row, "home", "lose")}负`,
-      }));
+    const rowOf = (row: unknown) => ({
+      rk: Number(dig(row, "rank")) || 0,
+      teamId: (Number(dig(row, "team", "id")) || null) as number | null,
+      team: nameZh(String(dig(row, "team", "name") ?? "")),
+      p: Number(dig(row, "all", "played")) || 0,
+      w: Number(dig(row, "all", "win")) || 0,
+      dr: Number(dig(row, "all", "draw")) || 0,
+      l: Number(dig(row, "all", "lose")) || 0,
+      gd: Number(dig(row, "goalsDiff")) || 0,
+      pts: Number(dig(row, "points")) || 0,
+      hl: Number(dig(row, "team", "id")) === homeId ? "h" : Number(dig(row, "team", "id")) === awayId ? "a" : "",
+      grp: String(dig(row, "group") ?? ""),
+    });
+    const full = table.map(rowOf);
+    // 多组赛事(世界杯)只展示两队所在组;联赛展示全表
+    const myGroups = new Set(full.filter((r) => r.hl).map((r) => r.grp));
+    const shown = myGroups.size > 0 && new Set(full.map((r) => r.grp)).size > 1 ? full.filter((r) => myGroups.has(r.grp)) : full;
+    return { table: shown.slice(0, 24), pair: full.filter((r) => r.hl) };
   } catch {
-    return [];
+    return { table: [], pair: [] };
   }
 }
 
@@ -325,12 +344,20 @@ async function deepView(p: Panorama) {
   const fx = p.fixture;
   const statName = (it: unknown) => nameZh(String(dig(it, "player", "name") ?? ""), "player");
   const stat0 = (it: unknown, ...path: (string | number)[]) => dig(arr(dig(it, "statistics"))[0], ...path);
+  const board = (items: unknown[], v: (it: unknown) => string) =>
+    items.slice(0, 5).map((it, i) => ({
+      rk: i + 1,
+      name: statName(it),
+      pid: (Number(dig(it, "player", "id")) || null) as number | null,
+      team: nameZh(String(dig(it, "statistics", 0, "team", "name") ?? "")),
+      v: v(it),
+    }));
   const lb = [
-    { tag: "射手王", tagC: "#e9b949", it: d.topscorers[0], v: (it: unknown) => `${stat0(it, "goals", "total") ?? 0} 球` },
-    { tag: "助攻王", tagC: "#5b9dff", it: d.topassists[0], v: (it: unknown) => `${stat0(it, "goals", "assists") ?? 0} 助攻` },
-    { tag: "黄牌王", tagC: "#e9b949", it: d.topyellow[0], v: (it: unknown) => `${stat0(it, "cards", "yellow") ?? 0} 黄` },
-    { tag: "红牌王", tagC: "var(--red)", it: d.topred[0], v: (it: unknown) => `${stat0(it, "cards", "red") ?? 0} 红` },
-  ].map((r) => ({ tag: r.tag, tagC: r.tagC, name: r.it ? statName(r.it) : "—", v: r.it ? r.v(r.it) : "数据积累中" }));
+    { tag: "射手榜", tagC: "#e9b949", rows: board(d.topscorers, (it) => `${stat0(it, "goals", "total") ?? 0} 球`) },
+    { tag: "助攻榜", tagC: "#5b9dff", rows: board(d.topassists, (it) => `${stat0(it, "goals", "assists") ?? 0} 助攻`) },
+    { tag: "黄牌榜", tagC: "#e9b949", rows: board(d.topyellow, (it) => `${stat0(it, "cards", "yellow") ?? 0} 黄`) },
+    { tag: "红牌榜", tagC: "var(--red)", rows: board(d.topred, (it) => `${stat0(it, "cards", "red") ?? 0} 红`) },
+  ];
 
   // 球场:fixture payload 自带 venue 名称/城市;容量等取 /venues?id=
   const venueId = Number(dig(p.bundle, "fixture", "venue", "id")) || null;
@@ -437,10 +464,13 @@ async function deepView(p: Panorama) {
     if (!c) return null;
     const job = arr(dig(c, "career")).find((j) => dig(j, "end") == null);
     const start = String(dig(job, "start") ?? "").slice(0, 4);
+    const age = Number(dig(c, "age")) || null;
+    const nat = String(dig(c, "nationality") ?? "");
+    const meta = [start ? `${start} 上任` : "现任主帅", age ? `${age} 岁` : "", nat ? nameZh(nat) : ""].filter(Boolean).join(" · ");
     return {
       side,
-      name: String(dig(c, "name") ?? ""),
-      meta: start ? `${start} 上任` : "现任主帅",
+      name: nameZh(String(dig(c, "name") ?? ""), "coach"),
+      meta,
       trophies: trophies.length,
     };
   };
@@ -460,7 +490,7 @@ async function deepView(p: Panorama) {
       x: `${last.player}(${String(dig(last.tr, "date") ?? "").slice(0, 10)} · ${dig(last.tr, "type") ?? "转会"})`,
     };
   };
-  const transfers = [transferView(d.transfersHome, fx.home_name, fx.home_id), transferView(d.transfersAway, fx.away_name, fx.away_id)];
+  const transfers = [transferView(d.transfersHome, nameZh(fx.home_name), fx.home_id), transferView(d.transfersAway, nameZh(fx.away_name), fx.away_id)];
 
   const favFormation = async (teamId: number | null) => {
     if (!teamId) return null;
@@ -481,14 +511,33 @@ async function deepView(p: Panorama) {
     return { team, x: formation ? `${base} · 惯用 ${formation}` : base };
   };
   const depth = [
-    depthOf(d.squadHome, fx.home_name, await favFormation(fx.home_id)),
-    depthOf(d.squadAway, fx.away_name, await favFormation(fx.away_id)),
+    depthOf(d.squadHome, nameZh(fx.home_name), await favFormation(fx.home_id)),
+    depthOf(d.squadAway, nameZh(fx.away_name), await favFormation(fx.away_id)),
   ];
 
   const motiv = coaches.map((c) => `${c.name}:执教生涯冠军 ${c.trophies} 座`);
 
+  // 赛季面板:teams.statistics 主客拆分/均进失/零封/连胜(AF 深度数据补齐)
+  const panelOf = (st: unknown) => {
+    if (!st) return null;
+    const n = (...path: (string | number)[]) => Number(dig(st, ...path)) || 0;
+    const sN = (...path: (string | number)[]) => String(dig(st, ...path) ?? "");
+    return {
+      played: n("fixtures", "played", "total"),
+      rec: `${n("fixtures", "wins", "total")}胜${n("fixtures", "draws", "total")}平${n("fixtures", "loses", "total")}负`,
+      recHome: `主 ${n("fixtures", "wins", "home")}胜${n("fixtures", "draws", "home")}平${n("fixtures", "loses", "home")}负`,
+      recAway: `客 ${n("fixtures", "wins", "away")}胜${n("fixtures", "draws", "away")}平${n("fixtures", "loses", "away")}负`,
+      gf: sN("goals", "for", "average", "total") || "—",
+      ga: sN("goals", "against", "average", "total") || "—",
+      clean: n("clean_sheet", "total"),
+      streak: n("biggest", "streak", "wins"),
+      form: sN("form").slice(-5),
+    };
+  };
+  const seasonPanel = { home: panelOf(d.statsHome), away: panelOf(d.statsAway) };
+
   const referee = String(dig(p.bundle, "fixture", "referee") ?? "").trim() || null;
-  return { lb, venue, referee, scorers, ratings, coaches, transfers, depth, motiv };
+  return { lb, venue, referee, scorers, ratings, coaches, transfers, depth, motiv, seasonPanel };
 }
 
 /* ── 汇总 ── */
@@ -587,6 +636,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       elapsed: fx.elapsed,
       ht: fx.status === "HT",
       kickoff: fx.kickoff_utc,
+      season: fx.season,
       fresh: freshLine(fx.kickoff_utc, now, fx.status, cfgTierIntervals()),
     },
     summary: {
@@ -612,6 +662,10 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       minutes: minutesView(pred),
       standings: await standingsView(fx.league_id, fx.season, fx.home_id, fx.away_id),
     },
+    markets: (() => {
+      const raw = latestOddsRaw(fx.fixture_id);
+      return raw ? parseExtraMarkets(raw).map((m) => ({ ...m, bk: maskBookmaker(m.bk) })) : [];
+    })(),
     lineups: lineupsView(p.bundle, fx.home_id, fx.home_name, fx.away_name),
     intel: intelView(p.injuries, fx.home_id),
     deep: opts.deep ? await deepView(p) : null,

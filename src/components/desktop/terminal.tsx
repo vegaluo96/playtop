@@ -22,7 +22,7 @@ import { useSiteConfig } from "@/components/site-config";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
 
-export type DTab = "odds" | "comp" | "tech" | "report" | "lineup" | "intel" | "deep";
+export type DTab = "odds" | "comp" | "markets" | "tech" | "report" | "lineup" | "intel" | "deep";
 export type DModal =
   | { kind: "recharge" }
   | { kind: "refresh" }

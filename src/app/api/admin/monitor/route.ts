@@ -8,6 +8,8 @@ import { recentMovements, kvGet } from "@/server/af/store";
 import { llmStats } from "@/server/llm/report";
 import { hhmm } from "@/lib/format";
 import { ahText, ouText, f2 } from "@/lib/format";
+import { latestOddsRaw, fixturesBetween } from "@/server/af/store";
+import { parseExtraMarkets } from "@/server/af/markets";
 
 export async function GET() {
   if (!(await currentAdmin())) return NextResponse.json({ ok: false }, { status: 401 });
@@ -28,8 +30,19 @@ export async function GET() {
     d: `${m.to_line - m.from_line >= 0 ? "+" : ""}${f2(m.to_line - m.from_line)}`,
     up: m.to_line >= m.from_line,
   }));
+  // 扩展玩法解析可见性:最近一场未完场赛事的最新原始帧能解析出多少种玩法
+  let extraMarkets: { fixture: string; kinds: string[] } | null = null;
+  const nowMs = Date.now();
+  const probe = fixturesBetween(nowMs - 2 * 3_600_000, nowMs + 48 * 3_600_000).filter(
+    (f) => !["FT", "AET", "PEN", "AWD", "WO"].includes(f.status),
+  )[0];
+  if (probe) {
+    const raw = latestOddsRaw(probe.fixture_id);
+    if (raw) extraMarkets = { fixture: `${probe.home_name} vs ${probe.away_name}`, kinds: parseExtraMarkets(raw).map((m) => m.name) };
+  }
+
   return NextResponse.json({
-    ok: true, eps, snaps, snapGap: gap,
+    ok: true, eps, snaps, snapGap: gap, extraMarkets,
     intervals: TIERS.map((t, i) => ({ label: t.label, ms: cfgTierIntervals()[i] })),
     emergency: cfgEmergencyThrottle(),
     af: JSON.parse(kvGet("af_status") || "null"),

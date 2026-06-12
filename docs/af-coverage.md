@@ -13,26 +13,26 @@
 | leagues | ✅ | 后台·联赛搜索/添加;用户端 chips(经 cfg:leagues) | — |
 | leagues.seasons | ⚙ | worker 选定当季 season 参数 | — |
 | teams | ✅ | 队徽(CDN 按 team id 直链)+ 队名(汉化层) | — |
-| teams.statistics | ✅ | 详情·阵容「惯用阵型」+ 深挖均场数据 | — |
+| teams.statistics | ✅ | 阵容「惯用阵型」+ 深挖**「赛季面板」**(总/主/客战绩、均进失、零封、连胜) | — |
 | teams.seasons / teams.countries | ✖ | — | 调度无需;赛季由 leagues.seasons 决定 |
-| standings | ✅ | 详情·技术面「积分榜」(两队行,多组拍平) | 完整联赛榜单未展示(终端定位为对阵导向,有意只展示两队) |
+| standings | ✅ | 详情·技术面「积分榜」**完整榜单**(两队高亮;多组赛事自动取两队所在组) | — |
 | fixtures | ✅ | 列表/详情头/比分/状态(含中场)/14 天日期带 | — |
 | fixtures.rounds | ⚙ | 轮次中文化(roundZh) | — |
 | fixtures.headtohead | ✅ | 详情·技术面「历史交锋」(满拉 10 场) | — |
-| fixtures.statistics | ✅ | 详情·技术面「实时技术统计」;half=true →「半场拆分」 | 无数据时常显「暂无数据」占位 |
+| fixtures.statistics | ✅ | 详情·技术面「实时技术统计」**17 项全量**(含黄红牌/越位/扑救/传球成功率/禁区内外射门);half=true →「半场拆分」 | 无数据时常显「暂无数据」占位 |
 | fixtures.events | ✅ | 详情·技术面「实时事件」(进球/牌/换人/VAR,球员名汉化) | — |
 | fixtures.lineups | ✅ | 详情·阵容(球场图+球衣号+头像+替补席+教练;客队列序镜像) | 列向假设需真实滚球窗口对照官方阵容复核一次 |
 | fixtures.players | ✅ | 详情·深挖「关键球员评分」(滚球实时评分优先) | — |
 | injuries | ✅ | 详情·情报「伤停与情报」+ 报告人员小节 | — |
 | predictions | ✅ | 预测页/详情概率条/AI 报告(胜率·七维·H2H·进球模型);缺方向时盘口推导 | — |
-| sidelined | ◐ | 并入情报伤停 | 教练停赛单独维度未展示(数据稀疏,合并展示) |
-| coachs | ✅ | 阵容主教练(汉化) | — |
-| players / players.seasons / players.profiles | ◐ | 头像 CDN 直链 + 赛季评分(深挖) | 球员独立资料页未做(终端定位对阵导向,暂不规划) |
+| sidelined | ✅ | 情报伤停 + **球员资料卡「伤停/停赛史」**(类型中文化+起止日期) | — |
+| coachs | ✅ | 阵容主教练 + 深挖教练卡(上任年份/年龄/国籍/冠军数,汉化) | — |
+| players / players.seasons / players.profiles | ✅ | 头像 + 赛季评分 + **球员资料卡**(/api/player:出场/进球/助攻/牌/评分,阵容与榜单点击打开,双端) | — |
 | players.squads | ✅ | 深挖「阵容深度」 | — |
-| players.topscorers / topassists / topyellowcards / topredcards | ✅ | 详情·深挖「联赛榜单」四王 | — |
+| players.topscorers / topassists / topyellowcards / topredcards | ✅ | 详情·深挖「联赛榜单」**各榜前 5**(点击进球员卡) | — |
 | transfers | ✅ | 详情·深挖「转会动态」 | — |
 | trophies | ✖ | — | 荣誉柜与盘口决策无关,有意舍弃 |
-| odds | ✅ | 全部书商分页拉满:走势/百家对比(初盘/即时,前台打码)/综合指数/列表三列 | 赛前 14 天窗口起持续归档 |
+| odds | ✅ | 全部书商分页拉满:走势/百家对比/综合指数/列表三列 + **「玩法」tab**(半场胜平负/半全场/双重机会/双方进球/单双/波胆/半场亚盘/半场大小/角球/罚牌,读 odds_raw 解析零额外抓取) | 赛前 14 天窗口起持续归档 |
 | odds.mapping | ⚙ | worker 校验可用 fixture 范围 | — |
 | odds.bookmakers / odds.bets | ⚙ | 归一化层书商/玩法 id 对照 | — |
 | odds.live | ✅ | 滚球实时盘卡 + 变化帧归档(live_odds_snapshots)→ 滚球走势/滚球异动/列表实时跳动 | — |
