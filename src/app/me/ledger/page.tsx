@@ -45,12 +45,12 @@ function MobileLedgerPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <SubpageHeader title="额度 / 解锁记录" />
-      <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--card)", border: "1px solid rgba(0,200,5,.3)", borderRadius: 12, margin: "6px 12px 4px", padding: "12px 14px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--card)", border: "1px solid var(--selected-border-soft)", borderRadius: 12, margin: "6px 12px 4px", padding: "12px 14px" }}>
         <span style={{ flex: 1 }}>
           <span style={{ display: "block", fontSize: 11, color: "var(--fg-2)" }}>当前账户额度</span>
           <span className="mono" style={{ fontSize: 22, fontWeight: 800, color: "var(--gold)" }}>{me.pts}</span>
         </span>
-        <div onClick={flow.openRecharge} style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 9, padding: "8px 18px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>购买额度</div>
+        <div onClick={flow.openRecharge} style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 9, padding: "8px 18px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>购买额度</div>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 12px 16px", minHeight: 0 }}>
         {loaded && rows.length === 0 && (

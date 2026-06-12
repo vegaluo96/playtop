@@ -204,15 +204,6 @@ function MobileMatchDetail({ id }: { id: string }) {
             <span>
               {!headEu && <MarketValue v={c.nText} className="" small pulse={c.changed ? c.chgAt : null} style={{ justifyContent: "flex-start", color: c.changed ? "var(--gold)" : "var(--fg-mid)", fontWeight: 800 }} />}
               <MarketValue v={c.nW} small pulse={c.waterChanged || c.changed ? c.chgAt : null} style={{ justifyContent: "flex-start", color: c.waterChanged || c.changed ? "var(--gold)" : "var(--fg-mid)" }} />
-              {c.k && (
-                <span className="mono" style={{ display: "block", fontSize: 11.5, color: "var(--fg-3)" }}>
-                  凯利 {c.k.map((kv: number | null, j: number) => (
-                    <span key={j} style={{ color: kv != null && kv > 1 ? "var(--gold)" : undefined, fontWeight: kv != null && kv > 1 ? 800 : 400 }}>
-                      {kv != null ? kv.toFixed(2) : "—"}{j < 2 ? " / " : ""}
-                    </span>
-                  ))}
-                </span>
-              )}
             </span>
           </div>
         ))}
@@ -286,7 +277,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             <TeamLogo id={h.awayId} name={h.away} size={22} />
             <span style={{ fontSize: 16, fontWeight: 800, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.away}</span>
           </div>
-          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", marginTop: 2 }}>客场</div>
+          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--team-away)", marginTop: 2 }}>客场</div>
         </div>
       </div>
 
@@ -323,7 +314,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       {tab === "odds" && (
         <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", flexShrink: 0 }}>
           {ODDS_SUBS.map(([k, label]) => (
-            <span key={k} onClick={() => setOddsSub(k)} style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 7, padding: "4px 12px", background: oddsSub === k ? "rgba(0,200,5,.14)" : "var(--inset)", color: oddsSub === k ? "var(--gold)" : "var(--fg-3)" }}>
+            <span key={k} onClick={() => setOddsSub(k)} style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 7, padding: "4px 12px", background: oddsSub === k ? "var(--selected-bg)" : "var(--inset)", color: oddsSub === k ? "var(--gold)" : "var(--fg-3)" }}>
               {label}
             </span>
           ))}
@@ -445,14 +436,14 @@ function MobileMatchDetail({ id }: { id: string }) {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                         <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: "var(--home)" }}>{b.lv}</span>
                         <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{b.label}</span>
-                        <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)" }}>{b.rv}</span>
+                        <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: "var(--team-away)" }}>{b.rv}</span>
                       </div>
                       <div style={{ display: "flex", gap: 3, height: 4 }}>
                         <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", background: "var(--inset)", borderRadius: 2, overflow: "hidden" }}>
                           <div style={{ height: "100%", background: "var(--home)", borderRadius: 2, width: `${(b.l / (b.l + b.r || 1)) * 100}%` }} />
                         </div>
                         <div style={{ flex: 1, background: "var(--inset)", borderRadius: 2, overflow: "hidden" }}>
-                          <div style={{ height: "100%", background: "var(--gold)", borderRadius: 2, width: `${(b.r / (b.l + b.r || 1)) * 100}%` }} />
+                          <div style={{ height: "100%", background: "var(--team-away)", borderRadius: 2, width: `${(b.r / (b.l + b.r || 1)) * 100}%` }} />
                         </div>
                       </div>
                     </div>
@@ -470,7 +461,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                     <div key={b.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "1px solid var(--line-soft)" }}>
                       <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: "var(--home)" }}>{b.lv}</span>
                       <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{b.label}</span>
-                      <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)" }}>{b.rv}</span>
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: "var(--team-away)" }}>{b.rv}</span>
                     </div>
                   ))}
                   <div style={{ height: 4 }} />
@@ -505,7 +496,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                       <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--home)" }} />{h.home}
                     </span>
                     <span style={{ fontSize: 11, color: "var(--fg-2)", display: "flex", alignItems: "center", gap: 5 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--gold)" }} />{h.away}
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--team-away)" }} />{h.away}
                     </span>
                   </div>
                   {v.tech.minutes.rows.map((r: V) => (
@@ -516,7 +507,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                           <span style={{ display: "block", height: "100%", background: "var(--home)", borderRadius: 3, width: `${Math.min(100, r.h * 3)}%` }} />
                         </span>
                         <span style={{ display: "block", height: 5, background: "var(--inset)", borderRadius: 3, overflow: "hidden" }}>
-                          <span style={{ display: "block", height: "100%", background: "var(--gold)", borderRadius: 3, width: `${Math.min(100, r.a * 3)}%` }} />
+                          <span style={{ display: "block", height: "100%", background: "var(--team-away)", borderRadius: 3, width: `${Math.min(100, r.a * 3)}%` }} />
                         </span>
                       </span>
                       <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)", textAlign: "right" }}>{r.h}/{r.a}</span>
@@ -552,11 +543,11 @@ function MobileMatchDetail({ id }: { id: string }) {
                 </div>
               )}
               {(v.tech.standings?.table ?? []).map((r: V) => (
-                <div key={`${r.grp}-${r.rk}-${r.team}`} style={{ display: "grid", gridTemplateColumns: "28px 1fr 30px 64px 36px 36px", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.hl ? "rgba(0,200,5,.07)" : "transparent" }}>
+                <div key={`${r.grp}-${r.rk}-${r.team}`} style={{ display: "grid", gridTemplateColumns: "28px 1fr 30px 64px 36px 36px", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.hl ? "var(--selected-bg-soft)" : "transparent" }}>
                   <span className="mono" style={{ fontSize: 11, fontWeight: 800, color: r.hl ? "var(--gold)" : "var(--fg-3)" }}>{r.rk}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                     <TeamLogo id={r.teamId} name={r.team} size={15} />
-                    <span style={{ fontSize: 12, fontWeight: r.hl ? 800 : 600, color: r.hl ? (r.hl === "h" ? "var(--home)" : "var(--gold)") : "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.team}</span>
+                    <span style={{ fontSize: 12, fontWeight: r.hl ? 800 : 600, color: r.hl ? (r.hl === "h" ? "var(--home)" : "var(--team-away)") : "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.team}</span>
                   </span>
                   <span className="mono" style={{ fontSize: 11, textAlign: "center", color: "var(--fg-2)" }}>{r.p}</span>
                   <span className="mono" style={{ fontSize: 11, textAlign: "center", color: "var(--fg-2)" }}>{r.w}/{r.dr}/{r.l}</span>
@@ -576,9 +567,9 @@ function MobileMatchDetail({ id }: { id: string }) {
               </div>
               {lineupPitch(v.lineups.home, "var(--home)")}
               <div style={{ margin: "14px 4px 8px", fontSize: 13, fontWeight: 700 }}>
-                首发阵容 <span style={{ color: "var(--gold)" }}>{h.away}</span> · <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{v.lineups.away.form}</span>
+                首发阵容 <span style={{ color: "var(--team-away)" }}>{h.away}</span> · <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{v.lineups.away.form}</span>
               </div>
-              {lineupPitch(v.lineups.away, "var(--gold)")}
+              {lineupPitch(v.lineups.away, "var(--team-away)")}
             </>
           ) : (
             <EmptyBox title="官方首发尚未公布" sub={"官方首发通常于开赛前约 40 分钟公布\n公布后将自动更新"} />
@@ -591,7 +582,7 @@ function MobileMatchDetail({ id }: { id: string }) {
               {v.intel.length === 0 && <EmptyBox title="暂无官方伤停通报" sub="伤停状态随官方发布实时更新" />}
               {v.intel.map((i: V, idx: number) => (
                 <Card key={idx} style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 9 }}>
-                  <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, background: i.side === "主" ? "rgba(63,140,255,.16)" : "rgba(0,200,5,.16)", color: i.side === "主" ? "var(--home)" : "var(--gold)" }}>{i.side}</span>
+                  <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, background: i.side === "主" ? "rgba(63,140,255,.16)" : "var(--team-away-bg)", color: i.side === "主" ? "var(--home)" : "var(--team-away)" }}>{i.side}</span>
                   <span style={{ flex: 1, fontSize: 12, color: "var(--fg-mid)", lineHeight: 1.5 }}>{i.x}</span>
                   <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: i.tag === "缺阵" ? "var(--red)" : i.tag === "解禁" ? "var(--green)" : "var(--gold)" }}>{i.tag}</span>
                 </Card>
@@ -604,7 +595,7 @@ function MobileMatchDetail({ id }: { id: string }) {
         {tab === "deep" && (
           <div
             onClick={() => router.push(`/report/${h.id}`)}
-            style={{ padding: "12px 14px", marginBottom: 8, borderRadius: 12, border: "1px solid rgba(0,200,5,.4)", background: "var(--card)", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+            style={{ padding: "12px 14px", marginBottom: 8, borderRadius: 12, border: "1px solid var(--selected-border)", background: "var(--card)", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
           >
             <span style={{ flex: 1 }}>
               <span style={{ display: "block", fontSize: 13, fontWeight: 800 }}>AI 概率报告</span>
@@ -623,7 +614,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                     <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 1fr", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
                       <span style={{ fontSize: 11, color: "var(--fg-3)" }}>指标</span>
                       <span style={{ fontSize: 11, color: "var(--home)", textAlign: "center", fontWeight: 700 }}>{h.home}</span>
-                      <span style={{ fontSize: 11, color: "var(--gold)", textAlign: "center", fontWeight: 700 }}>{h.away}</span>
+                      <span style={{ fontSize: 11, color: "var(--team-away)", textAlign: "center", fontWeight: 700 }}>{h.away}</span>
                     </div>
                     {[
                       ["总战绩", (x: V) => x?.rec, ""],
@@ -687,7 +678,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                 {(deepV.scorers ?? []).length === 0 && <div style={{ padding: 10, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>榜单暂无官方返回</div>}
                 {deepV.scorers?.map((s: V) => (
                   <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: s.side === "h" ? "var(--home)" : "var(--gold)" }} />
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: s.side === "h" ? "var(--home)" : "var(--team-away)" }} />
                     <span style={{ flex: 1 }}>
                       <span style={{ display: "block", fontSize: 12, fontWeight: 700 }}>{s.name}</span>
                       <span style={{ fontSize: 11, color: "var(--fg-3)" }}>{s.pos}</span>
@@ -712,10 +703,10 @@ function MobileMatchDetail({ id }: { id: string }) {
               <Card style={{ padding: "4px 14px 6px" }}>
                 {(deepV.ratings ?? []).length === 0 && <div style={{ padding: 10, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>评分暂无官方返回</div>}
                 {deepV.ratings?.map((r: V) => {
-                  const bc = r.r >= 8 ? ["rgba(0,200,5,.16)", "var(--gold)"] : r.r >= 7 ? ["rgba(46,204,138,.16)", "var(--green)"] : ["rgba(139,148,168,.16)", "var(--fg-3)"];
+                  const bc = r.r >= 8 ? ["var(--selected-bg-strong)", "var(--gold)"] : r.r >= 7 ? ["rgba(46,204,138,.16)", "var(--green)"] : ["rgba(139,148,168,.16)", "var(--fg-3)"];
                   return (
                     <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: r.side === "h" ? "var(--home)" : "var(--gold)" }} />
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: r.side === "h" ? "var(--home)" : "var(--team-away)" }} />
                       <span style={{ flex: 1, fontSize: 12, fontWeight: 700 }}>{r.name}</span>
                       <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "2px 6px" }}>{r.pos}</span>
                       <span className="mono" style={{ width: 34, textAlign: "center", fontSize: 11, fontWeight: 800, borderRadius: 5, padding: "3px 0", background: bc[0], color: bc[1] }}>{r.r.toFixed(1)}</span>
@@ -730,7 +721,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                 {deepV.coaches?.map((c: V) => (
                   <div key={c.name} style={{ padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: c.side === "h" ? "var(--home)" : "var(--gold)" }} />
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: c.side === "h" ? "var(--home)" : "var(--team-away)" }} />
                       <span style={{ fontSize: 12, fontWeight: 700, flex: 1 }}>{c.name}</span>
                       <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{c.meta}</span>
                     </div>

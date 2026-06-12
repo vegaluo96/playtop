@@ -106,7 +106,7 @@ function MobileTicketsPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>T{t.id}</span>
                   <span style={{ fontSize: 12, fontWeight: 700, flex: 1 }}>{t.type}</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: t.status === "处理中" ? "rgba(0,200,5,.14)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: t.status === "处理中" ? "var(--selected-bg)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                   <span style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.body}</span>

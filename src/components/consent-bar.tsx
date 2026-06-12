@@ -34,7 +34,7 @@ export function ConsentBar() {
           localStorage.setItem(KEY, String(Date.now()));
           setShow(false);
         }}
-        style={{ flexShrink: 0, background: "var(--gold)", color: "var(--on-accent)", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+        style={{ flexShrink: 0, background: "var(--cta)", color: "var(--on-cta)", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
       >
         同意
       </span>

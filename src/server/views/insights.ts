@@ -1,7 +1,7 @@
 /**
  * 指数洞察:全部由已归档真实数据推导,无任何虚构。
  *   ① 盘路榜:本站归档的临场盘(收盘前最后一帧)× 官方比分 → 赢/走/输、大/小
- *   ② 凯利指数 + 离散度:多书商胜平负 → 单家公司报价 × 全市场去水概率均值;报价标准差
+ *   ② 胜平负离散度:多书商胜平负报价标准差,用于观察市场分歧
  *   ③ 同赔历史:初盘胜平负三元组(±0.03)匹配本站归档完场赛事 → 胜平负分布
  *   ④ 升降盘统计 + 返还率趋势:各书商首帧 vs 即时盘方向;主源返还率首末对照
  *   ⑤ 疲劳/赛程密度:距上场天数 + 未来 7 天赛程数(仅统计本站收录赛事)
@@ -128,28 +128,18 @@ export function teamRoad(teamId: number | null, beforeUtc: number, n = 10) {
   };
 }
 
-/* ── ② 凯利指数 + 离散度(纯函数,detail 即时盘调用)── */
+/* ── ② 胜平负离散度(纯函数,detail 即时盘调用)── */
 
-export interface EuKelly {
+export interface EuDispersion {
   books: number;
   /** 各结果报价标准差(市场分歧度;越大各家分歧越大) */
   disp: { h: number; d: number; a: number };
-  /** 全市场去水概率均值(凯利的基准概率) */
-  prob: { h: number; d: number; a: number };
   method: string;
 }
 
-export function euKelly(lasts: { h: number; d: number | null; a: number }[]): EuKelly | null {
+export function euDispersion(lasts: { h: number; d: number | null; a: number }[]): EuDispersion | null {
   const ok = lasts.filter((l) => l.h > 1 && (l.d ?? 0) > 1 && l.a > 1);
   if (ok.length < 3) return null; // 样本太少,共识无意义
-  const dem = ok.map((l) => {
-    const ih = 1 / l.h;
-    const id = 1 / l.d!;
-    const ia = 1 / l.a;
-    const s = ih + id + ia;
-    return { h: ih / s, d: id / s, a: ia / s };
-  });
-  const avg = (k: "h" | "d" | "a") => dem.reduce((s, x) => s + x[k], 0) / dem.length;
   const sd = (k: "h" | "d" | "a") => {
     const vals = ok.map((l) => (k === "d" ? l.d! : l[k]));
     const m = vals.reduce((a, b) => a + b, 0) / vals.length;
@@ -158,14 +148,8 @@ export function euKelly(lasts: { h: number; d: number | null; a: number }[]): Eu
   return {
     books: ok.length,
     disp: { h: sd("h"), d: sd("d"), a: sd("a") },
-    prob: { h: avg("h"), d: avg("d"), a: avg("a") },
-    method: `凯利指数 = 该公司报价 × 全市场去水概率均值(${ok.length} 家);明显 >1 表示该公司此结果定价高于市场共识。离散度 = 各家公司报价标准差,越大代表市场分歧越大。`,
+    method: `离散度 = 各家公司胜平负报价标准差(${ok.length} 家);数值越大代表市场分歧越大。`,
   };
-}
-
-/** 单家凯利(保留 2 位);prob 来自 euKelly */
-export function kellyOf(odd: number | null, prob: number): number | null {
-  return odd != null && odd > 1 ? Math.round(odd * prob * 100) / 100 : null;
 }
 
 /* ── ④ 升降盘统计 + 返还率(纯函数)── */

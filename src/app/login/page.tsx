@@ -53,7 +53,7 @@ export default function LoginPage() {
         足球<span style={{ color: "var(--gold)" }}>终端</span>
       </div>
       <div style={{ textAlign: "center", fontSize: 12.5, color: "var(--fg-3)", margin: "6px 0 26px" }}>让球指数 · 大小指数 · 胜平负指数 · 专业行情终端</div>
-      <div style={{ background: "rgba(0,200,5,.1)", border: "1px dashed rgba(0,200,5,.45)", borderRadius: 10, padding: "10px 12px", marginBottom: 18, display: "flex", alignItems: "center", gap: 9 }}>
+      <div style={{ background: "var(--selected-bg)", border: "1px dashed var(--selected-border)", borderRadius: 10, padding: "10px 12px", marginBottom: 18, display: "flex", alignItems: "center", gap: 9 }}>
         <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "var(--on-accent)" }}>AI</span>
         <span style={{ fontSize: 12.5, color: "var(--fg-mid)", lineHeight: 1.55 }}>
           登录后查看完整指数与异动流 · 新账号含基础报告额度

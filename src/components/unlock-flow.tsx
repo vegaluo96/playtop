@@ -143,7 +143,7 @@ export function useUnlockFlow(onUnlocked?: () => void) {
         </div>
         <div style={{ fontSize: 12, color: "var(--fg-2)", marginBottom: 14 }}>报告额度仅用于解锁 AI 概率报告 · 1 元 = 10 额度起</div>
         {maintenance && (
-          <div style={{ background: "rgba(0,200,5,.1)", border: "1px solid rgba(0,200,5,.4)", borderRadius: 10, padding: "14px 12px", marginBottom: 12, textAlign: "center", fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>
+          <div style={{ background: "var(--selected-bg)", border: "1px solid var(--selected-border)", borderRadius: 10, padding: "14px 12px", marginBottom: 12, textAlign: "center", fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>
             购买通道维护中,请稍后再试
           </div>
         )}
@@ -152,10 +152,10 @@ export function useUnlockFlow(onUnlocked?: () => void) {
             <div
               key={tr.rmb}
               onClick={() => doRecharge(i)}
-              style={{ position: "relative", background: "var(--inset)", border: `1px solid ${tr.hot ? "rgba(0,200,5,.55)" : "var(--line)"}`, borderRadius: 10, padding: "12px 0 10px", textAlign: "center", cursor: "pointer" }}
+              style={{ position: "relative", background: "var(--inset)", border: `1px solid ${tr.hot ? "var(--selected-border-strong)" : "var(--line)"}`, borderRadius: 10, padding: "12px 0 10px", textAlign: "center", cursor: "pointer" }}
             >
               {tr.hot && (
-                <span style={{ position: "absolute", top: -8, right: 8, background: "var(--gold)", color: "var(--on-accent)", fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px" }}>最划算</span>
+                <span style={{ position: "absolute", top: -8, right: 8, background: "var(--cta)", color: "var(--on-cta)", fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px" }}>最划算</span>
               )}
               <div className="mono" style={{ fontSize: 16, fontWeight: 800, color: "var(--gold)" }}>{tr.pts}</div>
               <div style={{ fontSize: 11.5, color: "var(--up)", fontWeight: 750, height: 15 }}>{tr.tag ?? ""}</div>

@@ -24,9 +24,9 @@ function ChipBtn({ label, active, onClick, flex }: { label: string; active: bool
       style={{
         flex: flex ? 1 : undefined, textAlign: "center", padding: flex ? "6px 0" : "4px 10px", borderRadius: flex ? 8 : 999,
         fontSize: 11.5, fontWeight: flex ? 700 : 600, cursor: "pointer",
-        background: active ? "rgba(0,200,5,.14)" : "var(--inset)",
+        background: active ? "var(--selected-bg)" : "var(--inset)",
         color: active ? "var(--gold)" : "var(--fg-2)",
-        border: `1px solid ${active ? "rgba(0,200,5,.45)" : "var(--line)"}`,
+        border: `1px solid ${active ? "var(--selected-border)" : "var(--line)"}`,
       }}
     >
       {label}
@@ -121,12 +121,12 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
             <span onClick={onClose} style={{ fontSize: 14, color: "var(--fg-3)", cursor: "pointer" }}>✕</span>
           </div>
           <div style={{ padding: "18px" }}>
-            <div style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.4)", borderRadius: 14, padding: 16 }}>
+            <div style={{ background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 14, padding: 16 }}>
               <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
                 创建账户
               </div>
             <div style={{ fontSize: 12, color: "var(--fg-2)", marginBottom: 10, lineHeight: 1.6 }}>登录后查看完整指数与异动 · 新账号含基础报告额度</div>
-              <div onClick={() => router.push("/login")} style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 9, textAlign: "center", padding: "10px 0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+              <div onClick={() => router.push("/login")} style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 9, textAlign: "center", padding: "10px 0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
                 邮箱登录 / 注册
               </div>
             </div>
@@ -151,17 +151,17 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
           </div>
 
           {/* 账户额度 + 兑换 */}
-          <div style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.3)", borderRadius: 12, padding: 14, marginBottom: 12 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--selected-border-soft)", borderRadius: 12, padding: 14, marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 12 }}>
               <span style={{ flex: 1 }}>
                 <span style={{ display: "block", fontSize: 11.5, color: "var(--fg-2)", marginBottom: 3 }}>账户额度</span>
                 <span className="mono" style={{ fontSize: 26, lineHeight: 1, fontWeight: 800, color: "var(--gold)" }}>{me.pts}</span>
               </span>
-              <div onClick={() => openModal({ kind: "recharge" })} style={{ flexShrink: 0, width: 72, boxSizing: "border-box", background: "var(--gold)", color: "var(--on-accent)", borderRadius: 8, padding: "9px 0", textAlign: "center", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>购买额度</div>
+              <div onClick={() => openModal({ kind: "recharge" })} style={{ flexShrink: 0, width: 72, boxSizing: "border-box", background: "var(--cta)", color: "var(--on-cta)", borderRadius: 8, padding: "9px 0", textAlign: "center", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>购买额度</div>
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
               <input id="rd2" placeholder="输入兑换码,如 WC2026" className="mono" style={{ flex: 1, minWidth: 0, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, padding: "9px 12px", fontSize: 12, color: "var(--fg)", outline: "none" }} />
-              <div onClick={redeem} style={{ flexShrink: 0, width: 64, boxSizing: "border-box", border: "1px solid rgba(0,200,5,.5)", color: "var(--gold)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>兑换</div>
+              <div onClick={redeem} style={{ flexShrink: 0, width: 64, boxSizing: "border-box", border: "1px solid var(--selected-border-strong)", color: "var(--gold)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>兑换</div>
             </div>
             {rdMsg && <div style={{ fontSize: 11, marginTop: 6, color: rdMsg.ok ? "var(--up)" : "var(--red)" }}>{rdMsg.text}</div>}
           </div>
@@ -270,12 +270,12 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
               style={{ width: "100%", boxSizing: "border-box", background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, fontSize: 12, color: "var(--fg)", outline: "none", resize: "none", lineHeight: 1.6 }}
             />
             {tkMsg && <div style={{ fontSize: 11, color: tkMsg.ok ? "var(--up)" : "var(--red)", marginTop: 5, textAlign: tkMsg.ok ? "center" : "left" }}>{tkMsg.text}</div>}
-            <div onClick={submitTicket} style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 8, textAlign: "center", padding: "9px 0", fontSize: 12, fontWeight: 800, cursor: "pointer", marginTop: 8 }}>提交工单</div>
+            <div onClick={submitTicket} style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 8, textAlign: "center", padding: "9px 0", fontSize: 12, fontWeight: 800, cursor: "pointer", marginTop: 8 }}>提交工单</div>
             {tickets.slice(0, 5).map((t) => (
               <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderTop: "1px solid var(--line-soft)", marginTop: 6 }}>
                 <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)" }}>T{t.id}</span>
                 <span style={{ flex: 1, fontSize: 11, fontWeight: 700 }}>{t.type}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 6px", background: t.status === "处理中" ? "rgba(0,200,5,.14)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 6px", background: t.status === "处理中" ? "var(--selected-bg)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
               </div>
             ))}
           </div>

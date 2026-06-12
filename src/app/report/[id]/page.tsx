@@ -111,7 +111,7 @@ function MobileReportPage({ id }: { id: string }) {
         </Card>
 
         {v.locked && (
-          <div style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.35)", borderRadius: 14, padding: 16, marginTop: 10, textAlign: "center" }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 14, padding: 16, marginTop: 10, textAlign: "center" }}>
             <LockIcon size={22} />
             <div style={{ fontSize: 14, fontWeight: 800, margin: "8px 0 5px" }}>完整概率报告已锁定</div>
             <div style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.7, marginBottom: 12 }}>
@@ -137,7 +137,7 @@ function MobileReportPage({ id }: { id: string }) {
                   className="mono"
                   style={{
                     fontSize: 11.5, fontWeight: 800, cursor: "pointer", borderRadius: 6, padding: "2px 8px",
-                    background: v.ver === vv.ver ? "rgba(0,200,5,.16)" : "var(--inset)",
+                    background: v.ver === vv.ver ? "var(--selected-bg-strong)" : "var(--inset)",
                     color: v.ver === vv.ver ? "var(--gold)" : "var(--fg-2)",
                   }}
                 >
@@ -171,7 +171,7 @@ function MobileReportPage({ id }: { id: string }) {
         {!v.locked && (
           <div
             onClick={() => router.push(`/match/${v.id}`)}
-            style={{ marginTop: 12, textAlign: "center", padding: "11px 0", borderRadius: 10, border: "1px solid rgba(0,200,5,.4)", color: "var(--gold)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            style={{ marginTop: 12, textAlign: "center", padding: "11px 0", borderRadius: 10, border: "1px solid var(--selected-border)", color: "var(--gold)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
           >
             查看比赛详情与实时指数 ›
           </div>

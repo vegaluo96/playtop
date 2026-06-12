@@ -100,7 +100,7 @@ function MobileMovesPage() {
         {!loggedIn && rows.length > 0 && (
           <div
             onClick={() => router.push("/login")}
-            style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.4)", borderRadius: 12, padding: 14, textAlign: "center", cursor: "pointer" }}
+            style={{ background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 12, padding: 14, textAlign: "center", cursor: "pointer" }}
           >
             <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 3 }}>登录后查看全部异动</div>
             <div style={{ fontSize: 11, color: "var(--fg-2)" }}>登录后查看完整异动流 · 新账号含基础报告额度</div>

@@ -1,10 +1,10 @@
-/** 指数洞察:盘路分类(主客视角/四分之一球)、凯利与离散、升降盘、同赔历史 */
+/** 指数洞察:盘路分类(主客视角/四分之一球)、离散度、升降盘、同赔历史 */
 import { beforeEach, describe, expect, it } from "vitest";
 
 process.env.PLAYTOP_DB = ":memory:";
 
 import { db, _resetDbForTest } from "../../src/server/db";
-import { ahResult, euKelly, insightsView, kellyOf, lineTrend, ouResult, payoutRate, teamRoad } from "../../src/server/views/insights";
+import { ahResult, euDispersion, insightsView, lineTrend, ouResult, payoutRate, teamRoad } from "../../src/server/views/insights";
 import type { FixtureRow } from "../../src/server/af/store";
 
 beforeEach(() => _resetDbForTest());
@@ -62,19 +62,17 @@ describe("盘路分类", () => {
   });
 });
 
-describe("凯利/离散/升降盘/返还率", () => {
-  it("euKelly:≥3 家出共识;单家公司报价×共识概率,>1 可识别", () => {
-    const m = euKelly([
+describe("离散度/升降盘/返还率", () => {
+  it("euDispersion:≥3 家出胜平负报价标准差;样本不足不展示", () => {
+    const m = euDispersion([
       { h: 2.0, d: 3.4, a: 3.6 },
       { h: 2.05, d: 3.4, a: 3.5 },
       { h: 2.6, d: 3.3, a: 3.0 }, // 主胜定价明显偏高的一家
     ])!;
     expect(m.books).toBe(3);
-    expect(m.prob.h + m.prob.d + m.prob.a).toBeCloseTo(1, 9);
-    expect(kellyOf(2.6, m.prob.h)!).toBeGreaterThan(1); // 离群家主胜凯利 >1
-    expect(kellyOf(2.0, m.prob.h)!).toBeLessThan(1);
     expect(m.disp.h).toBeGreaterThan(m.disp.d); // 主胜分歧大于平局
-    expect(euKelly([{ h: 2, d: 3.4, a: 3.6 }])).toBeNull(); // 归档样本未达阈值
+    expect(m.method).toContain("离散度");
+    expect(euDispersion([{ h: 2, d: 3.4, a: 3.6 }])).toBeNull(); // 归档样本未达阈值
   });
 
   it("lineTrend 统计升降持平;payoutRate 双向/三向", () => {

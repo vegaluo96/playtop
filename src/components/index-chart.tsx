@@ -5,7 +5,7 @@
  * 十字光标取值、开球分割线、变盘标记、区间切换(全部/24H/滚球)。
  * 数据 = 多书商聚合计价(src/server/views/composite.ts),纯 SVG 无外部依赖。
  */
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { hhmm } from "@/lib/format";
 
 export interface IdxPoint {
@@ -54,6 +54,7 @@ export function IndexChart({
   const [range, setRange] = useState<"all" | "24h" | "live">("all");
   const [hover, setHover] = useState<IdxPoint | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const fillId = useId().replace(/:/g, "");
 
   const pts = useMemo(() => {
     const all = data.points;
@@ -117,7 +118,7 @@ export function IndexChart({
             onClick={() => setRange(r.k)}
             style={{
               fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, padding: "2px 8px",
-              background: range === r.k ? "rgba(0,200,5,.14)" : "var(--inset)",
+              background: range === r.k ? "var(--selected-bg)" : "var(--inset)",
               color: range === r.k ? "var(--gold)" : "var(--fg-3)",
             }}
           >
@@ -138,9 +139,9 @@ export function IndexChart({
         onPointerLeave={() => setHover(null)}
       >
         <defs>
-          <linearGradient id="idxFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(0,200,5,.28)" />
-            <stop offset="100%" stopColor="rgba(0,200,5,0)" />
+          <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--chart-primary)" stopOpacity="0.26" />
+            <stop offset="100%" stopColor="var(--chart-primary)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {ticks.map((tk) => (
@@ -160,13 +161,13 @@ export function IndexChart({
             <text x={koX + 4} y={PAD_T + 9} fontSize="9" fill="var(--red)">开球</text>
           </g>
         )}
-        <path d={area} fill="url(#idxFill)" />
-        <path d={path} fill="none" stroke="var(--gold)" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d={area} fill={`url(#${fillId})`} />
+        <path d={path} fill="none" stroke="var(--chart-primary)" strokeWidth="1.8" strokeLinejoin="round" />
         {markers.map((m, i) => {
           const p = pts.find((pp) => pp.t === m.t);
-          return p ? <circle key={i} cx={x(p.t)} cy={y(p.v)} r="3.2" fill="var(--bg)" stroke="var(--gold)" strokeWidth="1.6" /> : null;
+          return p ? <circle key={i} cx={x(p.t)} cy={y(p.v)} r="3.2" fill="var(--bg)" stroke="var(--chart-primary)" strokeWidth="1.6" /> : null;
         })}
-        <circle cx={x(last.t)} cy={y(last.v)} r="3.4" fill="var(--gold)">
+        <circle cx={x(last.t)} cy={y(last.v)} r="3.4" fill="var(--chart-primary)">
           <animate attributeName="opacity" values="1;.35;1" dur="1.6s" repeatCount="indefinite" />
         </circle>
         {hover && (

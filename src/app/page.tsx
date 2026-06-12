@@ -121,15 +121,15 @@ function MobileMatchesPage() {
           {exLine && <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{exLine}</span>}
           <span style={{ flex: 1 }} />
           {m.moved && (
-            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid rgba(0,200,5,.45)", borderRadius: 4, padding: "1px 6px" }}>异动</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid var(--selected-border)", borderRadius: 4, padding: "1px 6px" }}>异动</span>
           )}
           {tag && (
             <span
               style={{
                 fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px",
-                background: m.masked ? "rgba(0,200,5,.12)" : m.free ? "rgba(46,204,138,.12)" : "var(--inset)",
+                background: m.masked ? "var(--selected-bg)" : m.free ? "rgba(46,204,138,.12)" : "var(--inset)",
                 color: m.masked ? "var(--gold)" : m.free ? "var(--green)" : "var(--fg-2)",
-                border: `1px solid ${m.masked ? "rgba(0,200,5,.4)" : m.free ? "rgba(46,204,138,.4)" : "var(--line)"}`,
+                border: `1px solid ${m.masked ? "var(--selected-border)" : m.free ? "rgba(46,204,138,.4)" : "var(--line)"}`,
               }}
             >
               {tag}
@@ -148,7 +148,7 @@ function MobileMatchesPage() {
               <Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} />
             </div>
             <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--gold)", background: "rgba(0,200,5,.12)", borderRadius: 3, padding: "1px 5px" }}>客</span>
+              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--team-away)", background: "var(--team-away-bg)", borderRadius: 3, padding: "1px 5px" }}>客</span>
               <TeamLogo id={m.awayId} name={m.away} size={16} />
               <span style={{ fontSize: 15, fontWeight: 600, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.away}</span>
             </div>
@@ -183,9 +183,9 @@ function MobileMatchesPage() {
               className={league === String(l.id) ? "wcglow" : undefined}
               style={{
                 position: "relative", overflow: "hidden", flexShrink: 0, padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 750, cursor: "pointer",
-                background: league === String(l.id) ? "rgba(0,200,5,.16)" : "var(--card)",
+                background: league === String(l.id) ? "var(--selected-bg-strong)" : "var(--card)",
                 color: league === String(l.id) ? "var(--gold)" : "var(--fg-2)",
-                border: `1px solid ${league === String(l.id) ? "rgba(0,200,5,.65)" : "rgba(0,200,5,.28)"}`,
+                border: `1px solid ${league === String(l.id) ? "var(--selected-border-strong)" : "var(--selected-border-soft)"}`,
               }}
             >
               {league === String(l.id) && (
@@ -242,7 +242,7 @@ function MobileMatchesPage() {
                 setDay(d.k);
                 setDateOpen(false);
               }}
-              style={{ textAlign: "center", padding: "10px 0", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", background: day === d.k ? "rgba(0,200,5,.14)" : "var(--inset)", color: day === d.k ? "var(--gold)" : "var(--fg-mid)" }}
+              style={{ textAlign: "center", padding: "10px 0", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", background: day === d.k ? "var(--selected-bg)" : "var(--inset)", color: day === d.k ? "var(--gold)" : "var(--fg-mid)" }}
             >
               {d.label}
             </div>

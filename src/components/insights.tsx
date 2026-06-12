@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 盘路/同赔/疲劳/凯利汇总条(移动/桌面共用),数据见 src/server/views/insights.ts。
+ * 盘路/同赔/疲劳/市场分歧汇总条(移动/桌面共用),数据见 src/server/views/insights.ts。
  * 全部由本站归档真实数据推导;归档样本未达阈值时各卡自行隐藏或如实标注。
  */
 
@@ -16,8 +16,8 @@ const RES_STYLE: Record<string, { bg: string; c: string }> = {
   走: { bg: "rgba(139,148,168,.14)", c: "var(--fg-3)" },
   输半: { bg: "rgba(255,92,92,.10)", c: "var(--red)" },
   输: { bg: "rgba(255,92,92,.16)", c: "var(--red)" },
-  大: { bg: "rgba(0,200,5,.16)", c: "var(--gold)" },
-  大半: { bg: "rgba(0,200,5,.10)", c: "var(--gold)" },
+  大: { bg: "var(--selected-bg-strong)", c: "var(--gold)" },
+  大半: { bg: "var(--selected-bg)", c: "var(--gold)" },
   小: { bg: "rgba(63,140,255,.16)", c: "var(--home)" },
   小半: { bg: "rgba(63,140,255,.10)", c: "var(--home)" },
 };
@@ -73,7 +73,7 @@ function RoadCard({ team, color, data, kind }: { team: string; color: string; da
           <div key={i} style={{ display: "grid", gridTemplateColumns: "48px 1fr 24px 48px 58px 40px", gap: 5, padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
             <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)" }}>{r.d}</span>
             <span style={{ fontSize: 12, color: "var(--fg-mid)", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.opp}</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: r.ha === "主" ? "var(--home)" : "var(--gold)" }}>{r.ha}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: r.ha === "主" ? "var(--home)" : "var(--team-away)" }}>{r.ha}</span>
             <span className="mono" style={{ fontSize: 12, fontWeight: 700, textAlign: "center" }}>{r.score}</span>
             <MarketValue v={r.line} className="" small dim style={{ justifyContent: "flex-end" }} />
             <span style={{ justifySelf: "end", width: 34, textAlign: "center", fontSize: 11.5, fontWeight: 800, borderRadius: 5, padding: "2px 0", background: s.bg, color: s.c }}>{r.res}</span>
@@ -93,12 +93,12 @@ export function RoadSection({ ins, home, away }: { ins: V; home: string; away: s
       <div style={{ fontSize: 13.5, fontWeight: 750, margin: "8px 4px" }}>让球盘路 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>临场盘 × 官方比分 · 近 10 场</span></div>
       <div style={grid}>
         <RoadCard team={home} color="var(--home)" data={ins.road.home?.ah} kind="ah" />
-        <RoadCard team={away} color="var(--gold)" data={ins.road.away?.ah} kind="ah" />
+        <RoadCard team={away} color="var(--team-away)" data={ins.road.away?.ah} kind="ah" />
       </div>
       <div style={{ fontSize: 13, fontWeight: 700, margin: "14px 4px 8px" }}>大小盘路</div>
       <div style={grid}>
         <RoadCard team={home} color="var(--home)" data={ins.road.home?.ou} kind="ou" />
-        <RoadCard team={away} color="var(--gold)" data={ins.road.away?.ou} kind="ou" />
+        <RoadCard team={away} color="var(--team-away)" data={ins.road.away?.ou} kind="ou" />
       </div>
     </>
   );
@@ -162,7 +162,7 @@ export function FatigueCard({ fa, home, away, style }: { fa: V; home: string; aw
     <div style={{ ...box, padding: "10px 14px", ...style }}>
       <div style={{ fontSize: 12.5, fontWeight: 750, marginBottom: 4 }}>体能与赛程 <span style={{ fontSize: 11.5, color: "var(--fg-3)", fontWeight: 400 }}>仅统计本站收录赛事</span></div>
       {row(home, "var(--home)", fa.home)}
-      {row(away, "var(--gold)", fa.away)}
+      {row(away, "var(--team-away)", fa.away)}
       <div style={{ fontSize: 11.5, color: "var(--fg-3)", paddingTop: 4 }}>休整 ≤3 天或一周多赛,轮换与体能因素对指数影响加大</div>
     </div>
   );

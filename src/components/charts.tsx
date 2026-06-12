@@ -46,14 +46,14 @@ export function LineChart({ rows, id }: { rows: ChartRow[]; id: string }) {
       })}
       {ci >= 0 && (
         <g>
-          <line x1={x(ci)} x2={x(ci)} y1={T - 4} y2={H - B} stroke="var(--gold)" strokeDasharray="3 3" strokeWidth="1" />
-          <text x={x(ci)} y={T - 6} fill="var(--gold)" fontSize="8" textAnchor="middle" fontWeight="700">
+          <line x1={x(ci)} x2={x(ci)} y1={T - 4} y2={H - B} stroke="var(--accent-2)" strokeDasharray="3 3" strokeWidth="1" />
+          <text x={x(ci)} y={T - 6} fill="var(--accent-2)" fontSize="8" textAnchor="middle" fontWeight="700">
             变盘
           </text>
         </g>
       )}
       <polyline points={pts("h")} fill="none" stroke="var(--home)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      <polyline points={pts("a")} fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={pts("a")} fill="none" stroke="var(--team-away)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
       {hasD && <polyline points={pts("d")} fill="none" stroke="var(--fg-2)" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />}
       {rows.map((r, i) =>
         labelIdx.has(i) ? (
@@ -63,7 +63,7 @@ export function LineChart({ rows, id }: { rows: ChartRow[]; id: string }) {
         ) : null,
       )}
       <circle cx={x(rows.length - 1)} cy={y(rows[rows.length - 1].h)} r="2.6" fill="var(--home)" />
-      <circle cx={x(rows.length - 1)} cy={y(rows[rows.length - 1].a)} r="2.6" fill="var(--gold)" />
+      <circle cx={x(rows.length - 1)} cy={y(rows[rows.length - 1].a)} r="2.6" fill="var(--team-away)" />
       {hasD && <circle cx={x(rows.length - 1)} cy={y(rows[rows.length - 1].d!)} r="2.4" fill="var(--fg-2)" />}
     </svg>
   );
@@ -93,14 +93,14 @@ export function ProbBar({ pH, pD, pA }: { pH: number; pD: number; pA: number }) 
         <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 700 }}>
           平 <span className="mono">{pD}%</span>
         </span>
-        <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 700 }}>
+        <span style={{ fontSize: 11, color: "var(--team-away)", fontWeight: 700 }}>
           客胜 <span className="mono">{pA}%</span>
         </span>
       </div>
       <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", gap: 2, marginBottom: 9 }}>
         <div style={{ background: "var(--home)", width: `${pH}%` }} />
         <div style={{ background: "var(--line)", width: `${pD}%` }} />
-        <div style={{ background: "var(--gold)", width: `${pA}%` }} />
+        <div style={{ background: "var(--team-away)", width: `${pA}%` }} />
       </div>
     </>
   );

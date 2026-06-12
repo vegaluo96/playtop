@@ -31,44 +31,44 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
     cv.width = 640;
     cv.height = 760;
     const x = cv.getContext("2d")!;
-    x.fillStyle = "#0b0f0d";
+    x.fillStyle = "#0b0d0f";
     x.fillRect(0, 0, 640, 760);
-    x.strokeStyle = "rgba(0,200,5,.5)";
+    x.strokeStyle = "#3a4249";
     x.lineWidth = 3;
     x.strokeRect(14, 14, 612, 732);
     x.textAlign = "center";
-    x.fillStyle = "#eceef2";
+    x.fillStyle = "#f5f7f8";
     x.font = "800 44px sans-serif";
     x.fillText("足球终端", 320, 110);
-    x.fillStyle = "#829087";
+    x.fillStyle = "#7f8992";
     x.font = "22px monospace";
     x.fillText(SITE_HOST, 320, 150);
-    x.fillStyle = "#eceef2";
+    x.fillStyle = "#f5f7f8";
     x.font = "800 40px sans-serif";
     x.fillText(data.title, 320, 270);
-    x.fillStyle = "#829087";
+    x.fillStyle = "#7f8992";
     x.font = "24px sans-serif";
     x.fillText(data.sub, 320, 315);
     const rows: [string, string][] = [["让球", data.v1], ["大小", data.v2], ["胜平负", data.v3]];
     rows.forEach((r, i) => {
       const y = 380 + i * 90;
-      x.fillStyle = "#171d19";
+      x.fillStyle = "#181b20";
       x.fillRect(60, y, 520, 68);
-      x.fillStyle = "#829087";
+      x.fillStyle = "#7f8992";
       x.font = "20px sans-serif";
       x.textAlign = "left";
       x.fillText(r[0], 84, y + 42);
-      x.fillStyle = "#00c805";
+      x.fillStyle = "#edf2f4";
       x.font = "700 26px monospace";
       x.textAlign = "right";
       x.fillText(r[1], 556, y + 44);
       x.textAlign = "center";
     });
-    x.fillStyle = "#5e6b63";
+    x.fillStyle = "#59626b";
     x.font = "20px sans-serif";
-	    x.fillText("登录查看完整指数与报告", 320, 690);
+    x.fillText("登录查看完整指数与报告", 320, 690);
     if (data.inviteCode) {
-      x.fillStyle = "#00c805";
+      x.fillStyle = "#edf2f4";
       x.font = "700 22px monospace";
       x.fillText(`邀请码 ${data.inviteCode}`, 320, 722);
     }
@@ -82,9 +82,9 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
     <Sheet open={open} onClose={onClose}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
         <span style={{ fontSize: 15, fontWeight: 800 }}>分享</span>
-	        <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>好友经邀请链接进入,你 +1 额度</span>
+        <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>好友经邀请链接进入,你 +1 额度</span>
       </div>
-      <div style={{ background: "var(--inset)", border: "1px solid rgba(0,200,5,.45)", borderRadius: 12, padding: 14, marginBottom: 10 }}>
+      <div style={{ background: "var(--inset)", border: "1px solid var(--selected-border)", borderRadius: 12, padding: 14, marginBottom: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span style={{ fontSize: 13, fontWeight: 800 }}>
             足球<span style={{ color: "var(--gold)" }}>终端</span>
@@ -112,7 +112,7 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
         <span className="mono" style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "var(--gold)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {data.url}
         </span>
-	        <div onClick={copy} style={{ flexShrink: 0, border: "1px solid rgba(0,200,5,.5)", color: "var(--gold)", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+        <div onClick={copy} style={{ flexShrink: 0, border: "1px solid var(--selected-border-strong)", color: "var(--gold)", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
           复制
         </div>
       </div>

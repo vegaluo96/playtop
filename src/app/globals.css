@@ -1,32 +1,52 @@
 @import "tailwindcss";
 
-/* ── 设计 token:Robinhood 式行情终端基调 ──
-   所有红/绿语义(升降、✓✗、盈亏)一律走 --up/--down,
-   用户在「我 · 涨跌配色」切换 data-scheme,严禁写死。 */
+/* ── 设计 token:Robinhood 极简行情终端基调 ──
+   绿色只保留给少量 CTA / success / 真实行情变化;选中态、客队、品牌与面板强调走中性 token。 */
 :root {
-  --bg: #0b0f0d;
-  --card: #111713;
-  --inset: #171d19;
-  --line: #27332b;
-  --line-soft: #1f2923;
-  --fg: #f4f8f5;
-  --fg-2: #b7c3bb;
-  --fg-3: #829087;
-  --fg-4: #5e6b63;
-  --fg-mid: #dce5df;
-  --gold: #00c805;
-  --gold-2: #00a805;
-  --on-accent: #001b08;
-  --accent-bg: rgba(0, 200, 5, 0.12);
-  --accent-border: rgba(0, 200, 5, 0.34);
+  --bg: #0b0d0f;
+  --card: #111418;
+  --inset: #181b20;
+  --line: #2a3036;
+  --line-soft: #20262b;
+  --fg: #f5f7f8;
+  --fg-2: #b9c0c7;
+  --fg-3: #7f8992;
+  --fg-4: #59626b;
+  --fg-mid: #dfe5e9;
+  --accent: #edf2f4;
+  --accent-2: #c8d1d7;
+  --cta: #00c805;
+  --cta-2: #00a805;
+  --on-cta: #001b08;
+  --selected-bg-soft: rgba(237, 242, 244, 0.045);
+  --selected-bg: rgba(237, 242, 244, 0.075);
+  --selected-bg-strong: rgba(237, 242, 244, 0.115);
+  --selected-border-soft: rgba(237, 242, 244, 0.14);
+  --selected-border: rgba(237, 242, 244, 0.24);
+  --selected-border-strong: rgba(237, 242, 244, 0.38);
+  --accent-bg: var(--selected-bg);
+  --accent-border: var(--selected-border);
+  --on-accent: #08100b;
   --danger-bg: rgba(255, 82, 82, 0.13);
   --warn: #f2b84b;
   --warn-bg: rgba(242, 184, 75, 0.12);
   --warn-border: rgba(242, 184, 75, 0.32);
-  --home: #3f8cff;
-  --home-bg: rgba(63, 140, 255, 0.12);
+  --team-home: #78a8ff;
+  --team-away: #d8c99b;
+  --team-home-bg: rgba(120, 168, 255, 0.12);
+  --team-away-bg: rgba(216, 201, 155, 0.12);
+  --chart-primary: var(--cta);
+  --chart-primary-2: var(--cta-2);
+  --home: var(--team-home);
+  --home-bg: var(--team-home-bg);
   --red: #ff5c5c;
-  --green: #00c805;
+  --green: var(--cta);
+  --success: var(--cta);
+  --success-bg: rgba(0, 200, 5, 0.10);
+  --success-border: rgba(0, 200, 5, 0.28);
+  /* legacy aliases: old components used "gold" as the single accent. It is now neutral. */
+  --gold: var(--accent);
+  --gold-2: var(--accent-2);
   /* 默认红升绿降 */
   --up: var(--red);
   --down: var(--green);
@@ -36,29 +56,49 @@
   --down: var(--red);
 }
 [data-theme="light"] {
-  --bg: #f7faf8;
+  --bg: #f7f8f8;
   --card: #ffffff;
-  --inset: #f1f5f2;
-  --line: #dce6df;
-  --line-soft: #edf3ef;
-  --fg: #0f1712;
-  --fg-2: #526158;
-  --fg-3: #7a877f;
-  --fg-4: #a2aea7;
-  --fg-mid: #25322a;
-  --gold: #00a000;
-  --gold-2: #008f05;
+  --inset: #f1f3f4;
+  --line: #dfe4e7;
+  --line-soft: #edf0f2;
+  --fg: #101418;
+  --fg-2: #56616a;
+  --fg-3: #7b858e;
+  --fg-4: #a0a8af;
+  --fg-mid: #263039;
+  --accent: #111418;
+  --accent-2: #4d5963;
+  --cta: #00a805;
+  --cta-2: #008f05;
+  --on-cta: #ffffff;
+  --selected-bg-soft: rgba(17, 20, 24, 0.035);
+  --selected-bg: rgba(17, 20, 24, 0.06);
+  --selected-bg-strong: rgba(17, 20, 24, 0.10);
+  --selected-border-soft: rgba(17, 20, 24, 0.10);
+  --selected-border: rgba(17, 20, 24, 0.18);
+  --selected-border-strong: rgba(17, 20, 24, 0.30);
+  --accent-bg: var(--selected-bg);
+  --accent-border: var(--selected-border);
   --on-accent: #ffffff;
-  --accent-bg: rgba(0, 160, 0, 0.10);
-  --accent-border: rgba(0, 160, 0, 0.28);
   --danger-bg: rgba(217, 48, 48, 0.10);
   --warn: #9a6700;
   --warn-bg: rgba(154, 103, 0, 0.10);
   --warn-border: rgba(154, 103, 0, 0.26);
-  --home: #2563eb;
-  --home-bg: rgba(37, 99, 235, 0.10);
+  --team-home: #2563eb;
+  --team-away: #8b6f31;
+  --team-home-bg: rgba(37, 99, 235, 0.10);
+  --team-away-bg: rgba(139, 111, 49, 0.10);
+  --chart-primary: var(--cta);
+  --chart-primary-2: var(--cta-2);
+  --home: var(--team-home);
+  --home-bg: var(--team-home-bg);
   --red: #d93030;
-  --green: #00a000;
+  --green: var(--cta);
+  --success: var(--cta);
+  --success-bg: rgba(0, 168, 5, 0.10);
+  --success-border: rgba(0, 168, 5, 0.24);
+  --gold: var(--accent);
+  --gold-2: var(--accent-2);
 }
 
 html,

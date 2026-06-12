@@ -69,7 +69,7 @@ export default function AdminPage() {
           <input id="ad-email" type="email" placeholder="管理员邮箱" style={{ width: "100%", boxSizing: "border-box", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px", fontSize: 13, color: "var(--fg)", outline: "none", marginBottom: 10 }} />
           <input id="ad-pass" type="password" placeholder="密码" onKeyDown={(e) => e.key === "Enter" && void login()} style={{ width: "100%", boxSizing: "border-box", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px", fontSize: 13, color: "var(--fg)", outline: "none", marginBottom: 12 }} />
           {err && <div style={{ fontSize: 11, color: "var(--red)", marginBottom: 10 }}>{err}</div>}
-          <div onClick={() => void login()} style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 10, textAlign: "center", padding: "12px 0", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>登录后台</div>
+          <div onClick={() => void login()} style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 10, textAlign: "center", padding: "12px 0", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>登录后台</div>
         </div>
       </div>
     );
@@ -104,7 +104,7 @@ export default function AdminPage() {
             <div
               key={k}
               onClick={() => setView(k)}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 9, cursor: "pointer", marginBottom: 4, background: view === k ? "rgba(0,200,5,.1)" : "transparent", color: view === k ? "var(--gold)" : "var(--fg-2)" }}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 9, cursor: "pointer", marginBottom: 4, background: view === k ? "var(--selected-bg)" : "transparent", color: view === k ? "var(--gold)" : "var(--fg-2)" }}
             >
               <span style={{ fontSize: 12.5, fontWeight: 700 }}>{label}</span>
               <span style={{ flex: 1 }} />

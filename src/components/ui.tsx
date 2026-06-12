@@ -67,8 +67,8 @@ export function GoldBtn({ label, onClick, style }: { label: string; onClick: () 
     <div
       onClick={onClick}
       style={{
-        background: "var(--gold)",
-        color: "var(--on-accent)",
+        background: "var(--cta)",
+        color: "var(--on-cta)",
         borderRadius: 10,
         textAlign: "center",
         padding: "12px 0",

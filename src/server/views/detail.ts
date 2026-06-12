@@ -13,7 +13,7 @@ import { kvCached, kvGet, latestOddsRaw } from "../af/store";
 import { parseExtraMarkets } from "../af/markets";
 import { synthEventsOf } from "../af/events-synth";
 import { matchWeather } from "../platform/weather";
-import { euKelly, insightsView, kellyOf, lineTrend, payoutRate } from "./insights";
+import { euDispersion, insightsView, lineTrend, payoutRate } from "./insights";
 import { runAfEndpoint } from "../af/catalog";
 import type { Panorama } from "../af/panorama";
 import { formZh, predSummary } from "./common";
@@ -202,7 +202,7 @@ async function deepView(p: Panorama, lineups: LineupsView) {
       v: v(it),
     }));
   const lb = [
-    { tag: "射手榜", tagC: "#00c805", rows: board(d.topscorers, (it) => `${stat0(it, "goals", "total") ?? 0} 球`) },
+    { tag: "射手榜", tagC: "var(--chart-primary)", rows: board(d.topscorers, (it) => `${stat0(it, "goals", "total") ?? 0} 球`) },
     { tag: "助攻榜", tagC: "#3f8cff", rows: board(d.topassists, (it) => `${stat0(it, "goals", "assists") ?? 0} 助攻`) },
     { tag: "黄牌榜", tagC: "#f2b84b", rows: board(d.topyellow, (it) => `${stat0(it, "cards", "yellow") ?? 0} 黄`) },
     { tag: "红牌榜", tagC: "var(--red)", rows: board(d.topred, (it) => `${stat0(it, "cards", "red") ?? 0} 红`) },
@@ -503,8 +503,8 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       waterChanged: c.first.h !== c.last.h || c.first.a !== c.last.a,
       chgAt: c.last.captured_at,
     }));
-  // ② 凯利指数 + 离散度(≥3 家才有共识意义);④ 升降盘方向 + 返还率首末对照
-  const euMeta = euKelly(p.odds.compareEu.map((c) => c.last));
+  // ② 胜平负离散度(≥3 家才有共识意义);④ 升降盘方向 + 返还率首末对照
+  const euMeta = euDispersion(p.odds.compareEu.map((c) => c.last));
   const compEu = p.odds.compareEu.map((c) => ({
     co: maskBookmaker(c.bookmaker),
     bid: c.last.bookmaker_id,
@@ -512,7 +512,6 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     nW: `${f2(c.last.h)} / ${f2(c.last.d ?? 0)} / ${f2(c.last.a)}`,
     changed: c.first.h !== c.last.h || c.first.d !== c.last.d || c.first.a !== c.last.a,
     chgAt: c.last.captured_at,
-    k: euMeta ? [kellyOf(c.last.h, euMeta.prob.h), kellyOf(c.last.d ?? null, euMeta.prob.d), kellyOf(c.last.a, euMeta.prob.a)] : null,
   }));
   // ah/ou 快照存净水,返还率按欧赔小数(净水+1)计算
   const dec = (s: SnapRow | null) => (s ? { h: s.h + 1, a: s.a + 1 } : null);

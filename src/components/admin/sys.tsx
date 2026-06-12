@@ -83,12 +83,12 @@ export function TicketsView() {
             <div
               key={t.id}
               onClick={() => setSelId(t.id)}
-              style={{ padding: "11px 14px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer", borderLeft: `3px solid ${sel?.id === t.id ? "var(--gold)" : "transparent"}`, background: sel?.id === t.id ? "rgba(0,200,5,.06)" : "transparent" }}
+              style={{ padding: "11px 14px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer", borderLeft: `3px solid ${sel?.id === t.id ? "var(--gold)" : "transparent"}`, background: sel?.id === t.id ? "var(--selected-bg-soft)" : "transparent" }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                 <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>T{t.id}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, flex: 1 }}>{t.type}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: t.status === "处理中" ? "rgba(0,200,5,.14)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: t.status === "处理中" ? "var(--selected-bg)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <span style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.body}</span>
@@ -286,7 +286,7 @@ export function SettingsView() {
   const KeyRow = ({ masked, which, label }: { masked: string; which: string; label: string }) => (
     <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
       <input value={masked} readOnly className="mono" style={{ flex: 1, minWidth: 0, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, padding: "9px 12px", fontSize: 12, color: "var(--fg-2)", outline: "none" }} />
-      <span onClick={() => void setKey(which, label)} style={{ flexShrink: 0, border: "1px solid rgba(0,200,5,.5)", color: "var(--gold)", borderRadius: 8, display: "flex", alignItems: "center", padding: "0 14px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>更换</span>
+      <span onClick={() => void setKey(which, label)} style={{ flexShrink: 0, border: "1px solid var(--selected-border-strong)", color: "var(--gold)", borderRadius: 8, display: "flex", alignItems: "center", padding: "0 14px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>更换</span>
     </div>
   );
 

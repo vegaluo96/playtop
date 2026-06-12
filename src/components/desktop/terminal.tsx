@@ -29,6 +29,7 @@ export type DModal =
   | { kind: "recharge" }
   | { kind: "refresh" }
   | { kind: "record" }
+  | { kind: "watch" }
   | { kind: "move"; data: V }
   | { kind: "ledger" }
   | { kind: "invlog" }
@@ -69,6 +70,15 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   const leagueChips = siteCfg?.leagues ?? LEAGUES.map((l) => ({ id: l.id, zh: l.zh, color: l.color, on: true, wc: l.wc }));
   const watch = useWatchlist(me.loggedIn);
   const [radar, setRadar] = useState<V[]>([]); // 滚球雷达:全部进行中场次(右栏全局视野)
+  const [compactDesktop, setCompactDesktop] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1239px)");
+    const update = () => setCompactDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   /* ── 取数 ── */
   const loadRows = useCallback(async () => {
@@ -218,13 +228,23 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.5 }}>
             足球<span style={{ color: "var(--gold)" }}>终端</span>
           </span>
-          <span style={{ fontSize: 11, color: "var(--fg-3)" }}>让球指数 · 大小指数 · 胜平负指数</span>
+          <span style={{ display: compactDesktop ? "none" : "inline", fontSize: 11, color: "var(--fg-3)" }}>让球指数 · 大小指数 · 胜平负指数</span>
         </div>
         <span style={{ width: 1, height: 20, background: "var(--line)" }} />
-        <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>
+        <span className="mono" style={{ display: compactDesktop ? "none" : "inline", fontSize: 11, color: "var(--fg-2)" }}>
           {mdLabel(Date.now(), prefs.tz)} · {prefs.tz}
         </span>
         <span style={{ flex: 1 }} />
+        {compactDesktop && (
+          <button
+            type="button"
+            onClick={() => setModal({ kind: "watch" })}
+            style={{ display: "flex", alignItems: "center", gap: 7, background: "var(--selected-bg)", color: "var(--fg)", border: "1px solid var(--selected-border)", borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            盯盘
+            <span className="mono" style={{ color: radar.length > 0 ? "var(--red)" : "var(--fg-3)" }}>{radar.length}/{moves.length}</span>
+          </button>
+        )}
         {/* 与移动端页头同构:第一行真实盯盘状态,第二行数据刷新规则入口 */}
         <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
           <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} rtt={rtt} />
@@ -244,7 +264,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
         ) : (
           <span
             onClick={() => router.push("/login")}
-            style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 8, padding: "6px 16px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}
+            style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 8, padding: "6px 16px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}
           >
             登录 / 注册
           </span>
@@ -252,7 +272,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
       </div>
 
       {/* ===== 三栏 ===== */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "minmax(340px,420px) minmax(0,1fr) minmax(300px,380px)", minHeight: 0 }}>
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: compactDesktop ? "minmax(320px,360px) minmax(0,1fr)" : "minmax(340px,420px) minmax(0,1fr) minmax(300px,380px)", minHeight: 0 }}>
         {/* 左栏 · 赛事列表 */}
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderRight: "1px solid var(--line)", background: "var(--bg)" }}>
           <div style={{ flexShrink: 0, padding: "12px 14px 8px" }}>
@@ -265,7 +285,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   return [`d${n}`, `周${"日一二三四五六"[d.getUTCDay()]} ${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`];
                 }),
               ].map(([k, label]) => (
-                <div key={k} onClick={() => setDay(k)} style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", background: day === k ? "rgba(0,200,5,.14)" : "var(--card)", color: day === k ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${day === k ? "rgba(0,200,5,.45)" : "var(--line)"}` }}>
+                <div key={k} onClick={() => setDay(k)} style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", background: day === k ? "var(--selected-bg)" : "var(--card)", color: day === k ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${day === k ? "var(--selected-border)" : "var(--line)"}` }}>
                   {label}
                 </div>
               ))}
@@ -283,11 +303,11 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
               {[{ id: "all", zh: "全部", color: "", wc: false }, ...leagueChips.map((l) => ({ id: String(l.id), zh: l.zh, color: l.color, wc: !!l.wc }))].map((l) => {
                 const active = league === l.id;
                 return l.wc ? (
-                  <div key={l.id} onClick={() => setLeague(l.id)} className={active ? "wcglow" : undefined} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, cursor: "pointer", background: active ? "rgba(0,200,5,.16)" : "var(--card)", color: active ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${active ? "rgba(0,200,5,.65)" : "rgba(0,200,5,.28)"}` }}>
+                  <div key={l.id} onClick={() => setLeague(l.id)} className={active ? "wcglow" : undefined} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, cursor: "pointer", background: active ? "var(--selected-bg-strong)" : "var(--card)", color: active ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${active ? "var(--selected-border-strong)" : "var(--selected-border-soft)"}` }}>
                     <span style={{ color: "var(--gold)" }}>★</span> {l.zh}
                   </div>
                 ) : (
-                  <div key={l.id} onClick={() => setLeague(l.id)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", background: active ? "rgba(0,200,5,.14)" : "var(--card)", color: active ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${active ? "rgba(0,200,5,.45)" : "var(--line)"}` }}>
+                  <div key={l.id} onClick={() => setLeague(l.id)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer", background: active ? "var(--selected-bg)" : "var(--card)", color: active ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${active ? "var(--selected-border)" : "var(--line)"}` }}>
                     {l.zh}
                   </div>
                 );
@@ -314,7 +334,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 <div
                   key={m.id}
                   onClick={() => (m.masked ? router.push("/login") : gotoMatchOdds(m.id))}
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 10px 10px", cursor: "pointer", borderBottom: "1px solid var(--card)", borderLeft: `3px solid ${selected ? "var(--gold)" : "transparent"}`, background: selected ? "rgba(0,200,5,.07)" : "transparent" }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 10px 10px", cursor: "pointer", borderBottom: "1px solid var(--card)", borderLeft: `3px solid ${selected ? "var(--gold)" : "transparent"}`, background: selected ? "var(--selected-bg-soft)" : "transparent" }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden" }}>
@@ -340,7 +360,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                         {m.home} <span style={{ color: "var(--fg-3)", fontWeight: 400 }}>vs</span> {m.away}
                       </span>
                       {tag && (
-                        <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 3, padding: "1px 5px", flexShrink: 0, whiteSpace: "nowrap", background: m.free && !m.masked ? "rgba(46,204,138,.12)" : "rgba(0,200,5,.12)", color: m.free && !m.masked ? "var(--green)" : "var(--gold)" }}>{tag}</span>
+                        <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 3, padding: "1px 5px", flexShrink: 0, whiteSpace: "nowrap", background: m.free && !m.masked ? "rgba(46,204,138,.12)" : "var(--selected-bg)", color: m.free && !m.masked ? "var(--green)" : "var(--gold)" }}>{tag}</span>
                       )}
                     </div>
                   </div>
@@ -373,7 +393,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
         <CenterPane detail={detail} tab={tab} setTab={setTab} pred={pred} requestUnlock={requestUnlock} tz={prefs.tz} loggedIn={me.loggedIn} />
 
         {/* 右栏 · 滚球雷达 + 异动 + 本场报告 */}
-        <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderLeft: "1px solid var(--line)", background: "var(--bg)" }}>
+        {!compactDesktop && <div style={{ display: "flex", flexDirection: "column", minHeight: 0, borderLeft: "1px solid var(--line)", background: "var(--bg)" }}>
           {radar.length > 0 && (
             <div style={{ flexShrink: 0, maxHeight: "30%", display: "flex", flexDirection: "column", borderBottom: "1px solid var(--line)" }}>
               <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "12px 14px 8px" }}>
@@ -386,7 +406,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   <div
                     key={r.id}
                     onClick={() => (r.masked ? router.push("/login") : gotoMatchOdds(r.id))}
-                    style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 8px", borderRadius: 7, cursor: "pointer", background: sel === r.id ? "rgba(0,200,5,.08)" : "transparent" }}
+                    style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 8px", borderRadius: 7, cursor: "pointer", background: sel === r.id ? "var(--selected-bg-soft)" : "transparent" }}
                   >
                     <span className="mono" style={{ flexShrink: 0, width: 30, fontSize: 11.5, color: "var(--red)", fontWeight: 800 }}>{r.ht ? "中场" : r.elapsed != null ? `${r.elapsed}'` : "LIVE"}</span>
                     <span style={{ flex: 1, minWidth: 0, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -408,7 +428,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
             </div>
             <div style={{ flexShrink: 0, display: "flex", gap: 6, padding: "0 14px 8px" }}>
               {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
-                <div key={l} onClick={() => setMonF(l)} style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: "pointer", background: monF === l ? "rgba(0,200,5,.14)" : "var(--card)", color: monF === l ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${monF === l ? "rgba(0,200,5,.45)" : "var(--line)"}` }}>
+                <div key={l} onClick={() => setMonF(l)} style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: "pointer", background: monF === l ? "var(--selected-bg)" : "var(--card)", color: monF === l ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${monF === l ? "var(--selected-border)" : "var(--line)"}` }}>
                   {l}
                 </div>
               ))}
@@ -441,7 +461,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 </div>
               ))}
               {!movesLoggedIn && moves.length > 0 && (
-                <div onClick={() => router.push("/login")} style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.4)", borderRadius: 8, padding: 12, textAlign: "center", cursor: "pointer" }}>
+                <div onClick={() => router.push("/login")} style={{ background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 8, padding: 12, textAlign: "center", cursor: "pointer" }}>
                   <div style={{ fontSize: 11.5, fontWeight: 800, marginBottom: 2 }}>登录后查看全部异动</div>
                   <div style={{ fontSize: 11, color: "var(--fg-2)" }}>登录后查看完整异动流 · 新账号含基础报告额度</div>
                 </div>
@@ -496,7 +516,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                     <>
                       <div
                         onClick={() => requestUnlock({ id: pred.id, match: pred.match, price: pred.price })}
-                        style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 8, textAlign: "center", padding: "10px 0", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+                        style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 8, textAlign: "center", padding: "10px 0", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
                       >
                         {pred.lockText}
                       </div>
@@ -504,7 +524,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                     </>
                   ) : (
                     <>
-                      <div onClick={() => setTab("report")} style={{ border: "1px solid rgba(0,200,5,.5)", color: "var(--gold)", borderRadius: 8, textAlign: "center", padding: "9px 0", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                      <div onClick={() => setTab("report")} style={{ border: "1px solid var(--selected-border-strong)", color: "var(--gold)", borderRadius: 8, textAlign: "center", padding: "9px 0", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
                         查看 AI 概率报告 ›
                       </div>
                       <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--fg-3)", marginTop: 6 }}>已解锁 · 可回看</div>
@@ -549,13 +569,13 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
               <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--fg-3)", padding: "10px 8px 0", lineHeight: 1.6 }}>快照生成 · 详情页查看版本</div>
             </div>
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* ===== 基础报告额度 ===== */}
       {me.loggedIn && me.giftPending && (
         <div style={{ position: "absolute", inset: 0, zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(4,5,9,.78)" }}>
-          <div style={{ width: 340, background: "var(--card)", border: "1px solid rgba(0,200,5,.5)", borderRadius: 18, padding: "24px 22px", textAlign: "center" }}>
+          <div style={{ width: 340, background: "var(--card)", border: "1px solid var(--selected-border-strong)", borderRadius: 18, padding: "24px 22px", textAlign: "center" }}>
             <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 20, fontWeight: 800, color: "var(--on-accent)" }}>AI</div>
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 6 }}>基础报告额度</div>
             <div style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.7, marginBottom: 16 }}>
@@ -568,7 +588,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 await fetch("/api/wallet", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "gift" }) });
                 await refreshMe();
               }}
-              style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 10, padding: "12px 0", fontSize: 14, fontWeight: 800, cursor: "pointer" }}
+              style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 10, padding: "12px 0", fontSize: 14, fontWeight: 800, cursor: "pointer" }}
             >
               确认入账
             </div>
@@ -592,7 +612,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 账户额度 <span className="mono" style={{ fontSize: 14, fontWeight: 800, color: me.pts < modal.data.price ? "var(--down)" : "var(--up)" }}>{me.pts}</span>
               </span>
             </div>
-            <div onClick={confirmUnlock} style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 10, textAlign: "center", padding: "12px 0", fontSize: 13.5, fontWeight: 800, cursor: "pointer" }}>
+            <div onClick={confirmUnlock} style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 10, textAlign: "center", padding: "12px 0", fontSize: 13.5, fontWeight: 800, cursor: "pointer" }}>
               {busy ? "处理中…" : me.pts < modal.data.price ? "额度不足 · 去购买" : "确认解锁"}
             </div>
             <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>赛前 38 / 滚球 58 · 可回看</div>
@@ -607,14 +627,14 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
         </div>
         <div style={{ fontSize: 12, color: "var(--fg-2)", marginBottom: 14 }}>报告额度仅用于解锁 AI 概率报告 · 1 元 = 10 额度起</div>
         {rechargeMaintenance && (
-          <div style={{ background: "rgba(0,200,5,.1)", border: "1px solid rgba(0,200,5,.4)", borderRadius: 10, padding: "14px 12px", marginBottom: 10, textAlign: "center", fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>
+          <div style={{ background: "var(--selected-bg)", border: "1px solid var(--selected-border)", borderRadius: 10, padding: "14px 12px", marginBottom: 10, textAlign: "center", fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>
             购买通道维护中,请稍后再试
           </div>
         )}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10, opacity: rechargeMaintenance ? 0.35 : 1, pointerEvents: rechargeMaintenance ? "none" : "auto" }}>
           {rechargeTiers.map((tr, i) => (
-            <div key={tr.rmb} onClick={() => doRecharge(i)} style={{ position: "relative", background: "var(--inset)", border: `1px solid ${tr.hot ? "rgba(0,200,5,.55)" : "var(--line)"}`, borderRadius: 10, padding: "12px 0 10px", textAlign: "center", cursor: "pointer" }}>
-              {tr.hot && <span style={{ position: "absolute", top: -8, right: 8, background: "var(--gold)", color: "var(--on-accent)", fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px" }}>最划算</span>}
+            <div key={tr.rmb} onClick={() => doRecharge(i)} style={{ position: "relative", background: "var(--inset)", border: `1px solid ${tr.hot ? "var(--selected-border-strong)" : "var(--line)"}`, borderRadius: 10, padding: "12px 0 10px", textAlign: "center", cursor: "pointer" }}>
+              {tr.hot && <span style={{ position: "absolute", top: -8, right: 8, background: "var(--cta)", color: "var(--on-cta)", fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px" }}>最划算</span>}
               <div className="mono" style={{ fontSize: 16, fontWeight: 800, color: "var(--gold)" }}>{tr.pts}</div>
               <div style={{ fontSize: 11.5, color: "var(--up)", fontWeight: 750, height: 15 }}>{tr.tag ?? ""}</div>
               <div className="mono" style={{ fontSize: 12, color: "var(--fg-2)" }}>¥{tr.rmb}</div>
@@ -695,11 +715,69 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 );
               })}
             </div>
-            <div onClick={() => gotoMatchOdds(modal.data.fixtureId)} style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 10, textAlign: "center", padding: "11px 0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+            <div onClick={() => gotoMatchOdds(modal.data.fixtureId)} style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 10, textAlign: "center", padding: "11px 0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
               查看本场指数走势
             </div>
           </>
         )}
+      </Modal>
+
+      <Modal open={modal?.kind === "watch"} onClose={() => setModal(null)} width={560}>
+        <ModalTitle title="盯盘" hint={`滚球 ${radar.length} · 异动 ${moves.length}`} />
+        <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+          {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
+            <button key={l} type="button" onClick={() => setMonF(l)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: "pointer", background: monF === l ? "var(--selected-bg)" : "var(--inset)", color: monF === l ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${monF === l ? "var(--selected-border)" : "var(--line)"}` }}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 11px", borderBottom: "1px solid var(--line-soft)", background: "var(--inset)" }}>
+              <span style={{ fontSize: 12, fontWeight: 800 }}>滚球雷达</span>
+              {radar.length > 0 && <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />}
+              <span className="mono" style={{ fontSize: 11, color: radar.length > 0 ? "var(--red)" : "var(--fg-3)", fontWeight: 800 }}>{radar.length} 场</span>
+            </div>
+            {radar.length === 0 && <div style={{ padding: 14, fontSize: 11.5, color: "var(--fg-3)", textAlign: "center" }}>当前暂无进行中赛事</div>}
+            {radar.map((r) => (
+              <div key={r.id} onClick={() => (r.masked ? router.push("/login") : gotoMatchOdds(r.id))} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 11px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer", background: sel === r.id ? "var(--selected-bg-soft)" : "transparent" }}>
+                <span className="mono" style={{ flexShrink: 0, width: 34, fontSize: 11.5, color: "var(--red)", fontWeight: 800 }}>{r.ht ? "中场" : r.elapsed != null ? `${r.elapsed}'` : "LIVE"}</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {r.home} <span className="mono" style={{ color: "var(--gold)" }}><Flash v={r.score ?? "0-0"} /></span> {r.away}
+                </span>
+                <span style={{ flexShrink: 0, minWidth: 72, whiteSpace: "nowrap" }}>
+                  <MarketValue v={r.masked || !r.ah ? "●●" : `${r.ah.text} ${f2(r.ah.h)}`} pulse={r.masked ? null : r.ah?.chgAt} dir={r.ah?.hd} className="" small dim={r.masked || !r.ah} style={{ justifyContent: "flex-end" }} />
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 11px", borderBottom: "1px solid var(--line-soft)", background: "var(--inset)" }}>
+              <span style={{ fontSize: 12, fontWeight: 800 }}>指数异动</span>
+              <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} rtt={rtt} />
+            </div>
+            {moves.length === 0 && <div style={{ padding: 16, fontSize: 11.5, color: "var(--fg-3)", textAlign: "center" }}>暂无异动记录</div>}
+            {moves.map((f) => (
+              <div key={f.id} className={freshMoveIds.has(f.id) ? "feed-in" : undefined} onClick={() => (f.masked ? router.push("/login") : setModal({ kind: "move", data: f }))} style={{ padding: "9px 11px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", flexShrink: 0 }}>{f.t}</span>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.match}</span>
+                  {f.sev && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 3, padding: "1px 6px" }}>急变</span>}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 3, padding: "1px 6px" }}>滚球</span>}
+                  <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px" }}>{f.mk}</span>
+                  {f.bk && <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px" }}>{f.bk}</span>}
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
+                  <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={{ justifyContent: "flex-start", color: "var(--fg-2)" }} />
+                  <span style={{ fontSize: 11.5, color: typeColor(f.type) }}>→</span>
+                  <MarketValue v={f.masked ? "●●" : f.to} className="" small style={{ justifyContent: "flex-start", color: typeColor(f.type), fontWeight: 800 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </Modal>
 
       <LedgerModal open={modal?.kind === "ledger"} onClose={() => setModal(null)} />

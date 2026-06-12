@@ -66,7 +66,7 @@ function MobilePredictionsPage() {
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 12px", minHeight: 0 }}>
         <div
           onClick={() => setRecOpen(true)}
-          style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--card)", border: "1px solid rgba(0,200,5,.35)", borderRadius: 12, padding: "10px 14px", marginBottom: 10, cursor: "pointer" }}
+          style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 12, padding: "10px 14px", marginBottom: 10, cursor: "pointer" }}
         >
           <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
             {[[rate, "近30天回测", "var(--gold)"], [yday, "昨日回测", undefined], [streak, "回测状态", "var(--up)"]].map(([v, label, color]) => (
@@ -119,7 +119,7 @@ function MobilePredictionsPage() {
                   e.stopPropagation();
                   flow.open({ id: p.id, match: p.match, price: p.price });
                 }}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 8, background: "rgba(0,200,5,.08)", border: "1px dashed rgba(0,200,5,.4)", borderRadius: 8, padding: "9px 0", cursor: "pointer" }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 8, background: "var(--selected-bg-soft)", border: "1px dashed var(--selected-border)", borderRadius: 8, padding: "9px 0", cursor: "pointer" }}
               >
                 <LockIcon />
                 <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--gold)" }}>{p.lockText}</span>

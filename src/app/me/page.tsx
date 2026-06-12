@@ -133,7 +133,7 @@ function MobileMePage() {
       <PageHeader title="我" {...beat} />
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 16px", minHeight: 0 }}>
         {me.loggedIn ? (
-          <div style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.3)", borderRadius: 14, padding: "16px 16px 15px", marginBottom: 12 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--selected-border-soft)", borderRadius: 14, padding: "16px 16px 15px", marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>登录账户</span>
               <span className="mono" style={{ fontSize: 12, fontWeight: 650, color: "var(--fg-mid)" }}>{me.email}</span>
@@ -143,12 +143,12 @@ function MobileMePage() {
                 <span style={{ display: "block", fontSize: 11.5, color: "var(--fg-2)", marginBottom: 3 }}>账户额度</span>
                 <span className="mono" style={{ fontSize: 30, lineHeight: 1, fontWeight: 800, color: "var(--gold)" }}>{me.pts}</span>
               </span>
-              <div onClick={() => { setRdMsg(null); setSheet("redeem"); }} style={{ border: "1px solid rgba(0,200,5,.5)", color: "var(--gold)", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>兑换</div>
-              <div onClick={flow.openRecharge} style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>购买额度</div>
+              <div onClick={() => { setRdMsg(null); setSheet("redeem"); }} style={{ border: "1px solid var(--selected-border-strong)", color: "var(--gold)", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>兑换</div>
+              <div onClick={flow.openRecharge} style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>购买额度</div>
             </div>
           </div>
         ) : (
-          <div style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.4)", borderRadius: 14, padding: 16, marginBottom: 12 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 14, padding: 16, marginBottom: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
               创建账户
             </div>
@@ -157,7 +157,7 @@ function MobileMePage() {
           </div>
         )}
 
-        <div onClick={openInvite} style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--card)", border: "1px solid rgba(0,200,5,.4)", borderRadius: 14, padding: "12px 14px", marginBottom: 12, cursor: "pointer" }}>
+        <div onClick={openInvite} style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 14, padding: "12px 14px", marginBottom: 12, cursor: "pointer" }}>
           <span style={{ width: 30, height: 30, borderRadius: 8, background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--on-accent)", fontWeight: 800 }}>+1</span>
           <span style={{ flex: 1 }}>
             <span style={{ display: "block", fontSize: 13.5, fontWeight: 800 }}>邀请好友 · 每人 +1 额度</span>
@@ -179,7 +179,7 @@ function MobileMePage() {
                   <div
                     key={n}
                     onClick={() => setPrefs({ scheme: n })}
-                    style={{ flex: 1, textAlign: "center", padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", background: prefs.scheme === n ? "rgba(0,200,5,.14)" : "var(--inset)", color: prefs.scheme === n ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${prefs.scheme === n ? "rgba(0,200,5,.45)" : "var(--line)"}` }}
+                    style={{ flex: 1, textAlign: "center", padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", background: prefs.scheme === n ? "var(--selected-bg)" : "var(--inset)", color: prefs.scheme === n ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${prefs.scheme === n ? "var(--selected-border)" : "var(--line)"}` }}
                   >
                     {n}
                   </div>
@@ -200,7 +200,7 @@ function MobileMePage() {
                   <div
                     key={t}
                     onClick={() => setPrefs({ theme: t })}
-                    style={{ flex: 1, textAlign: "center", padding: "7px 0", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: prefs.theme === t ? "rgba(0,200,5,.14)" : "var(--inset)", color: prefs.theme === t ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${prefs.theme === t ? "rgba(0,200,5,.45)" : "var(--line)"}` }}
+                    style={{ flex: 1, textAlign: "center", padding: "7px 0", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: prefs.theme === t ? "var(--selected-bg)" : "var(--inset)", color: prefs.theme === t ? "var(--gold)" : "var(--fg-2)", border: `1px solid ${prefs.theme === t ? "var(--selected-border)" : "var(--line)"}` }}
                   >
                     {t}
                   </div>
@@ -228,7 +228,7 @@ function MobileMePage() {
       {/* 基础报告额度 */}
       {giftOpen && (
         <div style={{ position: "absolute", inset: 0, zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(4,5,9,.78)", padding: "0 40px" }}>
-          <div style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.5)", borderRadius: 18, padding: "24px 22px", textAlign: "center", width: "100%" }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--selected-border-strong)", borderRadius: 18, padding: "24px 22px", textAlign: "center", width: "100%" }}>
             <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 20, fontWeight: 800, color: "var(--on-accent)" }}>AI</div>
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 6 }}>基础报告额度</div>
             <div style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.7, marginBottom: 16 }}>
@@ -255,7 +255,7 @@ function MobileMePage() {
               } catch { /* ignore */ }
               setCopied(true);
             }}
-            style={{ flexShrink: 0, border: "1px solid rgba(0,200,5,.5)", color: "var(--gold)", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+            style={{ flexShrink: 0, border: "1px solid var(--selected-border-strong)", color: "var(--gold)", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
           >
             复制
           </div>

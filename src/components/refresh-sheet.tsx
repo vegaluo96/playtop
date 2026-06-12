@@ -17,11 +17,11 @@ export function RefreshRules({ activeIdx, intervals }: { activeIdx: number | nul
   const row = (idx: number, dot: React.ReactNode, label: string, freq: string) => {
     const active = activeIdx === idx;
     return (
-      <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 9, background: active ? "rgba(0,200,5,.12)" : "transparent" }}>
+      <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 9, background: active ? "var(--selected-bg)" : "transparent" }}>
         <span style={{ width: 14, display: "flex", justifyContent: "center", flexShrink: 0 }}>{dot}</span>
         <span style={{ flex: 1, fontSize: 13, fontWeight: 650, color: active ? "var(--gold)" : "var(--fg-mid)" }}>
           {label}
-          {active && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid rgba(0,200,5,.5)", borderRadius: 4, padding: "1px 6px", marginLeft: 7, verticalAlign: 1 }}>当前</span>}
+          {active && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid var(--selected-border-strong)", borderRadius: 4, padding: "1px 6px", marginLeft: 7, verticalAlign: 1 }}>当前</span>}
         </span>
         <span className="mono" style={{ fontSize: 12, fontWeight: 800, color: active ? "var(--gold)" : "var(--fg-2)", whiteSpace: "nowrap" }}>{freq}</span>
       </div>
@@ -40,7 +40,7 @@ export function RefreshRules({ activeIdx, intervals }: { activeIdx: number | nul
         {TIERS.filter((r) => r.idx < LIVE_TIER).map((r) =>
           row(
             r.idx,
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: `rgba(0,200,5,${DOT_ALPHA[r.idx] ?? 1})`, position: "relative" }} />,
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--chart-primary)", opacity: DOT_ALPHA[r.idx] ?? 1, position: "relative" }} />,
             r.label,
             tierFreqText(r.idx, intervals?.[r.idx] ?? r.intervalMs),
           ),

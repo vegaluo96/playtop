@@ -51,11 +51,11 @@ export function QuoteHistorySheet({ target, onClose }: { target: HistoryTarget |
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 15, fontWeight: 800 }}>历史报价</span>
         {target.co && (
-          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", background: "rgba(0,200,5,.12)", borderRadius: 5, padding: "2px 8px" }}>{target.co}</span>
+          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", background: "var(--selected-bg)", borderRadius: 5, padding: "2px 8px" }}>{target.co}</span>
         )}
         <span style={{ flex: 1 }} />
         {MKS.map(([k, label]) => (
-          <span key={k} onClick={() => setMk(k)} style={{ fontSize: 11.5, fontWeight: 700, cursor: "pointer", borderRadius: 7, padding: "3px 10px", background: mk === k ? "rgba(0,200,5,.14)" : "var(--inset)", color: mk === k ? "var(--gold)" : "var(--fg-3)" }}>
+          <span key={k} onClick={() => setMk(k)} style={{ fontSize: 11.5, fontWeight: 700, cursor: "pointer", borderRadius: 7, padding: "3px 10px", background: mk === k ? "var(--selected-bg)" : "var(--inset)", color: mk === k ? "var(--gold)" : "var(--fg-3)" }}>
             {label}
           </span>
         ))}
@@ -69,7 +69,7 @@ export function QuoteHistorySheet({ target, onClose }: { target: HistoryTarget |
         {!data && <div style={{ padding: "24px 0", textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>加载中…</div>}
         {data && data.rows.length === 0 && <div style={{ padding: "24px 0", textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>该市场暂无归档报价</div>}
         {(data?.rows ?? []).map((r: V, i: number) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: grid, padding: "7px 10px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.chg ? "rgba(0,200,5,.06)" : "transparent" }}>
+          <div key={i} style={{ display: "grid", gridTemplateColumns: grid, padding: "7px 10px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.chg ? "var(--selected-bg-soft)" : "transparent" }}>
             <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", display: "flex", alignItems: "center", gap: 4 }}>
               {r.t}
               {r.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", border: "1px solid rgba(255,92,92,.4)", borderRadius: 3, padding: "0 3px" }}>滚</span>}

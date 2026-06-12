@@ -64,7 +64,7 @@ export function AdminDialogHost() {
       onClick={onClick}
       style={{
         flex: 1, textAlign: "center", cursor: "pointer", borderRadius: 9, padding: "10px 0", fontSize: 12.5, fontWeight: 800,
-        background: gold ? "var(--gold)" : "var(--inset)",
+        background: gold ? "var(--cta)" : "var(--inset)",
         color: gold ? "#0a0b0f" : "var(--fg-2)",
         border: gold ? "none" : "1px solid var(--line)",
       }}

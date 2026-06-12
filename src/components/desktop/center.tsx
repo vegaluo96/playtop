@@ -167,15 +167,6 @@ export function CenterPane({
               <span>
                 <MarketValue v={c.iW} small dim style={{ justifyContent: "flex-start" }} />
                 <MarketValue v={c.nW} small pulse={c.changed ? c.chgAt : null} style={{ justifyContent: "flex-start", color: c.changed ? "var(--gold)" : "var(--fg-mid)" }} />
-                {c.k && (
-                  <span className="mono" style={{ display: "block", fontSize: 11, color: "var(--fg-3)" }}>
-                    凯利 {c.k.map((kv: number | null, j: number) => (
-                      <span key={j} style={{ color: kv != null && kv > 1 ? "var(--gold)" : undefined, fontWeight: kv != null && kv > 1 ? 800 : 400 }}>
-                        {kv != null ? kv.toFixed(2) : "—"}{j < 2 ? " / " : ""}
-                      </span>
-                    ))}
-                  </span>
-                )}
               </span>
             ) : (
               <>
@@ -270,7 +261,7 @@ export function CenterPane({
             <Flash v={h.live || h.finished ? (h.score ?? "VS") : "VS"} />
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)" }}>客</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--team-away)" }}>客</span>
             <TeamLogo id={h.awayId} name={h.away} size={26} /><span style={{ fontSize: 22, fontWeight: 800, color: "var(--fg-mid)", whiteSpace: "nowrap" }}>{h.away}</span>
           </div>
           <span style={{ flex: 1 }} />
@@ -297,7 +288,7 @@ export function CenterPane({
           {tab === "odds" && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 12 }}>
               {ODDS_SUBS.map(([k, label]) => (
-                <span key={k} onClick={() => setOddsSub(k)} style={{ fontSize: 11.5, fontWeight: 700, cursor: "pointer", borderRadius: 7, padding: "3px 10px", background: oddsSub === k ? "rgba(0,200,5,.14)" : "var(--inset)", color: oddsSub === k ? "var(--gold)" : "var(--fg-3)" }}>
+                <span key={k} onClick={() => setOddsSub(k)} style={{ fontSize: 11.5, fontWeight: 700, cursor: "pointer", borderRadius: 7, padding: "3px 10px", background: oddsSub === k ? "var(--selected-bg)" : "var(--inset)", color: oddsSub === k ? "var(--gold)" : "var(--fg-3)" }}>
                   {label}
                 </span>
               ))}
@@ -354,7 +345,7 @@ export function CenterPane({
               </div>
             </div>
             <div style={{ display: "flex", gap: 16, justifyContent: "center", padding: "12px 0 0" }}>
-              {[["var(--home)", "主队 / 大球 / 主胜"], ["var(--gold)", "客队 / 小球 / 客胜"], ["var(--fg-2)", "平局"]].map(([c, l]) => (
+              {[["var(--home)", "主队 / 大球 / 主胜"], ["var(--team-away)", "客队 / 小球 / 客胜"], ["var(--fg-2)", "平局"]].map(([c, l]) => (
                 <span key={l} style={{ fontSize: 11, color: "var(--fg-2)", display: "flex", alignItems: "center", gap: 5 }}>
                   <span style={{ width: 10, height: 2, background: c, borderRadius: 2 }} />{l}
                 </span>
@@ -461,14 +452,14 @@ export function CenterPane({
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
                         <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: "var(--home)" }}>{b.lv}</span>
                         <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{b.label}</span>
-                        <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: "var(--gold)" }}>{b.rv}</span>
+                        <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: "var(--team-away)" }}>{b.rv}</span>
                       </div>
                       <div style={{ display: "flex", gap: 3, height: 4 }}>
                         <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", background: "var(--inset)", borderRadius: 2, overflow: "hidden" }}>
                           <div style={{ height: "100%", background: "var(--home)", width: `${(b.l / (b.l + b.r || 1)) * 100}%` }} />
                         </div>
                         <div style={{ flex: 1, background: "var(--inset)", borderRadius: 2, overflow: "hidden" }}>
-                          <div style={{ height: "100%", background: "var(--gold)", width: `${(b.r / (b.l + b.r || 1)) * 100}%` }} />
+                          <div style={{ height: "100%", background: "var(--team-away)", width: `${(b.r / (b.l + b.r || 1)) * 100}%` }} />
                         </div>
                       </div>
                     </div>
@@ -487,7 +478,7 @@ export function CenterPane({
                       <span style={{ display: "block", height: "100%", background: "var(--home)", width: `${Math.min(100, r.h * 3)}%` }} />
                     </span>
                     <span style={{ display: "block", height: 4, background: "var(--inset)", borderRadius: 2, overflow: "hidden" }}>
-                      <span style={{ display: "block", height: "100%", background: "var(--gold)", width: `${Math.min(100, r.a * 3)}%` }} />
+                      <span style={{ display: "block", height: "100%", background: "var(--team-away)", width: `${Math.min(100, r.a * 3)}%` }} />
                     </span>
                   </span>
                   <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)", textAlign: "right" }}>{r.h}/{r.a}</span>
@@ -516,11 +507,11 @@ export function CenterPane({
                     ))}
                   </div>
                   {v.tech.standings.table.map((r: V) => (
-                    <div key={`${r.grp}-${r.rk}-${r.team}`} style={{ display: "grid", gridTemplateColumns: "24px 1fr 26px 56px 32px 32px", padding: "5px 0", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.hl ? "rgba(0,200,5,.07)" : "transparent" }}>
+                    <div key={`${r.grp}-${r.rk}-${r.team}`} style={{ display: "grid", gridTemplateColumns: "24px 1fr 26px 56px 32px 32px", padding: "5px 0", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.hl ? "var(--selected-bg-soft)" : "transparent" }}>
                       <span className="mono" style={{ fontSize: 11, fontWeight: 800, color: r.hl ? "var(--gold)" : "var(--fg-3)" }}>{r.rk}</span>
                       <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
                         <TeamLogo id={r.teamId} name={r.team} size={13} />
-                        <span style={{ fontSize: 11.5, fontWeight: r.hl ? 800 : 600, color: r.hl ? (r.hl === "h" ? "var(--home)" : "var(--gold)") : "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.team}</span>
+                        <span style={{ fontSize: 11.5, fontWeight: r.hl ? 800 : 600, color: r.hl ? (r.hl === "h" ? "var(--home)" : "var(--team-away)") : "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.team}</span>
                       </span>
                       <span className="mono" style={{ fontSize: 11, textAlign: "center", color: "var(--fg-2)" }}>{r.p}</span>
                       <span className="mono" style={{ fontSize: 11, textAlign: "center", color: "var(--fg-2)" }}>{r.w}/{r.dr}/{r.l}</span>
@@ -537,7 +528,7 @@ export function CenterPane({
         {tab === "report" &&
           (report ? (
             report.locked ? (
-              <div style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.35)", borderRadius: 14, padding: 28, maxWidth: 520, margin: "24px auto 0", textAlign: "center" }}>
+              <div style={{ background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 14, padding: 28, maxWidth: 520, margin: "24px auto 0", textAlign: "center" }}>
                 <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="var(--gold)" strokeWidth="1.4" strokeLinecap="round" style={{ marginBottom: 8 }}>
                   <rect x="3" y="7" width="10" height="7" rx="1.5" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
                 </svg>
@@ -547,7 +538,7 @@ export function CenterPane({
                 </div>
                 <div
                   onClick={() => (loggedIn ? requestUnlock({ id: report.id, match: report.match, price: report.price }) : router.push("/login"))}
-                  style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 10, padding: "11px 0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}
+                  style={{ background: "var(--cta)", color: "var(--on-cta)", borderRadius: 10, padding: "11px 0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}
                 >
                   {loggedIn ? `${report.price} 额度 · 解锁本场报告` : "登录查看报告额度说明"}
                 </div>
@@ -566,7 +557,7 @@ export function CenterPane({
                           key={vv.ver}
                           onClick={() => void fetch(`/api/report/${fid}?tz=${encodeURIComponent(tz)}&v=${vv.ver}`, { cache: "no-store" }).then((r) => r.json()).then((j) => j.ok && setReport(j))}
                           className="mono"
-                          style={{ fontSize: 11, fontWeight: 800, cursor: "pointer", borderRadius: 5, padding: "1px 7px", background: report.ver === vv.ver ? "rgba(0,200,5,.16)" : "var(--card)", color: report.ver === vv.ver ? "var(--gold)" : "var(--fg-2)" }}
+                          style={{ fontSize: 11, fontWeight: 800, cursor: "pointer", borderRadius: 5, padding: "1px 7px", background: report.ver === vv.ver ? "var(--selected-bg-strong)" : "var(--card)", color: report.ver === vv.ver ? "var(--gold)" : "var(--fg-2)" }}
                         >
                           v{vv.ver}
                         </span>
@@ -607,9 +598,9 @@ export function CenterPane({
               </div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, margin: "0 2px 8px" }}>
-                  <span style={{ color: "var(--gold)" }}>{h.away}</span> · <span className="mono" style={{ color: "var(--fg-2)" }}>{v.lineups.away.form}</span>
+                  <span style={{ color: "var(--team-away)" }}>{h.away}</span> · <span className="mono" style={{ color: "var(--fg-2)" }}>{v.lineups.away.form}</span>
                 </div>
-                {pitch(v.lineups.away, "var(--gold)")}
+                {pitch(v.lineups.away, "var(--team-away)")}
               </div>
             </div>
           ) : (
@@ -623,7 +614,7 @@ export function CenterPane({
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: 14 }}>
               {intelSide(h.home, "var(--home)", v.intel.filter((i: V) => i.side === "主"))}
-              {intelSide(h.away, "var(--gold)", v.intel.filter((i: V) => i.side === "客"))}
+              {intelSide(h.away, "var(--team-away)", v.intel.filter((i: V) => i.side === "客"))}
             </div>
             <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 2px 0" }}>缺阵 / 存疑 / 解禁 状态随官方发布实时更新;首发公布前请结合阵容页交叉确认。</div>
           </>
@@ -655,7 +646,7 @@ export function CenterPane({
                   {(deepV.scorers ?? []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--fg-3)", padding: "7px 0" }}>榜单暂无官方返回</div>}
                   {deepV.scorers?.map((s: V) => (
                     <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: s.side === "h" ? "var(--home)" : "var(--gold)" }} />
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: s.side === "h" ? "var(--home)" : "var(--team-away)" }} />
                       <span style={{ flex: 1, fontSize: 12, fontWeight: 700 }}>{s.name}</span>
                       <span className="mono" style={{ fontSize: 11, fontWeight: 700 }}>{s.goals} 球</span>
                       {s.share != null && (
@@ -676,7 +667,7 @@ export function CenterPane({
                   <div style={{ fontSize: 12, fontWeight: 700, padding: "4px 0 6px" }}>教练 · 转会</div>
                   {deepV.coaches?.map((c: V) => (
                     <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: c.side === "h" ? "var(--home)" : "var(--gold)" }} />
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: c.side === "h" ? "var(--home)" : "var(--team-away)" }} />
                       <span style={{ flex: 1, fontSize: 12, fontWeight: 700 }}>{c.name}</span>
                       <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{c.meta}</span>
                     </div>
@@ -698,7 +689,7 @@ export function CenterPane({
                     <div style={{ display: "grid", gridTemplateColumns: "64px 1fr 1fr", padding: "4px 0", borderBottom: "1px solid var(--line)" }}>
                       <span style={{ fontSize: 11, color: "var(--fg-3)" }}>指标</span>
                       <span style={{ fontSize: 11, color: "var(--home)", textAlign: "center", fontWeight: 700 }}>{h.home}</span>
-                      <span style={{ fontSize: 11, color: "var(--gold)", textAlign: "center", fontWeight: 700 }}>{h.away}</span>
+                      <span style={{ fontSize: 11, color: "var(--team-away)", textAlign: "center", fontWeight: 700 }}>{h.away}</span>
                     </div>
                     {[
                       ["总战绩", (x: V) => x?.rec, ""],
@@ -737,10 +728,10 @@ export function CenterPane({
                   <div style={{ fontSize: 12, fontWeight: 700, padding: "4px 0 6px" }}>赛季场均评分 · 关键球员</div>
                   {(deepV.ratings ?? []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--fg-3)", padding: "7px 0" }}>评分暂无官方返回</div>}
                   {deepV.ratings?.map((r: V) => {
-                    const bc = r.r >= 8 ? ["rgba(0,200,5,.16)", "var(--gold)"] : r.r >= 7 ? ["rgba(46,204,138,.16)", "var(--green)"] : ["rgba(149,155,166,.16)", "var(--fg-3)"];
+                    const bc = r.r >= 8 ? ["var(--selected-bg-strong)", "var(--gold)"] : r.r >= 7 ? ["rgba(46,204,138,.16)", "var(--green)"] : ["rgba(149,155,166,.16)", "var(--fg-3)"];
                     return (
                       <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: r.side === "h" ? "var(--home)" : "var(--gold)" }} />
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: r.side === "h" ? "var(--home)" : "var(--team-away)" }} />
                         <span style={{ flex: 1, fontSize: 12, fontWeight: 700 }}>{r.name}</span>
                         <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "2px 6px" }}>{r.pos}</span>
                         <span className="mono" style={{ width: 34, textAlign: "center", fontSize: 11, fontWeight: 800, borderRadius: 5, padding: "3px 0", background: bc[0], color: bc[1] }}>{r.r.toFixed(1)}</span>

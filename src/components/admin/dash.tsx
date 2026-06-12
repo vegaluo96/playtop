@@ -29,8 +29,8 @@ export function DashView() {
         运营看板 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>· 今日 {v.date.slice(5)} · 实时</span>
       </div>
       {v.alerts.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 14, background: "rgba(0,200,5,.07)", border: "1px solid rgba(0,200,5,.3)", borderRadius: 10, padding: "8px 14px", marginBottom: 12, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", flexShrink: 0 }}>⚠ 告警</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, background: "var(--warn-bg)", border: "1px solid var(--warn-border)", borderRadius: 10, padding: "8px 14px", marginBottom: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--warn)", flexShrink: 0 }}>⚠ 告警</span>
           {v.alerts.map((a: string, i: number) => (
             <span key={i} style={{ fontSize: 11, color: "var(--fg-mid)" }}>{a}</span>
           ))}
@@ -51,7 +51,7 @@ export function DashView() {
             {v.week.map((b: V) => (
               <div key={b.d} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, height: "100%", justifyContent: "flex-end" }}>
                 <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{b.rev > 0 ? b.rev : ""}</span>
-                <div style={{ width: "100%", borderRadius: "3px 3px 0 0", background: "var(--gold)", height: Math.max(2, Math.round((b.rev / maxRev) * 88)) }} />
+                <div style={{ width: "100%", borderRadius: "3px 3px 0 0", background: "var(--accent-2)", height: Math.max(2, Math.round((b.rev / maxRev) * 88)) }} />
                 <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{b.d}</span>
               </div>
             ))}
@@ -124,7 +124,7 @@ export function DashView() {
                 <span className="mono" style={{ fontSize: 11.5, fontWeight: 700 }}>{r.v} <span style={{ color: "var(--fg-3)" }}>{r.w}</span></span>
               </div>
               <div style={{ height: 5, background: "var(--inset)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ height: "100%", background: "var(--gold)", width: r.w }} />
+                <div style={{ height: "100%", background: "var(--accent-2)", width: r.w }} />
               </div>
             </div>
           ))}

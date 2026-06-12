@@ -24,14 +24,14 @@ export interface TLData {
 /** kind → [图标, 底色, 字色] */
 const ICON: Record<string, [string, string, string]> = {
   goal: ["●", "rgba(46,204,138,.16)", "var(--green)"],
-  yellow: ["▮", "rgba(0,200,5,.16)", "var(--gold)"],
+  yellow: ["▮", "var(--selected-bg-strong)", "var(--gold)"],
   red: ["▮", "rgba(255,92,92,.16)", "var(--red)"],
   sub: ["⇄", "rgba(63,140,255,.16)", "var(--home)"],
   var: ["V", "rgba(139,148,168,.16)", "var(--fg-3)"],
   corner: ["⚑", "rgba(110,193,255,.14)", "#6ec1ff"],
   sot: ["◎", "rgba(46,204,138,.12)", "var(--green)"],
   soff: ["○", "rgba(139,148,168,.12)", "var(--fg-3)"],
-  offside: ["⚐", "rgba(0,200,5,.12)", "var(--gold-2)"],
+  offside: ["⚐", "var(--selected-bg)", "var(--gold-2)"],
 };
 const LEGEND: [string, string][] = [
   ["●", "进球"], ["▮", "红黄牌"], ["⇄", "换人"], ["⚑", "角球"], ["◎", "射正"], ["○", "射偏"], ["⚐", "越位"],
@@ -70,7 +70,7 @@ export function MatchTimeline({ tl, home, away, live }: { tl: TLData; home: stri
         )}
         <span style={{ flex: 1 }} />
         {([["key", "重要事件"], ["text", "文字直播"]] as const).map(([k, label]) => (
-          <span key={k} onClick={() => setMode(k)} style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, padding: "3px 9px", background: mode === k ? "rgba(0,200,5,.14)" : "var(--inset)", color: mode === k ? "var(--gold)" : "var(--fg-3)" }}>
+          <span key={k} onClick={() => setMode(k)} style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, padding: "3px 9px", background: mode === k ? "var(--selected-bg)" : "var(--inset)", color: mode === k ? "var(--gold)" : "var(--fg-3)" }}>
             {label}
           </span>
         ))}
@@ -81,7 +81,7 @@ export function MatchTimeline({ tl, home, away, live }: { tl: TLData; home: stri
         <div style={{ display: "grid", gridTemplateColumns: "1fr 44px 1fr", padding: "6px 12px", borderBottom: "1px solid var(--line-soft)" }}>
 	          <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--home)", textAlign: "right" }}>{home}</span>
           <span />
-	          <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--gold)" }}>{away}</span>
+	          <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--team-away)" }}>{away}</span>
         </div>
       )}
 

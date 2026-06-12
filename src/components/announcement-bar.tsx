@@ -32,10 +32,10 @@ export function AnnouncementBar({ compact = false }: { compact?: boolean }) {
       style={{
         display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
         padding: compact ? "5px 12px" : "7px 16px",
-        background: "rgba(0,200,5,.08)", borderBottom: "1px solid rgba(0,200,5,.25)",
+        background: "var(--selected-bg-soft)", borderBottom: "1px solid var(--selected-border-soft)",
       }}
     >
-      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid rgba(0,200,5,.45)", borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>公告</span>
+      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid var(--selected-border)", borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>公告</span>
       <span style={{ flex: 1, fontSize: compact ? 10.5 : 11, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ann.text}</span>
       <span onClick={close} style={{ flexShrink: 0, fontSize: 12, color: "var(--fg-3)", cursor: "pointer", padding: "0 2px" }}>✕</span>
     </div>

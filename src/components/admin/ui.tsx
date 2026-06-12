@@ -47,9 +47,9 @@ export function AChip({ label, active, onClick }: { label: string; active: boole
       onClick={onClick}
       style={{
         padding: "5px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer",
-        background: active ? "rgba(0,200,5,.14)" : "var(--card)",
+        background: active ? "var(--selected-bg)" : "var(--card)",
         color: active ? "var(--gold)" : "var(--fg-2)",
-        border: `1px solid ${active ? "rgba(0,200,5,.45)" : "var(--line)"}`,
+        border: `1px solid ${active ? "var(--selected-border)" : "var(--line)"}`,
       }}
     >
       {label}
@@ -59,8 +59,8 @@ export function AChip({ label, active, onClick }: { label: string; active: boole
 
 export function ABtn({ label, onClick, kind = "gold", small }: { label: string; onClick: () => void; kind?: "gold" | "line" | "red" | "blue" | "green"; small?: boolean }) {
   const styles: Record<string, CSSProperties> = {
-    gold: { background: "var(--gold)", color: "var(--on-accent)" },
-    line: { border: "1px solid rgba(0,200,5,.5)", color: "var(--gold)" },
+    gold: { background: "var(--cta)", color: "var(--on-cta)" },
+    line: { border: "1px solid var(--selected-border-strong)", color: "var(--fg)" },
     red: { color: "var(--red)" },
     blue: { color: "var(--home)" },
     green: { color: "var(--green)" },
@@ -96,4 +96,3 @@ export async function post(url: string, body: Record<string, unknown>): Promise<
   const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   return r.json();
 }
-
