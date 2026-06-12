@@ -305,7 +305,7 @@ function intelView(injuries: unknown[], homeId: number | null) {
     return {
       side: Number(dig(i, "team", "id")) === homeId ? "主" : "客",
       tag,
-      x: `${dig(i, "player", "name") ?? ""} · ${dig(i, "player", "reason") ?? "未注明原因"}`,
+      x: `${nameZh(String(dig(i, "player", "name") ?? ""), "player")} · ${dig(i, "player", "reason") ?? "未注明原因"}`,
     };
   });
 }
@@ -315,7 +315,7 @@ async function deepView(p: Panorama) {
   if (!p.deep) return null;
   const d = p.deep;
   const fx = p.fixture;
-  const statName = (it: unknown) => String(dig(it, "player", "name") ?? "");
+  const statName = (it: unknown) => nameZh(String(dig(it, "player", "name") ?? ""), "player");
   const stat0 = (it: unknown, ...path: (string | number)[]) => dig(arr(dig(it, "statistics"))[0], ...path);
   const lb = [
     { tag: "射手王", tagC: "#e9b949", it: d.topscorers[0], v: (it: unknown) => `${stat0(it, "goals", "total") ?? 0} 球` },
@@ -373,7 +373,7 @@ async function deepView(p: Panorama) {
     return (Array.isArray(dig(team, "players")) ? (dig(team, "players") as unknown[]) : [])
       .map((pl) => ({
         side,
-        name: String(dig(pl, "player", "name") ?? ""),
+        name: nameZh(String(dig(pl, "player", "name") ?? ""), "player"),
         pos: String(dig(pl, "statistics", 0, "games", "position") ?? "").slice(0, 2).toUpperCase(),
         r: Number(parseFloat(String(dig(pl, "statistics", 0, "games", "rating") ?? ""))) || null,
       }))
@@ -396,7 +396,7 @@ async function deepView(p: Panorama) {
     return players
       .map((pl) => ({
         side,
-        name: String(dig(pl, "player", "name") ?? ""),
+        name: nameZh(String(dig(pl, "player", "name") ?? ""), "player"),
         pos: String(dig(pl, "statistics", 0, "games", "position") ?? "").slice(0, 2).toUpperCase(),
         r: Number(parseFloat(String(dig(pl, "statistics", 0, "games", "rating") ?? ""))) || null,
         apps: Number(dig(pl, "statistics", 0, "games", "appearences")) || 0,
@@ -442,7 +442,7 @@ async function deepView(p: Panorama) {
 
   const transferView = (list: unknown[], team: string, teamId: number | null) => {
     const last = list
-      .flatMap((it) => arr(dig(it, "transfers")).map((tr) => ({ tr, player: dig(it, "player", "name") })))
+      .flatMap((it) => arr(dig(it, "transfers")).map((tr) => ({ tr, player: nameZh(String(dig(it, "player", "name") ?? ""), "player") })))
       .sort((x, y) => Date.parse(String(dig(y.tr, "date") ?? 0)) - Date.parse(String(dig(x.tr, "date") ?? 0)))[0];
     if (!last) return { team, tag: "无变动", x: "近两个转会窗无一线队进出记录" };
     const inbound = Number(dig(last.tr, "teams", "in", "id")) === teamId;

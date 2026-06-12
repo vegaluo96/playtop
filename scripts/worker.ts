@@ -287,7 +287,12 @@ async function cycle(): Promise<void> {
       log(`/status 失败:${msg(e)}`);
     }
     await fetchLlmBalance().catch(() => null);
-    const named = await drainNameQueue().catch(() => 0);
+  }
+  // 每 10 分钟清一次译名队列(队列空则零成本;球员名靠它补齐,不能等每小时)
+  const nameKey = `namedrain:${Math.floor(now / 600_000)}`;
+  if (!kvGet(nameKey)) {
+    kvSet(nameKey, "1");
+    const named = await drainNameQueue(40).catch(() => 0);
     if (named > 0) log(`译名入库 +${named}`);
   }
   // 每日数据保鲜:清完场 >7d 滚球帧 / >30d 原始包
