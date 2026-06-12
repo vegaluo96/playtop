@@ -17,8 +17,9 @@ import { SITE_HOST } from "@/lib/site";
 type V = any;
 
 const TAB_DEFS: [DTab, string][] = [
-  ["odds", "盘口走势"], ["comp", "百家对比"], ["markets", "玩法"], ["tech", "技术面"], ["lineup", "阵容"], ["intel", "情报"], ["deep", "深挖"], ["report", "AI 报告"],
+  ["odds", "盘口"], ["match", "赛况"], ["squad", "人员"], ["deep", "深度"], ["report", "AI 报告"],
 ];
+const ODDS_SUBS: [string, string][] = [["trend", "走势"], ["comp", "百家对比"], ["markets", "更多玩法"]];
 
 const FORM_STYLE: Record<string, { bg: string; c: string }> = {
   胜: { bg: "rgba(46,204,138,.16)", c: "var(--green)" },
@@ -41,6 +42,7 @@ export function CenterPane({
   const [report, setReport] = useState<V | null>(null);
   const [copied, setCopied] = useState(false);
   const [player, setPlayer] = useState<PlayerTarget | null>(null);
+  const [oddsSub, setOddsSub] = useState("trend");
   const router = useRouter();
   const fid = v?.header?.id ?? null;
 
@@ -249,15 +251,24 @@ export function CenterPane({
         </div>
         <div className="hidescroll" style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--line)", overflowX: "auto" }}>
           {TAB_DEFS.map(([k, label]) => (
-            <div key={k} onClick={() => setTab(k)} style={{ padding: "8px 13px 9px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, color: tab === k ? "var(--gold)" : "var(--fg-2)", borderBottom: `2px solid ${tab === k ? "var(--gold)" : "transparent"}`, marginBottom: -1 }}>
+            <div key={k} onClick={() => { setTab(k); setOddsSub("trend"); }} style={{ padding: "8px 13px 9px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, color: tab === k ? "var(--gold)" : "var(--fg-2)", borderBottom: `2px solid ${tab === k ? "var(--gold)" : "transparent"}`, marginBottom: -1 }}>
               {label}
             </div>
           ))}
+          {tab === "odds" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 12 }}>
+              {ODDS_SUBS.map(([k, label]) => (
+                <span key={k} onClick={() => setOddsSub(k)} style={{ fontSize: 10.5, fontWeight: 700, cursor: "pointer", borderRadius: 7, padding: "3px 10px", background: oddsSub === k ? "rgba(233,185,73,.14)" : "var(--inset)", color: oddsSub === k ? "var(--gold)" : "var(--fg-3)" }}>
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: "14px 22px 20px" }}>
-        {tab === "odds" && (
+        {tab === "odds" && oddsSub === "trend" && (
           <>
             {h.live && v.liveOdds && (
               <div style={{ display: "flex", alignItems: "center", gap: 14, background: "var(--card)", border: "1px solid rgba(240,67,79,.3)", borderRadius: 10, padding: "10px 16px", marginBottom: 14, flexWrap: "wrap" }}>
@@ -310,7 +321,7 @@ export function CenterPane({
           </>
         )}
 
-        {tab === "comp" && (
+        {tab === "odds" && oddsSub === "comp" && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 }}>
               {compCol("亚盘 · 多公司", v.comp.ah)}
@@ -321,7 +332,7 @@ export function CenterPane({
           </>
         )}
 
-        {tab === "markets" && (
+        {tab === "odds" && oddsSub === "markets" && (
           <>
             {(v.markets ?? []).length === 0 && <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)", padding: "40px 0" }}>暂无扩展玩法数据,开盘后自动解析半场盘/角球/罚牌/波胆等</div>}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
@@ -346,7 +357,7 @@ export function CenterPane({
           </>
         )}
 
-        {tab === "tech" && (
+        {tab === "match" && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14 }}>
             <Card style={{ padding: "12px 14px" }}>
               <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10 }}>近况 · 最近 6 场</div>
@@ -533,7 +544,7 @@ export function CenterPane({
             <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>报告加载中…</div>
           ))}
 
-        {tab === "lineup" &&
+        {tab === "squad" &&
           (v.lineups.ready ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: 14 }}>
               <div>
@@ -556,7 +567,7 @@ export function CenterPane({
             </div>
           ))}
 
-        {tab === "intel" && (
+        {tab === "squad" && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: 14 }}>
               {intelSide(h.home, "var(--home)", v.intel.filter((i: V) => i.side === "主"))}

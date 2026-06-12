@@ -21,9 +21,11 @@ import { SITE_HOST } from "@/lib/site";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any; // 视图模型由 /api/match/[id] 输出,字段见 src/server/views/detail.ts
 
+/** 一级导航 4 组(390px 一屏放下):盘口(走势/百家/玩法)| 赛况 | 人员(阵容+情报)| 深度(深挖+报告) */
 const TABS: [string, string][] = [
-  ["odds", "盘口走势"], ["comp", "百家对比"], ["markets", "玩法"], ["tech", "技术面"], ["lineup", "阵容"], ["intel", "情报"], ["deep", "深挖"],
+  ["odds", "盘口"], ["match", "赛况"], ["squad", "人员"], ["deep", "深度"],
 ];
+const ODDS_SUBS: [string, string][] = [["trend", "走势"], ["comp", "百家对比"], ["markets", "更多玩法"]];
 
 const FORM_STYLE: Record<string, { bg: string; c: string }> = {
   胜: { bg: "rgba(46,204,138,.16)", c: "var(--green)" },
@@ -41,6 +43,7 @@ export default function MatchRoute({ params }: { params: Promise<{ id: string }>
 function MobileMatchDetail({ id }: { id: string }) {
   const [v, setV] = useState<V | null>(null);
   const [tab, setTab] = useState("odds");
+  const [oddsSub, setOddsSub] = useState("trend");
   const [deepV, setDeepV] = useState<V | null>(null);
   const [rfOpen, setRfOpen] = useState(false);
   const [share, setShare] = useState<ShareData | null>(null);
@@ -265,12 +268,21 @@ function MobileMatchDetail({ id }: { id: string }) {
 
       <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", overflowX: "auto", flexShrink: 0 }}>
         {TABS.map(([k, label]) => (
-          <Chip key={k} label={label} active={tab === k} onClick={() => setTab(k)} style={{ borderRadius: 8, fontWeight: 700 }} />
+          <Chip key={k} label={label} active={tab === k} onClick={() => { setTab(k); setOddsSub("trend"); }} style={{ borderRadius: 8, fontWeight: 700, flex: 1, textAlign: "center" }} />
         ))}
       </div>
+      {tab === "odds" && (
+        <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", flexShrink: 0 }}>
+          {ODDS_SUBS.map(([k, label]) => (
+            <span key={k} onClick={() => setOddsSub(k)} style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 7, padding: "4px 12px", background: oddsSub === k ? "rgba(233,185,73,.14)" : "var(--inset)", color: oddsSub === k ? "var(--gold)" : "var(--fg-3)" }}>
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 16px", minHeight: 0 }}>
-        {tab === "odds" && (
+        {tab === "odds" && oddsSub === "trend" && (
           <>
             {h.live && v.liveOdds && (
               <>
@@ -317,7 +329,7 @@ function MobileMatchDetail({ id }: { id: string }) {
           </>
         )}
 
-        {tab === "comp" && (
+        {tab === "odds" && oddsSub === "comp" && (
           <>
             {compTable("亚盘 · 多公司对比", v.comp.ah)}
             {compTable("大小球 · 多公司对比", v.comp.ou)}
@@ -326,7 +338,7 @@ function MobileMatchDetail({ id }: { id: string }) {
           </>
         )}
 
-        {tab === "markets" && (
+        {tab === "odds" && oddsSub === "markets" && (
           <>
             <SectionTitle title="更多玩法" right="数据随盘口归档实时更新" />
             {(v.markets ?? []).length === 0 && <EmptyBox title="暂无扩展玩法数据" sub={"开盘后将自动解析半场盘/角球/罚牌/波胆等玩法"} />}
@@ -350,7 +362,7 @@ function MobileMatchDetail({ id }: { id: string }) {
           </>
         )}
 
-        {tab === "tech" && (
+        {tab === "match" && (
           <>
             {h.live && (
               <>
@@ -511,7 +523,7 @@ function MobileMatchDetail({ id }: { id: string }) {
           </>
         )}
 
-        {tab === "lineup" &&
+        {tab === "squad" &&
           (v.lineups.ready ? (
             <>
               <div style={{ margin: "6px 4px 8px", fontSize: 13, fontWeight: 700 }}>
@@ -527,7 +539,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             <EmptyBox title="官方首发尚未公布" sub={"官方首发通常于开赛前约 40 分钟公布\n公布后将自动更新"} />
           ))}
 
-        {tab === "intel" && (
+        {tab === "squad" && (
           <>
             <SectionTitle title="伤停与情报" />
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -544,6 +556,18 @@ function MobileMatchDetail({ id }: { id: string }) {
           </>
         )}
 
+        {tab === "deep" && (
+          <div
+            onClick={() => router.push(`/report/${h.id}`)}
+            style={{ padding: "12px 14px", marginBottom: 8, borderRadius: 12, border: "1px solid rgba(233,185,73,.4)", background: "linear-gradient(135deg,#1d1a10,#12141a)", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+          >
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 13, fontWeight: 800 }}>AI 分析报告</span>
+              <span style={{ fontSize: 10, color: "var(--fg-2)" }}>盘口解读 · 状态盘路 · 进球模型 · 随盘口变化更新版本</span>
+            </span>
+            <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--gold)" }}>查看 ›</span>
+          </div>
+        )}
         {tab === "deep" &&
           (deepV ? (
             <>
