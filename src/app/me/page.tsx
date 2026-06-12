@@ -215,7 +215,7 @@ function MobileMePage() {
         </div>
 
         {me.loggedIn && (
-          <div onClick={logout} style={{ marginTop: 14, textAlign: "center", padding: "11px 0", borderRadius: 10, border: "1px solid rgba(255,92,92,.35)", color: "var(--red)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          <div onClick={logout} style={{ marginTop: 14, textAlign: "center", padding: "11px 0", borderRadius: 10, border: "1px solid var(--danger-border)", color: "var(--red)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
             退出登录
           </div>
         )}
@@ -227,7 +227,7 @@ function MobileMePage() {
 
       {/* 基础报告额度 */}
       {giftOpen && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(4,5,9,.78)", padding: "0 40px" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--overlay-strong)", padding: "0 40px" }}>
           <div style={{ background: "var(--card)", border: "1px solid var(--selected-border-strong)", borderRadius: 18, padding: "24px 22px", textAlign: "center", width: "100%" }}>
             <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 20, fontWeight: 800, color: "var(--on-accent)" }}>AI</div>
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 6 }}>基础报告额度</div>

@@ -8,9 +8,9 @@ import type { CSSProperties, ReactNode } from "react";
 export function Sheet({ open, onClose, children, z = 65 }: { open: boolean; onClose: () => void; children: ReactNode; z?: number }) {
   if (!open) return null;
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: z, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,.42)" }}>
+    <div style={{ position: "absolute", inset: 0, zIndex: z, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "var(--overlay-soft)" }}>
       <div onClick={onClose} style={{ flex: 1 }} />
-      <div style={{ background: "var(--card)", borderTop: "1px solid var(--line)", borderRadius: "18px 18px 0 0", padding: "10px 16px 24px", boxShadow: "0 -16px 48px rgba(0,0,0,.20)" }}>
+      <div style={{ background: "var(--card)", borderTop: "1px solid var(--line)", borderRadius: "18px 18px 0 0", padding: "10px 16px 24px", boxShadow: "var(--surface-shadow)" }}>
         <div style={{ width: 38, height: 4, borderRadius: 2, background: "var(--line)", margin: "0 auto 14px" }} />
         {children}
       </div>

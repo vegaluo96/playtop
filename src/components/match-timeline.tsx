@@ -23,14 +23,14 @@ export interface TLData {
 
 /** kind → [图标, 底色, 字色] */
 const ICON: Record<string, [string, string, string]> = {
-  goal: ["●", "rgba(46,204,138,.16)", "var(--green)"],
+  goal: ["●", "var(--success-bg)", "var(--green)"],
   yellow: ["▮", "var(--selected-bg-strong)", "var(--gold)"],
-  red: ["▮", "rgba(255,92,92,.16)", "var(--red)"],
-  sub: ["⇄", "rgba(63,140,255,.16)", "var(--home)"],
-  var: ["V", "rgba(139,148,168,.16)", "var(--fg-3)"],
-  corner: ["⚑", "rgba(110,193,255,.14)", "#6ec1ff"],
-  sot: ["◎", "rgba(46,204,138,.12)", "var(--green)"],
-  soff: ["○", "rgba(139,148,168,.12)", "var(--fg-3)"],
+  red: ["▮", "var(--danger-bg)", "var(--red)"],
+  sub: ["⇄", "var(--info-bg)", "var(--home)"],
+  var: ["V", "var(--neutral-bg)", "var(--fg-3)"],
+  corner: ["⚑", "var(--event-corner-bg)", "var(--event-corner)"],
+  sot: ["◎", "var(--success-bg-soft)", "var(--green)"],
+  soff: ["○", "var(--neutral-bg-soft)", "var(--fg-3)"],
   offside: ["⚐", "var(--selected-bg)", "var(--gold-2)"],
 };
 const LEGEND: [string, string][] = [

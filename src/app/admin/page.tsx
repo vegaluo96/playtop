@@ -63,7 +63,7 @@ export default function AdminPage() {
         <div style={{ width: 380 }}>
           <div style={{ textAlign: "center", marginBottom: 6 }}>
             <span style={{ fontSize: 24, fontWeight: 800 }}>足球<span style={{ color: "var(--gold)" }}>终端</span></span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--home)", border: "1px solid rgba(63,140,255,.4)", borderRadius: 4, padding: "2px 7px", marginLeft: 8 }}>管理后台</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--home)", border: "1px solid var(--info-border)", borderRadius: 4, padding: "2px 7px", marginLeft: 8 }}>管理后台</span>
           </div>
           <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)", marginBottom: 20 }}>仅管理员账号可进入 · 操作全程审计</div>
           <input id="ad-email" type="email" placeholder="管理员邮箱" style={{ width: "100%", boxSizing: "border-box", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px", fontSize: 13, color: "var(--fg)", outline: "none", marginBottom: 10 }} />
@@ -84,7 +84,7 @@ export default function AdminPage() {
     <div className="desktop-root" style={{ width: "100%", height: "100%", minWidth: 1180, display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", overflow: "hidden", overflowX: "auto" }}>
       <div style={{ flexShrink: 0, height: 52, display: "flex", alignItems: "center", gap: 14, padding: "0 20px", borderBottom: "1px solid var(--line)", background: "var(--card)" }}>
         <span style={{ fontSize: 17, fontWeight: 800 }}>足球<span style={{ color: "var(--gold)" }}>终端</span></span>
-        <span style={{ fontSize: 11, fontWeight: 800, color: "var(--home)", border: "1px solid rgba(63,140,255,.4)", borderRadius: 4, padding: "2px 7px" }}>管理后台</span>
+        <span style={{ fontSize: 11, fontWeight: 800, color: "var(--home)", border: "1px solid var(--info-border)", borderRadius: 4, padding: "2px 7px" }}>管理后台</span>
         <span style={{ flex: 1 }} />
         <span
           onClick={() => setPrefs({ theme: prefs.theme === "深色" ? "浅色" : "深色" })}
@@ -109,7 +109,7 @@ export default function AdminPage() {
               <span style={{ fontSize: 12.5, fontWeight: 700 }}>{label}</span>
               <span style={{ flex: 1 }} />
               {k === "ticket" && openTickets > 0 && (
-                <span style={{ fontSize: 11, fontWeight: 800, background: "rgba(255,92,92,.16)", color: "var(--red)", borderRadius: 8, padding: "1px 6px" }}>{openTickets}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, background: "var(--danger-bg)", color: "var(--red)", borderRadius: 8, padding: "1px 6px" }}>{openTickets}</span>
               )}
             </div>
           ))}

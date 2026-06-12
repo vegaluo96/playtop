@@ -39,9 +39,9 @@ const TAB_DEFS: [DTab, string][] = [
 const ODDS_SUBS: [string, string][] = [["trend", "走势"], ["comp", "对比"], ["road", "盘路"], ["markets", "更多玩法"]];
 
 const FORM_STYLE: Record<string, { bg: string; c: string }> = {
-  胜: { bg: "rgba(46,204,138,.16)", c: "var(--green)" },
-  平: { bg: "rgba(139,148,168,.16)", c: "var(--fg-3)" },
-  负: { bg: "rgba(255,92,92,.16)", c: "var(--red)" },
+  胜: { bg: "var(--success-bg)", c: "var(--green)" },
+  平: { bg: "var(--neutral-bg)", c: "var(--fg-3)" },
+  负: { bg: "var(--danger-bg)", c: "var(--red)" },
 };
 
 export function CenterPane({
@@ -301,7 +301,7 @@ export function CenterPane({
         {tab === "odds" && oddsSub === "trend" && (
           <>
             {h.live && v.liveOdds && (
-              <div style={{ display: "flex", alignItems: "center", gap: 14, background: "var(--card)", border: "1px solid rgba(255,92,92,.3)", borderRadius: 10, padding: "10px 16px", marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, background: "var(--card)", border: "1px solid var(--danger-border)", borderRadius: 10, padding: "10px 16px", marginBottom: 14, flexWrap: "wrap" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
                   <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
                   <span className="mono" style={{ fontSize: 11.5, color: "var(--red)", fontWeight: 800, whiteSpace: "nowrap" }}>滚球 LIVE</span>
@@ -604,7 +604,7 @@ export function CenterPane({
               </div>
             </div>
           ) : (
-            <div style={{ background: "var(--card)", border: "1px dashed #272d3a", borderRadius: 12, padding: "44px 20px", textAlign: "center", maxWidth: 560, margin: "20px auto 0" }}>
+            <div style={{ background: "var(--card)", border: "1px dashed var(--line)", borderRadius: 12, padding: "44px 20px", textAlign: "center", maxWidth: 560, margin: "20px auto 0" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-2)" }}>官方首发尚未公布</div>
               <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.7 }}>通常于开赛前约 40 分钟公布,公布后自动更新</div>
             </div>
@@ -728,7 +728,7 @@ export function CenterPane({
                   <div style={{ fontSize: 12, fontWeight: 700, padding: "4px 0 6px" }}>赛季场均评分 · 关键球员</div>
                   {(deepV.ratings ?? []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--fg-3)", padding: "7px 0" }}>评分暂无官方返回</div>}
                   {deepV.ratings?.map((r: V) => {
-                    const bc = r.r >= 8 ? ["var(--selected-bg-strong)", "var(--gold)"] : r.r >= 7 ? ["rgba(46,204,138,.16)", "var(--green)"] : ["rgba(149,155,166,.16)", "var(--fg-3)"];
+                    const bc = r.r >= 8 ? ["var(--selected-bg-strong)", "var(--gold)"] : r.r >= 7 ? ["var(--success-bg)", "var(--green)"] : ["var(--neutral-bg)", "var(--fg-3)"];
                     return (
                       <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
                         <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: r.side === "h" ? "var(--home)" : "var(--team-away)" }} />

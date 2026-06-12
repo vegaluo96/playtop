@@ -113,7 +113,7 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
   // 游客:抽屉只给注册引导
   if (!me.loggedIn) {
     return (
-      <div style={{ position: "absolute", inset: 0, zIndex: 55, display: "flex", justifyContent: "flex-end", background: "rgba(4,5,9,.6)" }}>
+      <div style={{ position: "absolute", inset: 0, zIndex: 55, display: "flex", justifyContent: "flex-end", background: "var(--overlay-soft)" }}>
         <div onClick={onClose} style={{ flex: 1 }} />
         <div style={{ width: 390, background: "var(--card)", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid var(--line)" }}>
@@ -137,7 +137,7 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
   }
 
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 55, display: "flex", justifyContent: "flex-end", background: "rgba(4,5,9,.6)" }}>
+    <div style={{ position: "absolute", inset: 0, zIndex: 55, display: "flex", justifyContent: "flex-end", background: "var(--overlay-soft)" }}>
       <div onClick={onClose} style={{ flex: 1 }} />
       <div style={{ width: 390, background: "var(--card)", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column", minHeight: 0 }}>
         <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid var(--line)" }}>
@@ -275,7 +275,7 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
               <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderTop: "1px solid var(--line-soft)", marginTop: 6 }}>
                 <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)" }}>T{t.id}</span>
                 <span style={{ flex: 1, fontSize: 11, fontWeight: 700 }}>{t.type}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 6px", background: t.status === "处理中" ? "var(--selected-bg)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 6px", background: t.status === "处理中" ? "var(--selected-bg)" : "var(--success-bg)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
               </div>
             ))}
           </div>

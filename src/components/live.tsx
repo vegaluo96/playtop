@@ -3,7 +3,7 @@
 /**
  * 行情终端微交互(不伪造数据,只渲染真实变化):
  * - <Flash>:字段值真实变化时背景闪动 1.3s + 方向残影 2.4s;布局零位移(箭头占位恒定)
- * - <HeartBeat>:盯盘心跳(呼吸点 + Live·Ns + 上次检查/下次刷新);worker 失联→盯盘暂停,
+ * - <HeartBeat>:盯盘心跳(呼吸点 + 连接状态);worker 失联→盯盘暂停,
  *   轮询超时→数据延迟;无变化时只走心跳,绝不跳数字
  * - useNewIds:异动流新条目滑入(列表不重排)
  */
@@ -78,17 +78,17 @@ export interface BeatState {
   lastAt: number | null;
   intervalMs: number;
   workerAt?: number | null;
-  /** 最近一次数据请求的真实往返耗时(ms) */
+  /** 最近一次数据请求的真实往返耗时(ms),仅供内部诊断,不在用户端展示 */
   rtt?: number | null;
 }
 
 /**
- * 连接状态行:只报真实状态与延迟,不报轮询参数 ——
- *   ● 已连接 · 36ms(绿,延迟=最近一次请求实测往返)
+ * 连接状态:只报真实状态,不报轮询参数或毫秒延迟 ——
+ *   ● 已连接
  *   ● 数据延迟(金,本页超过 3 个周期没拿到新数据)
  *   ● 盯盘暂停(灰,数据端 worker 失联 >3min)
  */
-export function HeartBeat({ lastAt, intervalMs, workerAt, rtt, style }: BeatState & { style?: CSSProperties }) {
+export function HeartBeat({ lastAt, intervalMs, workerAt, style }: BeatState & { style?: CSSProperties }) {
   const now = useNow(1000);
   const workerDown = workerAt != null && now - workerAt > 3 * 60_000;
   const stale = lastAt != null && now - lastAt > intervalMs * 3;
@@ -98,7 +98,6 @@ export function HeartBeat({ lastAt, intervalMs, workerAt, rtt, style }: BeatStat
     <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap", ...style }}>
       <span className={workerDown ? undefined : "breathe"} style={{ width: 5, height: 5, borderRadius: "50%", background: color, flexShrink: 0 }} />
       <span style={{ color, fontWeight: 700 }}>{label}</span>
-      {!workerDown && !stale && rtt != null && <span>· {Math.max(1, Math.round(rtt))}ms</span>}
     </span>
   );
 }
@@ -127,7 +126,7 @@ export function useWorkerBeat(): number | null {
 /**
  * 四个一级菜单的统一轮询:全站一条规则 —— 平台有滚球场次 3s,否则 10s
  * (liveNow 来自 /api/health,与列表/详情的「滚球加速」同源)。
- * 返回值直接喂给 PageHeader;rtt 为本页数据请求的实测往返耗时(连接状态行显示)。
+ * 返回值直接喂给 PageHeader;rtt 保留给内部诊断,用户端不展示。
  */
 export function useUnifiedPoll(load: () => void | Promise<void>): { lastAt: number | null; workerAt: number | null; intervalMs: number; rtt: number | null } {
   const { workerAt, liveNow } = useHealth();

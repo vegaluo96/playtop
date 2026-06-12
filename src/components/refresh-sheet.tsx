@@ -5,12 +5,13 @@
  * (/api/health intervals)。按「赛前 → 滚球 → 完场」分组成阶梯,越临近开球节点越亮;
  * 从详情页打开时高亮该场当前所处档位并标「当前」。
  */
-import { LIVE_TIER, TIERS, tierFreqText } from "@/server/af/schedule";
+import { fmtFreq, LIVE_TIER, TIERS } from "@/server/af/schedule";
 import { useTierIntervals } from "./live";
 import { Sheet } from "./ui";
 
 /** 赛前档位由远及近的节点亮度(视觉传达「越近越快」) */
 const DOT_ALPHA = [0.25, 0.35, 0.45, 0.55, 0.7, 0.85, 1];
+const ruleFreqText = (ms: number) => fmtFreq(ms);
 
 /** 阶梯主体(移动 Sheet 与桌面 Modal 共用) */
 export function RefreshRules({ activeIdx, intervals }: { activeIdx: number | null; intervals: number[] | null }) {
@@ -42,7 +43,7 @@ export function RefreshRules({ activeIdx, intervals }: { activeIdx: number | nul
             r.idx,
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--chart-primary)", opacity: DOT_ALPHA[r.idx] ?? 1, position: "relative" }} />,
             r.label,
-            tierFreqText(r.idx, intervals?.[r.idx] ?? r.intervalMs),
+            ruleFreqText(intervals?.[r.idx] ?? r.intervalMs),
           ),
         )}
       </div>
@@ -52,7 +53,7 @@ export function RefreshRules({ activeIdx, intervals }: { activeIdx: number | nul
         LIVE_TIER,
         <span className="livepulse" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--red)" }} />,
         TIERS[LIVE_TIER].label,
-        tierFreqText(LIVE_TIER, intervals?.[LIVE_TIER] ?? TIERS[LIVE_TIER].intervalMs),
+        ruleFreqText(intervals?.[LIVE_TIER] ?? TIERS[LIVE_TIER].intervalMs),
       )}
 
       {groupTitle("完场")}
@@ -61,11 +62,11 @@ export function RefreshRules({ activeIdx, intervals }: { activeIdx: number | nul
           <span style={{ fontSize: 11, color: "var(--green)", fontWeight: 800 }}>✓</span>
         </span>
         <span style={{ flex: 1, fontSize: 13, fontWeight: 650, color: "var(--fg-mid)" }}>已完场</span>
-        <span className="mono" style={{ fontSize: 12, fontWeight: 800, color: "var(--fg-2)" }}>数据固化 · 不再刷新</span>
+        <span className="mono" style={{ fontSize: 12, fontWeight: 800, color: "var(--fg-2)" }}>不再刷新</span>
       </div>
 
       <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 8, lineHeight: 1.7, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
-        指数、赛况与阵容来自官方接口,平台按上表频率自动抓取归档;频率为后台当前生效配置,调整后此处实时同步。页头连接状态行显示的是您与本站之间的实测延迟,与抓取档位相互独立。
+        指数、赛况与阵容来自官方接口,平台按上表频率自动抓取归档;频率为后台当前生效配置,调整后此处实时同步。页头连接状态用于打开本规则,与抓取档位相互独立。
       </div>
     </>
   );

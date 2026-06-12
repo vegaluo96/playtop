@@ -182,7 +182,7 @@ export function IndexChart({
           className="mono"
           style={{
             position: "absolute", top: 26, left: `${Math.min(78, Math.max(2, ((hover.t - t0) / Math.max(1, t1 - t0)) * 100))}%`,
-            background: "#171a22", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px",
+            background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px",
             fontSize: 11, color: "var(--fg-mid)", pointerEvents: "none", whiteSpace: "nowrap", zIndex: 5,
           }}
         >

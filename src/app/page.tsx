@@ -127,9 +127,9 @@ function MobileMatchesPage() {
             <span
               style={{
                 fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px",
-                background: m.masked ? "var(--selected-bg)" : m.free ? "rgba(46,204,138,.12)" : "var(--inset)",
+                background: m.masked ? "var(--selected-bg)" : m.free ? "var(--success-bg)" : "var(--inset)",
                 color: m.masked ? "var(--gold)" : m.free ? "var(--green)" : "var(--fg-2)",
-                border: `1px solid ${m.masked ? "var(--selected-border)" : m.free ? "rgba(46,204,138,.4)" : "var(--line)"}`,
+                border: `1px solid ${m.masked ? "var(--selected-border)" : m.free ? "var(--success-border)" : "var(--line)"}`,
               }}
             >
               {tag}
@@ -140,7 +140,7 @@ function MobileMatchesPage() {
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 70px 70px 70px", gap: 8, alignItems: "center" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--home)", background: "rgba(63,140,255,.12)", borderRadius: 3, padding: "1px 5px" }}>主</span>
+              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--home)", background: "var(--team-home-bg)", borderRadius: 3, padding: "1px 5px" }}>主</span>
               <TeamLogo id={m.homeId} name={m.home} size={16} />
               <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
             </div>

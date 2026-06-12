@@ -8,11 +8,11 @@ export function Modal({ open, onClose, width = 460, children }: { open: boolean;
   return (
     <div
       onClick={onClose}
-      style={{ position: "absolute", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(4,5,9,.72)" }}
+      style={{ position: "absolute", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--overlay)" }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width, maxWidth: "92vw", background: "var(--card)", border: "1px solid #262a34", borderRadius: 14, padding: "18px 20px", display: "flex", flexDirection: "column", maxHeight: "78vh" }}
+        style={{ width, maxWidth: "92vw", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 14, padding: "18px 20px", display: "flex", flexDirection: "column", maxHeight: "78vh", boxShadow: "var(--surface-shadow)" }}
       >
         {children}
       </div>

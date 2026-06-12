@@ -45,9 +45,9 @@ const TABS: [string, string][] = [
 const ODDS_SUBS: [string, string][] = [["trend", "走势"], ["comp", "对比"], ["road", "盘路"], ["markets", "更多玩法"]];
 
 const FORM_STYLE: Record<string, { bg: string; c: string }> = {
-  胜: { bg: "rgba(46,204,138,.16)", c: "var(--green)" },
-  平: { bg: "rgba(139,148,168,.16)", c: "var(--fg-3)" },
-  负: { bg: "rgba(255,92,92,.16)", c: "var(--red)" },
+  胜: { bg: "var(--success-bg)", c: "var(--green)" },
+  平: { bg: "var(--neutral-bg)", c: "var(--fg-3)" },
+  负: { bg: "var(--danger-bg)", c: "var(--red)" },
 };
 
 export default function MatchRoute({ params }: { params: Promise<{ id: string }> }) {
@@ -333,7 +333,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                     <span className="mono" style={{ fontSize: 11, color: "var(--red)", fontWeight: 700, whiteSpace: "nowrap" }}>LIVE · {h.fresh.freq}刷新</span>
                   </div>
                 </div>
-                <div style={{ background: "var(--card)", border: "1px solid rgba(255,92,92,.3)", borderRadius: 12, padding: "4px 14px", marginBottom: 14 }}>
+                <div style={{ background: "var(--card)", border: "1px solid var(--danger-border)", borderRadius: 12, padding: "4px 14px", marginBottom: 14 }}>
                   {v.liveOdds.map((r: V) => (
                     <div key={r.mk} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--line-soft)" }}>
                       <span style={{ flexShrink: 0, width: 54, fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 0", textAlign: "center", background: "var(--inset)", color: "var(--fg-2)" }}>{r.mk}</span>
@@ -582,7 +582,7 @@ function MobileMatchDetail({ id }: { id: string }) {
               {v.intel.length === 0 && <EmptyBox title="暂无官方伤停通报" sub="伤停状态随官方发布实时更新" />}
               {v.intel.map((i: V, idx: number) => (
                 <Card key={idx} style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 9 }}>
-                  <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, background: i.side === "主" ? "rgba(63,140,255,.16)" : "var(--team-away-bg)", color: i.side === "主" ? "var(--home)" : "var(--team-away)" }}>{i.side}</span>
+                  <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, background: i.side === "主" ? "var(--team-home-bg)" : "var(--team-away-bg)", color: i.side === "主" ? "var(--home)" : "var(--team-away)" }}>{i.side}</span>
                   <span style={{ flex: 1, fontSize: 12, color: "var(--fg-mid)", lineHeight: 1.5 }}>{i.x}</span>
                   <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: i.tag === "缺阵" ? "var(--red)" : i.tag === "解禁" ? "var(--green)" : "var(--gold)" }}>{i.tag}</span>
                 </Card>
@@ -703,7 +703,7 @@ function MobileMatchDetail({ id }: { id: string }) {
               <Card style={{ padding: "4px 14px 6px" }}>
                 {(deepV.ratings ?? []).length === 0 && <div style={{ padding: 10, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>评分暂无官方返回</div>}
                 {deepV.ratings?.map((r: V) => {
-                  const bc = r.r >= 8 ? ["var(--selected-bg-strong)", "var(--gold)"] : r.r >= 7 ? ["rgba(46,204,138,.16)", "var(--green)"] : ["rgba(139,148,168,.16)", "var(--fg-3)"];
+                  const bc = r.r >= 8 ? ["var(--selected-bg-strong)", "var(--gold)"] : r.r >= 7 ? ["var(--success-bg)", "var(--green)"] : ["var(--neutral-bg)", "var(--fg-3)"];
                   return (
                     <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
                       <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: r.side === "h" ? "var(--home)" : "var(--team-away)" }} />

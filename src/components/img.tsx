@@ -58,7 +58,7 @@ export function PlayerAvatar({ id, name, num, size = 26, ring }: { id?: number |
       loading="lazy"
       onError={() => setErr(true)}
       alt={name}
-      style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: ring ? `2px solid ${ring}` : undefined, background: "#222" }}
+      style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: ring ? `2px solid ${ring}` : undefined, background: "var(--inset)" }}
     />
   );
 }

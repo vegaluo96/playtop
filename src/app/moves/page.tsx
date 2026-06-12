@@ -79,11 +79,11 @@ function MobileMovesPage() {
               <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{f.t}</span>
               <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{f.match}</span>
               {f.sev && (
-                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 4, padding: "2px 7px" }}>急变</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 4, padding: "2px 7px" }}>急变</span>
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 4, padding: "2px 7px" }}>滚球</span>}
+              {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 4, padding: "2px 7px" }}>滚球</span>}
               <span style={{ fontSize: 11, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.mk}</span>
               {f.bk && <span style={{ fontSize: 11, fontWeight: 750, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.bk}</span>}
               <span style={{ fontSize: 11, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
@@ -116,7 +116,7 @@ function MobileMovesPage() {
               <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}>{sel.league}</span>
               <span style={{ flex: 1 }} />
               {sel.sev && (
-                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 4, padding: "2px 7px" }}>急变</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 4, padding: "2px 7px" }}>急变</span>
               )}
             </div>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 10 }}>{sel.match}</div>

@@ -245,12 +245,9 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
             <span className="mono" style={{ color: radar.length > 0 ? "var(--red)" : "var(--fg-3)" }}>{radar.length}/{moves.length}</span>
           </button>
         )}
-        {/* 与移动端页头同构:第一行真实盯盘状态,第二行数据刷新规则入口 */}
-        <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
-          <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} rtt={rtt} />
-          <span onClick={() => setModal({ kind: "refresh" })} style={{ fontSize: 11.5, color: "var(--gold)", fontWeight: 800, whiteSpace: "nowrap", cursor: "pointer" }}>
-            ⟳ 数据刷新规则 ›
-          </span>
+        {/* 与移动端页头同构:右上角只保留连接状态,点击打开刷新规则 */}
+        <span onClick={() => setModal({ kind: "refresh" })} style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0, cursor: "pointer", minHeight: 24 }}>
+          <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} />
         </span>
         {me.loggedIn ? (
           <span onClick={() => setDrawer(true)} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "5px 10px", borderRadius: 8, border: "1px solid var(--line)" }}>
@@ -360,7 +357,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                         {m.home} <span style={{ color: "var(--fg-3)", fontWeight: 400 }}>vs</span> {m.away}
                       </span>
                       {tag && (
-                        <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 3, padding: "1px 5px", flexShrink: 0, whiteSpace: "nowrap", background: m.free && !m.masked ? "rgba(46,204,138,.12)" : "var(--selected-bg)", color: m.free && !m.masked ? "var(--green)" : "var(--gold)" }}>{tag}</span>
+                        <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 3, padding: "1px 5px", flexShrink: 0, whiteSpace: "nowrap", background: m.free && !m.masked ? "var(--success-bg)" : "var(--selected-bg)", color: m.free && !m.masked ? "var(--green)" : "var(--gold)" }}>{tag}</span>
                       )}
                     </div>
                   </div>
@@ -445,10 +442,10 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                     <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)" }}>{f.t}</span>
                     <span style={{ fontSize: 11, fontWeight: 700, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.match}</span>
-                    {f.sev && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 3, padding: "1px 6px" }}>急变</span>}
+                    {f.sev && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 3, padding: "1px 6px" }}>急变</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 3, padding: "1px 6px" }}>滚球</span>}
+                    {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 3, padding: "1px 6px" }}>滚球</span>}
                     <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px" }}>{f.mk}</span>
                     {f.bk && <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 64 }}>{f.bk}</span>}
                     <span style={{ fontSize: 11.5, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
@@ -532,7 +529,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   )}
                 </div>
               ) : (
-                <div style={{ background: "var(--card)", border: "1px dashed #272d3a", borderRadius: 10, padding: "24px 14px", textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>
+                <div style={{ background: "var(--card)", border: "1px dashed var(--line)", borderRadius: 10, padding: "24px 14px", textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>
                   本场概率报告尚未生成,概率快照就绪后自动出现
                 </div>
               )}
@@ -574,7 +571,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
 
       {/* ===== 基础报告额度 ===== */}
       {me.loggedIn && me.giftPending && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(4,5,9,.78)" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--overlay-strong)" }}>
           <div style={{ width: 340, background: "var(--card)", border: "1px solid var(--selected-border-strong)", borderRadius: 18, padding: "24px 22px", textAlign: "center" }}>
             <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 20, fontWeight: 800, color: "var(--on-accent)" }}>AI</div>
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 6 }}>基础报告额度</div>
@@ -689,7 +686,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(modal.data.leagueId) }} />
               <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}>{modal.data.league}</span>
               <span style={{ flex: 1 }} />
-              {modal.data.sev && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 4, padding: "2px 6px" }}>急变</span>}
+              {modal.data.sev && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 4, padding: "2px 6px" }}>急变</span>}
             </div>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 10 }}>{modal.data.match}</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -763,10 +760,10 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
                   <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", flexShrink: 0 }}>{f.t}</span>
                   <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.match}</span>
-                  {f.sev && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 3, padding: "1px 6px" }}>急变</span>}
+                  {f.sev && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 3, padding: "1px 6px" }}>急变</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 3, padding: "1px 6px" }}>滚球</span>}
+                  {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 3, padding: "1px 6px" }}>滚球</span>}
                   <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px" }}>{f.mk}</span>
                   {f.bk && <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 3, padding: "1px 6px" }}>{f.bk}</span>}
                   <span style={{ fontSize: 11.5, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>

@@ -65,7 +65,7 @@ export function AdminDialogHost() {
       style={{
         flex: 1, textAlign: "center", cursor: "pointer", borderRadius: 9, padding: "10px 0", fontSize: 12.5, fontWeight: 800,
         background: gold ? "var(--cta)" : "var(--inset)",
-        color: gold ? "#0a0b0f" : "var(--fg-2)",
+        color: gold ? "var(--on-cta)" : "var(--fg-2)",
         border: gold ? "none" : "1px solid var(--line)",
       }}
     >
@@ -118,7 +118,7 @@ export function AdminDialogHost() {
   return (
     <div
       onClick={() => close(false)}
-      style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(4,5,9,.7)" }}
+      style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--overlay)" }}
     >
       <div onClick={(e) => e.stopPropagation()} style={{ width: 400, maxWidth: "calc(100vw - 48px)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 14, padding: "18px 18px 16px", display: d.kind === "alert" ? "flex" : "block", flexDirection: "column" }}>
         {body}

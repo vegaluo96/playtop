@@ -11,15 +11,15 @@ import { MarketValue } from "./market-cell";
 type V = any;
 
 const RES_STYLE: Record<string, { bg: string; c: string }> = {
-  赢: { bg: "rgba(46,204,138,.16)", c: "var(--green)" },
-  赢半: { bg: "rgba(46,204,138,.10)", c: "var(--green)" },
-  走: { bg: "rgba(139,148,168,.14)", c: "var(--fg-3)" },
-  输半: { bg: "rgba(255,92,92,.10)", c: "var(--red)" },
-  输: { bg: "rgba(255,92,92,.16)", c: "var(--red)" },
+  赢: { bg: "var(--success-bg)", c: "var(--green)" },
+  赢半: { bg: "var(--success-bg-soft)", c: "var(--green)" },
+  走: { bg: "var(--neutral-bg)", c: "var(--fg-3)" },
+  输半: { bg: "var(--danger-bg-soft)", c: "var(--red)" },
+  输: { bg: "var(--danger-bg)", c: "var(--red)" },
   大: { bg: "var(--selected-bg-strong)", c: "var(--gold)" },
   大半: { bg: "var(--selected-bg)", c: "var(--gold)" },
-  小: { bg: "rgba(63,140,255,.16)", c: "var(--home)" },
-  小半: { bg: "rgba(63,140,255,.10)", c: "var(--home)" },
+  小: { bg: "var(--info-bg)", c: "var(--home)" },
+  小半: { bg: "var(--info-bg-soft)", c: "var(--home)" },
 };
 
 const box: React.CSSProperties = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12 };

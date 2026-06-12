@@ -23,7 +23,7 @@ export function RiskView() {
     <>
       <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>风控与审计</div>
       <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14, alignItems: "start" }}>
-        <ACard title={<span>风控队列 {v?.queue?.length > 0 && <span style={{ fontSize: 11, fontWeight: 800, background: "rgba(255,92,92,.16)", color: "var(--red)", borderRadius: 8, padding: "1px 6px", marginLeft: 4 }}>{v.queue.length}</span>}</span>} pad={false}>
+        <ACard title={<span>风控队列 {v?.queue?.length > 0 && <span style={{ fontSize: 11, fontWeight: 800, background: "var(--danger-bg)", color: "var(--red)", borderRadius: 8, padding: "1px 6px", marginLeft: 4 }}>{v.queue.length}</span>}</span>} pad={false}>
         {(v?.queue ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11.5, color: "var(--fg-3)" }}>队列为空(规则:同 IP 邀请聚集 / 注册即大额购买 / 同 IP 批量领码)</div>}
         {(v?.queue ?? []).map((r: V) => (
           <div key={r.id} style={{ padding: "10px 14px", borderBottom: "1px solid var(--line-soft)" }}>
@@ -88,7 +88,7 @@ export function TicketsView() {
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                 <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>T{t.id}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, flex: 1 }}>{t.type}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: t.status === "处理中" ? "var(--selected-bg)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: t.status === "处理中" ? "var(--selected-bg)" : "var(--success-bg)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <span style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.body}</span>
@@ -106,7 +106,7 @@ export function TicketsView() {
             </div>
             <div style={{ background: "var(--inset)", borderRadius: 9, padding: "11px 13px", fontSize: 12, color: "var(--fg-mid)", lineHeight: 1.7, marginBottom: 12 }}>{sel.body}</div>
             {sel.reply && (
-              <div style={{ background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.3)", borderRadius: 9, padding: "9px 13px", fontSize: 11, color: "var(--fg-mid)", lineHeight: 1.6, marginBottom: 12 }}>
+              <div style={{ background: "var(--success-bg-soft)", border: "1px solid var(--success-border)", borderRadius: 9, padding: "9px 13px", fontSize: 11, color: "var(--fg-mid)", lineHeight: 1.6, marginBottom: 12 }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: "var(--green)", marginRight: 6 }}>已回复</span>{sel.reply}
               </div>
             )}

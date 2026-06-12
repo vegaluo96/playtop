@@ -58,7 +58,7 @@ export function PlayerSheet({ target, onClose }: { target: PlayerTarget | null; 
               </div>
             </div>
             {v?.injured && (
-              <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>伤停中</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "var(--danger-bg)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>伤停中</span>
             )}
           </div>
 

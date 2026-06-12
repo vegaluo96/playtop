@@ -72,7 +72,7 @@ export function QuoteHistorySheet({ target, onClose }: { target: HistoryTarget |
           <div key={i} style={{ display: "grid", gridTemplateColumns: grid, padding: "7px 10px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.chg ? "var(--selected-bg-soft)" : "transparent" }}>
             <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", display: "flex", alignItems: "center", gap: 4 }}>
               {r.t}
-              {r.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", border: "1px solid rgba(255,92,92,.4)", borderRadius: 3, padding: "0 3px" }}>滚</span>}
+              {r.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", border: "1px solid var(--danger-border)", borderRadius: 3, padding: "0 3px" }}>滚</span>}
             </span>
             {mk === "eu" ? (
               <>
