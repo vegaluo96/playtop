@@ -50,7 +50,7 @@ function MobileReportPage({ id }: { id: string }) {
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-3)", fontSize: 12 }}>加载中…</div>
     );
 
-  const compRows = Object.entries(v.comparison as Record<string, { home: number; away: number }>);
+  const compRows = Object.entries(v.comparison as Record<string, { home: number; away: number }>).filter(([, c]) => c.home > 0 || c.away > 0);
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
@@ -79,21 +79,38 @@ function MobileReportPage({ id }: { id: string }) {
             <span className="mono" style={{ fontSize: 12, color: "var(--fg-3)", whiteSpace: "nowrap", flexShrink: 0 }}>{v.time}</span>
           </div>
           <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 10 }}>{v.match}</div>
-          <ProbBar pH={v.pH} pD={v.pD} pA={v.pA} />
+          <ProbBar pH={v.pH} pD={v.pD} pA={v.pA} empty={!v.probReady} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", borderRadius: 8, padding: "8px 10px" }}>
             <span style={{ fontSize: 11, fontWeight: 800, color: "var(--fg-2)", background: "var(--line)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>摘要</span>
-            <span style={{ fontSize: 12.5, fontWeight: 800, color: v.locked ? "var(--fg-3)" : "var(--gold)" }}>
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: v.locked ? "var(--fg-3)" : "var(--fg-1)" }}>
               {v.locked ? "解锁后查看完整摘要" : v.advice}
             </span>
           </div>
+          {!v.locked && v.directions && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+              {[
+                ["亚盘方向", v.directions.ah?.text, v.model?.ahScore],
+                ["大小方向", v.directions.ou?.text, v.model?.ouScore],
+              ].map(([label, text, score]) => (
+                <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "8px 9px" }}>
+                  <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginBottom: 3 }}>{label as string}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 850 }}>{(text as string) || "暂无明确方向"}</div>
+                  <div className="mono" style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 4 }}>score {score ?? "—"}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card style={{ borderRadius: 14, padding: "13px 14px", marginTop: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ width: 3, height: 13, borderRadius: 2, background: "var(--gold)" }} />
+            <span style={{ width: 3, height: 13, borderRadius: 2, background: "var(--fg-1)" }} />
             <span style={{ fontSize: 13, fontWeight: 800 }}>七维对比</span>
           </div>
           <div style={{ background: "var(--inset)", borderRadius: 8, padding: "8px 10px 4px" }}>
+            {compRows.length === 0 && (
+              <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "10px 0" }}>AF 暂无七维对比数据</div>
+            )}
             {compRows.map(([label, c]) => (
               <div key={label} style={{ display: "grid", gridTemplateColumns: "30px 1fr 74px 1fr 30px", gap: 6, alignItems: "center", marginBottom: 5 }}>
                 <span className="mono" style={{ fontSize: 11.5, color: "var(--home)" }}>{c.home}%</span>
@@ -109,6 +126,34 @@ function MobileReportPage({ id }: { id: string }) {
             ))}
           </div>
         </Card>
+
+        {!v.locked && v.model && (
+          <Card style={{ borderRadius: 14, padding: "13px 14px", marginTop: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ width: 3, height: 13, borderRadius: 2, background: "var(--fg-1)" }} />
+              <span style={{ fontSize: 13, fontWeight: 800 }}>量化模型</span>
+              <span className="mono" style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--fg-3)" }}>覆盖 {v.model.coverage}%</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <div style={{ background: "var(--inset)", borderRadius: 8, padding: "8px 9px" }}>
+                <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>AH 评分</div>
+                <div className="mono" style={{ fontSize: 17, fontWeight: 850 }}>{v.model.ahScore ?? "—"}</div>
+              </div>
+              <div style={{ background: "var(--inset)", borderRadius: 8, padding: "8px 9px" }}>
+                <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>OU 评分</div>
+                <div className="mono" style={{ fontSize: 17, fontWeight: 850 }}>{v.model.ouScore ?? "—"}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {(v.model.inputs ?? []).map((x: V) => (
+                <div key={x.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, color: x.status === "used" ? "var(--fg-2)" : "var(--fg-3)" }}>
+                  <span style={{ flex: 1 }}>{x.label}</span>
+                  <span className="mono">{x.status === "used" ? `${x.weight}%` : "未参与"}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {v.locked && (
           <div style={{ background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 14, padding: 16, marginTop: 10, textAlign: "center" }}>
@@ -138,7 +183,7 @@ function MobileReportPage({ id }: { id: string }) {
                   style={{
                     fontSize: 11.5, fontWeight: 800, cursor: "pointer", borderRadius: 6, padding: "2px 8px",
                     background: v.ver === vv.ver ? "var(--selected-bg-strong)" : "var(--inset)",
-                    color: v.ver === vv.ver ? "var(--gold)" : "var(--fg-2)",
+                    color: v.ver === vv.ver ? "var(--fg-1)" : "var(--fg-2)",
                   }}
                 >
                   v{vv.ver}
@@ -148,7 +193,7 @@ function MobileReportPage({ id }: { id: string }) {
             {(() => {
               const cur = (v.versions ?? []).find((x: V) => x.ver === v.ver);
               return cur?.changed?.length > 0 ? (
-                <div style={{ fontSize: 11.5, color: "var(--gold)", marginTop: 6 }}>本版更新:{cur.changed.join(" · ")}</div>
+                <div style={{ fontSize: 11.5, color: "var(--fg-1)", marginTop: 6 }}>本版更新:{cur.changed.join(" · ")}</div>
               ) : null;
             })()}
           </Card>
@@ -157,7 +202,7 @@ function MobileReportPage({ id }: { id: string }) {
         {(v.sections ?? []).map((sec: V) => (
           <Card key={sec.h} style={{ borderRadius: 14, padding: "13px 14px", marginTop: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ width: 3, height: 13, borderRadius: 2, background: "var(--gold)" }} />
+              <span style={{ width: 3, height: 13, borderRadius: 2, background: "var(--fg-1)" }} />
               <span style={{ fontSize: 13, fontWeight: 800 }}>{sec.h}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -171,7 +216,7 @@ function MobileReportPage({ id }: { id: string }) {
         {!v.locked && (
           <div
             onClick={() => router.push(`/match/${v.id}`)}
-            style={{ marginTop: 12, textAlign: "center", padding: "11px 0", borderRadius: 10, border: "1px solid var(--selected-border)", color: "var(--gold)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            style={{ marginTop: 12, textAlign: "center", padding: "11px 0", borderRadius: 10, border: "1px solid var(--selected-border)", color: "var(--fg-1)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
           >
             查看比赛详情与实时指数 ›
           </div>

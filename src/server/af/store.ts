@@ -5,6 +5,7 @@
 import { db, tx } from "../db";
 import { detectMovement, normalizeOddsItem } from "./normalize";
 import { isFinished } from "./schedule";
+import { ahText, ouText } from "@/lib/format";
 
 /* 书商中文名(界面用);未登记的保留原名 */
 const BOOKMAKER_ZH: [RegExp, string][] = [
@@ -296,10 +297,15 @@ export function oddsSeriesBatch(fixtureIds: number[], market: OddsMarket): Map<n
   return result;
 }
 
-function oddsByMarket(fixtureId: number): Record<OddsMarket, SnapRow[]> {
-  const rows = db()
-    .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? ORDER BY market, bookmaker, captured_at")
-    .all(fixtureId) as unknown as SnapRow[];
+function oddsByMarket(fixtureId: number, cutoffAt?: number | null): Record<OddsMarket, SnapRow[]> {
+  const rows =
+    cutoffAt == null
+      ? (db()
+          .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? ORDER BY market, bookmaker, captured_at")
+          .all(fixtureId) as unknown as SnapRow[])
+      : (db()
+          .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND captured_at <= ? ORDER BY market, bookmaker, captured_at")
+          .all(fixtureId, cutoffAt) as unknown as SnapRow[]);
   return {
     ah: rows.filter((r) => r.market === "ah"),
     ou: rows.filter((r) => r.market === "ou"),
@@ -310,6 +316,16 @@ function oddsByMarket(fixtureId: number): Record<OddsMarket, SnapRow[]> {
 /** 详情页一次性取齐盘口走势与百家对比,避免同一场反复扫 odds_snapshots。 */
 export function oddsBundle(fixtureId: number): OddsBundle {
   const rows = oddsByMarket(fixtureId);
+  return oddsBundleFromRows(rows);
+}
+
+/** 详情/报告的赛前固化口径:只读取 cutoffAt 之前的快照。 */
+export function oddsBundleBefore(fixtureId: number, cutoffAt: number): OddsBundle {
+  const rows = oddsByMarket(fixtureId, cutoffAt);
+  return oddsBundleFromRows(rows);
+}
+
+function oddsBundleFromRows(rows: Record<OddsMarket, SnapRow[]>): OddsBundle {
   return {
     ah: mainOddsSeriesFromRows(rows.ah, "ah"),
     ou: mainOddsSeriesFromRows(rows.ou, "ou"),
@@ -318,6 +334,26 @@ export function oddsBundle(fixtureId: number): OddsBundle {
     compareOu: oddsCompareFromRows(rows.ou),
     compareEu: oddsCompareFromRows(rows.eu),
   };
+}
+
+/** 多场同市场主盘序列批量查询,并按每场 cutoff 截止。 */
+export function oddsSeriesBatchBefore(fixtureIds: number[], market: OddsMarket, cutoffByFixture: Map<number, number>): Map<number, SnapRow[]> {
+  const ids = [...new Set(fixtureIds)];
+  const result = new Map<number, SnapRow[]>();
+  if (ids.length === 0) return result;
+  const rows = db()
+    .prepare(`SELECT * FROM odds_snapshots WHERE market = ? AND fixture_id IN (${placeholders(ids.length)}) ORDER BY fixture_id, bookmaker, captured_at`)
+    .all(market, ...ids) as unknown as SnapRow[];
+  const byFixture = new Map<number, SnapRow[]>();
+  for (const row of rows) {
+    const cutoffAt = cutoffByFixture.get(row.fixture_id) ?? Number.POSITIVE_INFINITY;
+    if (row.captured_at > cutoffAt) continue;
+    const series = byFixture.get(row.fixture_id) ?? [];
+    series.push(row);
+    byFixture.set(row.fixture_id, series);
+  }
+  for (const [fixtureId, series] of byFixture) result.set(fixtureId, mainOddsSeriesFromRows(series, market));
+  return result;
 }
 
 /** 各书商归档首帧/即时盘(百家对比) */
@@ -375,9 +411,20 @@ export function latestPrediction(fixtureId: number): unknown | null {
   const r = db()
     .prepare("SELECT payload FROM predictions_snapshots WHERE fixture_id = ? ORDER BY captured_at DESC LIMIT 1")
     .get(fixtureId) as { payload: string } | undefined;
-  if (!r) return null;
+  return parsePredictionPayload(r?.payload);
+}
+
+export function latestPredictionBefore(fixtureId: number, cutoffAt: number): unknown | null {
+  const r = db()
+    .prepare("SELECT payload FROM predictions_snapshots WHERE fixture_id = ? AND captured_at <= ? ORDER BY captured_at DESC, id DESC LIMIT 1")
+    .get(fixtureId, cutoffAt) as { payload: string } | undefined;
+  return parsePredictionPayload(r?.payload);
+}
+
+function parsePredictionPayload(payload?: string): unknown | null {
+  if (!payload) return null;
   try {
-    return JSON.parse(r.payload);
+    return JSON.parse(payload);
   } catch {
     return null;
   }
@@ -412,37 +459,134 @@ export function latestPredictionsMap(fixtureIds: number[]): Map<number, unknown>
   return result;
 }
 
+/** 多场预测快照批量查询,并按每场 cutoff 取最后一版赛前快照。 */
+export function latestPredictionsBeforeMap(fixtureIds: number[], cutoffByFixture: Map<number, number>): Map<number, unknown> {
+  const ids = [...new Set(fixtureIds)];
+  const result = new Map<number, unknown>();
+  if (ids.length === 0) return result;
+  const rows = db()
+    .prepare(
+      `SELECT fixture_id, payload, captured_at
+       FROM predictions_snapshots
+       WHERE fixture_id IN (${placeholders(ids.length)})
+       ORDER BY fixture_id, captured_at DESC, id DESC`,
+    )
+    .all(...ids) as unknown as { fixture_id: number; payload: string; captured_at: number }[];
+  for (const row of rows) {
+    if (result.has(row.fixture_id)) continue;
+    const cutoffAt = cutoffByFixture.get(row.fixture_id) ?? Number.POSITIVE_INFINITY;
+    if (row.captured_at > cutoffAt) continue;
+    const parsed = parsePredictionPayload(row.payload);
+    if (parsed != null) result.set(row.fixture_id, parsed);
+  }
+  return result;
+}
+
 export function hasPrediction(fixtureId: number): boolean {
   return !!db().prepare("SELECT 1 FROM predictions_snapshots WHERE fixture_id = ? LIMIT 1").get(fixtureId);
 }
 
 /* ── 模型战绩(预测对照赛果自动统计)── */
 
-/** 完场结算:用最近一帧预测快照的 winner/percent 对照终局比分 */
+type PickSide = "home" | "away";
+type TotalSide = "over" | "under";
+
+function predObject(pred: unknown): Record<string, unknown> | null {
+  if (!pred) return null;
+  return (Array.isArray(pred) ? pred[0] : pred) as Record<string, unknown>;
+}
+
+function ahSideFromFixtureLine(line: number | null): PickSide | null {
+  if (line == null || line === 0) return null;
+  return line > 0 ? "home" : "away";
+}
+
+function ahPickText(fx: FixtureRow, side: PickSide, line: number | null): string {
+  if (line == null) return side === "home" ? fx.home_name : fx.away_name;
+  const fav = ahSideFromFixtureLine(line);
+  const role = fav == null ? "平手" : fav === side ? `让${ahText(Math.abs(line))}` : `受让${ahText(Math.abs(line))}`;
+  return `${side === "home" ? fx.home_name : fx.away_name} ${role}`;
+}
+
+function ouPickText(side: TotalSide, line: number | null): string {
+  return line == null ? (side === "over" ? "大球方向" : "小球方向") : `${side === "over" ? "大于" : "小于"} ${ouText(line)}`;
+}
+
+function asianHit(fx: FixtureRow, side: PickSide, line: number | null): number | null {
+  if (line == null || fx.goals_home == null || fx.goals_away == null) return null;
+  const margin = fx.goals_home - fx.goals_away;
+  const delta = side === "home" ? margin - line : -margin + line;
+  return delta > 0 ? 1 : delta < 0 ? 0 : null;
+}
+
+function totalHit(fx: FixtureRow, side: TotalSide, line: number | null): number | null {
+  if (line == null || fx.goals_home == null || fx.goals_away == null) return null;
+  const delta = fx.goals_home + fx.goals_away - line;
+  return side === "over" ? (delta > 0 ? 1 : delta < 0 ? 0 : null) : delta < 0 ? 1 : delta > 0 ? 0 : null;
+}
+
+/** 完场结算:用开赛前最后一帧预测/指数快照对照终局比分,避免赛中数据污染回测。 */
 export function settleFixture(fx: FixtureRow): void {
   if (!isFinished(fx.status) || fx.goals_home == null || fx.goals_away == null) return;
   const d = db();
   if (d.prepare("SELECT 1 FROM model_records WHERE fixture_id = ?").get(fx.fixture_id)) return;
-  const pred = latestPrediction(fx.fixture_id) as Record<string, unknown> | null;
-  if (!pred) return;
-  const p = (Array.isArray(pred) ? pred[0] : pred) as Record<string, unknown>;
+  const basisAt = fx.kickoff_utc - 1;
+  const p = predObject(latestPredictionBefore(fx.fixture_id, basisAt));
+  if (!p) return;
+  const odds = oddsBundleBefore(fx.fixture_id, basisAt);
+  const ah = odds.ah.at(-1) ?? null;
+  const ou = odds.ou.at(-1) ?? null;
   const winnerId = Number(dig(p, "predictions", "winner", "id")) || null;
   const winDraw = Boolean(dig(p, "predictions", "win_or_draw"));
-  if (!winnerId) return;
-  const pickedHome = winnerId === fx.home_id;
-  const pick = (pickedHome ? fx.home_name : fx.away_name) + (winDraw ? "(双重机会)" : "胜");
+  const winnerSide: PickSide | null = winnerId === fx.home_id ? "home" : winnerId === fx.away_id ? "away" : null;
+  const ahSide: PickSide | null =
+    winnerSide ??
+    (ah && ah.h !== ah.a ? (ah.h < ah.a ? "home" : "away") : ah ? ahSideFromFixtureLine(ah.line) : null);
+  const rawUo = dig(p, "predictions", "under_over");
+  const rawUoNum = rawUo == null ? NaN : parseFloat(String(rawUo));
+  const ouSide: TotalSide | null = Number.isFinite(rawUoNum)
+    ? rawUoNum < 0
+      ? "under"
+      : "over"
+    : ou && ou.h !== ou.a
+      ? ou.h < ou.a
+        ? "over"
+        : "under"
+      : null;
+  if (!winnerSide && !ahSide && !ouSide) return;
+  const pick = winnerSide ? (winnerSide === "home" ? fx.home_name : fx.away_name) + (winDraw ? "(双重机会)" : "胜") : "暂无胜平负方向";
   const diff = fx.goals_home - fx.goals_away;
-  const hit = pickedHome
-    ? winDraw
-      ? diff >= 0
-      : diff > 0
-    : winDraw
-      ? diff <= 0
-      : diff < 0;
+  const hit =
+    winnerSide == null
+      ? null
+      : winnerSide === "home"
+        ? winDraw
+          ? diff >= 0
+          : diff > 0
+        : winDraw
+          ? diff <= 0
+          : diff < 0;
+  const ahPick = ahSide ? ahPickText(fx, ahSide, ah?.line ?? null) : null;
+  const ouPick = ouSide ? ouPickText(ouSide, ou?.line ?? null) : null;
   const date = new Date(fx.kickoff_utc + 8 * 3_600_000).toISOString().slice(0, 10); // 平台运营时区 UTC+8
   d.prepare(
-    "INSERT INTO model_records (fixture_id, date, match_name, pick, score, hit, settled_at) VALUES (?,?,?,?,?,?,?)",
-  ).run(fx.fixture_id, date, `${fx.home_name} vs ${fx.away_name}`, pick, `${fx.goals_home}-${fx.goals_away}`, hit ? 1 : 0, Date.now());
+    `INSERT INTO model_records
+      (fixture_id, date, match_name, pick, score, hit, settled_at, basis_at, ah_pick, ah_hit, ou_pick, ou_hit)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+  ).run(
+    fx.fixture_id,
+    date,
+    `${fx.home_name} vs ${fx.away_name}`,
+    pick,
+    `${fx.goals_home}-${fx.goals_away}`,
+    hit == null ? null : hit ? 1 : 0,
+    Date.now(),
+    basisAt,
+    ahPick,
+    ahSide ? asianHit(fx, ahSide, ah?.line ?? null) : null,
+    ouPick,
+    ouSide ? totalHit(fx, ouSide, ou?.line ?? null) : null,
+  );
 }
 
 export interface ModelStats {
@@ -450,7 +594,7 @@ export interface ModelStats {
   yesterday: { hit: number; total: number };
   streak: number;
   week: { date: string; hit: number; total: number }[];
-  yesterdayRows: { match: string; pick: string; score: string; hit: number }[];
+  yesterdayRows: { match: string; pick: string; score: string; hit: number; ahPick?: string | null; ahHit?: number | null; ouPick?: string | null; ouHit?: number | null }[];
 }
 
 export function modelStats(nowMs = Date.now()): ModelStats {
@@ -458,8 +602,8 @@ export function modelStats(nowMs = Date.now()): ModelStats {
   const day = (offset: number) => new Date(nowMs + 8 * 3_600_000 - offset * 86_400_000).toISOString().slice(0, 10);
   const since30 = day(30);
   const all30 = d
-    .prepare("SELECT date, match_name, pick, score, hit FROM model_records WHERE date >= ? AND hit IS NOT NULL ORDER BY settled_at")
-    .all(since30) as { date: string; match_name: string; pick: string; score: string; hit: number }[];
+    .prepare("SELECT date, match_name, pick, score, hit, ah_pick, ah_hit, ou_pick, ou_hit FROM model_records WHERE date >= ? AND hit IS NOT NULL ORDER BY settled_at")
+    .all(since30) as { date: string; match_name: string; pick: string; score: string; hit: number; ah_pick?: string | null; ah_hit?: number | null; ou_pick?: string | null; ou_hit?: number | null }[];
   const hitRate30 = all30.length > 0 ? Math.round((all30.filter((r) => r.hit).length / all30.length) * 1000) / 10 : null;
   const yesterdayDate = day(1);
   const yRows = all30.filter((r) => r.date === yesterdayDate);
@@ -481,7 +625,7 @@ export function modelStats(nowMs = Date.now()): ModelStats {
     yesterday: { hit: yRows.filter((r) => r.hit).length, total: yRows.length },
     streak,
     week,
-    yesterdayRows: yRows.map((r) => ({ match: r.match_name, pick: r.pick, score: r.score, hit: r.hit })),
+    yesterdayRows: yRows.map((r) => ({ match: r.match_name, pick: r.pick, score: r.score, hit: r.hit, ahPick: r.ah_pick, ahHit: r.ah_hit, ouPick: r.ou_pick, ouHit: r.ou_hit })),
   };
 }
 

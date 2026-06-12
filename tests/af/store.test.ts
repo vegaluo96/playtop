@@ -18,6 +18,8 @@ import {
   oddsSeriesBatch,
   kvCached,
   latestPredictionsMap,
+  latestPredictionBefore,
+  oddsBundleBefore,
   settleFixture,
   upsertFixture,
 } from "../../src/server/af/store";
@@ -209,11 +211,39 @@ describe("模型战绩结算", () => {
     upsertFixture(afFixture(300, { status: "FT", gh: 2, ga: 1 }));
     archivePrediction(300, {
       predictions: { winner: { id: 50, name: "曼城" }, win_or_draw: false, percent: { home: "58%", draw: "22%", away: "20%" } },
-    });
+    }, Date.parse("2026-06-11T18:00:00Z"));
     settleFixture(fixtureById(300)!);
     const s = modelStats(Date.parse("2026-06-12T04:00:00Z"));
     expect(s.hitRate30).toBe(100);
     expect(s.yesterdayRows.length + s.week.reduce((n, w) => n + w.total, 0)).toBeGreaterThan(0);
+  });
+
+  it("回测只使用开赛前最后一版预测和指数,赛后快照不污染结算", () => {
+    upsertFixture(afFixture(310, { status: "FT", gh: 1, ga: 2 }));
+    const ins = db().prepare(
+      "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)",
+    );
+    ins.run(310, 8, "Bet365", "ah", -0.5, 0.9, 0.96, null, Date.parse("2026-06-11T18:30:00Z"));
+    ins.run(310, 8, "Bet365", "ou", 2.5, 1.02, 0.82, null, Date.parse("2026-06-11T18:30:00Z"));
+    ins.run(310, 8, "Bet365", "ah", 1.5, 0.75, 1.1, null, Date.parse("2026-06-11T20:00:00Z"));
+    archivePrediction(310, {
+      predictions: { winner: { id: 42, name: "阿森纳" }, win_or_draw: false, under_over: "-2.5", percent: { home: "20%", draw: "25%", away: "55%" } },
+    }, Date.parse("2026-06-11T18:50:00Z"));
+    archivePrediction(310, {
+      predictions: { winner: { id: 50, name: "曼城" }, win_or_draw: false, under_over: "+3.5", percent: { home: "80%", draw: "10%", away: "10%" } },
+    }, Date.parse("2026-06-11T20:10:00Z"));
+
+    expect(latestPredictionBefore(310, Date.parse("2026-06-11T18:59:59Z"))).toMatchObject({ predictions: { winner: { id: 42 } } });
+    expect(oddsBundleBefore(310, Date.parse("2026-06-11T18:59:59Z")).ah.at(-1)?.line).toBe(-0.5);
+
+    settleFixture(fixtureById(310)!);
+
+    const row = db().prepare("SELECT pick, hit, ah_pick, ah_hit, ou_pick, ou_hit FROM model_records WHERE fixture_id = 310").get() as
+      | { pick: string; hit: number; ah_pick: string | null; ah_hit: number | null; ou_pick: string | null; ou_hit: number | null }
+      | undefined;
+    expect(row).toMatchObject({ pick: "阿森纳胜", hit: 1, ah_hit: 1, ou_hit: 0 });
+    expect(row?.ah_pick).toContain("阿森纳");
+    expect(row?.ou_pick).toContain("小于");
   });
 
   it("modelStats 用同一 30 日窗口聚合命中率/昨日/周趋势/连中", () => {

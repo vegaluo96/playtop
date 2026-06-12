@@ -6,6 +6,7 @@ import { ahText, f2, ouText } from "@/lib/format";
 import type { Panorama } from "../af/panorama";
 import { formZh, predSummary, type PredSummary } from "./common";
 import { nameZh } from "./names";
+import { buildReportSignals, type ReportSignals } from "./report-signals";
 
 export interface ReportSection {
   h: string;
@@ -35,9 +36,10 @@ function dig(obj: unknown, ...path: (string | number)[]): unknown {
   return cur;
 }
 
-export function buildReport(p: Panorama): { ps: PredSummary | null; secs: ReportSection[] } {
+export function buildReport(p: Panorama, signals?: ReportSignals): { ps: PredSummary | null; secs: ReportSection[]; signals: ReportSignals } {
   const fx = p.fixture;
   const ps = buildReportSummary(p);
+  const sig = signals ?? buildReportSignals(ps, p.odds);
   const secs: ReportSection[] = [];
 
   // ── 指数解读 ──
@@ -70,6 +72,9 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
     );
   }
   if (ps1.length === 0) ps1.push("本场指数快照仍在积累,开盘后将自动补全指数解读。");
+  ps1.push(
+    `${sig.summary}。量化评分 AH ${sig.model.ahScore == null ? "暂无" : sig.model.ahScore} / OU ${sig.model.ouScore == null ? "暂无" : sig.model.ouScore};覆盖率 ${sig.model.coverage}%。`,
+  );
   secs.push({ h: "指数解读", ps: ps1 });
 
   // ── 状态与盘路 ──
@@ -107,6 +112,7 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
   const def = ps?.comparison["防守"];
   if (att && (att.home || att.away)) ps3.push(`攻击端对比 主 ${att.home}% / 客 ${att.away}%;防守端对比 主 ${def?.home ?? "—"}% / 客 ${def?.away ?? "—"}%。`);
   if (ps3.length === 0) ps3.push("进球模型待概率快照就绪后生成。");
+  ps3.push(`大小球方向:${sig.ou.text}${sig.ou.sources.length > 0 ? `;来源:${sig.ou.sources.join("、")}` : "。"}`);
   secs.push({ h: "进球模型", ps: ps3 });
 
   // ── 人员情报 ──
@@ -123,11 +129,13 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
       `综合指数、状态与概率模型,本场概率摘要:${ps.advice}。胜平负概率 主 ${ps.pH}% / 平 ${ps.pD}% / 客 ${ps.pA}%` +
         (ps.winDraw ? ",领先方优势未过半,平局风险需要单独评估。" : "。"),
     );
+    ps5.push(`亚盘方向:${sig.ah.text}${sig.ah.sources.length > 0 ? `;来源:${sig.ah.sources.join("、")}` : "。"}`);
+    ps5.push(`预测市场:${sig.market.note}${sig.market.url ? `(${sig.market.url})` : ""}。`);
   } else {
     ps5.push("概率快照尚未就绪,报告摘要将于开盘后生成。");
   }
-  ps5.push("报告基于赛前数据快照生成;首发公布与临场指数可能改变数据状态,请结合异动监控复核。");
+  ps5.push("报告基于赛前数据快照生成;开赛前随真实快照补齐更新,开赛后以最后一版赛前快照固化并用于回测。");
   secs.push({ h: "概率摘要与风险", ps: ps5 });
 
-  return { ps, secs };
+  return { ps, secs, signals: sig };
 }

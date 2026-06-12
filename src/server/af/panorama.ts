@@ -15,8 +15,10 @@ import {
   kvGet,
   kvSet,
   latestPrediction,
+  latestPredictionBefore,
   movementsOf,
   oddsBundle,
+  oddsBundleBefore,
   upsertFixture,
   type FixtureRow,
   type MovementRow,
@@ -173,7 +175,11 @@ async function loadDeep(fx: FixtureRow): Promise<Panorama["deep"]> {
   };
 }
 
-export async function matchPanorama(fixtureId: number, opts: { deep?: boolean; injuries?: boolean } = {}): Promise<Panorama | null> {
+function preKickoffCutoff(fx: FixtureRow, now = Date.now()): number {
+  return Math.min(now, fx.kickoff_utc - 1);
+}
+
+export async function matchPanorama(fixtureId: number, opts: { deep?: boolean; injuries?: boolean; preKickoffOnly?: boolean } = {}): Promise<Panorama | null> {
   const fx = await ensureBundle(fixtureId, opts);
   if (!fx) return null;
   let bundle: Record<string, unknown> = {};
@@ -190,9 +196,10 @@ export async function matchPanorama(fixtureId: number, opts: { deep?: boolean; i
           return Array.isArray(r.response) ? r.response : [];
         }, { emptyTtlMs: EMPTY_AF_TTL_MS }).catch(() => [] as unknown[]);
   const deepPromise = opts.deep ? loadDeep(fx) : Promise.resolve(null);
-  const odds = oddsBundle(fixtureId);
+  const cutoffAt = opts.preKickoffOnly ? preKickoffCutoff(fx) : null;
+  const odds = cutoffAt == null ? oddsBundle(fixtureId) : oddsBundleBefore(fixtureId, cutoffAt);
   const movements = movementsOf(fixtureId);
-  const prediction = (latestPrediction(fixtureId) as Record<string, unknown> | null) ?? null;
+  const prediction = ((cutoffAt == null ? latestPrediction(fixtureId) : latestPredictionBefore(fixtureId, cutoffAt)) as Record<string, unknown> | null) ?? null;
   const [injuries, deep] = await Promise.all([injuriesPromise, deepPromise]);
 
   return {

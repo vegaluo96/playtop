@@ -283,6 +283,11 @@ const COLUMN_MIGRATIONS: [string, string][] = [
   ["invites", "ip TEXT"],
   ["redemptions", "ip TEXT"],
   ["movements", "phase TEXT NOT NULL DEFAULT '盘前'"],
+  ["model_records", "basis_at INTEGER"],
+  ["model_records", "ah_pick TEXT"],
+  ["model_records", "ah_hit INTEGER"],
+  ["model_records", "ou_pick TEXT"],
+  ["model_records", "ou_hit INTEGER"],
 ];
 
 /* 一次性数据迁移(幂等):daily_free(单场/日)→ free_fixtures(多场/日) */

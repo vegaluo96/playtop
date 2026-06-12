@@ -5,6 +5,8 @@ import { leagueZh } from "@/lib/leagues";
 import { matchPanorama } from "@/server/af/panorama";
 import { isLive } from "@/server/af/schedule";
 import { buildReport, buildReportSummary } from "@/server/views/report";
+import { buildReportSignals, hasUsableProbability } from "@/server/views/report-signals";
+import { findPolymarketSignal } from "@/server/external/polymarket";
 import { getLlmReport, getReportVersion, listReportVersions, reportLocked } from "@/server/llm/report";
 import { currentUser } from "@/server/platform/session";
 import { cfgUnlockPrice } from "@/server/platform/config";
@@ -18,9 +20,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const user = await currentUser();
   const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
   const unlocked = !!user && isUnlocked(user.id, fid, today);
-  const p = await matchPanorama(fid, { injuries: unlocked });
+  const p = await matchPanorama(fid, { injuries: unlocked, deep: unlocked, preKickoffOnly: true });
   if (!p) return NextResponse.json({ ok: false, error: "比赛不存在或数据未就绪" }, { status: 404 });
-  const built = unlocked ? buildReport(p) : { ps: buildReportSummary(p), secs: [] };
+  const ps0 = buildReportSummary(p);
+  const market = unlocked
+    ? await findPolymarketSignal(p.fixture.home_name, p.fixture.away_name)
+    : { status: "skipped" as const, note: "报告未解锁,暂不请求外部预测市场" };
+  const signals = buildReportSignals(ps0, p.odds, market, p);
+  const built = unlocked ? buildReport(p, signals) : { ps: ps0, secs: [], signals };
   const { ps, secs } = built;
   let sections = secs;
   let genBy = "template";
@@ -58,10 +65,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     leagueId: fx.league_id,
     time: isLive(fx.status) ? `${fx.elapsed ?? ""}' 进行中` : `${hhmm(fx.kickoff_utc, tz)}`,
     pH: ps?.pH ?? 0, pD: ps?.pD ?? 0, pA: ps?.pA ?? 0,
+    probReady: hasUsableProbability(ps),
     comparison: ps?.comparison ?? {},
     homeName: fx.home_name,
     awayName: fx.away_name,
-    advice: unlocked ? (ps?.advice ?? "暂无明确方向") : null,
+    advice: unlocked ? signals.summary : null,
+    directions: unlocked ? { ah: signals.ah, ou: signals.ou } : null,
+    model: unlocked ? signals.model : null,
+    market: unlocked ? signals.market : null,
     sections: unlocked ? sections : [],
     genBy,
     versions: unlocked ? versions.map((v) => ({ ver: v.ver, genAt: v.gen_at, changed: v.changed })) : [],

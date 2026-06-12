@@ -51,9 +51,9 @@ function MobilePredictionsPage() {
 
   const unlockedCount = cards.filter((c) => !c.locked).length;
   const shown = filter === "已解锁" ? cards.filter((c) => !c.locked) : cards;
-  const rate = record?.hitRate30 != null ? `${record.hitRate30}%` : "—";
-  const yday = record ? `${record.yesterday.hit}/${record.yesterday.total}` : "—";
-  const streak = record?.streak ? `${record.streak} 连续命中` : "—";
+  const rate = record?.hitRate30 != null ? `${record.hitRate30}%` : "积累中";
+  const yday = record && record.yesterday.total > 0 ? `${record.yesterday.hit}/${record.yesterday.total}` : "积累中";
+  const streak = record?.streak ? `${record.streak} 连续命中` : "积累中";
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
@@ -69,14 +69,14 @@ function MobilePredictionsPage() {
           style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 12, padding: "10px 14px", marginBottom: 10, cursor: "pointer" }}
         >
           <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-            {[[rate, "近30天回测", "var(--gold)"], [yday, "昨日回测", undefined], [streak, "回测状态", "var(--up)"]].map(([v, label, color]) => (
+            {[[rate, "近30天回测", undefined], [yday, "昨日回测", undefined], [streak, "回测状态", undefined]].map(([v, label, color]) => (
               <div key={label as string} style={{ textAlign: "center" }}>
                 <div className="mono" style={{ fontSize: 16, fontWeight: 800, color: color as string | undefined }}>{v as string}</div>
                 <div style={{ fontSize: 11.5, color: "var(--fg-2)", marginTop: 1 }}>{label as string}</div>
               </div>
             ))}
           </div>
-          <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>详情 ›</div>
+          <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "var(--fg-1)" }}>详情 ›</div>
         </div>
 
         {loaded && shown.length === 0 && (
@@ -99,16 +99,16 @@ function MobilePredictionsPage() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 800, color: "var(--fg-2)", background: "var(--line)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>摘要</span>
-              <span style={{ fontSize: 12.5, fontWeight: 800, flex: 1, color: p.locked ? "var(--fg-3)" : "var(--gold)" }}>
+              <span style={{ fontSize: 12.5, fontWeight: 800, flex: 1, color: p.locked ? "var(--fg-3)" : "var(--fg-1)" }}>
                 {p.locked ? "解锁后查看完整摘要" : p.advice}
               </span>
             </div>
-            <ProbBar pH={p.pH} pD={p.pD} pA={p.pA} />
+            <ProbBar pH={p.pH} pD={p.pD} pA={p.pA} empty={!p.probReady} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 9 }}>
-              {[["胜平负方向", p.winnerText], ["大小方向", p.uoText], ["进球上限", p.goalsText]].map(([label, val]) => (
+              {[["亚盘方向", p.ahText], ["大小方向", p.uoText], ["模型覆盖", p.goalsText]].map(([label, val]) => (
                 <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "7px 6px", textAlign: "center" }}>
                   <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginBottom: 2 }}>{label as string}</div>
-                  <div style={{ fontSize: 12, fontWeight: 800 }}>{(val as string) ?? "●●●"}</div>
+                  <div style={{ fontSize: 12, fontWeight: 800 }}>{(val as string) ?? "登录查看"}</div>
                 </div>
               ))}
             </div>
@@ -122,7 +122,7 @@ function MobilePredictionsPage() {
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 8, background: "var(--selected-bg-soft)", border: "1px dashed var(--selected-border)", borderRadius: 8, padding: "9px 0", cursor: "pointer" }}
               >
                 <LockIcon />
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--gold)" }}>{p.lockText}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--fg-1)" }}>{p.lockText}</span>
               </div>
             )}
           </div>
@@ -135,7 +135,7 @@ function MobilePredictionsPage() {
           <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>概率摘要对照赛果自动统计</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
-          {[[rate, "近30天回测", "var(--gold)"], [yday, "昨日回测", undefined], [streak, "回测状态", "var(--up)"]].map(([v, label, color]) => (
+          {[[rate, "近30天回测", undefined], [yday, "昨日回测", undefined], [streak, "回测状态", undefined]].map(([v, label, color]) => (
             <div key={label as string} style={{ textAlign: "center" }}>
               <div className="mono" style={{ fontSize: 18, fontWeight: 800, color: color as string | undefined }}>{v as string}</div>
               <div style={{ fontSize: 11.5, color: "var(--fg-2)", marginTop: 1 }}>{label as string}</div>
@@ -149,7 +149,7 @@ function MobilePredictionsPage() {
               <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                 <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{b.total > 0 ? `${b.hit}/${b.total}` : "—"}</span>
                 <div style={{ width: "100%", height: 34, display: "flex", alignItems: "flex-end" }}>
-                  <div style={{ width: "100%", borderRadius: 3, background: pct == null ? "var(--line)" : pct >= 0.66 ? "var(--gold)" : "var(--fg-3)", height: pct == null ? 4 : Math.max(8, Math.round(pct * 34)) }} />
+                  <div style={{ width: "100%", borderRadius: 3, background: pct == null ? "var(--line)" : pct >= 0.66 ? "var(--team-away)" : "var(--fg-3)", height: pct == null ? 4 : Math.max(8, Math.round(pct * 34)) }} />
                 </div>
                 <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{b.date.slice(8)}</span>
               </div>
@@ -162,9 +162,9 @@ function MobilePredictionsPage() {
           {(record?.yesterdayRows ?? []).map((y: V, i: number) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
               <span style={{ flex: 1, fontSize: 11, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{y.match}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", flexShrink: 0 }}>{y.pick}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-1)", flexShrink: 0 }}>{y.pick}</span>
               <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)", width: 28, textAlign: "right", flexShrink: 0 }}>{y.score}</span>
-              <span style={{ width: 16, textAlign: "center", fontSize: 12, fontWeight: 800, flexShrink: 0, color: y.hit ? "var(--up)" : "var(--down)" }}>{y.hit ? "✓" : "✗"}</span>
+              <span style={{ width: 16, textAlign: "center", fontSize: 12, fontWeight: 800, flexShrink: 0, color: y.hit ? "var(--team-away)" : "var(--home)" }}>{y.hit ? "✓" : "✗"}</span>
             </div>
           ))}
           <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 6 }}>历史概率摘要与赛果对照统计</div>

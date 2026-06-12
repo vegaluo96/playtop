@@ -83,7 +83,21 @@ export function Legend({ items }: { items: { color: string; label: string }[] })
 }
 
 /** 主平客概率条 */
-export function ProbBar({ pH, pD, pA }: { pH: number; pD: number; pA: number }) {
+export function ProbBar({ pH, pD, pA, empty = false }: { pH: number; pD: number; pA: number; empty?: boolean }) {
+  const ready = !empty && pH + pD + pA > 0;
+  if (!ready) {
+    return (
+      <div style={{ marginBottom: 9 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          {["主胜", "平", "客胜"].map((label) => (
+            <span key={label} style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 700 }}>{label} <span className="mono">—</span></span>
+          ))}
+        </div>
+        <div style={{ height: 6, borderRadius: 3, overflow: "hidden", background: "var(--line)" }} />
+        <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 6 }}>AF 概率快照积累中</div>
+      </div>
+    );
+  }
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
