@@ -16,8 +16,7 @@ import {
   kvSet,
   latestPrediction,
   movementsOf,
-  oddsCompare,
-  oddsSeries,
+  oddsBundle,
   upsertFixture,
   type FixtureRow,
   type MovementRow,
@@ -44,9 +43,9 @@ export interface Panorama {
     ah: SnapRow[];
     ou: SnapRow[];
     eu: SnapRow[];
-    compareAh: ReturnType<typeof oddsCompare>;
-    compareOu: ReturnType<typeof oddsCompare>;
-    compareEu: ReturnType<typeof oddsCompare>;
+    compareAh: ReturnType<typeof oddsBundle>["compareAh"];
+    compareOu: ReturnType<typeof oddsBundle>["compareOu"];
+    compareEu: ReturnType<typeof oddsBundle>["compareEu"];
   };
   movements: MovementRow[];
   prediction: Record<string, unknown> | null;
@@ -182,25 +181,23 @@ export async function matchPanorama(fixtureId: number, opts: { deep?: boolean } 
   } catch {
     /* keep empty */
   }
-  const injuries = await kvCached<unknown[]>(`fx:${fixtureId}:injuries`, 6 * H, async () => {
+  const injuriesPromise = kvCached<unknown[]>(`fx:${fixtureId}:injuries`, 6 * H, async () => {
     const r = await runAfEndpoint("injuries", { fixture: String(fixtureId) });
     return Array.isArray(r.response) ? r.response : [];
   }).catch(() => [] as unknown[]);
+  const deepPromise = opts.deep ? loadDeep(fx) : Promise.resolve(null);
+  const odds = oddsBundle(fixtureId);
+  const movements = movementsOf(fixtureId);
+  const prediction = (latestPrediction(fixtureId) as Record<string, unknown> | null) ?? null;
+  const [injuries, deep] = await Promise.all([injuriesPromise, deepPromise]);
 
   return {
     fixture: fx,
     bundle,
-    odds: {
-      ah: oddsSeries(fixtureId, "ah"),
-      ou: oddsSeries(fixtureId, "ou"),
-      eu: oddsSeries(fixtureId, "eu"),
-      compareAh: oddsCompare(fixtureId, "ah"),
-      compareOu: oddsCompare(fixtureId, "ou"),
-      compareEu: oddsCompare(fixtureId, "eu"),
-    },
-    movements: movementsOf(fixtureId),
-    prediction: (latestPrediction(fixtureId) as Record<string, unknown> | null) ?? null,
+    odds,
+    movements,
+    prediction,
     injuries,
-    deep: opts.deep ? await loadDeep(fx) : null,
+    deep,
   };
 }

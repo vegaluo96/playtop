@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 process.env.PLAYTOP_DB = ":memory:";
 
 import { db, _resetDbForTest } from "../../src/server/db";
-import { archiveLiveOdds, liveOddsSeries, pruneLiveData } from "../../src/server/af/live-store";
+import { archiveLiveOdds, liveOddsSeries, liveOddsSeriesByMarket, pruneLiveData } from "../../src/server/af/live-store";
 import { normalizeLiveOddsItem, type LiveMarketFrame } from "../../src/server/af/normalize";
 
 const ah = (line: number, h: number, a: number, suspended = false): LiveMarketFrame => ({ market: "ah", line, h, a, d: null, suspended });
@@ -58,6 +58,19 @@ describe("archiveLiveOdds", () => {
     archiveLiveOdds(9, [eu(1.5, 4.2, 6.0)], t);
     expect(archiveLiveOdds(9, [eu(1.52, 4.2, 6.0)], t + 90_000)).toBe(0); // 0.02 不记
     expect(archiveLiveOdds(9, [eu(1.8, 3.6, 4.5)], t + 200_000)).toBe(1);
+  });
+
+  it("liveOddsSeriesByMarket 一次性按市场返回滚球帧", () => {
+    const t = 1_000_000;
+    archiveLiveOdds(9, [ah(0.5, 0.9, 0.96), { market: "ou", line: 2.5, h: 0.88, a: 0.98, d: null, suspended: false }], t);
+    archiveLiveOdds(9, [{ market: "eu", line: null, h: 1.8, d: 3.5, a: 4.2, suspended: false }], t + 90_000);
+
+    const rows = liveOddsSeriesByMarket(9);
+
+    expect(rows.ah).toHaveLength(1);
+    expect(rows.ou).toHaveLength(1);
+    expect(rows.eu).toHaveLength(1);
+    expect(rows.ah[0]).toMatchObject({ line: 0.5, h: 0.9 });
   });
 
   it("pruneLiveData 清理完场 7 天以上的滚球帧", () => {

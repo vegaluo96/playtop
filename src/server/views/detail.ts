@@ -6,7 +6,7 @@ import { leagueZh, roundZh } from "@/lib/leagues";
 import { freshLine, isFinished, isLive } from "../af/schedule";
 import { cfgTierIntervals } from "../platform/config";
 import { normalizeLiveOddsItem } from "../af/normalize";
-import { liveOddsSeries } from "../af/live-store";
+import { liveOddsSeriesByMarket } from "../af/live-store";
 import { compositeLive, compositePre, mergeComposite } from "./composite";
 import { nameZh } from "./names";
 import { kvCached, kvGet, latestOddsRaw } from "../af/store";
@@ -567,7 +567,8 @@ async function deepView(p: Panorama, lineups: LineupsView) {
   const isLiveNow = !["NS", "TBD", "PST", "FT", "AET", "PEN", "AWD", "WO", "CANC"].includes(fx.status);
   let ratings = isLiveNow ? [...liveRatings(fx.home_id, "h"), ...liveRatings(fx.away_id, "a")] : [];
   if (ratings.length === 0) {
-    ratings = [...(await seasonRatings(fx.home_id, "h")), ...(await seasonRatings(fx.away_id, "a"))];
+    const [homeRatings, awayRatings] = await Promise.all([seasonRatings(fx.home_id, "h"), seasonRatings(fx.away_id, "a")]);
+    ratings = [...homeRatings, ...awayRatings];
   }
   if (ratings.length === 0) {
     const fromTop = (teamId: number | null, side: "h" | "a") =>
@@ -661,9 +662,10 @@ async function deepView(p: Panorama, lineups: LineupsView) {
     })();
     return { team, x: formation ? `${base} · 惯用 ${formation}` : base };
   };
+  const [homeFormation, awayFormation] = await Promise.all([favFormation(fx.home_id), favFormation(fx.away_id)]);
   const depth = [
-    depthOf(d.squadHome, nameZh(fx.home_name), await favFormation(fx.home_id)),
-    depthOf(d.squadAway, nameZh(fx.away_name), await favFormation(fx.away_id)),
+    depthOf(d.squadHome, nameZh(fx.home_name), homeFormation),
+    depthOf(d.squadAway, nameZh(fx.away_name), awayFormation),
   ];
 
   const motiv = coaches.map((c) => c.trophies == null ? `${c.name}:荣誉数据待官方返回` : `${c.name}:执教生涯冠军 ${c.trophies} 座`);
@@ -710,9 +712,10 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     return r ? { line: r.line, h: r.h, a: r.a } : null;
   };
   // 走势序列 = 赛前书商快照 + 滚球实时帧(归档于 live_odds_snapshots),开赛后图表持续生长
+  const liveByMarket = live || isFinished(fx.status) ? liveOddsSeriesByMarket(fx.fixture_id) : { ah: [], ou: [], eu: [] };
   const liveExt = (mk: "ah" | "ou" | "eu"): SnapRow[] =>
-    live || isFinished(fx.status)
-      ? liveOddsSeries(fx.fixture_id, mk)
+    liveByMarket[mk].length > 0
+      ? liveByMarket[mk]
           .filter((r) => !r.suspended)
           .map((r) => ({
             fixture_id: fx.fixture_id, bookmaker_id: 0, bookmaker: "实时盘", market: mk,
@@ -730,6 +733,12 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     const liveSeg = live || isFinished(fx.status) ? compositeLive(fx.fixture_id, mk) : [];
     return mergeComposite(pre, liveSeg, mk);
   };
+  const indexPromise = Promise.all([cidx("ah"), cidx("ou"), cidx("eu")]);
+  const h2hPromise = h2hRows(fx.home_id, fx.away_id, pred).then((rows) => h2hView(rows, fx.home_id, tz));
+  const standingsPromise = standingsView(fx.league_id, fx.season, fx.home_id, fx.away_id);
+  const weatherPromise = matchWeather(String(dig(p.bundle, "fixture", "venue", "city") ?? ""), fx.kickoff_utc);
+  const insightsPromise = insightsView(fx);
+  const deepPromise = opts.deep ? deepView(p, lineups) : Promise.resolve(null);
   const ah = seriesRows(ahAll, "ah", tz);
   const ou = seriesRows(ouAll, "ou", tz);
   const ahL = lastOf(ahAll);
@@ -787,6 +796,14 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     ret0: payoutRate(dec(all[0] ?? null)),
     ret1: payoutRate(dec(lastOf(all))),
   });
+  const [[idxAh, idxOu, idxEu], h2h, standings, weather, insights, deep] = await Promise.all([
+    indexPromise,
+    h2hPromise,
+    standingsPromise,
+    weatherPromise,
+    insightsPromise,
+    deepPromise,
+  ]);
 
   return {
     header: {
@@ -817,7 +834,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     odds: {
       ah, ou, eu: euRows(euAll, tz),
       euChart: euAll.slice(-40).map((s) => ({ t: hhmm(s.captured_at, tz), h: s.h, a: s.a, d: s.d ?? 0 })),
-      index: { ah: await cidx("ah"), ou: await cidx("ou"), eu: await cidx("eu") },
+      index: { ah: idxAh, ou: idxOu, eu: idxEu },
     },
     comp: {
       ah: compMap(p.odds.compareAh, "ah"),
@@ -832,20 +849,20 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       formHome: ps ? formZh(ps.formHome) : [],
       formAway: ps ? formZh(ps.formAway) : [],
       half: live ? halfStats(fx.fixture_id, fx.home_id) : null,
-      h2h: h2hView(await h2hRows(fx.home_id, fx.away_id, pred), fx.home_id, tz),
+      h2h,
       minutes: minutesView(pred),
-      standings: await standingsView(fx.league_id, fx.season, fx.home_id, fx.away_id),
+      standings,
     },
     markets: (() => {
       const raw = latestOddsRaw(fx.fixture_id);
       return raw ? parseExtraMarkets(raw).map((m) => ({ ...m, bk: maskBookmaker(m.bk) })) : [];
     })(),
     // 开球时刻球场天气(MET Norway,免费官方源;拿不到即 null,前端隐藏,绝不伪造)
-    weather: await matchWeather(String(dig(p.bundle, "fixture", "venue", "city") ?? ""), fx.kickoff_utc),
+    weather,
     // 盘路/同赔/疲劳/角球参考(全部由归档数据推导,kv 缓存 10min)
-    insights: await insightsView(fx),
+    insights,
     lineups,
     intel: intelView(p.injuries, fx.home_id),
-    deep: opts.deep ? await deepView(p, lineups) : null,
+    deep,
   };
 }

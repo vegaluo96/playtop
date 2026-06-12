@@ -12,6 +12,7 @@ import {
   mergeFixturePayload,
   modelStats,
   movementsOf,
+  oddsBundle,
   oddsCompare,
   oddsSeries,
   settleFixture,
@@ -133,6 +134,27 @@ describe("odds 归档与异动", () => {
     ins.run(202, 99, "10Bet", "ou", 2.5, 0.88, 0.9, null, 5000);
     expect(mainOddsSnapshot(202, "ou")).toMatchObject({ bookmaker: "Bet365", line: 2.25 });
     expect(oddsSeries(202, "ou").at(-1)).toMatchObject({ bookmaker: "Bet365", line: 2.25 });
+  });
+
+  it("oddsBundle 与单市场走势/百家对比口径一致", () => {
+    upsertFixture(afFixture(204));
+    const ins = db().prepare(
+      "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)",
+    );
+    ins.run(204, 8, "Bet365", "ah", 0.5, 0.9, 0.96, null, 1000);
+    ins.run(204, 8, "Bet365", "ah", 0.5, 0.88, 0.98, null, 2000);
+    ins.run(204, 4, "平博", "ah", 0.5, 0.91, 0.95, null, 2100);
+    ins.run(204, 99, "10Bet", "ah", 0.75, 0.86, 1.0, null, 5000);
+    ins.run(204, 8, "Bet365", "eu", null, 1.6, 3.8, 5.2, 1000);
+    ins.run(204, 8, "Bet365", "eu", null, 1.55, 3.9, 5.4, 2000);
+    ins.run(204, 4, "平博", "eu", null, 1.58, 3.85, 5.1, 2100);
+
+    const bundle = oddsBundle(204);
+
+    expect(bundle.ah).toEqual(oddsSeries(204, "ah"));
+    expect(bundle.eu).toEqual(oddsSeries(204, "eu"));
+    expect(bundle.compareAh).toEqual(oddsCompare(204, "ah"));
+    expect(bundle.compareEu).toEqual(oddsCompare(204, "eu"));
   });
 });
 

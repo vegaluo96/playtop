@@ -19,6 +19,8 @@ export interface LiveSnapRow {
   captured_at: number;
 }
 
+export type LiveOddsMarket = "ah" | "ou" | "eu";
+
 function lastRow(fixtureId: number, market: string): LiveSnapRow | null {
   return (
     (db()
@@ -75,10 +77,22 @@ export function archiveLiveOdds(fixtureId: number, frames: LiveMarketFrame[], ca
 }
 
 /** 滚球帧序列(走势图滚球段) */
-export function liveOddsSeries(fixtureId: number, market: "ah" | "ou" | "eu"): LiveSnapRow[] {
+export function liveOddsSeries(fixtureId: number, market: LiveOddsMarket): LiveSnapRow[] {
   return db()
     .prepare("SELECT line, h, a, d, suspended, captured_at FROM live_odds_snapshots WHERE fixture_id=? AND market=? ORDER BY captured_at")
     .all(fixtureId, market) as unknown as LiveSnapRow[];
+}
+
+/** 单场三类滚球帧一次性读取,供详情页避免重复扫表。 */
+export function liveOddsSeriesByMarket(fixtureId: number): Record<LiveOddsMarket, LiveSnapRow[]> {
+  const rows = db()
+    .prepare("SELECT market, line, h, a, d, suspended, captured_at FROM live_odds_snapshots WHERE fixture_id=? ORDER BY market, captured_at")
+    .all(fixtureId) as unknown as (LiveSnapRow & { market: LiveOddsMarket })[];
+  return {
+    ah: rows.filter((r) => r.market === "ah"),
+    ou: rows.filter((r) => r.market === "ou"),
+    eu: rows.filter((r) => r.market === "eu"),
+  };
 }
 
 /** 数据保鲜:完场 >7 天的滚球帧、>30 天的 odds_raw 原始包(每日一次,worker 调) */
