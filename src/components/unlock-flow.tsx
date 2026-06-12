@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * 解锁 + 充值复合弹层(全站唯一收费路径):
- * 余额够 → 确认解锁;不够 → 一键转充值弹层,充值完回到解锁。
+ * 解锁 + 购买额度复合弹层(全站唯一收费路径):
+ * 账户额度够 → 确认解锁;不够 → 一键转购买额度弹层,购买后回到解锁。
  */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,7 +22,7 @@ interface Tier {
   hot?: boolean;
 }
 
-/* 兜底初值;打开充值层时从 /api/wallet 拉后台生效档位 */
+/* 兜底初值;打开购买额度层时从 /api/wallet 拉后台生效档位 */
 const FALLBACK_TIERS: Tier[] = [
   { rmb: 6, pts: 60 },
   { rmb: 30, pts: 320, tag: "+6%" },
@@ -32,7 +32,7 @@ const FALLBACK_TIERS: Tier[] = [
   { rmb: 648, pts: 8420, tag: "+30%", hot: true },
 ];
 
-/** 充值档位与维护开关(后台实际生效值);open 置 true 时拉取 */
+/** 报告额度档位与维护开关(后台实际生效值);open 置 true 时拉取 */
 export function useRechargeTiers(open: boolean): { tiers: Tier[]; maintenance: boolean } {
   const [tiers, setTiers] = useState<Tier[]>(FALLBACK_TIERS);
   const [maintenance, setMaintenance] = useState(false);
@@ -108,7 +108,7 @@ export function useUnlockFlow(onUnlocked?: () => void) {
       if (j.ok) {
         await refreshMe();
         setSheet(target ? "unlock" : null);
-      } else alert(j.error || "充值失败");
+      } else alert(j.error || "购买额度失败");
     } finally {
       setBusy(false);
     }
@@ -117,37 +117,34 @@ export function useUnlockFlow(onUnlocked?: () => void) {
   const ui = (
     <>
       <Sheet open={sheet === "unlock"} onClose={() => setSheet(null)} z={60}>
-        <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 3 }}>解锁预测 · {target?.match}</div>
-        <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 14, lineHeight: 1.6 }}>
-          模型预测(建议 / 胜者 / 大小球方向)+ AI 深度报告
-          <br />
-          解锁后永久可见
+        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 3 }}>解锁 AI 概率报告 · {target?.match}</div>
+        <div style={{ fontSize: 12, color: "var(--fg-2)", marginBottom: 14, lineHeight: 1.6 }}>
+          概率摘要、指数解读与人员情报
         </div>
         <div style={{ display: "flex", background: "var(--inset)", borderRadius: 10, padding: "11px 14px", marginBottom: 14, justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 12, color: "var(--fg-2)" }}>
-            价格 <span className="mono" style={{ fontSize: 16, fontWeight: 800, color: "var(--gold)" }}>{target?.price}</span> 积分
+          <span style={{ fontSize: 12.5, color: "var(--fg-2)" }}>
+            价格 <span className="mono" style={{ fontSize: 16, fontWeight: 800, color: "var(--gold)" }}>{target?.price}</span> 额度
           </span>
-          <span style={{ fontSize: 12, color: "var(--fg-2)" }}>
-            余额{" "}
+          <span style={{ fontSize: 12.5, color: "var(--fg-2)" }}>
+            账户额度{" "}
             <span className="mono" style={{ fontSize: 14, fontWeight: 800, color: target && me.pts < target.price ? "var(--down)" : "var(--up)" }}>
               {me.pts}
             </span>{" "}
-            积分
           </span>
         </div>
-        <GoldBtn label={busy ? "处理中…" : target && me.pts < target.price ? "余额不足 · 去充值" : "确认解锁"} onClick={confirm} />
-        <div style={{ textAlign: "center", fontSize: 10, color: "var(--fg-3)", marginTop: 8 }}>解锁后永久可见 · 开赛后价格上调至 58 积分</div>
+        <GoldBtn label={busy ? "处理中…" : target && me.pts < target.price ? "额度不足 · 去购买" : "确认解锁"} onClick={confirm} />
+        <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>赛前 38 / 滚球 58 · 可回看</div>
       </Sheet>
 
       <Sheet open={sheet === "recharge"} onClose={() => setSheet(null)}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
-          <span style={{ fontSize: 15, fontWeight: 800 }}>充值积分</span>
-          <span style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700 }}>首充任意档位 +50%</span>
+          <span style={{ fontSize: 16, fontWeight: 800 }}>购买报告额度</span>
+          <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 750 }}>首购任意档位 +50%</span>
         </div>
-        <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 14 }}>积分仅用于解锁比赛深度数据 · 1 元 = 10 积分起</div>
+        <div style={{ fontSize: 12, color: "var(--fg-2)", marginBottom: 14 }}>报告额度仅用于解锁 AI 概率报告 · 1 元 = 10 额度起</div>
         {maintenance && (
-          <div style={{ background: "rgba(233,185,73,.1)", border: "1px solid rgba(233,185,73,.4)", borderRadius: 10, padding: "14px 12px", marginBottom: 12, textAlign: "center", fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>
-            充值通道维护中,请稍后再试
+          <div style={{ background: "rgba(0,200,5,.1)", border: "1px solid rgba(0,200,5,.4)", borderRadius: 10, padding: "14px 12px", marginBottom: 12, textAlign: "center", fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>
+            购买通道维护中,请稍后再试
           </div>
         )}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12, opacity: maintenance ? 0.35 : 1, pointerEvents: maintenance ? "none" : "auto" }}>
@@ -155,18 +152,18 @@ export function useUnlockFlow(onUnlocked?: () => void) {
             <div
               key={tr.rmb}
               onClick={() => doRecharge(i)}
-              style={{ position: "relative", background: "var(--inset)", border: `1px solid ${tr.hot ? "rgba(233,185,73,.55)" : "var(--line)"}`, borderRadius: 10, padding: "12px 0 10px", textAlign: "center", cursor: "pointer" }}
+              style={{ position: "relative", background: "var(--inset)", border: `1px solid ${tr.hot ? "rgba(0,200,5,.55)" : "var(--line)"}`, borderRadius: 10, padding: "12px 0 10px", textAlign: "center", cursor: "pointer" }}
             >
               {tr.hot && (
-                <span style={{ position: "absolute", top: -7, right: 8, background: "var(--gold)", color: "#0a0b0f", fontSize: 8, fontWeight: 800, borderRadius: 4, padding: "1px 5px" }}>最划算</span>
+                <span style={{ position: "absolute", top: -8, right: 8, background: "var(--gold)", color: "var(--on-accent)", fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px" }}>最划算</span>
               )}
               <div className="mono" style={{ fontSize: 16, fontWeight: 800, color: "var(--gold)" }}>{tr.pts}</div>
-              <div style={{ fontSize: 9, color: "var(--up)", fontWeight: 700, height: 13 }}>{tr.tag ?? ""}</div>
-              <div className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>¥{tr.rmb}</div>
+              <div style={{ fontSize: 11.5, color: "var(--up)", fontWeight: 750, height: 15 }}>{tr.tag ?? ""}</div>
+              <div className="mono" style={{ fontSize: 12, color: "var(--fg-2)" }}>¥{tr.rmb}</div>
             </div>
           ))}
         </div>
-        <div style={{ textAlign: "center", fontSize: 10, color: "var(--fg-3)" }}>演示环境:点击档位即模拟支付到账</div>
+        <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>演示环境:点击档位即模拟支付到账</div>
       </Sheet>
     </>
   );

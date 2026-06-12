@@ -2,8 +2,10 @@
 
 /**
  * 盘路/同赔/疲劳/凯利汇总条(移动/桌面共用),数据见 src/server/views/insights.ts。
- * 全部由本站归档真实数据推导;样本不足时各卡自行隐藏或如实标注。
+ * 全部由本站归档真实数据推导;归档样本未达阈值时各卡自行隐藏或如实标注。
  */
+
+import { MarketValue } from "./market-cell";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -11,16 +13,28 @@ type V = any;
 const RES_STYLE: Record<string, { bg: string; c: string }> = {
   赢: { bg: "rgba(46,204,138,.16)", c: "var(--green)" },
   赢半: { bg: "rgba(46,204,138,.10)", c: "var(--green)" },
-  走: { bg: "rgba(139,148,168,.14)", c: "#959ba6" },
-  输半: { bg: "rgba(240,67,79,.10)", c: "var(--red)" },
-  输: { bg: "rgba(240,67,79,.16)", c: "var(--red)" },
-  大: { bg: "rgba(233,185,73,.16)", c: "var(--gold)" },
-  大半: { bg: "rgba(233,185,73,.10)", c: "var(--gold)" },
-  小: { bg: "rgba(91,157,255,.16)", c: "#5b9dff" },
-  小半: { bg: "rgba(91,157,255,.10)", c: "#5b9dff" },
+  走: { bg: "rgba(139,148,168,.14)", c: "var(--fg-3)" },
+  输半: { bg: "rgba(255,92,92,.10)", c: "var(--red)" },
+  输: { bg: "rgba(255,92,92,.16)", c: "var(--red)" },
+  大: { bg: "rgba(0,200,5,.16)", c: "var(--gold)" },
+  大半: { bg: "rgba(0,200,5,.10)", c: "var(--gold)" },
+  小: { bg: "rgba(63,140,255,.16)", c: "var(--home)" },
+  小半: { bg: "rgba(63,140,255,.10)", c: "var(--home)" },
 };
 
 const box: React.CSSProperties = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12 };
+
+function MiniMetric({ v, color = "var(--fg-mid)", dim = false, suffix = "" }: { v: string | number | null | undefined; color?: string; dim?: boolean; suffix?: string }) {
+  return (
+    <MarketValue
+      v={v == null || v === "" ? "—" : `${v}${suffix}`}
+      className="mono"
+      small
+      dim={dim}
+      style={{ justifyContent: "flex-start", color, fontWeight: 800 }}
+    />
+  );
+}
 
 /** 单队单市场盘路卡:战绩汇总头 + 近 N 场明细 */
 function RoadCard({ team, color, data, kind }: { team: string; color: string; data: V; kind: "ah" | "ou" }) {
@@ -29,30 +43,40 @@ function RoadCard({ team, color, data, kind }: { team: string; color: string; da
   const label = kind === "ah" ? ["赢", "走", "输", "赢盘率"] : ["大", "走", "小", "大球率"];
   return (
     <div style={{ ...box, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderBottom: "1px solid var(--line)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderBottom: "1px solid var(--line)", flexWrap: "wrap" }}>
         <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
         <span style={{ fontSize: 12, fontWeight: 800, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{team}</span>
         <span style={{ flex: 1 }} />
         {agg?.n > 0 ? (
-          <span className="mono" style={{ fontSize: 10, color: "var(--fg-2)", whiteSpace: "nowrap" }}>
-            {agg.win}{label[0]} {agg.push}{label[1]} {agg.lose}{label[2]}
-            {agg.rate != null && <span style={{ color: "var(--gold)", fontWeight: 800 }}> · {label[3]} {agg.rate}%</span>}
-            {agg.streak !== "—" && <span style={{ color: "var(--fg-mid)", fontWeight: 700 }}> · {agg.streak}</span>}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}>
+            {[[agg.win, label[0]], [agg.push, label[1]], [agg.lose, label[2]]].map(([n, lab]) => (
+              <div key={lab as string} style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11.5, color: "var(--fg-2)" }}>
+                <MiniMetric v={n as number} dim />
+                <span>{lab as string}</span>
+              </div>
+            ))}
+            {agg.rate != null && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, color: "var(--fg-2)" }}>
+                <span>{label[3]}</span>
+                <MiniMetric v={agg.rate} suffix="%" color="var(--gold)" />
+              </div>
+            )}
+            {agg.streak !== "—" && <span style={{ fontSize: 11.5, color: "var(--fg-mid)", fontWeight: 700 }}>{agg.streak}</span>}
+          </div>
         ) : (
-          <span style={{ fontSize: 10, color: "var(--fg-3)" }}>归档积累中</span>
+          <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>归档积累中</span>
         )}
       </div>
       {rows.map((r: V, i: number) => {
         const s = RES_STYLE[r.res] ?? RES_STYLE.走;
         return (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "44px 1fr 22px 44px 1fr 38px", gap: 4, padding: "6px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-            <span className="mono" style={{ fontSize: 9.5, color: "var(--fg-3)" }}>{r.d}</span>
-            <span style={{ fontSize: 11, color: "var(--fg-mid)", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.opp}</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: r.ha === "主" ? "var(--home)" : "var(--gold)" }}>{r.ha}</span>
-            <span className="mono" style={{ fontSize: 11, fontWeight: 700, textAlign: "center" }}>{r.score}</span>
-            <span style={{ fontSize: 10, color: "var(--fg-2)", textAlign: "right", whiteSpace: "nowrap" }}>{r.line}</span>
-            <span style={{ justifySelf: "end", width: 30, textAlign: "center", fontSize: 9.5, fontWeight: 800, borderRadius: 5, padding: "2px 0", background: s.bg, color: s.c }}>{r.res}</span>
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "48px 1fr 24px 48px 58px 40px", gap: 5, padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+            <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)" }}>{r.d}</span>
+            <span style={{ fontSize: 12, color: "var(--fg-mid)", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.opp}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: r.ha === "主" ? "var(--home)" : "var(--gold)" }}>{r.ha}</span>
+            <span className="mono" style={{ fontSize: 12, fontWeight: 700, textAlign: "center" }}>{r.score}</span>
+            <MarketValue v={r.line} className="" small dim style={{ justifyContent: "flex-end" }} />
+            <span style={{ justifySelf: "end", width: 34, textAlign: "center", fontSize: 11.5, fontWeight: 800, borderRadius: 5, padding: "2px 0", background: s.bg, color: s.c }}>{r.res}</span>
           </div>
         );
       })}
@@ -66,7 +90,7 @@ export function RoadSection({ ins, home, away }: { ins: V; home: string; away: s
   const grid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 10 };
   return (
     <>
-      <div style={{ fontSize: 13, fontWeight: 700, margin: "8px 4px" }}>让球盘路 <span style={{ fontSize: 9.5, color: "var(--fg-3)", fontWeight: 400 }}>临场盘 × 官方比分 · 近 10 场</span></div>
+      <div style={{ fontSize: 13.5, fontWeight: 750, margin: "8px 4px" }}>让球盘路 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>临场盘 × 官方比分 · 近 10 场</span></div>
       <div style={grid}>
         <RoadCard team={home} color="var(--home)" data={ins.road.home?.ah} kind="ah" />
         <RoadCard team={away} color="var(--gold)" data={ins.road.away?.ah} kind="ah" />
@@ -88,28 +112,32 @@ export function SameOddsCard({ so }: { so: V }) {
     <div style={{ ...box, padding: "10px 14px", marginTop: 14 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
         <span style={{ fontSize: 12.5, fontWeight: 800 }}>同赔历史</span>
-        <span className="mono" style={{ fontSize: 10, color: "var(--fg-2)" }}>初盘 {so.triple} · ±0.03</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--fg-2)" }}>
+          <span style={{ fontSize: 11.5 }}>初盘</span>
+          <MarketValue v={so.triple} small dim style={{ justifyContent: "flex-end" }} />
+          <span className="mono" style={{ fontSize: 11.5 }}>±0.03</span>
+        </span>
       </div>
       {so.n === 0 ? (
         <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "6px 0" }}>暂无同赔完场样本,随归档积累自动出现</div>
       ) : (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-            {[["主胜", so.w, "var(--green)"], ["平局", so.dr, "#959ba6"], ["客胜", so.l, "var(--red)"]].map(([lab, n, c]) => (
+            {[["主胜", so.w, "var(--green)"], ["平局", so.dr, "var(--fg-3)"], ["客胜", so.l, "var(--red)"]].map(([lab, n, c]) => (
               <div key={lab as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "7px 0", textAlign: "center" }}>
-                <div className="mono" style={{ fontSize: 14, fontWeight: 800, color: c as string }}>{pct(n as number)}%</div>
-                <div style={{ fontSize: 9, color: "var(--fg-3)", marginTop: 1 }}>{lab as string} {n as number} 场</div>
+                <MarketValue v={`${pct(n as number)}%`} className="mono" small style={{ justifyContent: "center", color: c as string, fontSize: 14, fontWeight: 800 }} />
+                <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 1 }}>{lab as string} {n as number} 场</div>
               </div>
             ))}
           </div>
           {(so.samples ?? []).map((s: V, i: number) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderTop: "1px solid var(--line-soft)" }}>
-              <span style={{ flex: 1, fontSize: 10.5, color: "var(--fg-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.m}</span>
-              <span className="mono" style={{ fontSize: 10.5, fontWeight: 700 }}>{s.score}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, color: s.res === "胜" ? "var(--green)" : s.res === "负" ? "var(--red)" : "#959ba6" }}>{s.res}</span>
+              <span style={{ flex: 1, fontSize: 11.5, color: "var(--fg-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.m}</span>
+              <span className="mono" style={{ fontSize: 11.5, fontWeight: 700 }}>{s.score}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: s.res === "胜" ? "var(--green)" : s.res === "负" ? "var(--red)" : "var(--fg-3)" }}>{s.res}</span>
             </div>
           ))}
-          <div style={{ fontSize: 9, color: "var(--fg-4)", paddingTop: 6 }}>共 {so.n} 场同赔样本 · 自本站归档起,随时间变厚</div>
+          <div style={{ fontSize: 11.5, color: "var(--fg-3)", paddingTop: 6 }}>共 {so.n} 场同赔样本 · 自本站归档起,随时间变厚</div>
         </>
       )}
     </div>
@@ -124,23 +152,23 @@ export function FatigueCard({ fa, home, away, style }: { fa: V; home: string; aw
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
         <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, fontWeight: 700, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
-        <span className="mono" style={{ fontSize: 10.5, color: f.restDays != null && f.restDays <= 3 ? "var(--red)" : "var(--fg-2)", whiteSpace: "nowrap" }}>
+        <span className="mono" style={{ fontSize: 11.5, color: f.restDays != null && f.restDays <= 3 ? "var(--red)" : "var(--fg-2)", whiteSpace: "nowrap" }}>
           {f.restDays != null ? `休整 ${f.restDays} 天` : "近期无收录赛事"}
         </span>
-        <span className="mono" style={{ fontSize: 10.5, color: f.next7 >= 2 ? "var(--gold)" : "var(--fg-2)", whiteSpace: "nowrap" }}>未来7天 {f.next7} 赛</span>
+        <span className="mono" style={{ fontSize: 11.5, color: f.next7 >= 2 ? "var(--gold)" : "var(--fg-2)", whiteSpace: "nowrap" }}>未来7天 {f.next7} 赛</span>
       </div>
     );
   return (
     <div style={{ ...box, padding: "10px 14px", ...style }}>
-      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>体能与赛程 <span style={{ fontSize: 9, color: "var(--fg-3)", fontWeight: 400 }}>仅统计本站收录赛事</span></div>
+      <div style={{ fontSize: 12.5, fontWeight: 750, marginBottom: 4 }}>体能与赛程 <span style={{ fontSize: 11.5, color: "var(--fg-3)", fontWeight: 400 }}>仅统计本站收录赛事</span></div>
       {row(home, "var(--home)", fa.home)}
       {row(away, "var(--gold)", fa.away)}
-      <div style={{ fontSize: 9, color: "var(--fg-4)", paddingTop: 4 }}>休整 ≤3 天或一周多赛,轮换与体能因素对盘口影响加大</div>
+      <div style={{ fontSize: 11.5, color: "var(--fg-3)", paddingTop: 4 }}>休整 ≤3 天或一周多赛,轮换与体能因素对指数影响加大</div>
     </div>
   );
 }
 
-/** ④ 升降盘 + 返还率 + ② 离散度 汇总条(百家对比页顶部) */
+/** ④ 升降盘 + 返还率 + ② 离散度 汇总条(对比页顶部) */
 export function CompMetaBar({ comp }: { comp: V }) {
   const t = comp?.trend;
   const m = comp?.euMeta;
@@ -148,7 +176,7 @@ export function CompMetaBar({ comp }: { comp: V }) {
   const dirText = (d: V) => d && `${d.up} 升 · ${d.down} 降 · ${d.flat} 持平`;
   const retText = (x: V) => (x?.ret0 != null && x?.ret1 != null ? `返还率 ${x.ret0}%→${x.ret1}%` : null);
   const items: [string, string | null][] = [
-    ["亚盘", [dirText(t?.ah?.dir), retText(t?.ah)].filter(Boolean).join(" · ") || null],
+    ["让球", [dirText(t?.ah?.dir), retText(t?.ah)].filter(Boolean).join(" · ") || null],
     ["大小", [dirText(t?.ou?.dir), retText(t?.ou)].filter(Boolean).join(" · ") || null],
     ["离散度", m ? `主 ${m.disp.h} / 平 ${m.disp.d} / 客 ${m.disp.a}(${m.books} 家)` : null],
   ];
@@ -156,11 +184,11 @@ export function CompMetaBar({ comp }: { comp: V }) {
     <div style={{ ...box, padding: "9px 14px", marginBottom: 12 }}>
       {items.filter(([, v]) => v).map(([k, v]) => (
         <div key={k} style={{ display: "flex", gap: 10, alignItems: "baseline", padding: "3px 0" }}>
-          <span style={{ flexShrink: 0, width: 44, fontSize: 10, fontWeight: 800, color: "var(--fg-2)" }}>{k}</span>
-          <span className="mono" style={{ fontSize: 11, color: "var(--fg-mid)" }}>{v}</span>
+          <span style={{ flexShrink: 0, width: 44, fontSize: 11, fontWeight: 800, color: "var(--fg-2)" }}>{k}</span>
+          <MarketValue v={v} className="mono" small style={{ justifyContent: "flex-start", color: "var(--fg-mid)" }} />
         </div>
       ))}
-      {m && <div style={{ fontSize: 9, color: "var(--fg-4)", paddingTop: 5, lineHeight: 1.6 }}>{m.method}</div>}
+      {m && <div style={{ fontSize: 11.5, color: "var(--fg-3)", paddingTop: 5, lineHeight: 1.6 }}>{m.method}</div>}
     </div>
   );
 }
@@ -170,11 +198,21 @@ export function CornersRefNote({ cr, home, away }: { cr: V; home: string; away: 
   if (!cr) return null;
   return (
     <div style={{ ...box, padding: "9px 14px", marginTop: 4 }}>
-      <span style={{ fontSize: 10.5, color: "var(--fg-2)", lineHeight: 1.7 }}>
-        角球参考:{home} 近 {cr.h.n} 场场均角球合计 <span className="mono" style={{ color: "var(--gold)", fontWeight: 800 }}>{cr.h.avg}</span>
-        {" "}· {away} 近 {cr.a.n} 场 <span className="mono" style={{ color: "var(--gold)", fontWeight: 800 }}>{cr.a.avg}</span>
-        {" "}→ 合成参考 <span className="mono" style={{ color: "var(--gold)", fontWeight: 800 }}>{cr.ref}</span>,可对照上方角球盘口。
-      </span>
+      <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 7 }}>角球参考</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+        {[
+          [home, `近 ${cr.h.n} 场`, cr.h.avg],
+          [away, `近 ${cr.a.n} 场`, cr.a.avg],
+          ["合成参考", "本站归档", cr.ref],
+        ].map(([name, sub, v]) => (
+          <div key={name as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "7px 8px" }}>
+            <div style={{ fontSize: 11.5, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name as string}</div>
+            <MiniMetric v={v as string | number} color="var(--gold)" />
+            <div style={{ fontSize: 11, color: "var(--fg-3)" }}>{sub as string}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 11.5, color: "var(--fg-3)", paddingTop: 7, lineHeight: 1.6 }}>可对照上方角球指数,仅作数据参考。</div>
     </div>
   );
 }

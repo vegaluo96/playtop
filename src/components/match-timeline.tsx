@@ -24,14 +24,14 @@ export interface TLData {
 /** kind → [图标, 底色, 字色] */
 const ICON: Record<string, [string, string, string]> = {
   goal: ["●", "rgba(46,204,138,.16)", "var(--green)"],
-  yellow: ["▮", "rgba(233,185,73,.16)", "#e9b949"],
-  red: ["▮", "rgba(240,67,79,.16)", "var(--red)"],
-  sub: ["⇄", "rgba(91,157,255,.16)", "#5b9dff"],
-  var: ["V", "rgba(139,148,168,.16)", "#959ba6"],
+  yellow: ["▮", "rgba(0,200,5,.16)", "var(--gold)"],
+  red: ["▮", "rgba(255,92,92,.16)", "var(--red)"],
+  sub: ["⇄", "rgba(63,140,255,.16)", "var(--home)"],
+  var: ["V", "rgba(139,148,168,.16)", "var(--fg-3)"],
   corner: ["⚑", "rgba(110,193,255,.14)", "#6ec1ff"],
   sot: ["◎", "rgba(46,204,138,.12)", "var(--green)"],
-  soff: ["○", "rgba(139,148,168,.12)", "#959ba6"],
-  offside: ["⚐", "rgba(233,185,73,.12)", "#bfa14a"],
+  soff: ["○", "rgba(139,148,168,.12)", "var(--fg-3)"],
+  offside: ["⚐", "rgba(0,200,5,.12)", "var(--gold-2)"],
 };
 const LEGEND: [string, string][] = [
   ["●", "进球"], ["▮", "红黄牌"], ["⇄", "换人"], ["⚑", "角球"], ["◎", "射正"], ["○", "射偏"], ["⚐", "越位"],
@@ -46,7 +46,7 @@ export function MatchTimeline({ tl, home, away, live }: { tl: TLData; home: stri
   const icon = (kind: string) => {
     const ic = ICON[kind] ?? ICON.var;
     return (
-      <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, background: ic[1], color: ic[2] }}>
+      <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 5, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, background: ic[1], color: ic[2] }}>
         {ic[0]}
       </span>
     );
@@ -54,23 +54,23 @@ export function MatchTimeline({ tl, home, away, live }: { tl: TLData; home: stri
 
   return (
     <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }}>
-      {/* 头部:标题 + 直播 + 角球数 + 视图切换 */}
+      {/* 头部:标题 + LIVE + 角球数 + 视图切换 */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>
         <span style={{ fontSize: 12.5, fontWeight: 800 }}>比赛直播</span>
         {live && (
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-            <span style={{ fontSize: 9, color: "var(--red)", fontWeight: 800 }}>直播</span>
+            <span className="mono" style={{ fontSize: 11.5, color: "var(--red)", fontWeight: 800 }}>LIVE</span>
           </span>
         )}
         {tl.corners && (
-          <span className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 5, padding: "2px 7px" }}>
+          <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 5, padding: "2px 7px" }}>
             角球 {tl.corners.h}-{tl.corners.a}
           </span>
         )}
         <span style={{ flex: 1 }} />
         {([["key", "重要事件"], ["text", "文字直播"]] as const).map(([k, label]) => (
-          <span key={k} onClick={() => setMode(k)} style={{ fontSize: 10, fontWeight: 700, cursor: "pointer", borderRadius: 6, padding: "3px 9px", background: mode === k ? "rgba(233,185,73,.14)" : "var(--inset)", color: mode === k ? "var(--gold)" : "var(--fg-3)" }}>
+          <span key={k} onClick={() => setMode(k)} style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, padding: "3px 9px", background: mode === k ? "rgba(0,200,5,.14)" : "var(--inset)", color: mode === k ? "var(--gold)" : "var(--fg-3)" }}>
             {label}
           </span>
         ))}
@@ -79,19 +79,19 @@ export function MatchTimeline({ tl, home, away, live }: { tl: TLData; home: stri
       {/* 双列表头 */}
       {mode === "key" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 44px 1fr", padding: "6px 12px", borderBottom: "1px solid var(--line-soft)" }}>
-          <span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--home)", textAlign: "right" }}>{home}</span>
+	          <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--home)", textAlign: "right" }}>{home}</span>
           <span />
-          <span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--gold)" }}>{away}</span>
+	          <span style={{ fontSize: 11.5, fontWeight: 750, color: "var(--gold)" }}>{away}</span>
         </div>
       )}
 
       <div style={{ maxHeight: 420, overflowY: "auto", padding: "4px 12px 8px" }}>
-        {rows.length === 0 && <div style={{ padding: "16px 0", fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>事件数据积累中,随官方接口实时更新</div>}
+        {rows.length === 0 && <div style={{ padding: "16px 0", fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>暂无官方事件数据,随官方接口实时更新</div>}
         {rows.map((r, i) =>
           r.side === "mid" ? (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0" }}>
               <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
-              <span style={{ fontSize: 10, fontWeight: 800, color: "var(--gold)", whiteSpace: "nowrap" }}>{r.text}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", whiteSpace: "nowrap" }}>{r.text}</span>
               <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
             </div>
           ) : mode === "key" ? (
@@ -104,7 +104,7 @@ export function MatchTimeline({ tl, home, away, live }: { tl: TLData; home: stri
                   </>
                 )}
               </span>
-              <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)", textAlign: "center" }}>{r.m}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>{r.m}</span>
               <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                 {r.side === "a" && (
                   <>
@@ -116,7 +116,7 @@ export function MatchTimeline({ tl, home, away, live }: { tl: TLData; home: stri
             </div>
           ) : (
             <div key={i} style={{ display: "flex", gap: 9, padding: "6px 0", borderBottom: "1px solid var(--line-soft)" }}>
-              <span className="mono" style={{ flexShrink: 0, width: 38, fontSize: 10, color: "var(--fg-3)", paddingTop: 1 }}>{r.m}</span>
+              <span className="mono" style={{ flexShrink: 0, width: 38, fontSize: 11, color: "var(--fg-3)", paddingTop: 1 }}>{r.m}</span>
               {icon(r.kind)}
               <span style={{ flex: 1, fontSize: 11.5, color: "var(--fg-mid)", lineHeight: 1.6 }}>{r.live}</span>
             </div>
@@ -127,11 +127,11 @@ export function MatchTimeline({ tl, home, away, live }: { tl: TLData; home: stri
       {/* 图例 */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "7px 12px", borderTop: "1px solid var(--line-soft)" }}>
         {LEGEND.map(([g, label]) => (
-          <span key={label} style={{ fontSize: 9, color: "var(--fg-3)", display: "flex", alignItems: "center", gap: 3 }}>
+	          <span key={label} style={{ fontSize: 11.5, color: "var(--fg-3)", display: "flex", alignItems: "center", gap: 3 }}>
             <span style={{ color: "var(--fg-2)" }}>{g}</span>{label}
           </span>
         ))}
-        <span style={{ fontSize: 9, color: "var(--fg-4)" }}>角球/射正等由官方滚球统计差分还原</span>
+	        <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>角球/射正等由官方滚球统计差分还原</span>
       </div>
     </div>
   );
@@ -155,18 +155,18 @@ export function WeatherCard({ w, style }: { w: WeatherData | null; style?: React
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ flexShrink: 0, textAlign: "center" }}>
           <span className="mono" style={{ fontSize: 28, fontWeight: 800, lineHeight: 1 }}>{w.temp}°</span>
-          <div style={{ fontSize: 10.5, color: "var(--fg-2)", marginTop: 3 }}>{w.text}</div>
+          <div style={{ fontSize: 11.5, color: "var(--fg-2)", marginTop: 3 }}>{w.text}</div>
         </div>
         <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
           {[[`${w.humidity}%`, "湿度"], [`${w.wind} m/s`, "风速"], [`${w.pressure} hPa`, "气压"]].map(([val, label]) => (
             <div key={label} style={{ background: "var(--inset)", borderRadius: 8, padding: "7px 0", textAlign: "center" }}>
               <div className="mono" style={{ fontSize: 12, fontWeight: 800 }}>{val}</div>
-              <div style={{ fontSize: 8.5, color: "var(--fg-3)", marginTop: 1 }}>{label}</div>
+	              <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 1 }}>{label}</div>
             </div>
           ))}
         </div>
       </div>
-      <div style={{ fontSize: 9, color: "var(--fg-4)", marginTop: 8 }}>来源:{w.src} · 天气影响草皮速度与传控质量,雨雪大风利守不利攻</div>
+	      <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 8 }}>来源:{w.src} · 天气影响草皮速度与传控质量,雨雪大风利守不利攻</div>
     </div>
   );
 }

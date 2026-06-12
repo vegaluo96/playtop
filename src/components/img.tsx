@@ -30,7 +30,7 @@ export function TeamLogo({ id, name, size = 18 }: { id?: number | null; name: st
       loading="lazy"
       onError={() => setErr(true)}
       alt={name}
-      style={{ borderRadius: "50%", objectFit: "contain", flexShrink: 0, background: "rgba(255,255,255,.92)", padding: Math.max(1, size * 0.08) }}
+      style={{ borderRadius: "50%", objectFit: "contain", flexShrink: 0, background: "var(--inset)", padding: Math.max(1, size * 0.08) }}
     />
   );
 }
@@ -43,7 +43,7 @@ export function PlayerAvatar({ id, name, num, size = 26, ring }: { id?: number |
         className="mono"
         style={{
           width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "inline-flex", alignItems: "center",
-          justifyContent: "center", fontSize: size * 0.4, fontWeight: 800, background: ring ?? "var(--inset)", color: "#0a0b0f",
+          justifyContent: "center", fontSize: size * 0.4, fontWeight: 800, background: ring ?? "var(--inset)", color: "var(--on-accent)",
         }}
       >
         {num ?? name.slice(0, 1)}

@@ -1,6 +1,6 @@
 "use client";
 
-/** 统一 UI 原语(设计稿:弹层=底部 sheet+拖把手+遮罩关闭;二级页=‹ 返回+居中标题) */
+/** 统一 UI 原语:底部 sheet、chip、按钮与二级页头。 */
 
 import { useRouter } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
@@ -8,10 +8,10 @@ import type { CSSProperties, ReactNode } from "react";
 export function Sheet({ open, onClose, children, z = 65 }: { open: boolean; onClose: () => void; children: ReactNode; z?: number }) {
   if (!open) return null;
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: z, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(4,5,9,.72)" }}>
+    <div style={{ position: "absolute", inset: 0, zIndex: z, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,.42)" }}>
       <div onClick={onClose} style={{ flex: 1 }} />
-      <div style={{ background: "#14161d", borderTop: "1px solid #262a34", borderRadius: "18px 18px 0 0", padding: "10px 16px 24px" }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: "#262a34", margin: "0 auto 14px" }} />
+      <div style={{ background: "var(--card)", borderTop: "1px solid var(--line)", borderRadius: "18px 18px 0 0", padding: "10px 16px 24px", boxShadow: "0 -16px 48px rgba(0,0,0,.20)" }}>
+        <div style={{ width: 38, height: 4, borderRadius: 2, background: "var(--line)", margin: "0 auto 14px" }} />
         {children}
       </div>
     </div>
@@ -21,8 +21,8 @@ export function Sheet({ open, onClose, children, z = 65 }: { open: boolean; onCl
 export function SheetTitle({ title, hint }: { title: string; hint?: string }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-      <span style={{ fontSize: 15, fontWeight: 800 }}>{title}</span>
-      {hint && <span style={{ fontSize: 10, color: "var(--fg-3)" }}>{hint}</span>}
+      <span style={{ fontSize: 16, fontWeight: 800 }}>{title}</span>
+      {hint && <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{hint}</span>}
     </div>
   );
 }
@@ -33,14 +33,14 @@ export function Chip({ label, active, onClick, style }: { label: string; active:
       onClick={onClick}
       style={{
         flexShrink: 0,
-        padding: "6px 13px",
+        padding: "7px 14px",
         borderRadius: 999,
-        fontSize: 12,
+        fontSize: 12.5,
         fontWeight: 600,
         cursor: "pointer",
-        background: active ? "rgba(233,185,73,.14)" : "var(--card)",
+        background: active ? "var(--accent-bg)" : "var(--card)",
         color: active ? "var(--gold)" : "var(--fg-2)",
-        border: `1px solid ${active ? "rgba(233,185,73,.45)" : "var(--line)"}`,
+        border: `1px solid ${active ? "var(--accent-border)" : "var(--line)"}`,
         ...style,
       }}
     >
@@ -52,8 +52,8 @@ export function Chip({ label, active, onClick, style }: { label: string; active:
 export function SectionTitle({ title, right }: { title: string; right?: ReactNode }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "16px 4px 8px" }}>
-      <div style={{ fontSize: 13, fontWeight: 700 }}>{title}</div>
-      <div style={{ fontSize: 9, color: "var(--fg-4)" }} className="mono">{right}</div>
+      <div style={{ fontSize: 14, fontWeight: 750 }}>{title}</div>
+      <div style={{ fontSize: 11, color: "var(--fg-3)" }} className="mono">{right}</div>
     </div>
   );
 }
@@ -67,12 +67,12 @@ export function GoldBtn({ label, onClick, style }: { label: string; onClick: () 
     <div
       onClick={onClick}
       style={{
-        background: "linear-gradient(90deg,var(--gold),var(--gold-2))",
-        color: "#0a0b0f",
+        background: "var(--gold)",
+        color: "var(--on-accent)",
         borderRadius: 10,
         textAlign: "center",
         padding: "12px 0",
-        fontSize: 13.5,
+        fontSize: 14.5,
         fontWeight: 800,
         cursor: "pointer",
         ...style,
@@ -94,7 +94,7 @@ export function SubpageHeader({ title, onBack, right }: { title: string; onBack?
       >
         ‹
       </div>
-      <div style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 800 }}>{title}</div>
+      <div style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 800 }}>{title}</div>
       <div style={{ width: 34, display: "flex", alignItems: "center", justifyContent: "center" }}>{right}</div>
     </div>
   );
@@ -122,9 +122,9 @@ export function LockIcon({ size = 13 }: { size?: number }) {
 
 export function EmptyBox({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div style={{ background: "var(--card)", border: "1px dashed #272d3a", borderRadius: 12, padding: "32px 20px", textAlign: "center", marginTop: 6 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-2)" }}>{title}</div>
-      {sub && <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.7 }}>{sub}</div>}
+    <div style={{ background: "var(--card)", border: "1px dashed var(--line)", borderRadius: 12, padding: "32px 20px", textAlign: "center", marginTop: 6 }}>
+      <div style={{ fontSize: 14, fontWeight: 750, color: "var(--fg-2)" }}>{title}</div>
+      {sub && <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.7 }}>{sub}</div>}
     </div>
   );
 }

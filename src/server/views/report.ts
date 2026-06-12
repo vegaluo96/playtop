@@ -1,5 +1,5 @@
 /**
- * AI 深度报告:按五分区结构(盘口解读/状态与盘路/进球模型/人员情报/结论与风险)
+ * AI 概率报告:按设计稿五分区结构(指数解读/状态与盘路/进球模型/人员情报/概率摘要与风险)
  * 基于 panorama 真实数据的规则模板生成;后续可在 buildReport 外层接 LLM 润色。
  */
 import { ahText, f2, ouText } from "@/lib/format";
@@ -30,7 +30,7 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
   });
   const secs: ReportSection[] = [];
 
-  // ── 盘口解读 ──
+  // ── 指数解读 ──
   const ps1: string[] = [];
   const ahS = p.odds.ah;
   if (ahS.length > 0) {
@@ -39,11 +39,11 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
     if (first.line !== last.line && first.line != null && last.line != null) {
       const dir = Math.abs(last.line) > Math.abs(first.line) ? "升" : "降";
       ps1.push(
-        `亚盘自归档首帧 ${ahText(first.line)} ${dir}至 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)}。` +
-          (dir === "升" ? "让球加深,市场对让球方的信心有所增强。" : "盘口回撤,市场对让球方的态度趋于谨慎。"),
+        `让球指数自归档首帧 ${ahText(first.line)} ${dir}至 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)}。` +
+          (dir === "升" ? "让球加深,市场对让球方的信心有所增强。" : "指数回撤,市场对让球方的态度趋于谨慎。"),
       );
     } else if (last.line != null) {
-      ps1.push(`亚盘自归档首帧维持 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)},市场对该盘口分歧不大。`);
+      ps1.push(`让球指数自归档首帧维持 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)},市场对该指数分歧不大。`);
     }
   }
   const ouS = p.odds.ou;
@@ -55,12 +55,12 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
         ? `由 ${ouText(first.line)} 调整至 ${ouText(last.line ?? 0)}`
         : `维持 ${ouText(last.line ?? 0)}`;
     ps1.push(
-      `大小球${lineTxt},大水 ${f2(last.h)} / 小水 ${f2(last.a)}。` +
+      `大小指数${lineTxt},大水 ${f2(last.h)} / 小水 ${f2(last.a)}。` +
         (last.h < last.a ? "大球一侧水位更低,市场倾向偏大。" : last.h > last.a ? "小球一侧水位更低,市场略偏小球。" : "两侧水位均衡,方向尚不明朗。"),
     );
   }
-  if (ps1.length === 0) ps1.push("本场盘口快照仍在积累,开盘后将自动补全盘口解读。");
-  secs.push({ h: "盘口解读", ps: ps1 });
+  if (ps1.length === 0) ps1.push("本场指数快照仍在积累,开盘后将自动补全指数解读。");
+  secs.push({ h: "指数解读", ps: ps1 });
 
   // ── 状态与盘路 ──
   const ps2: string[] = [];
@@ -82,7 +82,7 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
     }
     ps2.push(`近 ${h2h.length} 次交锋,${nameZh(fx.home_name)} 取胜 ${myWins} 次,大球(>2.5)出现 ${big} 次。`);
   }
-  if (ps2.length === 0) ps2.push("两队近况与交锋数据积累中。");
+  if (ps2.length === 0) ps2.push("暂无官方近况与交锋数据。");
   secs.push({ h: "状态与盘路", ps: ps2 });
 
   // ── 进球模型 ──
@@ -90,13 +90,13 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
   if (ps && (ps.goalsHome || ps.goalsAway)) {
     ps3.push(
       `模型给出的进球上限:主队 ${ps.goalsHome ?? "—"} / 客队 ${ps.goalsAway ?? "—"}` +
-        (ps.uoText ? `,大小球建议「${ps.uoText}」。` : "。"),
+        (ps.uoText ? `,大小方向「${ps.uoText}」。` : "。"),
     );
   }
   const att = ps?.comparison["攻击"];
   const def = ps?.comparison["防守"];
   if (att && (att.home || att.away)) ps3.push(`攻击端对比 主 ${att.home}% / 客 ${att.away}%;防守端对比 主 ${def?.home ?? "—"}% / 客 ${def?.away ?? "—"}%。`);
-  if (ps3.length === 0) ps3.push("进球模型数据待预测快照就绪后生成。");
+  if (ps3.length === 0) ps3.push("进球模型待概率快照就绪后生成。");
   secs.push({ h: "进球模型", ps: ps3 });
 
   // ── 人员情报 ──
@@ -106,18 +106,18 @@ export function buildReport(p: Panorama): { ps: PredSummary | null; secs: Report
   });
   secs.push({ h: "人员情报", ps: intel.length > 0 ? intel : ["暂无官方伤停通报;首发公布后自动更新。"] });
 
-  // ── 结论与风险 ──
+  // ── 概率摘要与风险 ──
   const ps5: string[] = [];
   if (ps) {
     ps5.push(
-      `综合盘口、状态与概率模型,本场倾向:${ps.advice}。胜平负概率 主 ${ps.pH}% / 平 ${ps.pD}% / 客 ${ps.pA}%` +
-        (ps.winDraw ? ",领先方优势未过半,建议搭配平局保护。" : "。"),
+      `综合指数、状态与概率模型,本场概率摘要:${ps.advice}。胜平负概率 主 ${ps.pH}% / 平 ${ps.pD}% / 客 ${ps.pA}%` +
+        (ps.winDraw ? ",领先方优势未过半,平局风险需要单独评估。" : "。"),
     );
   } else {
-    ps5.push("预测快照尚未就绪,结论将于开盘后生成。");
+    ps5.push("概率快照尚未就绪,报告摘要将于开盘后生成。");
   }
-  ps5.push("报告基于赛前数据快照生成;首发公布与临场资金可能改变盘口,请结合异动监控自行判断。");
-  secs.push({ h: "结论与风险", ps: ps5 });
+  ps5.push("报告基于赛前数据快照生成;首发公布与临场指数可能改变数据状态,请结合异动监控复核。");
+  secs.push({ h: "概率摘要与风险", ps: ps5 });
 
   return { ps, secs };
 }

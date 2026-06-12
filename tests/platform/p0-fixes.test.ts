@@ -1,4 +1,4 @@
-/** P0 修复回归:书商打码 / 预测盘口推导兜底 / LLM 余额查询窗口 */
+/** P0 修复回归:书商打码 / AI 概率报告指数派生观点 / LLM 余额查询窗口 */
 import { describe, expect, it } from "vitest";
 import { maskBookmaker } from "../../src/lib/format";
 import { predSummary } from "../../src/server/views/common";
@@ -21,10 +21,10 @@ describe("maskBookmaker(前台不显示全称但保留辨识度)", () => {
   });
 });
 
-describe("predSummary 盘口推导兜底(AF 模型缺方向时不留空窗)", () => {
+describe("predSummary 指数派生观点(AF 模型缺方向时不误称官方方向)", () => {
   const emptyPred = { predictions: { percent: { home: "40%", draw: "30%", away: "30%" } } };
 
-  it("AF winner 缺失 → 亚盘让球方向推导,标注盘口推导", () => {
+  it("AF winner 缺失 → 让球方向派生,标注指数派生观点", () => {
     const ps = predSummary(emptyPred, 50, {
       ah: { line: 0.5, h: 0.95, a: 0.91 },
       ou: { line: 2.5, h: 0.88, a: 0.98 },
@@ -34,7 +34,7 @@ describe("predSummary 盘口推导兜底(AF 模型缺方向时不留空窗)", ()
     expect(ps.winnerName).toBe("Mexico"); // 主让半球 → 主队方向
     expect(ps.winnerHome).toBe(true);
     expect(ps.uoText).toBe("大于 2.5 球"); // 大球水位更低 → 市场倾向大
-    expect(ps.advice).toContain("盘口推导");
+    expect(ps.advice).toContain("指数派生观点");
   });
 
   it("受让盘 → 客队方向", () => {
@@ -43,7 +43,7 @@ describe("predSummary 盘口推导兜底(AF 模型缺方向时不留空窗)", ()
     expect(ps.winnerHome).toBe(false);
   });
 
-  it("AF 字段齐全时不动原值、不标注推导", () => {
+  it("AF 字段齐全时不动原值、不标注派生", () => {
     const full = {
       predictions: {
         winner: { id: 50, name: "Man City" }, win_or_draw: false, under_over: "-2.5",
@@ -53,13 +53,13 @@ describe("predSummary 盘口推导兜底(AF 模型缺方向时不留空窗)", ()
     const ps = predSummary(full, 50, { ah: { line: -1, h: 0.9, a: 0.96 } })!;
     expect(ps.derived).toBe(false);
     expect(ps.winnerName).toBe("Man City");
-    expect(ps.advice).not.toContain("盘口推导");
+    expect(ps.advice).not.toContain("指数派生观点");
   });
 
   it("平手盘且无水位差 → 不强行给方向", () => {
     const ps = predSummary(emptyPred, 50, { ah: { line: 0, h: 0.93, a: 0.93 }, ou: { line: 2.5, h: 0.93, a: 0.93 } })!;
     expect(ps.winnerName).toBe("");
-    expect(ps.advice).toContain("样本不足");
+    expect(ps.advice).toContain("暂无明确方向");
   });
 });
 

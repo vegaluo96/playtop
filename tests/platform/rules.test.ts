@@ -20,17 +20,17 @@ describe("商业规则(HANDOFF §2 严格口径)", () => {
     expect(unlockPrice(ko, ko + 3_600_000)).toBe(58);
   });
 
-  it("新人礼包 58 积分", () => {
+  it("新人礼包 58 额度", () => {
     expect(GIFT_POINTS).toBe(58);
   });
 
-  it("充值档位:¥6/60 起,¥648/8420 为最划算档", () => {
+  it("购买额度档位:¥6/60 起,¥648/8420 为最划算档", () => {
     expect(RECHARGE_TIERS[0]).toMatchObject({ rmb: 6, pts: 60 });
     const top = RECHARGE_TIERS[RECHARGE_TIERS.length - 1];
     expect(top).toMatchObject({ rmb: 648, pts: 8420, hot: true });
   });
 
-  it("首充 +50%(向下取整),非首充原值", () => {
+  it("首购 +50%(向下取整),非首购原值", () => {
     expect(rechargeCredit(RECHARGE_TIERS[0], true)).toBe(90);
     expect(rechargeCredit(RECHARGE_TIERS[0], false)).toBe(60);
     expect(rechargeCredit(RECHARGE_TIERS[5], true)).toBe(8420 + 4210);

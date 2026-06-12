@@ -1,5 +1,5 @@
 /**
- * 积分账务:所有变动走 ledger(kind+delta+balance),服务端唯一记账。
+ * 账户额度账务:所有变动走 ledger(kind+delta+balance),服务端唯一记账。
  * 解锁永久可见;每日免费场对登录用户视同已解锁(不落 unlocks 行)。
  */
 import { db, tx } from "../db";
@@ -21,7 +21,7 @@ function append(userId: number, kind: string, delta: number, note: string, rmb: 
   return balance;
 }
 
-/** 后台调积分(补偿/扣减),由调用方做 RBAC 与审计 */
+/** 后台调额度(补偿/扣减),由调用方做 RBAC 与审计 */
 export function adjustPoints(userId: number, delta: number, reason: string, afterAppend?: (pts: number) => void): WalletResult {
   return tx(() => {
     const pts = append(userId, "adjust", delta, reason || "后台调整");
@@ -51,9 +51,9 @@ export function claimGift(userId: number): WalletResult {
   });
 }
 
-/** 充值(当前为演示支付:选档即到账;接入支付网关后在此校验回调) */
+/** 购买额度(当前为演示支付:选档即到账;接入支付网关后在此校验回调) */
 export function recharge(userId: number, tierIndex: number): WalletResult {
-  if (!demoRechargeEnabled()) return { ok: false, error: "充值通道维护中,请稍后再试" };
+  if (!demoRechargeEnabled()) return { ok: false, error: "购买额度通道维护中,请稍后再试" };
   const tier = cfgRechargeTiers()[tierIndex];
   if (!tier) return { ok: false, error: "档位不存在" };
   return tx(() => {
@@ -63,7 +63,7 @@ export function recharge(userId: number, tierIndex: number): WalletResult {
     const isFirst = !u.first_recharged && cfgFirstBonusOn();
     const credit = rechargeCredit(tier, isFirst);
     d.prepare("UPDATE users SET first_recharged = 1 WHERE id = ?").run(userId);
-    const note = `充值 ¥${tier.rmb}` + (isFirst ? "(首充 +50%)" : "");
+    const note = `购买额度 ¥${tier.rmb}` + (isFirst ? "(首购 +50%)" : "");
     return { ok: true as const, pts: append(userId, "recharge", credit, note, tier.rmb), note };
   });
 }
@@ -105,7 +105,7 @@ export function isUnlocked(userId: number, fixtureId: number, dateStr: string): 
   return !!db().prepare("SELECT 1 FROM unlocks WHERE user_id = ? AND fixture_id = ?").get(userId, fixtureId);
 }
 
-/** 解锁预测:价格按开球时间由服务端定(赛前 38 / 开赛后 58) */
+/** 解锁 AI 概率报告:价格按开球时间由服务端定(赛前 38 / 开赛后 58) */
 export function unlock(userId: number, fixtureId: number, kickoffUtcMs: number, matchName: string, dateStr: string): WalletResult {
   return tx(() => {
     if (isUnlocked(userId, fixtureId, dateStr)) return { ok: false as const, error: "本场已解锁" };

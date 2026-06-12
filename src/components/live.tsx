@@ -29,7 +29,7 @@ export function agoText(at: number | null | undefined, now = Date.now()): string
 const PULSE_WINDOW_MS = 5 * 60_000;
 
 /**
- * 值变化 → 闪动+方向;数值用 ▲▼,非数值(盘口文本)闪金。
+ * 值变化 → 闪动+方向;数值用 ▲▼,非数值(指数文本)闪金。
  * pulse(该值最近真实变化的时间戳)+ pulseDir:挂载时若变化发生在近窗内,主动闪一次——
  * 解决「变化发生在打开页面之前/轮询间隙,用户永远看不到跳动」;仍然只闪真实变化。
  */
@@ -65,7 +65,7 @@ export function Flash({ v, arrow = false, className, style, pulse, pulseDir }: {
       </span>
       {arrow && (
         <span
-          style={{ fontSize: 8, width: 9, flexShrink: 0, color: fx && fx.dir > 0 ? "var(--up)" : "var(--down)", opacity: fx && fx.dir !== 0 ? 1 : 0, transition: "opacity .5s" }}
+          style={{ fontSize: 11.5, width: 10, flexShrink: 0, color: fx && fx.dir > 0 ? "var(--up)" : "var(--down)", opacity: fx && fx.dir !== 0 ? 1 : 0, transition: "opacity .5s" }}
         >
           {fx && fx.dir < 0 ? "▼" : "▲"}
         </span>
@@ -92,10 +92,10 @@ export function HeartBeat({ lastAt, intervalMs, workerAt, rtt, style }: BeatStat
   const now = useNow(1000);
   const workerDown = workerAt != null && now - workerAt > 3 * 60_000;
   const stale = lastAt != null && now - lastAt > intervalMs * 3;
-  const color = workerDown ? "var(--fg-3)" : stale ? "var(--gold)" : "var(--green)";
+  const color = workerDown ? "var(--fg-3)" : stale ? "var(--warn)" : "var(--green)";
   const label = workerDown ? "盯盘暂停" : stale ? "数据延迟" : "已连接";
   return (
-    <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 9, color: "var(--fg-3)", whiteSpace: "nowrap", ...style }}>
+    <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap", ...style }}>
       <span className={workerDown ? undefined : "breathe"} style={{ width: 5, height: 5, borderRadius: "50%", background: color, flexShrink: 0 }} />
       <span style={{ color, fontWeight: 700 }}>{label}</span>
       {!workerDown && !stale && rtt != null && <span>· {Math.max(1, Math.round(rtt))}ms</span>}

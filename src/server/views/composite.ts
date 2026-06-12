@@ -1,7 +1,7 @@
 /**
- * ZSKY 综合指数:多书商盘口聚合成单一可信计价(走势图主线),方法论随 payload 下发给用户。
+ * PlayTop 综合指数:多书商指数聚合成单一可信计价(走势图主线),方法论随 payload 下发给用户。
  * 赛前:时间分桶(≥5min,自适应窗口),桶内各书商最后值前推(6h 失效);
- *   共识盘口 = 各家主盘中位数;指数值 = 报共识盘口书商的主侧净水中位数(不足 3 家回退全体中位数);
+ *   共识指数线 = 各家主指数线中位数;指数值 = 报共识指数线书商的主侧净水中位数(不足 3 家回退全体中位数);
  *   eu = 去水主胜概率中位数。
  * 滚球:实时帧直读(单源,变化帧)。指数为计算值,不是任何一家的原始报价。
  */
@@ -18,7 +18,7 @@ export interface IndexPoint {
 }
 export interface CompositeIndex {
   points: IndexPoint[];
-  markers: { t: number; from: number | null; to: number | null }[]; // 共识盘口变化点
+  markers: { t: number; from: number | null; to: number | null }[]; // 共识指数线变化点
   method: string;
   books: number;
 }
@@ -32,7 +32,7 @@ function median(xs: number[]): number {
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : Math.round(((s[m - 1] + s[m]) / 2) * 1000) / 1000;
 }
-/** 盘口中位数必须是真实存在的盘口值(取下中位元素,不平均出 0.375 这类假盘) */
+/** 指数线中位数必须是真实存在的指数线值(取下中位元素,不平均出 0.375 这类假盘) */
 function medianLine(xs: number[]): number {
   const s = [...xs].sort((a, b) => a - b);
   return s[Math.floor((s.length - 1) / 2)];
@@ -48,7 +48,7 @@ function allSnapshots(fixtureId: number, market: string): SnapRow[] {
     .all(fixtureId, market) as unknown as SnapRow[];
 }
 
-/** 赛前段(计算较重,调用方可缓存 60s;盘口慢变,延迟无感) */
+/** 赛前段(计算较重,调用方可缓存 60s;指数慢变,延迟无感) */
 export function compositePre(fixtureId: number, market: "ah" | "ou" | "eu", kickoffUtcMs: number): { points: IndexPoint[]; books: number } {
   const rows = allSnapshots(fixtureId, market);
   const points: IndexPoint[] = [];
@@ -110,6 +110,6 @@ export function mergeComposite(pre: { points: IndexPoint[]; books: number }, liv
   const method =
     market === "eu"
       ? `综合指数 = ${pre.books} 家书商去水主胜概率中位数;滚球段为实时盘直读。指数为本站计算值,非任何单一公司报价。`
-      : `综合指数 = ${pre.books} 家书商共识主盘(盘口中位数)下的主侧净水中位数;滚球段为实时盘直读。指数为本站计算值,非任何单一公司报价。`;
+      : `综合指数 = ${pre.books} 家书商共识主指数线(指数线中位数)下的主侧净水中位数;滚球段为实时盘直读。指数为本站计算值,非任何单一公司报价。`;
   return { points, markers, method, books: pre.books };
 }

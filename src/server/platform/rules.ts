@@ -1,7 +1,7 @@
 /**
  * 商业规则(HANDOFF §2,必须严格实现;纯函数+常量,单测保证)。
- * 唯一收费项 = 预测(含 AI 报告):赛前 38 积分/场,开赛后 58;
- * 每日 1 场平台指定免费分析;解锁永久可见(服务端记账)。
+ * 唯一收费项 = AI 概率报告:赛前 38 额度/场,开赛后 58;
+ * 每日 1 场平台指定免费报告;解锁永久可见(服务端记账)。
  */
 
 export const GIFT_POINTS = 58;
@@ -18,7 +18,7 @@ export interface RechargeTier {
   hot?: boolean;
 }
 
-/** 充值档位:¥6/60 … ¥648/8420(+30%,最划算) */
+/** 购买额度档位:¥6/60 … ¥648/8420(+30%) */
 export const RECHARGE_TIERS: RechargeTier[] = [
   { rmb: 6, pts: 60 },
   { rmb: 30, pts: 320, tag: "+6%" },
@@ -28,18 +28,18 @@ export const RECHARGE_TIERS: RechargeTier[] = [
   { rmb: 648, pts: 8420, tag: "+30%", hot: true },
 ];
 
-/** 解锁价:以开球时间为界(开赛后含滚球/完场均 58) */
+/** 报告解锁价:以开球时间为界(开赛后含滚球/完场均 58) */
 export function unlockPrice(kickoffUtcMs: number, nowMs: number): number {
   return nowMs >= kickoffUtcMs ? PRICE_LIVE : PRICE_PRE;
 }
 
-/** 首充加赠(任意档位 +50%,向下取整) */
+/** 首购加赠(任意档位 +50%,向下取整) */
 export function rechargeCredit(tier: RechargeTier, isFirst: boolean): number {
   return isFirst ? tier.pts + Math.floor(tier.pts * FIRST_RECHARGE_BONUS) : tier.pts;
 }
 
 /**
- * 邀请记分:given 当前日/周/月已记数,返回本次应记积分(0=超上限不计)。
+ * 邀请记额度:given 当前日/周/月已记数,返回本次应记额度(0=超上限不计)。
  */
 export function inviteCredit(counts: { day: number; week: number; month: number }): number {
   if (counts.day >= INVITE_CAPS.day) return 0;

@@ -38,7 +38,7 @@ export function AGrid({ cols, children, head }: { cols: string; children: ReactN
 }
 
 export const Th = ({ t, right, center }: { t: string; right?: boolean; center?: boolean }) => (
-  <span style={{ fontSize: 10, color: "var(--fg-3)", textAlign: right ? "right" : center ? "center" : "left" }}>{t}</span>
+  <span style={{ fontSize: 11, color: "var(--fg-3)", textAlign: right ? "right" : center ? "center" : "left" }}>{t}</span>
 );
 
 export function AChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
@@ -46,10 +46,10 @@ export function AChip({ label, active, onClick }: { label: string; active: boole
     <div
       onClick={onClick}
       style={{
-        padding: "4px 11px", borderRadius: 999, fontSize: 10.5, fontWeight: 600, cursor: "pointer",
-        background: active ? "rgba(233,185,73,.14)" : "var(--card)",
+        padding: "5px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: "pointer",
+        background: active ? "rgba(0,200,5,.14)" : "var(--card)",
         color: active ? "var(--gold)" : "var(--fg-2)",
-        border: `1px solid ${active ? "rgba(233,185,73,.45)" : "var(--line)"}`,
+        border: `1px solid ${active ? "rgba(0,200,5,.45)" : "var(--line)"}`,
       }}
     >
       {label}
@@ -59,8 +59,8 @@ export function AChip({ label, active, onClick }: { label: string; active: boole
 
 export function ABtn({ label, onClick, kind = "gold", small }: { label: string; onClick: () => void; kind?: "gold" | "line" | "red" | "blue" | "green"; small?: boolean }) {
   const styles: Record<string, CSSProperties> = {
-    gold: { background: "linear-gradient(90deg,var(--gold),var(--gold-2))", color: "#0a0b0f" },
-    line: { border: "1px solid rgba(233,185,73,.5)", color: "var(--gold)" },
+    gold: { background: "var(--gold)", color: "var(--on-accent)" },
+    line: { border: "1px solid rgba(0,200,5,.5)", color: "var(--gold)" },
     red: { color: "var(--red)" },
     blue: { color: "var(--home)" },
     green: { color: "var(--green)" },
@@ -70,7 +70,7 @@ export function ABtn({ label, onClick, kind = "gold", small }: { label: string; 
       onClick={onClick}
       style={{
         display: "inline-block", borderRadius: small ? 6 : 9, textAlign: "center", cursor: "pointer", fontWeight: 800,
-        fontSize: small ? 10 : 12, padding: small ? "0" : "9px 14px", ...styles[kind],
+        fontSize: small ? 11 : 12.5, padding: small ? "0" : "9px 14px", ...styles[kind],
       }}
     >
       {label}
@@ -85,7 +85,7 @@ export function AInput({ id, placeholder, width, mono, defaultValue }: { id: str
       placeholder={placeholder}
       defaultValue={defaultValue}
       className={mono ? "mono" : undefined}
-      style={{ width: width ?? "100%", minWidth: 0, boxSizing: "border-box", background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, padding: "8px 12px", fontSize: 11.5, color: "var(--fg)", outline: "none" }}
+      style={{ width: width ?? "100%", minWidth: 0, boxSizing: "border-box", background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--fg)", outline: "none" }}
     />
   );
 }
@@ -96,5 +96,4 @@ export async function post(url: string, body: Record<string, unknown>): Promise<
   const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   return r.json();
 }
-
 

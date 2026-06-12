@@ -23,15 +23,15 @@ export function RiskView() {
     <>
       <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>风控与审计</div>
       <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14, alignItems: "start" }}>
-        <ACard title={<span>风控队列 {v?.queue?.length > 0 && <span style={{ fontSize: 9, fontWeight: 800, background: "rgba(240,67,79,.16)", color: "var(--red)", borderRadius: 8, padding: "1px 6px", marginLeft: 4 }}>{v.queue.length}</span>}</span>} pad={false}>
-        {(v?.queue ?? []).length === 0 && <div style={{ padding: 14, fontSize: 10.5, color: "var(--fg-3)" }}>队列为空(规则:同 IP 邀请聚集 / 注册即大额充值 / 同 IP 批量领码)</div>}
+        <ACard title={<span>风控队列 {v?.queue?.length > 0 && <span style={{ fontSize: 11, fontWeight: 800, background: "rgba(255,92,92,.16)", color: "var(--red)", borderRadius: 8, padding: "1px 6px", marginLeft: 4 }}>{v.queue.length}</span>}</span>} pad={false}>
+        {(v?.queue ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11.5, color: "var(--fg-3)" }}>队列为空(规则:同 IP 邀请聚集 / 注册即大额购买 / 同 IP 批量领码)</div>}
         {(v?.queue ?? []).map((r: V) => (
           <div key={r.id} style={{ padding: "10px 14px", borderBottom: "1px solid var(--line-soft)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>{fmtT(r.at)}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, color: r.type === "自邀嫌疑" ? "var(--red)" : "var(--gold)" }}>{r.type}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{fmtT(r.at)}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: r.type === "自邀嫌疑" ? "var(--red)" : "var(--gold)" }}>{r.type}</span>
               <span style={{ flex: 1 }} />
-              <span style={{ fontSize: 10, color: "var(--fg-2)" }}>风险分 <span className="mono" style={{ fontWeight: 800, color: "var(--red)" }}>{r.score}</span></span>
+              <span style={{ fontSize: 11, color: "var(--fg-2)" }}>风险分 <span className="mono" style={{ fontWeight: 800, color: "var(--red)" }}>{r.score}</span></span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ flex: 1, fontSize: 11, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.detail}</span>
@@ -40,17 +40,17 @@ export function RiskView() {
             </div>
           </div>
         ))}
-          <div style={{ padding: "9px 14px", fontSize: 10, color: "var(--fg-3)" }}>命中即入队待人工裁决;拦截会将用户标记为「风控」并写审计</div>
+          <div style={{ padding: "9px 14px", fontSize: 11, color: "var(--fg-3)" }}>命中即入队待人工裁决;拦截会将用户标记为「风控」并写审计</div>
         </ACard>
         <ACard title="操作审计日志" pad={false}>
           {(v?.audits ?? []).map((a: V, i: number) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderBottom: "1px solid var(--line-soft)" }}>
-              <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)", flexShrink: 0 }}>{fmtT(a.at)}</span>
-              <span className="mono" style={{ fontSize: 10, color: "var(--home)", flexShrink: 0 }}>{a.actor}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", flexShrink: 0 }}>{fmtT(a.at)}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--home)", flexShrink: 0 }}>{a.actor}</span>
               <span style={{ flex: 1, fontSize: 11, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.action}{a.detail ? ` · ${a.detail}` : ""}</span>
             </div>
           ))}
-          <div style={{ padding: "9px 14px", fontSize: 10, color: "var(--fg-3)" }}>所有后台写操作强制留痕,不可删除</div>
+          <div style={{ padding: "9px 14px", fontSize: 11, color: "var(--fg-3)" }}>所有后台写操作强制留痕,不可删除</div>
         </ACard>
       </div>
     </>
@@ -78,21 +78,21 @@ export function TicketsView() {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.1fr", gap: 14, alignItems: "start" }}>
         <ACard pad={false}>
-          {rows.length === 0 && <div style={{ padding: 14, fontSize: 10.5, color: "var(--fg-3)" }}>暂无工单</div>}
+          {rows.length === 0 && <div style={{ padding: 14, fontSize: 11.5, color: "var(--fg-3)" }}>暂无工单</div>}
           {rows.map((t) => (
             <div
               key={t.id}
               onClick={() => setSelId(t.id)}
-              style={{ padding: "11px 14px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer", borderLeft: `3px solid ${sel?.id === t.id ? "var(--gold)" : "transparent"}`, background: sel?.id === t.id ? "rgba(233,185,73,.06)" : "transparent" }}
+              style={{ padding: "11px 14px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer", borderLeft: `3px solid ${sel?.id === t.id ? "var(--gold)" : "transparent"}`, background: sel?.id === t.id ? "rgba(0,200,5,.06)" : "transparent" }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>T{t.id}</span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>T{t.id}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, flex: 1 }}>{t.type}</span>
-                <span style={{ fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: t.status === "处理中" ? "rgba(233,185,73,.14)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: t.status === "处理中" ? "rgba(0,200,5,.14)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <span style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.body}</span>
-                <span className="mono" style={{ fontSize: 9.5, color: "var(--fg-3)", flexShrink: 0 }}>{fmtT(t.created_at)}</span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", flexShrink: 0 }}>{fmtT(t.created_at)}</span>
               </div>
             </div>
           ))}
@@ -100,17 +100,17 @@ export function TicketsView() {
         {sel ? (
           <ACard>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>T{sel.id}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>T{sel.id}</span>
               <span style={{ fontSize: 13, fontWeight: 800, flex: 1 }}>{sel.type}</span>
-              <span className="mono" style={{ fontSize: 10, color: "var(--fg-2)" }}>{sel.email}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{sel.email}</span>
             </div>
             <div style={{ background: "var(--inset)", borderRadius: 9, padding: "11px 13px", fontSize: 12, color: "var(--fg-mid)", lineHeight: 1.7, marginBottom: 12 }}>{sel.body}</div>
             {sel.reply && (
               <div style={{ background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.3)", borderRadius: 9, padding: "9px 13px", fontSize: 11, color: "var(--fg-mid)", lineHeight: 1.6, marginBottom: 12 }}>
-                <span style={{ fontSize: 9, fontWeight: 800, color: "var(--green)", marginRight: 6 }}>已回复</span>{sel.reply}
+                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--green)", marginRight: 6 }}>已回复</span>{sel.reply}
               </div>
             )}
-            <div style={{ fontSize: 10, color: "var(--fg-2)", marginBottom: 6 }}>回复用户</div>
+            <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 6 }}>回复用户</div>
             <textarea id="tk-reply" rows={4} placeholder="输入回复内容,将显示在用户的工单列表…" style={{ width: "100%", boxSizing: "border-box", background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 9, padding: 11, fontSize: 12, color: "var(--fg)", outline: "none", resize: "none", lineHeight: 1.6 }} />
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
               <span style={{ flex: 1 }}>
@@ -122,8 +122,8 @@ export function TicketsView() {
                   void load();
                 }} />
               </span>
-              <ABtn kind="line" label="补偿积分" onClick={async () => {
-                const pts = Number(await aPrompt("补偿积分(客服 ≤100):") ?? 0);
+              <ABtn kind="line" label="补偿额度" onClick={async () => {
+                const pts = Number(await aPrompt("补偿额度(客服 ≤100):") ?? 0);
                 if (!(pts > 0)) return;
                 const reason = await aPrompt("补偿原因:") ?? "";
                 const j = await post("/api/admin/tickets", { action: "compensate", id: sel.id, points: pts, reason });
@@ -153,21 +153,21 @@ export function DataMonView() {
   return (
     <>
       <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>
-        数据与模型监控 <span style={{ fontSize: 10, color: "var(--fg-3)", fontWeight: 400 }}>· 39 端点调度 · 快照归档 · AI 报告服务</span>
+        数据与模型监控 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>· 39 端点调度 · 快照归档 · AI 报告服务</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14, alignItems: "start" }}>
         <ACard pad={false}>
           <AGrid cols="1fr 100px 100px 64px 64px" head>
             <Th t="端点" /><Th t="分层" /><Th t="上次抓取" /><Th t="耗时" right /><Th t="状态" center />
           </AGrid>
-          {(v.eps ?? []).length === 0 && <div style={{ padding: 14, fontSize: 10.5, color: "var(--fg-3)" }}>等待 worker 上报(启动后自动出现)</div>}
+          {(v.eps ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11.5, color: "var(--fg-3)" }}>等待 worker 上报(启动后自动出现)</div>}
           {(v.eps ?? []).map((e: V) => (
             <AGrid key={e.k} cols="1fr 100px 100px 64px 64px">
               <span className="mono" style={{ fontSize: 11 }}>{e.k}</span>
-              <span style={{ fontSize: 10, color: "var(--fg-2)" }}>{e.tier}</span>
-              <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{fmtT(e.last_at).slice(6)}</span>
-              <span className="mono" style={{ fontSize: 10.5, textAlign: "right", color: "var(--fg-2)" }}>{e.ms != null ? `${e.ms}ms` : "—"}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, textAlign: "center", color: e.status === "正常" ? "var(--green)" : e.status === "慢" ? "var(--gold)" : "var(--red)" }}>{e.status}</span>
+              <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{e.tier}</span>
+              <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{fmtT(e.last_at).slice(6)}</span>
+              <span className="mono" style={{ fontSize: 11.5, textAlign: "right", color: "var(--fg-2)" }}>{e.ms != null ? `${e.ms}ms` : "—"}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, textAlign: "center", color: e.status === "正常" ? "var(--green)" : e.status === "慢" ? "var(--gold)" : "var(--red)" }}>{e.status}</span>
             </AGrid>
           ))}
         </ACard>
@@ -177,13 +177,13 @@ export function DataMonView() {
               <div key={s.k} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
                 <span className="mono" style={{ flex: 1, fontSize: 11 }}>{s.k}</span>
                 <span className="mono" style={{ fontSize: 11, fontWeight: 700 }}>{s.n.toLocaleString()} 条</span>
-                <span style={{ fontSize: 10, fontWeight: 800, color: v.snapGap ? "var(--red)" : "var(--green)" }}>{v.snapGap ? "断档" : "连续"}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: v.snapGap ? "var(--red)" : "var(--green)" }}>{v.snapGap ? "断档" : "连续"}</span>
               </div>
             ))}
-            <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 8 }}>断档 &gt;30min 自动告警;盘路/战绩依赖归档连续性</div>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>断档 &gt;30min 自动告警;盘路/战绩依赖归档连续性</div>
             <div style={{ borderTop: "1px solid var(--line-soft)", paddingTop: 8, marginTop: 8 }}>
-              <div style={{ fontSize: 10, color: "var(--fg-2)", marginBottom: 4 }}>扩展玩法解析(最近未完场样本)</div>
-              <div style={{ fontSize: 10.5, lineHeight: 1.6, color: v.extraMarkets ? "var(--green)" : "var(--fg-3)" }}>
+              <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 4 }}>扩展玩法解析(最近未完场样本)</div>
+              <div style={{ fontSize: 11.5, lineHeight: 1.6, color: v.extraMarkets ? "var(--green)" : "var(--fg-3)" }}>
                 {v.extraMarkets ? `${v.extraMarkets.fixture}:${v.extraMarkets.kinds.length} 种 · ${v.extraMarkets.kinds.join(" / ")}` : "暂无样本(待开盘归档)"}
               </div>
             </div>
@@ -202,45 +202,45 @@ export function DataMonView() {
           >
             {v.intervals.map((t: V) => (
               <div key={t.label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{t.label}</span>
-                <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: t.ms <= 60_000 ? "var(--gold)" : undefined }}>
+                <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{t.label}</span>
+                <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: t.ms <= 60_000 ? "var(--gold)" : undefined }}>
                   {t.ms >= 3_600_000 ? `巡检 / ${Math.round(t.ms / 3_600_000)}h` : t.ms < 60_000 ? `${Math.round(t.ms / 1000)} s` : `${Math.round(t.ms / 60_000)} min`}
                 </span>
               </div>
             ))}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0 0" }}>
-              <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>紧急降频模式(配额 &gt;85% 自动)</span>
+              <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>紧急降频模式(配额 &gt;85% 自动)</span>
               <span
                 onClick={async () => {
                   if (!await aConfirm(`紧急降频 → ${v.emergency ? "关" : "开"}(全档位 ×2)`)) return;
                   await post("/api/admin/monitor", { action: "emergency", on: !v.emergency });
                   void load();
                 }}
-                style={{ fontSize: 10, fontWeight: 800, cursor: "pointer", color: v.emergency ? "var(--red)" : "var(--fg-3)", border: "1px solid var(--line)", borderRadius: 999, padding: "2px 10px" }}
+                style={{ fontSize: 11, fontWeight: 800, cursor: "pointer", color: v.emergency ? "var(--red)" : "var(--fg-3)", border: "1px solid var(--line)", borderRadius: 999, padding: "2px 10px" }}
               >
                 {v.emergency ? "开" : "关"}
               </span>
             </div>
-            <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 8 }}>改动即时下发调度器并写审计;滚球两档可低至 5s(注意配额与书商更新节奏),其余档下限 1 min</div>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>改动即时下发调度器并写审计;滚球两档可低至 5s(注意配额与书商更新节奏),其余档下限 1 min</div>
           </ACard>
-          <ACard title="AI 报告服务" right={<span style={{ fontSize: 10, fontWeight: 700, color: v.llm.configured ? "var(--green)" : "var(--fg-3)" }}>{v.llm.configured ? "运行正常" : "模板模式"}</span>}>
+          <ACard title="AI 报告服务" right={<span style={{ fontSize: 11, fontWeight: 700, color: v.llm.configured ? "var(--green)" : "var(--fg-3)" }}>{v.llm.configured ? "运行正常" : "模板模式"}</span>}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
               {[[v.llm.count, "今日生成"], [`${v.llm.count + v.llm.hits > 0 ? Math.round((v.llm.hits / (v.llm.count + v.llm.hits)) * 100) : 0}%`, "缓存命中"], [`${(v.llm.tokens / 1e6).toFixed(2)}M`, "tokens 已用"], [v.llm.fails, "失败次数"]].map(([n, label]) => (
                 <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "9px 0", textAlign: "center" }}>
                   <div className="mono" style={{ fontSize: 15, fontWeight: 800 }}>{n as string}</div>
-                  <div style={{ fontSize: 9, color: "var(--fg-3)" }}>{label as string}</div>
+                  <div style={{ fontSize: 11, color: "var(--fg-3)" }}>{label as string}</div>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 10, color: "var(--fg-3)", lineHeight: 1.7 }}>策略:同场报告生成一次全员复用,盘口变化超阈值才重生成;tokens 达预算 100% 自动降级为模板报告。</div>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", lineHeight: 1.7 }}>策略:同场报告生成一次全员复用,指数变化超阈值才重生成;tokens 达预算 100% 自动降级为模板报告。</div>
           </ACard>
           <ACard title="急变事件(近 1 小时)">
-            {(v.alerts ?? []).length === 0 && <div style={{ fontSize: 10.5, color: "var(--fg-3)" }}>近 1 小时无急变</div>}
+            {(v.alerts ?? []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>近 1 小时无急变</div>}
             {(v.alerts ?? []).map((a: V, i: number) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>{a.t}</span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{a.t}</span>
                 <span style={{ flex: 1, fontSize: 11, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.x}</span>
-                <span className="mono" style={{ fontSize: 10, fontWeight: 800, color: a.up ? "var(--up)" : "var(--down)" }}>{a.d}</span>
+                <span className="mono" style={{ fontSize: 11, fontWeight: 800, color: a.up ? "var(--up)" : "var(--down)" }}>{a.d}</span>
               </div>
             ))}
           </ACard>
@@ -286,18 +286,18 @@ export function SettingsView() {
   const KeyRow = ({ masked, which, label }: { masked: string; which: string; label: string }) => (
     <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
       <input value={masked} readOnly className="mono" style={{ flex: 1, minWidth: 0, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, padding: "9px 12px", fontSize: 12, color: "var(--fg-2)", outline: "none" }} />
-      <span onClick={() => void setKey(which, label)} style={{ flexShrink: 0, border: "1px solid rgba(233,185,73,.5)", color: "var(--gold)", borderRadius: 8, display: "flex", alignItems: "center", padding: "0 14px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>更换</span>
+      <span onClick={() => void setKey(which, label)} style={{ flexShrink: 0, border: "1px solid rgba(0,200,5,.5)", color: "var(--gold)", borderRadius: 8, display: "flex", alignItems: "center", padding: "0 14px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>更换</span>
     </div>
   );
 
   return (
     <>
       <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>
-        系统设置 <span style={{ fontSize: 10, color: "var(--fg-3)", fontWeight: 400 }}>· 密钥仅存服务端,后台不回显明文;每次更新写入审计日志</span>
+        系统设置 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>· 密钥仅存服务端,后台不回显明文;每次更新写入审计日志</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "start" }}>
-        <ACard title="API-Football 密钥" right={<span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: v.af.connected ? "var(--green)" : "var(--red)", fontWeight: 700 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: v.af.connected ? "var(--green)" : "var(--red)" }} />{v.af.connected ? "已配置" : "未配置"}</span>}>
-          <div style={{ fontSize: 10, color: "var(--fg-2)", marginBottom: 6 }}>API_FOOTBALL_KEY</div>
+        <ACard title="API-Football 密钥" right={<span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: v.af.connected ? "var(--green)" : "var(--red)", fontWeight: 700 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: v.af.connected ? "var(--green)" : "var(--red)" }} />{v.af.connected ? "已配置" : "未配置"}</span>}>
+          <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 6 }}>API_FOOTBALL_KEY</div>
           <KeyRow masked={v.af.masked} which="af_key" label="API-Football 密钥" />
           <Row k="套餐(/status)" val={v.af.status ? `${v.af.status.plan ?? "—"} · ${v.af.status.limit?.toLocaleString() ?? "—"} req/日` : "—"} />
           <Row k="今日已用" val={v.af.status?.current != null ? `${v.af.status.current.toLocaleString()}(${v.af.status.limit ? Math.round((v.af.status.current / v.af.status.limit) * 100) : "—"}%)` : "—"} />
@@ -308,21 +308,21 @@ export function SettingsView() {
           </div>
           <div style={{ marginTop: 8 }}>
             <ABtn kind="line" label={busy === "platform_check" ? "体检中…" : "运行平台体检(只读+API 层,~2 req)"} onClick={() => busy || void run("platform_check", "平台体检")} />
-            <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 6 }}>全量闭环体检(含商业链路演练)在服务器跑:npm run selfcheck</div>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 6 }}>全量闭环体检(含商业链路演练)在服务器跑:npm run selfcheck</div>
           </div>
         </ACard>
-        <ACard title="大模型密钥(AI 报告)" right={<span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: v.llm.usage.configured ? "var(--green)" : "var(--fg-3)", fontWeight: 700 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: v.llm.usage.configured ? "var(--green)" : "var(--fg-3)" }} />{v.llm.usage.configured ? "已连接" : "模板模式"}</span>}>
+        <ACard title="大模型密钥(AI 报告)" right={<span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: v.llm.usage.configured ? "var(--green)" : "var(--fg-3)", fontWeight: 700 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: v.llm.usage.configured ? "var(--green)" : "var(--fg-3)" }} />{v.llm.usage.configured ? "已连接" : "模板模式"}</span>}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <span style={{ fontSize: 10, color: "var(--fg-2)" }}>服务商:API易(apiyi.com)聚合网关</span>
+            <span style={{ fontSize: 11, color: "var(--fg-2)" }}>服务商:API易(apiyi.com)聚合网关</span>
             <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: v.llm.balance != null && v.llm.balance < 100 ? "var(--red)" : "var(--green)" }}>
               {v.llm.balance != null
                 ? `余额 $${v.llm.balance}${v.llm.balanceDetail?.limit != null ? ` · 已用 $${v.llm.balanceDetail.used ?? 0}/$${v.llm.balanceDetail.limit}` : ""}`
                 : "余额 —"}
             </span>
           </div>
-          <div style={{ fontSize: 10, color: "var(--fg-2)", marginBottom: 6 }}>LLM_API_KEY(调用密钥)</div>
+          <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 6 }}>LLM_API_KEY(调用密钥)</div>
           <KeyRow masked={v.llm.keyMasked} which="llm_key" label="LLM 调用密钥" />
-          <div style={{ fontSize: 10, color: "var(--fg-2)", marginBottom: 6 }}>BALANCE_QUERY_KEY(余额查询密钥 · 与调用密钥不同串)</div>
+          <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 6 }}>BALANCE_QUERY_KEY(余额查询密钥 · 与调用密钥不同串)</div>
           <KeyRow masked={v.llm.balanceKeyMasked} which="llm_balance_key" label="余额查询密钥" />
           <Row k="报告模型" val={v.llm.model} />
           <Row k="网关地址" val={v.llm.base} />
@@ -365,12 +365,12 @@ export function SettingsView() {
           return (
             <AGrid key={m.email} cols="1.4fr 110px 1.6fr 70px 130px">
               <span className="mono" style={{ fontSize: 11 }}>{m.email}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, color: roleC[m.role] }}>{m.role}</span>
-              <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{scope[m.role]}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, textAlign: "center", color: m.status === "启用" ? "var(--green)" : "var(--fg-3)" }}>{m.status}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: roleC[m.role] }}>{m.role}</span>
+              <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{scope[m.role]}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", color: m.status === "启用" ? "var(--green)" : "var(--fg-3)" }}>{m.status}</span>
               <span style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 {isSelf ? (
-                  <span style={{ fontSize: 10, color: "var(--fg-3)" }}>不可修改</span>
+                  <span style={{ fontSize: 11, color: "var(--fg-3)" }}>不可修改</span>
                 ) : (
                   <>
                     <ABtn small kind="line" label="改角色" onClick={async () => {
@@ -390,7 +390,7 @@ export function SettingsView() {
             </AGrid>
           );
         })}
-        <div style={{ padding: "9px 14px", fontSize: 10, color: "var(--fg-3)" }}>RBAC 由后端控制;敏感操作(密钥更换 / 封禁 / 补偿 &gt;100 分)需超级管理员,全部写审计日志</div>
+        <div style={{ padding: "9px 14px", fontSize: 11, color: "var(--fg-3)" }}>RBAC 由后端控制;敏感操作(密钥更换 / 封禁 / 补偿 &gt;100 分)需超级管理员,全部写审计日志</div>
       </ACard>
       <span style={{ display: "none" }}><AInput id="_x" /></span>
     </>

@@ -36,7 +36,7 @@ export const cfgInvitePoints = () => num("invite_points", INVITE_POINTS);
 export const cfgInviteCaps = () => json("invite_caps", INVITE_CAPS as { day: number; week: number; month: number });
 export const cfgRechargeTiers = (): RechargeTier[] => json("recharge_tiers", RECHARGE_TIERS);
 export const cfgFirstBonusOn = () => num("first_bonus_on", 1) === 1;
-/** 充值维护开关:开启后用户端充值入口显示维护提示,后端拒绝充值请求 */
+/** 购买额度维护开关:开启后用户端购买入口显示维护提示,后端拒绝购买额度请求 */
 export const cfgRechargeMaintenance = () => num("recharge_maintenance", 0) === 1;
 
 export function cfgUnlockPrice(kickoffUtcMs: number, nowMs: number): number {

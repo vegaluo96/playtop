@@ -1,4 +1,4 @@
-/** 解锁预测:POST {fixtureId}(价格由服务端按开球时间定,永久可见) */
+/** 解锁 AI 概率报告:POST {fixtureId}(价格由服务端按开球时间定,永久可见) */
 import { NextRequest, NextResponse } from "next/server";
 import { fixtureById } from "@/server/af/store";
 import { currentUser } from "@/server/platform/session";

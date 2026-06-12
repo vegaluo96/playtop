@@ -4,7 +4,7 @@
  * 全局客户端状态:
  * - prefs:涨跌配色 / 外观 / 语言 / 时区 / 关注联赛(localStorage 持久化;
  *   配色与外观同步到 <html> 的 data-scheme / data-theme,供 CSS token 消费)
- * - me:登录态 + 积分(服务端 /api/me 为准;解锁状态服务端记账,前端只读)
+ * - me:登录态 + 账户额度(服务端 /api/me 为准;解锁状态服务端记账,前端只读)
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";

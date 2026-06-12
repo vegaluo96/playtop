@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       });
     }
   } else if (b.action === "league_search") {
-    // /leagues 端点:按名搜索可添加的联赛(当季有赔率覆盖优先展示)
+    // /leagues 端点:按名搜索可添加的联赛(当季有指数覆盖优先展示)
     try {
       const r = await runAfEndpoint("leagues", { search: String(b.text ?? "").trim() });
       const list = (Array.isArray(r.response) ? r.response : []).slice(0, 10).map((it) => {

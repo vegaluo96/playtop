@@ -1,4 +1,4 @@
-/** 视图层公用:快照序列 → 列表/走势行;预测信封 → 中文建议 */
+/** 视图层公用:快照序列 → 列表/走势行;概率信封 → 报告摘要 */
 import { ahText, ouText } from "@/lib/format";
 import type { SnapRow } from "../af/store";
 
@@ -58,11 +58,11 @@ export interface PredSummary {
   comparison: Record<string, { home: number; away: number }>;
   formHome: string;
   formAway: string;
-  /** AF 字段缺失时由当前盘口推导出的方向(显示「盘口推导」标注) */
+  /** AF 字段缺失时由当前指数派生出的方向(前端需降权展示) */
   derived: boolean;
 }
 
-/** 盘口兜底输入:最新亚盘/大小球主盘(line + 双侧净水) */
+/** 指数兜底输入:最新让球/大小主盘(line + 双侧净水) */
 export interface OddsHint {
   ah?: { line: number | null; h: number; a: number } | null;
   ou?: { line: number | null; h: number; a: number } | null;
@@ -75,7 +75,7 @@ const pct = (v: unknown) => {
   return Number.isFinite(n) ? Math.round(n) : 0;
 };
 
-/** AF /predictions 信封项 → 中文摘要(建议文案按设计稿口径合成);odds 传最新主盘时,AF 缺方向可由盘口推导(标注「盘口推导」) */
+/** AF /predictions 信封项 → 中文摘要;odds 仅在 AF 缺方向时生成「指数派生观点」,不得混同官方概率方向。 */
 export function predSummary(pred: unknown, homeId: number | null, odds?: OddsHint): PredSummary | null {
   if (!pred) return null;
   const p = pred as Record<string, unknown>;
@@ -93,7 +93,7 @@ export function predSummary(pred: unknown, homeId: number | null, odds?: OddsHin
     uoTextZh = v < 0 ? `小于 ${Math.abs(v)} 球` : `大于 ${Math.abs(v)} 球`;
   }
 
-  // 盘口推导兜底:AF 模型未给方向时,用亚盘让球方向/大小球低水侧补齐,绝不留「样本不足」空窗
+  // 指数派生观点:AF 模型未给方向时,只把让球方向/大小低水侧作为行情观察,前端需降权展示。
   let derived = false;
   if (!winnerName && odds?.ah && odds.ah.line != null && odds.ah.line !== 0) {
     const homeSide = odds.ah.line > 0;
@@ -107,8 +107,9 @@ export function predSummary(pred: unknown, homeId: number | null, odds?: OddsHin
     derived = true;
   }
 
-  const winPart = winnerName ? (winDraw ? `双重机会:${winnerName} 或平局` : `单场:${winnerName} 胜`) : "样本不足,暂无方向";
-  const advice = (winnerName && uoTextZh ? `${winPart},且${uoTextZh}` : winPart) + (derived ? "(盘口推导)" : "");
+  const winPart = winnerName ? (winDraw ? `概率倾向:${winnerName} 或平局` : `概率倾向:${winnerName}`) : "暂无明确方向";
+  const body = winnerName && uoTextZh ? `${winPart};进球方向:${uoTextZh}` : winPart;
+  const advice = derived ? `指数派生观点:${body}` : body;
   const comparison: Record<string, { home: number; away: number }> = {};
   const compKeys: [string, string][] = [
     ["form", "状态"], ["att", "攻击"], ["def", "防守"], ["poisson_distribution", "泊松"],

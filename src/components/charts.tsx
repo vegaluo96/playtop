@@ -1,6 +1,6 @@
 "use client";
 
-/** 水位/赔率折线图(设计稿 chartEl 移植:网格 3 线 + 变盘虚线 + 端点圆) */
+/** 水位/指数折线图(设计稿 chartEl 移植:网格 3 线 + 变盘虚线 + 端点圆) */
 
 export interface ChartRow {
   t: string;
@@ -73,7 +73,7 @@ export function Legend({ items }: { items: { color: string; label: string }[] })
   return (
     <div style={{ display: "flex", gap: 14, justifyContent: "center", padding: "6px 0 4px" }}>
       {items.map((it) => (
-        <span key={it.label} style={{ fontSize: 10, color: "var(--fg-2)", display: "flex", alignItems: "center", gap: 5 }}>
+        <span key={it.label} style={{ fontSize: 11, color: "var(--fg-2)", display: "flex", alignItems: "center", gap: 5 }}>
           <span style={{ width: 10, height: 2, background: it.color, borderRadius: 2 }} />
           {it.label}
         </span>
@@ -87,19 +87,19 @@ export function ProbBar({ pH, pD, pA }: { pH: number; pD: number; pA: number }) 
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ fontSize: 10, color: "var(--home)", fontWeight: 700 }}>
+        <span style={{ fontSize: 11, color: "var(--home)", fontWeight: 700 }}>
           主胜 <span className="mono">{pH}%</span>
         </span>
-        <span style={{ fontSize: 10, color: "var(--fg-2)", fontWeight: 700 }}>
+        <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 700 }}>
           平 <span className="mono">{pD}%</span>
         </span>
-        <span style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700 }}>
+        <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 700 }}>
           客胜 <span className="mono">{pA}%</span>
         </span>
       </div>
       <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", gap: 2, marginBottom: 9 }}>
         <div style={{ background: "var(--home)", width: `${pH}%` }} />
-        <div style={{ background: "#383d47", width: `${pD}%` }} />
+        <div style={{ background: "var(--line)", width: `${pD}%` }} />
         <div style={{ background: "var(--gold)", width: `${pA}%` }} />
       </div>
     </>

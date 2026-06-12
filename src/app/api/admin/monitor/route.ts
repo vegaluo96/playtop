@@ -27,7 +27,7 @@ export async function GET() {
   const gap = lastSnap != null && Date.now() - lastSnap > 30 * 60_000;
   const alerts = recentMovements(10).filter((m) => m.sev && m.t1 >= Date.now() - 3_600_000).map((m) => ({
     t: hhmm(m.t1, "UTC+8"),
-    x: `${m.home_name} vs ${m.away_name} · ${m.market === "ah" ? "亚盘" : "大小"} ${m.market === "ah" ? ahText(m.from_line) : ouText(m.from_line)}→${m.market === "ah" ? ahText(m.to_line) : ouText(m.to_line)}`,
+    x: `${m.home_name} vs ${m.away_name} · ${m.market === "ah" ? "让球" : "大小"} ${m.market === "ah" ? ahText(m.from_line) : ouText(m.from_line)}→${m.market === "ah" ? ahText(m.to_line) : ouText(m.to_line)}`,
     d: `${m.to_line - m.from_line >= 0 ? "+" : ""}${f2(m.to_line - m.from_line)}`,
     up: m.to_line >= m.from_line,
   }));

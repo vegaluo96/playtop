@@ -1,0 +1,124 @@
+"use client";
+
+import type { CSSProperties } from "react";
+import { f2 } from "@/lib/format";
+import { Flash, agoText } from "./live";
+
+export interface MarketCellData {
+  text?: string;
+  h?: number;
+  a?: number;
+  d?: number | null;
+  hd?: number;
+  ad?: number;
+  line?: number | null;
+  chgAt?: number | null;
+}
+
+type MarketKind = "ah" | "ou" | "eu";
+type MarketStatus = "open" | "masked" | "empty" | "suspended" | "stale";
+
+const MARKET_NAME: Record<MarketKind, string> = { ah: "让球", ou: "大小", eu: "胜平负" };
+const MASK = "-.--";
+
+function statusOf(cell: MarketCellData | null | undefined, masked: boolean, status?: MarketStatus): MarketStatus {
+  if (status) return status;
+  if (masked) return "masked";
+  if (!cell) return "empty";
+  return "open";
+}
+
+export function MarketValue({
+  v,
+  dir,
+  masked = false,
+  pulse,
+  small = false,
+  dim = false,
+  style,
+  className = "mono",
+}: {
+  v?: string | number | null;
+  dir?: number | null;
+  masked?: boolean;
+  pulse?: number | null;
+  small?: boolean;
+  dim?: boolean;
+  style?: CSSProperties;
+  className?: string;
+}) {
+  const { justifyContent, ...valueStyle } = style ?? {};
+  return (
+    <div style={{ height: small ? 17 : 20, display: "flex", alignItems: "center", justifyContent: justifyContent ?? "center" }}>
+      <Flash
+        v={masked || v == null || v === "" ? MASK : typeof v === "number" ? f2(v) : v}
+        arrow={!masked && v != null && dir != null && dir !== 0}
+        pulse={masked ? null : pulse}
+        pulseDir={dir ?? undefined}
+        className={className}
+        style={{ fontSize: small ? 12.5 : 14.5, lineHeight: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: small ? 750 : 700, color: dim ? "var(--fg-2)" : undefined, ...valueStyle }}
+      />
+    </div>
+  );
+}
+
+export function MarketCell({
+  kind,
+  cell,
+  masked = false,
+  status,
+  style,
+}: {
+  kind: MarketKind;
+  cell: MarketCellData | null | undefined;
+  masked?: boolean;
+  status?: MarketStatus;
+  style?: CSSProperties;
+}) {
+  const st = statusOf(cell, masked, status);
+  const dim = st === "empty" || st === "suspended" || st === "stale";
+  const title =
+    st === "masked"
+      ? `${MARKET_NAME[kind]} · 登录可见`
+      : st === "empty"
+        ? `${MARKET_NAME[kind]} · 暂无指数`
+        : st === "suspended"
+          ? `${MARKET_NAME[kind]} · 封盘`
+          : st === "stale"
+            ? `${MARKET_NAME[kind]} · 数据延迟`
+            : `${MARKET_NAME[kind]} · 最近变化 ${agoText(cell?.chgAt)}`;
+
+  const wrap: CSSProperties = {
+    background: "var(--inset)",
+    border: `1px solid ${st === "stale" ? "var(--warn-border)" : "transparent"}`,
+    borderRadius: 8,
+    padding: "3px 0",
+    opacity: dim ? 0.68 : 1,
+    minWidth: 0,
+    boxSizing: "border-box",
+    ...style,
+  };
+
+  if (kind === "eu") {
+    const vals = [cell?.h, cell?.d, cell?.a];
+    const dirs = [cell?.hd, 0, cell?.ad];
+    return (
+      <div title={title} data-market-kind={kind} data-market-status={st} style={wrap}>
+        {vals.map((v, i) => (
+          <MarketValue key={i} v={v ?? undefined} dir={dirs[i] ?? undefined} masked={masked || st === "masked"} pulse={cell?.chgAt} small={i === 1} />
+        ))}
+      </div>
+    );
+  }
+
+  const line = masked || st === "masked" ? "●●" : st === "empty" ? "暂无" : st === "suspended" ? "封盘" : (cell?.text ?? "—");
+  return (
+    <div title={title} data-market-kind={kind} data-market-status={st} style={wrap}>
+      <MarketValue v={cell?.h} dir={cell?.hd} masked={masked || st === "masked"} pulse={cell?.chgAt} />
+      <div className={kind === "ou" ? "mono" : undefined} style={{ height: 17, display: "flex", alignItems: "center", justifyContent: "center", fontSize: kind === "ou" ? 11.5 : 11, fontWeight: 700, color: st === "empty" ? "var(--fg-3)" : "var(--gold)" }}>
+        <Flash v={line} pulse={masked ? null : cell?.chgAt} />
+      </div>
+      <MarketValue v={cell?.a} dir={cell?.ad} masked={masked || st === "masked"} pulse={cell?.chgAt} />
+    </div>
+  );
+}

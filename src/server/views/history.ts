@@ -10,16 +10,16 @@ import { fixtureById, oddsSeries, type SnapRow } from "../af/store";
 
 export interface QuoteRow {
   t: string; // "MM-DD HH:mm"
-  text: string | null; // 盘口文本(eu 为 null)
+  text: string | null; // 指数文本(eu 为 null)
   h: string;
   a: string;
   d: string | null;
-  chg: boolean; // 相对上一帧变盘(盘口线变化)
+  chg: boolean; // 相对上一帧变盘(指数线变化)
   live: boolean; // 滚球帧
 }
 
 /**
- * @param bookmakerId 指定书商:百家对比行点入,只看该公司的赛前序列(滚球帧无书商维度,不并入)
+ * @param bookmakerId 指定书商:对比行点入,只看该公司的赛前序列(滚球帧无书商维度,不并入)
  */
 export function quoteHistory(fixtureId: number, market: "ah" | "ou" | "eu", tz: string, bookmakerId?: number) {
   const fx = fixtureById(fixtureId);

@@ -48,7 +48,7 @@ export function IndexChart({
   kickoff: number;
   tz: string;
   unit: string; // 例:净水 / 主胜概率
-  lineText?: (line: number | null) => string; // 盘口翻译(ahText/ouText)
+  lineText?: (line: number | null) => string; // 指数翻译(ahText/ouText)
   height?: number;
 }) {
   const [range, setRange] = useState<"all" | "24h" | "live">("all");
@@ -116,8 +116,8 @@ export function IndexChart({
             key={r.k}
             onClick={() => setRange(r.k)}
             style={{
-              fontSize: 10, fontWeight: 700, cursor: "pointer", borderRadius: 6, padding: "2px 8px",
-              background: range === r.k ? "rgba(233,185,73,.14)" : "var(--inset)",
+              fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 6, padding: "2px 8px",
+              background: range === r.k ? "rgba(0,200,5,.14)" : "var(--inset)",
               color: range === r.k ? "var(--gold)" : "var(--fg-3)",
             }}
           >
@@ -125,7 +125,7 @@ export function IndexChart({
           </span>
         ))}
         <span style={{ flex: 1 }} />
-        <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>
+        <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>
           {unit} <span style={{ color: "var(--gold)", fontWeight: 800 }}>{last.v}</span>
           {last.line != null && lineText && <span style={{ marginLeft: 6 }}>{lineText(last.line)}</span>}
         </span>
@@ -139,8 +139,8 @@ export function IndexChart({
       >
         <defs>
           <linearGradient id="idxFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(233,185,73,.28)" />
-            <stop offset="100%" stopColor="rgba(233,185,73,0)" />
+            <stop offset="0%" stopColor="rgba(0,200,5,.28)" />
+            <stop offset="100%" stopColor="rgba(0,200,5,0)" />
           </linearGradient>
         </defs>
         {ticks.map((tk) => (
@@ -182,7 +182,7 @@ export function IndexChart({
           style={{
             position: "absolute", top: 26, left: `${Math.min(78, Math.max(2, ((hover.t - t0) / Math.max(1, t1 - t0)) * 100))}%`,
             background: "#171a22", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px",
-            fontSize: 10, color: "var(--fg-mid)", pointerEvents: "none", whiteSpace: "nowrap", zIndex: 5,
+            fontSize: 11, color: "var(--fg-mid)", pointerEvents: "none", whiteSpace: "nowrap", zIndex: 5,
           }}
         >
           <div style={{ color: "var(--fg-3)" }}>{hhmm(hover.t, tz)}{hover.phase === "live" ? " · 滚球" : ""}</div>

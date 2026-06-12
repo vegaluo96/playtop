@@ -1,5 +1,5 @@
 /**
- * 钱包统一入口:POST { action: gift|recharge|redeem, ... } / GET → 流水。
+ * 账户额度统一入口:POST { action: gift|recharge|redeem, ... } / GET → 流水。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/server/platform/session";
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       ? claimGift(u.id)
       : body.action === "recharge"
         ? cfgRechargeMaintenance() || !demoRechargeEnabled()
-          ? ({ ok: false, error: "充值通道维护中,请稍后再试" } as const)
+          ? ({ ok: false, error: "购买额度通道维护中,请稍后再试" } as const)
           : recharge(u.id, Number(body.tier))
         : body.action === "redeem"
           ? redeem(u.id, String(body.code ?? ""), (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || null)

@@ -1,4 +1,4 @@
-/** AI 深度报告:GET /api/report/<fixtureId>?tz=(锁定时只回概率与七维) */
+/** AI 概率报告:GET /api/report/<fixtureId>?tz=(锁定时只回概率与七维) */
 import { NextRequest, NextResponse } from "next/server";
 import { hhmm } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     comparison: ps?.comparison ?? {},
     homeName: fx.home_name,
     awayName: fx.away_name,
-    advice: unlocked ? (ps?.advice ?? "样本不足") : null,
+    advice: unlocked ? (ps?.advice ?? "暂无明确方向") : null,
     sections: unlocked ? sections : [],
     genBy,
     versions: unlocked ? versions.map((v) => ({ ver: v.ver, genAt: v.gen_at, changed: v.changed })) : [],

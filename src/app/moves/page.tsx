@@ -1,6 +1,6 @@
 "use client";
 
-/** 盘口异动监控:筛选 chips + 异动流 + 快照对比弹层;免注册前 3 条完整 */
+/** 指数异动监控:筛选 chips + 异动流 + 快照对比弹层;免注册前 3 条完整 */
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
@@ -10,6 +10,7 @@ import { useNewIds, useUnifiedPoll } from "@/components/live";
 import { PageHeader } from "@/components/page-header";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
+import { MarketValue } from "@/components/market-cell";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Move = any;
@@ -53,7 +54,7 @@ function MobileMovesPage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <PageHeader title="盘口异动" {...beat} />
+      <PageHeader title="指数异动" {...beat} />
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
         {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
           <Chip key={l} label={l} active={filter === l} onClick={() => setFilter(l)} />
@@ -64,7 +65,7 @@ function MobileMovesPage() {
           <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0", lineHeight: 2 }}>
             暂无异动记录
             <br />
-            <span style={{ fontSize: 10 }}>开盘后的盘口/水位变化会实时进入这里</span>
+            <span style={{ fontSize: 11 }}>开盘后的指数/水位变化会实时进入这里</span>
           </div>
         )}
         {rows.map((f) => (
@@ -78,31 +79,31 @@ function MobileMovesPage() {
               <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{f.t}</span>
               <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{f.match}</span>
               {f.sev && (
-                <span style={{ fontSize: 9, fontWeight: 800, color: "var(--red)", background: "rgba(240,67,79,.14)", borderRadius: 4, padding: "2px 6px" }}>急变</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 4, padding: "2px 7px" }}>急变</span>
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              {f.live && <span style={{ fontSize: 9, fontWeight: 800, color: "var(--red)", background: "rgba(240,67,79,.14)", borderRadius: 4, padding: "2px 6px" }}>滚球</span>}
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.mk}</span>
-              {f.bk && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.bk}</span>}
-              <span style={{ fontSize: 10, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--fg-2)" }}>{f.from}</span>
+              {f.live && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 4, padding: "2px 7px" }}>滚球</span>}
+              <span style={{ fontSize: 11, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.mk}</span>
+              {f.bk && <span style={{ fontSize: 11, fontWeight: 750, color: "var(--fg-3)", background: "var(--inset)", borderRadius: 4, padding: "2px 7px" }}>{f.bk}</span>}
+              <span style={{ fontSize: 11, fontWeight: 800, color: typeColor(f.type) }}>{f.type}</span>
+              <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={{ justifyContent: "flex-start", color: "var(--fg-2)" }} />
               <span style={{ fontSize: 11, color: typeColor(f.type) }}>→</span>
-              <span style={{ fontSize: 13, fontWeight: 800, color: typeColor(f.type) }}>{f.to}</span>
+              <MarketValue v={f.masked ? "●●" : f.to} className="" small style={{ justifyContent: "flex-start", color: typeColor(f.type), fontWeight: 800 }} />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
-              <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap", flexShrink: 0 }}>{f.water}</span>
-              <span style={{ fontSize: 10, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.note}</span>
+              <MarketValue v={f.masked ? "●●" : f.water} small dim={!!f.masked} style={{ justifyContent: "flex-start" }} />
+              <span style={{ fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.note}</span>
             </div>
           </div>
         ))}
         {!loggedIn && rows.length > 0 && (
           <div
             onClick={() => router.push("/login")}
-            style={{ background: "linear-gradient(180deg,#1a1e29,#12141a)", border: "1px solid rgba(233,185,73,.4)", borderRadius: 12, padding: 14, textAlign: "center", cursor: "pointer" }}
+            style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.4)", borderRadius: 12, padding: 14, textAlign: "center", cursor: "pointer" }}
           >
-            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 3 }}>注册后查看完整异动</div>
-            <div style={{ fontSize: 10, color: "var(--fg-2)" }}>同步领取 58 积分,可解锁 1 场深度分析</div>
+            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 3 }}>登录后查看全部异动</div>
+            <div style={{ fontSize: 11, color: "var(--fg-2)" }}>登录后查看完整异动流 · 新账号含基础报告额度</div>
           </div>
         )}
       </div>
@@ -115,25 +116,25 @@ function MobileMovesPage() {
               <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}>{sel.league}</span>
               <span style={{ flex: 1 }} />
               {sel.sev && (
-                <span style={{ fontSize: 9, fontWeight: 800, color: "var(--red)", background: "rgba(240,67,79,.14)", borderRadius: 4, padding: "2px 6px" }}>急变</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 4, padding: "2px 7px" }}>急变</span>
               )}
             </div>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 10 }}>{sel.match}</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "3px 8px" }}>{sel.mkFull}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "3px 8px" }}>{sel.bk}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, borderRadius: 4, padding: "3px 8px", background: "var(--inset)", color: typeColor(sel.type) }}>{sel.type}</span>
+              <span style={{ fontSize: 11, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "3px 8px" }}>{sel.mkFull}</span>
+              <span style={{ fontSize: 11, fontWeight: 750, color: "var(--fg-2)", background: "var(--inset)", borderRadius: 4, padding: "3px 8px" }}>{sel.bk}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "3px 8px", background: "var(--inset)", color: typeColor(sel.type) }}>{sel.type}</span>
             </div>
-            <div style={{ background: "#0e1117", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
+            <div style={{ background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "8px 12px", borderBottom: "1px solid var(--line)" }}>
                 <span />
-                <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)", textAlign: "right" }}>{sel.t0} 快照</span>
-                <span className="mono" style={{ fontSize: 10, color: "var(--gold)", textAlign: "right" }}>{sel.t} 快照</span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)", textAlign: "right" }}>{sel.t0} 快照</span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--gold)", textAlign: "right" }}>{sel.t} 快照</span>
               </div>
               {sel.rows.map((r: Move) => {
                 const na = parseFloat(r.a), nb = parseFloat(r.b);
                 const bC =
-                  r.k === "盘口"
+                  r.k === "指数"
                     ? r.chg
                       ? typeColor(sel.type)
                       : "var(--fg)"
@@ -145,14 +146,14 @@ function MobileMovesPage() {
                 return (
                   <div key={r.k} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "9px 12px", borderBottom: "1px solid var(--line-soft)", alignItems: "center" }}>
                     <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.k}</span>
-                    <span className="mono" style={{ fontSize: 12.5, textAlign: "right", color: "var(--fg-2)" }}>{r.a}</span>
-                    <span className="mono" style={{ fontSize: 12.5, fontWeight: 800, textAlign: "right", color: bC }}>{r.b}</span>
+                    <MarketValue v={r.a} small dim style={{ justifyContent: "flex-end" }} />
+                    <MarketValue v={r.b} small style={{ justifyContent: "flex-end", color: bC, fontWeight: 800 }} />
                   </div>
                 );
               })}
             </div>
             <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 14 }}>变化幅度:{sel.note}</div>
-            <GoldBtn label="查看本场盘口走势" onClick={() => router.push(`/match/${sel.fixtureId}`)} />
+            <GoldBtn label="查看本场指数走势" onClick={() => router.push(`/match/${sel.fixtureId}`)} />
           </>
         )}
       </Sheet>

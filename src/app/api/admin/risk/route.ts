@@ -20,12 +20,12 @@ function scan(): void {
   ).all(since) as unknown as { email: string; ip: string; n: number }[]) {
     put("自邀嫌疑", Math.min(95, 60 + r.n * 8), `${r.email} · 近 3 日 ${r.n} 次邀请来自同 IP(${r.ip})`, `inv:${r.email}:${r.ip}`, r.email);
   }
-  // 2) 异常充值:注册 30 分钟内充值 ≥¥328
+  // 2) 异常购买:注册 30 分钟内购买额度 ≥¥328
   for (const r of d.prepare(
     `SELECT u.email, l.rmb, l.created_at - u.created_at gap FROM ledger l JOIN users u ON u.id=l.user_id
      WHERE l.kind='recharge' AND l.rmb>=328 AND l.created_at>=? AND l.created_at - u.created_at <= 1800000`,
   ).all(since) as unknown as { email: string; rmb: number; gap: number }[]) {
-    put("异常充值", 71, `${r.email} · 注册 ${Math.round(r.gap / 60000)} 分钟内充值 ¥${r.rmb}`, `pay:${r.email}:${r.rmb}`, r.email);
+    put("异常购买", 71, `${r.email} · 注册 ${Math.round(r.gap / 60000)} 分钟内购买 ¥${r.rmb}`, `pay:${r.email}:${r.rmb}`, r.email);
   }
   // 3) 多账号领码:同 IP ≥3 账号领同一兑换码
   for (const r of d.prepare(

@@ -1,4 +1,4 @@
-/** 用户管理:搜索/筛选/调积分/封禁(RBAC:客服调分 ≤100,封禁需超管或风控) */
+/** 用户管理:搜索/筛选/调额度/封禁(RBAC:客服调额度 ≤100,封禁需超管或风控) */
 import { NextRequest, NextResponse } from "next/server";
 import { db, tx } from "@/server/db";
 import { audit, canWrite, currentAdmin } from "@/server/admin/auth";
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     if (admin.role === "客服" && Math.abs(dv) > 100) return NextResponse.json({ ok: false, error: "客服补偿上限 100 分,需超级管理员复核" }, { status: 403 });
     if (!canWrite(admin, "ticket") && !canWrite(admin, "user")) return NextResponse.json({ ok: false, error: "无权限" }, { status: 403 });
     const r = adjustPoints(Number(userId), dv, `后台${dv > 0 ? "补偿" : "扣减"}:${reason || "未注明"}`, () => {
-      audit(admin.email, "调积分", `${u.email} ${dv > 0 ? "+" : ""}${dv}(${reason || "未注明"})`);
+      audit(admin.email, "调额度", `${u.email} ${dv > 0 ? "+" : ""}${dv}(${reason || "未注明"})`);
     });
     return NextResponse.json(r);
   }

@@ -1,6 +1,6 @@
 "use client";
 
-/** 桌面账户抽屉(右滑 390px):钱包/兑换/邀请/流水/偏好/工单/退出 */
+/** 桌面账户抽屉(右滑 390px):账户额度/兑换/邀请/流水/偏好/工单/退出 */
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp, type Scheme } from "@/components/app-context";
@@ -15,7 +15,7 @@ const TZS: [string, string][] = [
   ["UTC+8", "北京 UTC+8"], ["UTC+9", "首尔·东京 UTC+9"], ["UTC+7", "曼谷 UTC+7"], ["UTC+1", "伦敦 UTC+1"],
   ["UTC+2", "中欧 UTC+2"], ["UTC-4", "纽约 UTC-4"], ["UTC-7", "洛杉矶 UTC-7"], ["UTC+10", "悉尼 UTC+10"],
 ];
-const TK_TYPES = ["数据问题", "充值问题", "功能建议", "其他"];
+const TK_TYPES = ["数据问题", "购买额度问题", "功能建议", "其他"];
 
 function ChipBtn({ label, active, onClick, flex }: { label: string; active: boolean; onClick: () => void; flex?: boolean }) {
   return (
@@ -23,10 +23,10 @@ function ChipBtn({ label, active, onClick, flex }: { label: string; active: bool
       onClick={onClick}
       style={{
         flex: flex ? 1 : undefined, textAlign: "center", padding: flex ? "6px 0" : "4px 10px", borderRadius: flex ? 8 : 999,
-        fontSize: 10.5, fontWeight: flex ? 700 : 600, cursor: "pointer",
-        background: active ? "rgba(233,185,73,.14)" : "var(--inset)",
+        fontSize: 11.5, fontWeight: flex ? 700 : 600, cursor: "pointer",
+        background: active ? "rgba(0,200,5,.14)" : "var(--inset)",
         color: active ? "var(--gold)" : "var(--fg-2)",
-        border: `1px solid ${active ? "rgba(233,185,73,.45)" : "var(--line)"}`,
+        border: `1px solid ${active ? "rgba(0,200,5,.45)" : "var(--line)"}`,
       }}
     >
       {label}
@@ -74,7 +74,7 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
     }).then((r) => r.json());
     if (j.ok) {
       if (el) el.value = "";
-      setRdMsg({ ok: true, text: `兑换成功,${j.note} 积分已到账` });
+      setRdMsg({ ok: true, text: `兑换成功,${j.note} 额度已到账` });
       await refreshMe();
     } else setRdMsg({ ok: false, text: j.error });
   };
@@ -108,25 +108,25 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
   const Block = ({ children }: { children: React.ReactNode }) => (
     <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px", marginBottom: 12 }}>{children}</div>
   );
-  const Label = ({ text }: { text: string }) => <div style={{ fontSize: 10, color: "var(--fg-2)", marginBottom: 6 }}>{text}</div>;
+  const Label = ({ text }: { text: string }) => <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 6 }}>{text}</div>;
 
   // 游客:抽屉只给注册引导
   if (!me.loggedIn) {
     return (
       <div style={{ position: "absolute", inset: 0, zIndex: 55, display: "flex", justifyContent: "flex-end", background: "rgba(4,5,9,.6)" }}>
         <div onClick={onClose} style={{ flex: 1 }} />
-        <div style={{ width: 390, background: "#0e1015", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div style={{ width: 390, background: "var(--card)", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid var(--line)" }}>
             <span style={{ fontSize: 14, fontWeight: 800 }}>账户中心</span>
             <span onClick={onClose} style={{ fontSize: 14, color: "var(--fg-3)", cursor: "pointer" }}>✕</span>
           </div>
           <div style={{ padding: "18px" }}>
-            <div style={{ background: "linear-gradient(135deg,#2a2410,#12141a)", border: "1px solid rgba(233,185,73,.4)", borderRadius: 14, padding: 16 }}>
+            <div style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.4)", borderRadius: 14, padding: 16 }}>
               <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
-                注册完整查看数据 · 再领 <span style={{ color: "var(--gold)" }}>58 积分</span>
+                创建账户
               </div>
-              <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 10, lineHeight: 1.6 }}>注册后完整查看盘口、异动与数据细节;58 积分可解锁 1 场深度分析</div>
-              <div onClick={() => router.push("/login")} style={{ background: "linear-gradient(90deg,var(--gold),var(--gold-2))", color: "#0a0b0f", borderRadius: 9, textAlign: "center", padding: "10px 0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+            <div style={{ fontSize: 12, color: "var(--fg-2)", marginBottom: 10, lineHeight: 1.6 }}>登录后查看完整指数与异动 · 新账号含基础报告额度</div>
+              <div onClick={() => router.push("/login")} style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 9, textAlign: "center", padding: "10px 0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
                 邮箱登录 / 注册
               </div>
             </div>
@@ -139,7 +139,7 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 55, display: "flex", justifyContent: "flex-end", background: "rgba(4,5,9,.6)" }}>
       <div onClick={onClose} style={{ flex: 1 }} />
-      <div style={{ width: 390, background: "#0e1015", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <div style={{ width: 390, background: "var(--card)", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column", minHeight: 0 }}>
         <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid var(--line)" }}>
           <span style={{ fontSize: 14, fontWeight: 800 }}>账户中心</span>
           <span onClick={onClose} style={{ fontSize: 14, color: "var(--fg-3)", cursor: "pointer" }}>✕</span>
@@ -150,27 +150,27 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
             <span onClick={logout} style={{ fontSize: 11, color: "var(--red)", fontWeight: 700, cursor: "pointer" }}>退出登录</span>
           </div>
 
-          {/* 钱包 + 兑换 */}
-          <div style={{ background: "linear-gradient(135deg,#1a1e29,#12141a)", border: "1px solid rgba(233,185,73,.3)", borderRadius: 12, padding: 14, marginBottom: 12 }}>
+          {/* 账户额度 + 兑换 */}
+          <div style={{ background: "var(--card)", border: "1px solid rgba(0,200,5,.3)", borderRadius: 12, padding: 14, marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 12 }}>
               <span style={{ flex: 1 }}>
-                <span style={{ display: "block", fontSize: 10, color: "var(--fg-2)", marginBottom: 3 }}>积分余额</span>
+                <span style={{ display: "block", fontSize: 11.5, color: "var(--fg-2)", marginBottom: 3 }}>账户额度</span>
                 <span className="mono" style={{ fontSize: 26, lineHeight: 1, fontWeight: 800, color: "var(--gold)" }}>{me.pts}</span>
               </span>
-              <div onClick={() => openModal({ kind: "recharge" })} style={{ flexShrink: 0, width: 64, boxSizing: "border-box", background: "linear-gradient(90deg,var(--gold),var(--gold-2))", color: "#0a0b0f", borderRadius: 8, padding: "9px 0", textAlign: "center", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>充值</div>
+              <div onClick={() => openModal({ kind: "recharge" })} style={{ flexShrink: 0, width: 72, boxSizing: "border-box", background: "var(--gold)", color: "var(--on-accent)", borderRadius: 8, padding: "9px 0", textAlign: "center", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>购买额度</div>
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
               <input id="rd2" placeholder="输入兑换码,如 WC2026" className="mono" style={{ flex: 1, minWidth: 0, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, padding: "9px 12px", fontSize: 12, color: "var(--fg)", outline: "none" }} />
-              <div onClick={redeem} style={{ flexShrink: 0, width: 64, boxSizing: "border-box", border: "1px solid rgba(233,185,73,.5)", color: "var(--gold)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>兑换</div>
+              <div onClick={redeem} style={{ flexShrink: 0, width: 64, boxSizing: "border-box", border: "1px solid rgba(0,200,5,.5)", color: "var(--gold)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>兑换</div>
             </div>
-            {rdMsg && <div style={{ fontSize: 10, marginTop: 6, color: rdMsg.ok ? "var(--up)" : "var(--red)" }}>{rdMsg.text}</div>}
+            {rdMsg && <div style={{ fontSize: 11, marginTop: 6, color: rdMsg.ok ? "var(--up)" : "var(--red)" }}>{rdMsg.text}</div>}
           </div>
 
           {/* 邀请 */}
           <Block>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 800 }}>邀请好友 · 每人 +1 积分</span>
-              <span style={{ fontSize: 9, color: "var(--fg-3)" }}>日10 · 周30 · 月100</span>
+              <span style={{ fontSize: 12.5, fontWeight: 800 }}>邀请好友 · 每人 +1 额度</span>
+              <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>日10 · 周30 · 月100</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
               <span className="mono" style={{ flex: 1, fontSize: 11, fontWeight: 700, color: "var(--gold)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{invite?.url ?? "…"}</span>
@@ -181,19 +181,19 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
                   } catch { /* ignore */ }
                   setIvCopied(true);
                 }}
-                style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, color: "var(--gold)", cursor: "pointer" }}
+                  style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 800, color: "var(--gold)", cursor: "pointer" }}
               >
                 复制
               </div>
             </div>
-            {ivCopied && <div style={{ fontSize: 9, color: "var(--up)", marginBottom: 6 }}>已复制,发给好友吧</div>}
+            {ivCopied && <div style={{ fontSize: 11.5, color: "var(--up)", marginBottom: 6 }}>邀请链接已复制</div>}
             {[["今日", invite?.day ?? 0, 10], ["本周", invite?.week ?? 0, 30], ["本月", invite?.month ?? 0, 100]].map(([label, n, cap]) => (
               <div key={label as string} style={{ display: "grid", gridTemplateColumns: "36px 1fr 52px", gap: 10, alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 10, color: "var(--fg-2)" }}>{label as string}</span>
+                <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{label as string}</span>
                 <div style={{ height: 4, background: "var(--inset)", borderRadius: 2, overflow: "hidden" }}>
-                  <div style={{ height: "100%", background: "linear-gradient(90deg,#8a6a1f,var(--gold))", width: `${Math.min(100, ((n as number) / (cap as number)) * 100)}%` }} />
+                  <div style={{ height: "100%", background: "var(--gold)", width: `${Math.min(100, ((n as number) / (cap as number)) * 100)}%` }} />
                 </div>
-                <span className="mono" style={{ fontSize: 10, color: "var(--fg-2)", textAlign: "right" }}>{n as number} / {cap as number}</span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)", textAlign: "right" }}>{n as number} / {cap as number}</span>
               </div>
             ))}
             <div onClick={() => openModal({ kind: "invlog" })} style={{ textAlign: "center", padding: "8px 0 2px", fontSize: 11, fontWeight: 700, color: "var(--gold)", cursor: "pointer", borderTop: "1px solid var(--line-soft)", marginTop: 4 }}>邀请记录 ›</div>
@@ -202,10 +202,10 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
           {/* 流水 */}
           <Block>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 800 }}>充值 / 消费记录</span>
-              {ledger.length > 6 && <span style={{ fontSize: 9, color: "var(--fg-3)" }}>共 {ledger.length} 笔 · 显示最近 6 笔</span>}
+              <span style={{ fontSize: 12, fontWeight: 800 }}>额度 / 解锁记录</span>
+              {ledger.length > 6 && <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>共 {ledger.length} 笔 · 显示最近 6 笔</span>}
             </div>
-            {ledger.length === 0 && <div style={{ fontSize: 10, color: "var(--fg-3)" }}>暂无记录</div>}
+            {ledger.length === 0 && <div style={{ fontSize: 11, color: "var(--fg-3)" }}>暂无记录</div>}
             {ledger.slice(0, 6).map((l, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderTop: "1px solid var(--line-soft)" }}>
                 <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{l.note}</span>
@@ -269,13 +269,13 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
               placeholder="请描述你遇到的问题或建议…"
               style={{ width: "100%", boxSizing: "border-box", background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, fontSize: 12, color: "var(--fg)", outline: "none", resize: "none", lineHeight: 1.6 }}
             />
-            {tkMsg && <div style={{ fontSize: 10, color: tkMsg.ok ? "var(--up)" : "var(--red)", marginTop: 5, textAlign: tkMsg.ok ? "center" : "left" }}>{tkMsg.text}</div>}
-            <div onClick={submitTicket} style={{ background: "linear-gradient(90deg,var(--gold),var(--gold-2))", color: "#0a0b0f", borderRadius: 8, textAlign: "center", padding: "9px 0", fontSize: 12, fontWeight: 800, cursor: "pointer", marginTop: 8 }}>提交工单</div>
+            {tkMsg && <div style={{ fontSize: 11, color: tkMsg.ok ? "var(--up)" : "var(--red)", marginTop: 5, textAlign: tkMsg.ok ? "center" : "left" }}>{tkMsg.text}</div>}
+            <div onClick={submitTicket} style={{ background: "var(--gold)", color: "var(--on-accent)", borderRadius: 8, textAlign: "center", padding: "9px 0", fontSize: 12, fontWeight: 800, cursor: "pointer", marginTop: 8 }}>提交工单</div>
             {tickets.slice(0, 5).map((t) => (
               <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderTop: "1px solid var(--line-soft)", marginTop: 6 }}>
-                <span className="mono" style={{ fontSize: 9.5, color: "var(--fg-3)" }}>T{t.id}</span>
+                <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)" }}>T{t.id}</span>
                 <span style={{ flex: 1, fontSize: 11, fontWeight: 700 }}>{t.type}</span>
-                <span style={{ fontSize: 8.5, fontWeight: 800, borderRadius: 4, padding: "2px 6px", background: t.status === "处理中" ? "rgba(233,185,73,.14)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 6px", background: t.status === "处理中" ? "rgba(0,200,5,.14)" : "rgba(46,204,138,.14)", color: t.status === "处理中" ? "var(--gold)" : "var(--green)" }}>{t.status}</span>
               </div>
             ))}
           </div>

@@ -1,4 +1,4 @@
-/** 营销配置:充值档位/解锁定价/新人邀请规则(改动二次确认在前端,落库即审计) */
+/** 营销配置:购买额度档位/解锁定价/新人邀请规则(改动二次确认在前端,落库即审计) */
 import { NextRequest, NextResponse } from "next/server";
 import { audit, canWrite, currentAdmin } from "@/server/admin/auth";
 import { requireSameOrigin } from "@/server/platform/rate-limit";
@@ -43,25 +43,25 @@ export async function POST(req: NextRequest) {
       });
     } else if (b.action === "rules") {
       tx(() => {
-        setNum("gift_points", "新人礼包", 0);
-        setNum("invite_points", "邀请积分", 0);
+        setNum("gift_points", "基础报告额度", 0);
+        setNum("invite_points", "邀请额度", 0);
         const caps = b.caps as { day: number; week: number; month: number };
         if (!caps || [caps.day, caps.week, caps.month].some((v) => !Number.isFinite(Number(v)) || Number(v) < 0)) throw new Error("邀请上限无效");
         cfgSet("invite_caps", { day: Math.trunc(caps.day), week: Math.trunc(caps.week), month: Math.trunc(caps.month) });
         cfgSet("first_bonus_on", b.firstBonusOn ? 1 : 0);
-        audit(admin.email, "营销配置", `邀请上限 ${caps.day}/${caps.week}/${caps.month} · 首充加赠 ${b.firstBonusOn ? "开" : "关"}`);
+        audit(admin.email, "营销配置", `邀请上限 ${caps.day}/${caps.week}/${caps.month} · 首购加赠 ${b.firstBonusOn ? "开" : "关"}`);
       });
     } else if (b.action === "tiers") {
       const tiers = b.tiers as { rmb: number; pts: number; tag?: string; hot?: boolean }[];
       if (!Array.isArray(tiers) || tiers.length === 0 || tiers.some((t) => !(t.rmb > 0) || !(t.pts > 0))) throw new Error("档位无效");
       tx(() => {
         cfgSet("recharge_tiers", tiers);
-        audit(admin.email, "营销配置", `充值档位 ${tiers.map((t) => `¥${t.rmb}/${t.pts}`).join(" ")}`);
+        audit(admin.email, "营销配置", `购买额度档位 ${tiers.map((t) => `¥${t.rmb}/${t.pts}`).join(" ")}`);
       });
     } else if (b.action === "recharge_maintenance") {
       tx(() => {
         cfgSet("recharge_maintenance", b.on ? 1 : 0);
-        audit(admin.email, "营销配置", `充值维护 → ${b.on ? "开启(用户端暂停充值)" : "关闭"}`);
+        audit(admin.email, "营销配置", `购买额度维护 → ${b.on ? "开启(用户端暂停购买额度)" : "关闭"}`);
       });
     } else return NextResponse.json({ ok: false, error: "未知操作" }, { status: 400 });
   } catch (e) {

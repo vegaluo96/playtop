@@ -1,11 +1,11 @@
 /**
  * 赌球视角洞察:全部由已归档真实数据推导,无任何虚构。
  *   ① 盘路榜:本站归档的临场盘(收盘前最后一帧)× 官方比分 → 赢/走/输、大/小
- *   ② 凯利指数 + 离散度:多书商欧赔 → 单家赔率 × 全市场去水概率均值;赔率标准差
- *   ③ 同赔历史:初盘欧赔三元组(±0.03)匹配本站归档完场赛事 → 胜平负分布
+ *   ② 凯利指数 + 离散度:多书商胜平负 → 单家公司报价 × 全市场去水概率均值;报价标准差
+ *   ③ 同赔历史:初盘胜平负三元组(±0.03)匹配本站归档完场赛事 → 胜平负分布
  *   ④ 升降盘统计 + 返还率趋势:各书商首帧 vs 即时盘方向;主源返还率首末对照
  *   ⑤ 疲劳/赛程密度:距上场天数 + 未来 7 天赛程数(仅统计本站收录赛事)
- *   ⑥ 角球参考:两队近 6 场归档统计的场均角球合计 vs 角球玩法盘口
+ *   ⑥ 角球参考:两队近 6 场归档统计的场均角球合计 vs 角球玩法指数
  * 覆盖范围 = 本站归档数据(开赛前 14 天起持续归档),如实标注,随时间自然变厚。
  */
 import { db } from "../db";
@@ -132,7 +132,7 @@ export function teamRoad(teamId: number | null, beforeUtc: number, n = 10) {
 
 export interface EuKelly {
   books: number;
-  /** 各结果赔率标准差(市场分歧度;越大各家分歧越大) */
+  /** 各结果报价标准差(市场分歧度;越大各家分歧越大) */
   disp: { h: number; d: number; a: number };
   /** 全市场去水概率均值(凯利的基准概率) */
   prob: { h: number; d: number; a: number };
@@ -159,7 +159,7 @@ export function euKelly(lasts: { h: number; d: number | null; a: number }[]): Eu
     books: ok.length,
     disp: { h: sd("h"), d: sd("d"), a: sd("a") },
     prob: { h: avg("h"), d: avg("d"), a: avg("a") },
-    method: `凯利指数 = 该公司赔率 × 全市场去水概率均值(${ok.length} 家);明显 >1 表示该公司此结果定价高于市场共识(经典诱盘/阻盘信号)。离散度 = 各家赔率标准差,越大市场分歧越大。`,
+    method: `凯利指数 = 该公司报价 × 全市场去水概率均值(${ok.length} 家);明显 >1 表示该公司此结果定价高于市场共识。离散度 = 各家公司报价标准差,越大代表市场分歧越大。`,
   };
 }
 
@@ -201,7 +201,7 @@ function sameOddsOf(fx: FixtureRow) {
   const d = db();
   const first = firstEuOf(fx.fixture_id);
   if (!first) return null;
-  // 各场首帧欧赔(本站归档起点≈初盘):与详情页主盘同源,避免同时间多书商导致行序漂移。
+  // 各场首帧胜平负(本站归档起点≈初盘):与详情页主盘同源,避免同时间多书商导致行序漂移。
   const fixtures = d
     .prepare(
       `SELECT DISTINCT f.fixture_id fid, f.home_name, f.away_name, f.goals_home gh, f.goals_away ga, f.status, f.kickoff_utc

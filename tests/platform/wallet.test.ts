@@ -1,4 +1,4 @@
-/** 账务链路(内存库):注册礼包/充值/兑换/解锁/邀请记分/流水 */
+/** 账务链路(内存库):注册礼包/购买额度/兑换/解锁/邀请记分/流水 */
 import { beforeEach, describe, expect, it } from "vitest";
 
 process.env.PLAYTOP_DB = ":memory:";
@@ -62,7 +62,7 @@ describe("账户", () => {
   });
 });
 
-describe("礼包与充值", () => {
+describe("礼包与购买额度", () => {
   it("礼包 +58 仅一次", () => {
     const uid = newUser("g@b.com");
     expect(claimGift(uid)).toMatchObject({ ok: true, pts: 58 });
@@ -70,16 +70,16 @@ describe("礼包与充值", () => {
     expect(balanceOf(uid)).toBe(58);
   });
 
-  it("首充 +50%,二充原值,流水完整", () => {
+  it("首购 +50%,二次购买原值,流水完整", () => {
     const uid = newUser("r@b.com");
     expect(recharge(uid, 0)).toMatchObject({ ok: true, pts: 90 });
     expect(recharge(uid, 0)).toMatchObject({ ok: true, pts: 150 });
     const ledger = ledgerOf(uid);
     expect(ledger).toHaveLength(2);
-    expect(ledger[1].note).toContain("首充");
+    expect(ledger[1].note).toContain("首购");
   });
 
-  it("生产环境默认关闭演示充值,显式开关才允许", () => {
+  it("生产环境默认关闭演示购买额度,显式开关才允许", () => {
     const oldEnv = process.env.NODE_ENV;
     const oldDemo = process.env.PLAYTOP_DEMO_RECHARGE;
     const env = process.env as Record<string, string | undefined>;

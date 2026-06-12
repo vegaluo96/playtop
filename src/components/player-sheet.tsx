@@ -53,12 +53,12 @@ export function PlayerSheet({ target, onClose }: { target: PlayerTarget | null; 
             <PlayerAvatar id={target.id} name={target.name} size={52} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 16, fontWeight: 800 }}>{v?.name ?? target.name}</div>
-              <div style={{ fontSize: 10.5, color: "var(--fg-2)", marginTop: 3 }}>
+              <div style={{ fontSize: 11.5, color: "var(--fg-2)", marginTop: 3 }}>
                 {v ? [v.stats?.[0]?.pos, v.age ? `${v.age} 岁` : null, v.nationality, v.height].filter(Boolean).join(" · ") : err || "加载中…"}
               </div>
             </div>
             {v?.injured && (
-              <span style={{ fontSize: 9, fontWeight: 800, color: "var(--red)", background: "rgba(240,67,79,.14)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>伤停中</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", background: "rgba(255,92,92,.14)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>伤停中</span>
             )}
           </div>
 
@@ -75,12 +75,12 @@ export function PlayerSheet({ target, onClose }: { target: PlayerTarget | null; 
             <>
               {v.stats.map((st: V, i: number) => (
                 <div key={i} style={{ background: "var(--inset)", borderRadius: 10, padding: "9px 12px", marginBottom: 8 }}>
-                  <div style={{ fontSize: 10, color: "var(--fg-3)", marginBottom: 7 }}>{st.league} · {st.team}</div>
+	                  <div style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 7 }}>{st.league} · {st.team}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 4, textAlign: "center" }}>
                     {[[st.apps, "出场"], [st.goals, "进球"], [st.assists, "助攻"], [st.yellow, "黄牌"], [st.red, "红牌"], [st.rating ?? "—", "评分"]].map(([n, label]) => (
                       <div key={label as string}>
                         <div className="mono" style={{ fontSize: 13, fontWeight: 800, color: label === "评分" ? "var(--gold)" : "var(--fg)" }}>{n as string}</div>
-                        <div style={{ fontSize: 8.5, color: "var(--fg-3)", marginTop: 1 }}>{label as string}</div>
+	                        <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 1 }}>{label as string}</div>
                       </div>
                     ))}
                   </div>
@@ -91,24 +91,24 @@ export function PlayerSheet({ target, onClose }: { target: PlayerTarget | null; 
 
           {v?.sidelined?.length > 0 && (
             <div style={{ background: "var(--inset)", borderRadius: 10, padding: "9px 12px" }}>
-              <div style={{ fontSize: 10, color: "var(--fg-3)", marginBottom: 6 }}>伤停 / 停赛史</div>
+	              <div style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 6 }}>伤停 / 停赛史</div>
               {v.sidelined.map((sd: V, i: number) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: i < v.sidelined.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-mid)", flex: 1 }}>{sd.type}</span>
-                  <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>{sd.from} ~ {sd.to}</span>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{sd.from} ~ {sd.to}</span>
                 </div>
               ))}
             </div>
           )}
           {v?.careerTeams?.length > 0 && (
             <div style={{ background: "var(--inset)", borderRadius: 10, padding: "9px 12px", marginTop: 8 }}>
-              <div style={{ fontSize: 10, color: "var(--fg-3)", marginBottom: 6 }}>
+	              <div style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 6 }}>
                 效力球队{v.seasons?.length > 0 ? ` · 数据赛季 ${v.seasons.slice(0, 4).join("/")}` : ""}
               </div>
               {v.careerTeams.map((tm: V, i: number) => (
                 <div key={`${tm.id ?? tm.name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: i < v.careerTeams.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-mid)", flex: 1 }}>{tm.name}</span>
-                  <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>{(tm.seasons ?? []).slice(0, 3).join("/") || "—"}</span>
+	                  <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{(tm.seasons ?? []).slice(0, 3).join("/") || "—"}</span>
                 </div>
               ))}
             </div>

@@ -7,7 +7,7 @@ process.env.LLM_API_KEY = "test-key";
 vi.mock("../../src/server/llm/client", () => ({
   chatComplete: vi.fn(async () => ({
     text: JSON.stringify([
-      { h: "盘口解读", ps: ["a"] },
+      { h: "指数解读", ps: ["a"] },
       { h: "状态与盘路", ps: ["b"] },
       { h: "进球模型", ps: ["c"] },
       { h: "人员情报", ps: ["d"] },
@@ -33,7 +33,7 @@ beforeEach(() => {
 });
 
 const secs: ReportSection[] = [
-  { h: "盘口解读", ps: ["盘口事实"] },
+  { h: "指数解读", ps: ["指数事实"] },
   { h: "状态与盘路", ps: ["状态事实"] },
   { h: "进球模型", ps: ["进球事实"] },
   { h: "人员情报", ps: ["人员事实"] },
@@ -115,11 +115,11 @@ describe("版本读取", () => {
     const ins = db().prepare(
       "INSERT INTO report_versions (fixture_id, ver, fingerprint, content, model, gen_at, changed) VALUES (9,?,?,?,?,?,?)",
     );
-    ins.run(1, "fp1", JSON.stringify([{ h: "盘口解读", ps: ["a"] }]), "m", now - 7200_000, "[]");
-    ins.run(2, "fp2", JSON.stringify([{ h: "盘口解读", ps: ["b"] }]), "m", now - 3600_000, JSON.stringify(["盘口解读"]));
+    ins.run(1, "fp1", JSON.stringify([{ h: "指数解读", ps: ["a"] }]), "m", now - 7200_000, "[]");
+    ins.run(2, "fp2", JSON.stringify([{ h: "指数解读", ps: ["b"] }]), "m", now - 3600_000, JSON.stringify(["指数解读"]));
     const vs = listReportVersions(9);
     expect(vs.map((v) => v.ver)).toEqual([1, 2]);
-    expect(vs[1].changed).toEqual(["盘口解读"]);
+    expect(vs[1].changed).toEqual(["指数解读"]);
     expect(getReportVersion(9, 1)?.sections[0].ps).toEqual(["a"]);
     expect(getReportVersion(9, 99)).toBeNull();
   });

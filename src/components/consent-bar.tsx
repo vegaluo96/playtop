@@ -22,10 +22,10 @@ export function ConsentBar() {
       style={{
         position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90,
         display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
-        background: "#14161dF2", borderTop: "1px solid var(--line)", backdropFilter: "blur(8px)",
+        background: "var(--card)", borderTop: "1px solid var(--line)", backdropFilter: "blur(8px)",
       }}
     >
-      <span style={{ flex: 1, fontSize: 10.5, color: "var(--fg-2)", lineHeight: 1.6 }}>
+      <span style={{ flex: 1, fontSize: 11.5, color: "var(--fg-2)", lineHeight: 1.6 }}>
         本站仅使用必要的会话 Cookie 维持登录,并以本地存储记忆界面偏好;继续使用即表示同意。
         <span onClick={() => router.push("/about")} style={{ color: "var(--gold)", cursor: "pointer", marginLeft: 4 }}>了解详情 ›</span>
       </span>
@@ -34,7 +34,7 @@ export function ConsentBar() {
           localStorage.setItem(KEY, String(Date.now()));
           setShow(false);
         }}
-        style={{ flexShrink: 0, background: "linear-gradient(90deg,var(--gold),var(--gold-2))", color: "#0a0b0f", borderRadius: 8, padding: "7px 16px", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+        style={{ flexShrink: 0, background: "var(--gold)", color: "var(--on-accent)", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
       >
         同意
       </span>
@@ -46,9 +46,9 @@ export function ConsentBar() {
 export function RiskFooter({ pad = true }: { pad?: boolean }) {
   const router = useRouter();
   return (
-    <div style={{ textAlign: "center", fontSize: 9, color: "var(--fg-4)", lineHeight: 1.7, padding: pad ? "10px 24px 14px" : "6px 24px" }}>
+    <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--fg-3)", lineHeight: 1.7, padding: pad ? "10px 24px 14px" : "6px 24px" }}>
       本平台仅提供体育数据资讯与分析,不提供任何形式的投注或博彩服务;内容仅供参考,请遵守当地法律法规。
-      <span onClick={() => router.push("/about")} style={{ color: "var(--fg-3)", cursor: "pointer", marginLeft: 4 }}>免责声明 ›</span>
+      <span onClick={() => router.push("/about")} style={{ color: "var(--gold)", cursor: "pointer", marginLeft: 4 }}>免责声明 ›</span>
     </div>
   );
 }

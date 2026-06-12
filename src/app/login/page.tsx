@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { GoldBtn } from "@/components/ui";
-import { SITE_CN_NAME, SITE_SLOGAN } from "@/lib/site";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -51,14 +50,13 @@ export default function LoginPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px 30px", minHeight: 0, width: "100%", maxWidth: 456, margin: "0 auto", height: "100%" }}>
       <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: 1, textAlign: "center" }}>
-        {SITE_CN_NAME.slice(0, 2)}<span style={{ color: "var(--gold)" }}>{SITE_CN_NAME.slice(2)}</span>
+        足球<span style={{ color: "var(--gold)" }}>终端</span>
       </div>
-      <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)", margin: "6px 0 26px" }}>{SITE_SLOGAN}</div>
-      <div style={{ background: "rgba(233,185,73,.1)", border: "1px dashed rgba(233,185,73,.45)", borderRadius: 10, padding: "10px 12px", marginBottom: 18, display: "flex", alignItems: "center", gap: 9 }}>
-        <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#0a0b0f" }}>礼</span>
-        <span style={{ fontSize: 11.5, color: "var(--fg-mid)", lineHeight: 1.55 }}>
-          注册后完整查看盘口、异动与数据细节;再送{" "}
-          <span style={{ color: "var(--gold)", fontWeight: 800 }}>58 积分</span>,可解锁 1 场深度分析
+      <div style={{ textAlign: "center", fontSize: 12.5, color: "var(--fg-3)", margin: "6px 0 26px" }}>让球指数 · 大小指数 · 胜平负指数 · 专业行情终端</div>
+      <div style={{ background: "rgba(0,200,5,.1)", border: "1px dashed rgba(0,200,5,.45)", borderRadius: 10, padding: "10px 12px", marginBottom: 18, display: "flex", alignItems: "center", gap: 9 }}>
+        <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "var(--on-accent)" }}>AI</span>
+        <span style={{ fontSize: 12.5, color: "var(--fg-mid)", lineHeight: 1.55 }}>
+          登录后查看完整指数与异动流 · 新账号含基础报告额度
         </span>
       </div>
       <input type="email" placeholder="邮箱" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
@@ -70,12 +68,11 @@ export default function LoginPage() {
         onKeyDown={(e) => e.key === "Enter" && submit()}
         style={{ ...inputStyle, marginBottom: 14 }}
       />
-      {err && <div style={{ fontSize: 11, color: "var(--red)", marginBottom: 10 }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: "var(--red)", marginBottom: 10 }}>{err}</div>}
       <GoldBtn label={busy ? "处理中…" : "登录 / 注册"} onClick={submit} style={{ padding: "13px 0", fontSize: 15 }} />
-      <div style={{ textAlign: "center", fontSize: 10, color: "var(--fg-3)", marginTop: 10 }}>未注册的邮箱将自动创建账户,无需邮箱验证</div>
-      <div style={{ textAlign: "center", fontSize: 9.5, color: "var(--fg-4)", marginTop: 6, lineHeight: 1.6 }}>
-        登录或注册即表示你已阅读并同意<a href="/about" style={{ color: "var(--fg-3)" }}>《平台性质与免责声明》</a>;
-        本平台仅提供足球数据资讯与分析,不提供任何投注服务
+      <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--fg-3)", marginTop: 10 }}>未注册的邮箱将自动创建账户,无需邮箱验证</div>
+      <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.6 }}>
+        登录/注册即同意<a href="/about" style={{ color: "var(--fg-3)" }}>《平台性质与免责声明》</a> · 仅提供数据资讯
       </div>
       <div
         onClick={() => router.push("/")}

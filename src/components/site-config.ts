@@ -1,6 +1,6 @@
 "use client";
 
-/** 公共配置(/api/config)模块级缓存:联赛顺序/公告/版本/充值维护,一次拉取全站共享 */
+/** 公共配置(/api/config)模块级缓存:联赛顺序/公告/版本/购买额度维护,一次拉取全站共享 */
 import { useEffect, useState } from "react";
 
 export interface SiteLeague {

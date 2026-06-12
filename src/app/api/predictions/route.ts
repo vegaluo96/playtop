@@ -1,6 +1,6 @@
 /**
- * 预测列表:GET /api/predictions?tz=
- * 轻量卡:概率条免费可见;建议/胜者/大小/进球上限 + AI 深度报告 = 唯一付费项。
+ * AI 概率报告列表:GET /api/predictions?tz=
+ * 轻量卡:概率条免费可见;方向摘要 + AI 报告 = 唯一付费项。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { hhmm, parseTzOffset } from "@/lib/format";
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const user = await currentUser();
   const now = Date.now();
   const dayStart = Math.floor((now + off * 3_600_000) / 86_400_000) * 86_400_000 - off * 3_600_000;
-  // fixture 参数:单场卡(不限今日;桌面右栏「模型预测 · 本场」用)
+  // fixture 参数:单场卡(不限今日;桌面右栏「AI 概率报告 · 本场」用)
   const fixtures = fixtureParam
     ? [fixtureById(fixtureParam)].filter((f) => f != null)
     : fixturesBetween(dayStart, dayStart + 86_400_000).sort((a, b) => a.kickoff_utc - b.kickoff_utc);
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
         pH: ps.pH, pD: ps.pD, pA: ps.pA,
         locked: !unlocked,
         price,
-        lockText: !user ? "登录领 58 积分 · 解锁 1 场深度分析" : `解锁本场分析 · ${price} 积分`,
+        lockText: !user ? "登录查看报告额度说明" : `解锁本场报告 · ${price} 额度`,
         advice: unlocked ? ps.advice : null,
         winnerText: unlocked ? ps.winnerName + (ps.winDraw ? " / 平" : "") : null,
         uoText: unlocked && ps.uoText ? `${ps.uoLine} ${ps.uoText}` : unlocked ? "暂无方向" : null,

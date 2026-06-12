@@ -21,11 +21,11 @@ export function PageHeader({
   const [rfOpen, setRfOpen] = useState(false);
   return (
     <>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "14px 16px 10px", flexShrink: 0 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.5 }}>{title}</div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "15px 16px 10px", flexShrink: 0 }}>
+        <div style={{ fontSize: 19, fontWeight: 850, letterSpacing: 0 }}>{title}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
           <HeartBeat lastAt={lastAt ?? null} intervalMs={intervalMs} workerAt={workerAt} rtt={rtt} />
-          <div onClick={() => setRfOpen(true)} style={{ fontSize: 9, color: "var(--gold)", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+          <div onClick={() => setRfOpen(true)} style={{ fontSize: 11.5, color: "var(--gold)", fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>
             ⟳ 数据刷新规则 ›
           </div>
         </div>

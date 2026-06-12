@@ -62,10 +62,10 @@ describe("checkReadonly(只读层判定)", () => {
     expect(rows.find((r) => r.key === "AF 密钥已配置")?.status).toBe("fail");
     expect(rows.find((r) => r.key === "异动生成")?.status).toBe("skip");
     expect(rows.find((r) => r.key === "战绩结算")?.status).toBe("skip");
-    expect(rows.find((r) => r.key === "盘口快照新鲜度")?.status).toBe("skip"); // 无在售场次
+    expect(rows.find((r) => r.key === "指数快照新鲜度")?.status).toBe("skip"); // 无在售场次
   });
 
-  it("完场预测缺 winner.id 时,战绩结算 skip 而非误报 fail", async () => {
+  it("完场概率信封缺 winner.id 时,战绩结算 skip 而非误报 fail", async () => {
     process.env.API_FOOTBALL_KEY = "test-key-selfcheck";
     upsertFixture({
       fixture: { id: 7101, date: new Date(Date.now() - 2 * 3_600_000).toISOString(), status: { short: "FT", elapsed: 90 } },

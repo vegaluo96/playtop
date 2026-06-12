@@ -31,7 +31,7 @@ function dig(obj: unknown, ...path: (string | number)[]): unknown {
 }
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
-/* ── 赔率走势:全序列 → 变盘点行 + 折线采样 ── */
+/* ── 指数走势:全序列 → 变盘点行 + 折线采样 ── */
 /** 序列跨天时时间标注带日期(纯 HH:mm 会显得「时间倒流」) */
 function tLabelOf(series: SnapRow[], tz: string): (at: number) => string {
   const spanDay = series.length > 1 && dateStr(series[0].captured_at, tz) !== dateStr(series[series.length - 1].captured_at, tz);
@@ -462,9 +462,9 @@ async function deepView(p: Panorama) {
       v: v(it),
     }));
   const lb = [
-    { tag: "射手榜", tagC: "#e9b949", rows: board(d.topscorers, (it) => `${stat0(it, "goals", "total") ?? 0} 球`) },
-    { tag: "助攻榜", tagC: "#5b9dff", rows: board(d.topassists, (it) => `${stat0(it, "goals", "assists") ?? 0} 助攻`) },
-    { tag: "黄牌榜", tagC: "#e9b949", rows: board(d.topyellow, (it) => `${stat0(it, "cards", "yellow") ?? 0} 黄`) },
+    { tag: "射手榜", tagC: "#00c805", rows: board(d.topscorers, (it) => `${stat0(it, "goals", "total") ?? 0} 球`) },
+    { tag: "助攻榜", tagC: "#3f8cff", rows: board(d.topassists, (it) => `${stat0(it, "goals", "assists") ?? 0} 助攻`) },
+    { tag: "黄牌榜", tagC: "#f2b84b", rows: board(d.topyellow, (it) => `${stat0(it, "cards", "yellow") ?? 0} 黄`) },
     { tag: "红牌榜", tagC: "var(--red)", rows: board(d.topred, (it) => `${stat0(it, "cards", "red") ?? 0} 红`) },
   ];
 
@@ -681,7 +681,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   const ouAll = merged(p.odds.ou, "ou");
   const euAll = merged(p.odds.eu, "eu");
   const ps = predSummary(pred, fx.home_id, { ah: hintOf(ahAll), ou: hintOf(ouAll), homeName: nameZh(fx.home_name), awayName: nameZh(fx.away_name) });
-  // 综合指数:赛前段缓存 60s(盘口慢变),滚球段实时拼接(5s 帧不允许延迟)
+  // 综合指数:赛前段缓存 60s(指数慢变),滚球段实时拼接(5s 帧不允许延迟)
   const cidx = async (mk: "ah" | "ou" | "eu") => {
     const pre = await kvCached(`cidx:${fx.fixture_id}:${mk}`, 60_000, async () => compositePre(fx.fixture_id, mk, fx.kickoff_utc));
     const liveSeg = live || isFinished(fx.status) ? compositeLive(fx.fixture_id, mk) : [];
@@ -702,7 +702,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       const frames = data ? normalizeLiveOddsItem(data) : [];
       const rowsOut = frames.map((f) =>
         f.market === "ah"
-          ? { mk: "亚盘", v: `${f.line != null ? ahText(f.line) : ""} · ${f2(f.h)} / ${f2(f.a)}`, susp: f.suspended }
+          ? { mk: "让球", v: `${f.line != null ? ahText(f.line) : ""} · ${f2(f.h)} / ${f2(f.a)}`, susp: f.suspended }
           : f.market === "ou"
             ? { mk: "大小", v: `${f.line != null ? `${f.line} 球` : ""} · ${f2(f.h)} / ${f2(f.a)}`, susp: f.suspended }
             : { mk: "胜平负", v: `${f2(f.h)} / ${f2(f.d ?? 0)} / ${f2(f.a)}`, susp: f.suspended },
@@ -723,6 +723,8 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       nText: market === "ah" ? ahText(c.last.line ?? 0) : ouText(c.last.line ?? 0),
       nW: `${f2(c.last.h)} / ${f2(c.last.a)}`,
       changed: c.first.line !== c.last.line,
+      waterChanged: c.first.h !== c.last.h || c.first.a !== c.last.a,
+      chgAt: c.last.captured_at,
     }));
   // ② 凯利指数 + 离散度(≥3 家才有共识意义);④ 升降盘方向 + 返还率首末对照
   const euMeta = euKelly(p.odds.compareEu.map((c) => c.last));
@@ -731,6 +733,8 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     bid: c.last.bookmaker_id,
     iW: `${f2(c.first.h)} / ${f2(c.first.d ?? 0)} / ${f2(c.first.a)}`,
     nW: `${f2(c.last.h)} / ${f2(c.last.d ?? 0)} / ${f2(c.last.a)}`,
+    changed: c.first.h !== c.last.h || c.first.d !== c.last.d || c.first.a !== c.last.a,
+    chgAt: c.last.captured_at,
     k: euMeta ? [kellyOf(c.last.h, euMeta.prob.h), kellyOf(c.last.d ?? null, euMeta.prob.d), kellyOf(c.last.a, euMeta.prob.a)] : null,
   }));
   // ah/ou 快照存净水,返还率按欧赔小数(净水+1)计算

@@ -1,24 +1,32 @@
 @import "tailwindcss";
 
-/* ── 设计 token(唯一来源:盯盘Pro 设计稿 §4)──
+/* ── 设计 token:Robinhood 式行情终端基调 ──
    所有红/绿语义(升降、✓✗、盈亏)一律走 --up/--down,
    用户在「我 · 涨跌配色」切换 data-scheme,严禁写死。 */
 :root {
-  --bg: #0a0b0f;
-  --card: #12141a;
-  --inset: #181b23;
-  --line: #20242e;
-  --line-soft: #181b23;
-  --fg: #eceef2;
-  --fg-2: #959ba6;
-  --fg-3: #5c626e;
-  --fg-4: #383d47;
-  --fg-mid: #c3c8d2;
-  --gold: #e9b949;
-  --gold-2: #d9a32e;
-  --home: #5b9dff;
-  --red: #f0434f;
-  --green: #2ecc8a;
+  --bg: #0b0f0d;
+  --card: #111713;
+  --inset: #171d19;
+  --line: #27332b;
+  --line-soft: #1f2923;
+  --fg: #f4f8f5;
+  --fg-2: #b7c3bb;
+  --fg-3: #829087;
+  --fg-4: #5e6b63;
+  --fg-mid: #dce5df;
+  --gold: #00c805;
+  --gold-2: #00a805;
+  --on-accent: #001b08;
+  --accent-bg: rgba(0, 200, 5, 0.12);
+  --accent-border: rgba(0, 200, 5, 0.34);
+  --danger-bg: rgba(255, 82, 82, 0.13);
+  --warn: #f2b84b;
+  --warn-bg: rgba(242, 184, 75, 0.12);
+  --warn-border: rgba(242, 184, 75, 0.32);
+  --home: #3f8cff;
+  --home-bg: rgba(63, 140, 255, 0.12);
+  --red: #ff5c5c;
+  --green: #00c805;
   /* 默认红升绿降 */
   --up: var(--red);
   --down: var(--green);
@@ -27,18 +35,46 @@
   --up: var(--green);
   --down: var(--red);
 }
+[data-theme="light"] {
+  --bg: #f7faf8;
+  --card: #ffffff;
+  --inset: #f1f5f2;
+  --line: #dce6df;
+  --line-soft: #edf3ef;
+  --fg: #0f1712;
+  --fg-2: #526158;
+  --fg-3: #7a877f;
+  --fg-4: #a2aea7;
+  --fg-mid: #25322a;
+  --gold: #00a000;
+  --gold-2: #008f05;
+  --on-accent: #ffffff;
+  --accent-bg: rgba(0, 160, 0, 0.10);
+  --accent-border: rgba(0, 160, 0, 0.28);
+  --danger-bg: rgba(217, 48, 48, 0.10);
+  --warn: #9a6700;
+  --warn-bg: rgba(154, 103, 0, 0.10);
+  --warn-border: rgba(154, 103, 0, 0.26);
+  --home: #2563eb;
+  --home-bg: rgba(37, 99, 235, 0.10);
+  --red: #d93030;
+  --green: #00a000;
+}
 
 html,
 body {
   margin: 0;
   padding: 0;
-  background: #060709;
+  background: var(--bg);
   color: var(--fg);
   /* 锁死文档滚动:页面滚动只发生在应用内部容器,杜绝移动端地址栏伸缩导致
      的整页滚动(头部滚走/底栏悬空/下方留白) */
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 * {
   box-sizing: border-box;
@@ -61,11 +97,6 @@ textarea {
   font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* 浅色模式:MVP 用 invert 方案(HANDOFF §4),正式版 token 化 */
-[data-theme="light"] .app-shell {
-  filter: invert(1) hue-rotate(180deg);
-}
-
 @keyframes livepulse {
   0%,
   100% {
@@ -73,24 +104,6 @@ textarea {
   }
   50% {
     opacity: 0.3;
-  }
-}
-@keyframes wcglow {
-  0%,
-  100% {
-    box-shadow: 0 0 4px rgba(233, 185, 73, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 12px rgba(233, 185, 73, 0.55);
-  }
-}
-@keyframes wcsweep {
-  0% {
-    transform: translateX(-50px) skewX(-20deg);
-  }
-  55%,
-  100% {
-    transform: translateX(130px) skewX(-20deg);
   }
 }
 .livepulse {
@@ -116,7 +129,7 @@ textarea {
 }
 @keyframes flashGold {
   0% {
-    background: rgba(233, 185, 73, 0.28);
+    background: color-mix(in srgb, var(--gold) 20%, transparent);
   }
   100% {
     background: transparent;
@@ -178,10 +191,10 @@ textarea {
   display: none;
 }
 .wcglow {
-  animation: wcglow 2.4s ease-in-out infinite;
+  animation: none;
 }
 .wcsweep {
-  animation: wcsweep 2.4s linear infinite;
+  display: none;
 }
 
 /* 骨架屏(详情页首屏) */

@@ -31,13 +31,13 @@ export async function GET(req: NextRequest) {
     const water = isEu
       ? `${f2(m.from_h)} → ${f2(m.to_h)}`
       : m.type === "水位"
-        ? `盘口维持 ${text(m.to_line)}`
+        ? `指数维持 ${text(m.to_line)}`
         : `${f2(m.from_h)} → ${f2(m.to_h)}`;
     const note = isEu
-      ? `滚球赔率 · 主胜 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`
+      ? `滚球指数 · 主胜 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`
       : m.type === "水位"
-        ? `盘口不变 · ${sideZh}水 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`
-        : `盘口 ${lineDelta >= 0 ? "+" : ""}${f2(lineDelta)} · ${sideZh}水 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`;
+        ? `指数不变 · ${sideZh}水 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`
+        : `指数 ${lineDelta >= 0 ? "+" : ""}${f2(lineDelta)} · ${sideZh}水 ${hDelta >= 0 ? "+" : ""}${f2(hDelta)}`;
     return {
       id: m.id,
       fixtureId: m.fixture_id,
@@ -46,8 +46,8 @@ export async function GET(req: NextRequest) {
       match: `${nameZh(m.home_name)} vs ${nameZh(m.away_name)}`,
       league: leagueZh(m.league_id, m.league_name),
       leagueId: m.league_id,
-      mk: isEu ? "胜平负" : isAh ? "亚盘" : "大小",
-      mkFull: isEu ? "胜平负(滚球)" : isAh ? "亚洲让球盘" : "大小球(进球数)",
+      mk: isEu ? "胜平负" : isAh ? "让球" : "大小",
+      mkFull: isEu ? "胜平负(滚球)" : isAh ? "让球指数" : "大小指数(进球数)",
       live: liveMove,
       bk: liveMove ? m.bookmaker : maskBookmaker(m.bookmaker),
       type: m.type,
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       from: masked ? "●●●" : fromS,
       to: masked ? "●●●" : toS,
       water: masked ? "●.●● → ●.●●" : water,
-      note: masked ? "注册后查看完整异动" : note,
+      note: masked ? "登录后查看完整异动流" : note,
       rows: masked
         ? []
         : isEu
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
               { k: "客胜赔", a: f2(m.from_a), b: f2(m.to_a) },
             ]
           : [
-              { k: "盘口", a: text(m.from_line), b: text(m.to_line), chg: lineDelta !== 0 },
+              { k: "指数", a: text(m.from_line), b: text(m.to_line), chg: lineDelta !== 0 },
               { k: isAh ? "主队水位" : "大球水位", a: f2(m.from_h), b: f2(m.to_h) },
               { k: isAh ? "客队水位" : "小球水位", a: f2(m.from_a), b: f2(m.to_a) },
             ],

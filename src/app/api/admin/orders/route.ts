@@ -1,9 +1,9 @@
-/** 订单与积分:全局流水(含邀请触限拦截行) */
+/** 订单与额度:全局流水(含邀请触限拦截行) */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { currentAdmin } from "@/server/admin/auth";
 
-const TAG: Record<string, string> = { recharge: "充值", unlock: "解锁", redeem: "兑换", invite: "邀请", gift: "礼包", adjust: "调整" };
+const TAG: Record<string, string> = { recharge: "购买", unlock: "解锁", redeem: "兑换", invite: "邀请", gift: "礼包", adjust: "调整" };
 
 export async function GET(req: NextRequest) {
   if (!(await currentAdmin())) return NextResponse.json({ ok: false }, { status: 401 });

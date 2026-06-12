@@ -1,6 +1,6 @@
 "use client";
 
-/** 赛事列表(首页):日期/联赛筛选 + 三列等宽盘口卡(64px),免注册打码由服务端执行 */
+/** 赛事列表(首页):日期/联赛筛选 + 三列等宽指数卡,免注册打码由服务端执行 */
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
@@ -10,24 +10,15 @@ import { RiskFooter } from "@/components/consent-bar";
 import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
 import { Chip, Sheet } from "@/components/ui";
-import { f2, hhmm, parseTzOffset } from "@/lib/format";
+import { hhmm, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
 import { Flash, useUnifiedPoll } from "@/components/live";
+import { MarketCell, type MarketCellData } from "@/components/market-cell";
 import { useWatchlist, WatchStar } from "@/components/watch";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
-import { SITE_CN_NAME } from "@/lib/site";
 
-interface Cell {
-  text: string;
-  h: number;
-  a: number;
-  d: number | null;
-  hd: number;
-  ad: number;
-  line: number | null;
-  chgAt: number | null;
-}
+type Cell = MarketCellData;
 interface Row {
   id: number;
   leagueId: number;
@@ -50,18 +41,6 @@ interface Row {
   ou: Cell | null;
   eu: Cell | null;
   ex: { ht: string | null; cor: string | null; red: string | null } | null;
-}
-
-const X = "-.--";
-
-function ArrowVal({ v, d, masked, chgAt }: { v: number | undefined; d: number | undefined; masked: boolean; chgAt?: number | null }) {
-  const ch = !masked && d ? (d > 0 ? "▲" : "▼") : "";
-  return (
-    <div style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
-      <Flash v={masked || v == null ? X : f2(v)} pulse={masked ? null : chgAt} pulseDir={d} className="mono" style={{ fontSize: 13.5, fontWeight: 600 }} />
-      <span style={{ fontSize: 8, color: d && d > 0 ? "var(--up)" : "var(--down)" }}>{ch}</span>
-    </div>
-  );
 }
 
 export default function MatchesRoute() {
@@ -121,7 +100,7 @@ function MobileMatchesPage() {
   ];
 
   const renderRow = (m: Row) => {
-    const tag = m.masked ? "注册可见" : m.free ? "免费分析" : m.unlocked ? "已解锁" : "";
+    const tag = m.masked ? "注册可见" : m.free ? "免费报告" : m.unlocked ? "报告已解锁" : "";
     const exLine = m.ex ? [m.ex.ht ? `半场 ${m.ex.ht}` : null, m.ex.cor ? `角 ${m.ex.cor}` : null, m.ex.red ? `红 ${m.ex.red}` : null].filter(Boolean).join(" · ") : "";
     return (
       <div
@@ -131,26 +110,26 @@ function MobileMatchesPage() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(m.leagueId) }} />
-          <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}>{leagueZh(m.leagueId, m.leagueName)}</span>
-          <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{hhmm(m.kickoff, prefs.tz)}</span>
+          <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 650 }}>{leagueZh(m.leagueId, m.leagueName)}</span>
+          <span className="mono" style={{ fontSize: 12, color: "var(--fg-3)" }}>{hhmm(m.kickoff, prefs.tz)}</span>
           {m.live && (
-            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--red)", fontWeight: 700 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "var(--red)", fontWeight: 800 }}>
               <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-              {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "直播"}
+              {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
             </span>
           )}
-          {exLine && <span className="mono" style={{ fontSize: 9, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{exLine}</span>}
+          {exLine && <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{exLine}</span>}
           <span style={{ flex: 1 }} />
           {m.moved && (
-            <span style={{ fontSize: 9, fontWeight: 700, color: "var(--gold)", border: "1px solid rgba(233,185,73,.45)", borderRadius: 4, padding: "1px 5px" }}>异动</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid rgba(0,200,5,.45)", borderRadius: 4, padding: "1px 6px" }}>异动</span>
           )}
           {tag && (
             <span
               style={{
-                fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "1px 6px",
-                background: m.masked ? "rgba(233,185,73,.12)" : m.free ? "rgba(46,204,138,.12)" : "var(--inset)",
+                fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "1px 6px",
+                background: m.masked ? "rgba(0,200,5,.12)" : m.free ? "rgba(46,204,138,.12)" : "var(--inset)",
                 color: m.masked ? "var(--gold)" : m.free ? "var(--green)" : "var(--fg-2)",
-                border: `1px solid ${m.masked ? "rgba(233,185,73,.4)" : m.free ? "rgba(46,204,138,.4)" : "var(--line)"}`,
+                border: `1px solid ${m.masked ? "rgba(0,200,5,.4)" : m.free ? "rgba(46,204,138,.4)" : "var(--line)"}`,
               }}
             >
               {tag}
@@ -158,10 +137,10 @@ function MobileMatchesPage() {
           )}
           {!m.masked && <WatchStar on={watch.ids.has(m.id)} onToggle={() => watch.toggle(m.id)} size={13} style={{ marginRight: -6 }} />}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 64px 64px 64px", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 70px 70px 70px", gap: 8, alignItems: "center" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--home)", background: "rgba(91,157,255,.12)", borderRadius: 3, padding: "1px 4px" }}>主</span>
+              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--home)", background: "rgba(63,140,255,.12)", borderRadius: 3, padding: "1px 5px" }}>主</span>
               <TeamLogo id={m.homeId} name={m.home} size={16} />
               <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
             </div>
@@ -169,32 +148,14 @@ function MobileMatchesPage() {
               <Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} />
             </div>
             <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--gold)", background: "rgba(233,185,73,.12)", borderRadius: 3, padding: "1px 4px" }}>客</span>
+              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--gold)", background: "rgba(0,200,5,.12)", borderRadius: 3, padding: "1px 5px" }}>客</span>
               <TeamLogo id={m.awayId} name={m.away} size={16} />
               <span style={{ fontSize: 15, fontWeight: 600, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.away}</span>
             </div>
           </div>
-          <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
-            <ArrowVal v={m.ah?.h} d={m.ah?.hd} masked={m.masked} chgAt={m.ah?.chgAt} />
-            <div style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700, color: "var(--gold)" }}>
-              <Flash v={m.masked ? "●●" : (m.ah?.text ?? "—")} />
-            </div>
-            <ArrowVal v={m.ah?.a} d={m.ah?.ad} masked={m.masked} chgAt={m.ah?.chgAt} />
-          </div>
-          <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
-            <ArrowVal v={m.ou?.h} d={m.ou?.hd} masked={m.masked} chgAt={m.ou?.chgAt} />
-            <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>
-              <Flash v={m.masked ? "●●" : (m.ou?.text || "—")} />
-            </div>
-            <ArrowVal v={m.ou?.a} d={m.ou?.ad} masked={m.masked} chgAt={m.ou?.chgAt} />
-          </div>
-          <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
-            {[m.eu?.h, m.eu?.d, m.eu?.a].map((v, i) => (
-              <div key={i} className="mono" style={{ height: i === 1 ? 16 : 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: i === 1 ? 11 : 12.5, fontWeight: i === 1 ? 700 : 600, color: i === 1 ? "var(--gold)" : undefined }}>
-                <Flash v={m.masked || v == null ? X : f2(v)} pulse={m.masked ? null : m.eu?.chgAt} pulseDir={i === 0 ? m.eu?.hd : i === 2 ? m.eu?.ad : 0} />
-              </div>
-            ))}
-          </div>
+          <MarketCell kind="ah" cell={m.ah} masked={m.masked} />
+          <MarketCell kind="ou" cell={m.ou} masked={m.masked} />
+          <MarketCell kind="eu" cell={m.eu} masked={m.masked} />
         </div>
       </div>
     );
@@ -203,7 +164,7 @@ function MobileMatchesPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <AnnouncementBar />
-      <PageHeader title={<>{SITE_CN_NAME.slice(0, 2)}<span style={{ color: "var(--gold)" }}>{SITE_CN_NAME.slice(2)}</span></>} {...beat} />
+      <PageHeader title={<>足球<span style={{ color: "var(--gold)" }}>终端</span></>} {...beat} />
 
       <div style={{ display: "flex", gap: 8, padding: "6px 16px 8px", overflowX: "auto", flexShrink: 0 }}>
         {dateChips.map((c) => (
@@ -221,26 +182,26 @@ function MobileMatchesPage() {
               onClick={() => setLeague(String(l.id))}
               className={league === String(l.id) ? "wcglow" : undefined}
               style={{
-                position: "relative", overflow: "hidden", flexShrink: 0, padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: "pointer",
-                background: league === String(l.id) ? "rgba(233,185,73,.16)" : "var(--card)",
+                position: "relative", overflow: "hidden", flexShrink: 0, padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 750, cursor: "pointer",
+                background: league === String(l.id) ? "rgba(0,200,5,.16)" : "var(--card)",
                 color: league === String(l.id) ? "var(--gold)" : "var(--fg-2)",
-                border: `1px solid ${league === String(l.id) ? "rgba(233,185,73,.65)" : "rgba(233,185,73,.28)"}`,
+                border: `1px solid ${league === String(l.id) ? "rgba(0,200,5,.65)" : "rgba(0,200,5,.28)"}`,
               }}
             >
               {league === String(l.id) && (
-                <span className="wcsweep" style={{ position: "absolute", top: 0, left: 0, width: 36, height: "100%", background: "linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent)" }} />
+                <span className="wcsweep" style={{ position: "absolute", top: 0, left: 0, width: 36, height: "100%", background: "transparent" }} />
               )}
               <span style={{ position: "relative" }}><span style={{ color: "var(--gold)" }}>★</span> {l.zh}</span>
             </div>
           ) : (
-            <Chip key={l.id} label={l.zh} active={league === String(l.id)} onClick={() => setLeague(String(l.id))} style={{ padding: "5px 12px", fontSize: 11 }} />
+            <Chip key={l.id} label={l.zh} active={league === String(l.id)} onClick={() => setLeague(String(l.id))} style={{ padding: "6px 12px", fontSize: 12 }} />
           ),
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 64px 64px 64px", gap: 8, padding: "4px 24px 6px 20px", alignItems: "center" }}>
-        {["对阵", "亚盘", "大小", "胜平负"].map((h, i) => (
-          <div key={h} style={{ fontSize: 10, color: "var(--fg-3)", textAlign: i === 0 ? "left" : "center" }}>{h}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 70px 70px 70px", gap: 8, padding: "4px 24px 7px 20px", alignItems: "center" }}>
+        {["对阵", "让球", "大小", "胜平负"].map((h, i) => (
+          <div key={h} style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 700, textAlign: i === 0 ? "left" : "center" }}>{h}</div>
         ))}
       </div>
 
@@ -253,7 +214,7 @@ function MobileMatchesPage() {
           const others = rows.filter((r) => !watch.ids.has(r.id));
           const section = (label: string) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px 6px" }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: "var(--gold)" }}>{label}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)" }}>{label}</span>
               <span style={{ flex: 1, height: 1, background: "var(--line-soft)" }} />
             </div>
           );
@@ -271,7 +232,7 @@ function MobileMatchesPage() {
       <Sheet open={dateOpen} onClose={() => setDateOpen(false)}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
           <span style={{ fontSize: 15, fontWeight: 800 }}>选择日期</span>
-          <span style={{ fontSize: 10, color: "var(--fg-3)" }}>赛程与盘口提前 14 天归档</span>
+          <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>赛程与指数提前 14 天归档</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
           {futureDays.map((d) => (
@@ -281,7 +242,7 @@ function MobileMatchesPage() {
                 setDay(d.k);
                 setDateOpen(false);
               }}
-              style={{ textAlign: "center", padding: "10px 0", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", background: day === d.k ? "rgba(233,185,73,.14)" : "var(--inset)", color: day === d.k ? "var(--gold)" : "var(--fg-mid)" }}
+              style={{ textAlign: "center", padding: "10px 0", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", background: day === d.k ? "rgba(0,200,5,.14)" : "var(--inset)", color: day === d.k ? "var(--gold)" : "var(--fg-mid)" }}
             >
               {d.label}
             </div>

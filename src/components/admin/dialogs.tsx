@@ -64,7 +64,7 @@ export function AdminDialogHost() {
       onClick={onClick}
       style={{
         flex: 1, textAlign: "center", cursor: "pointer", borderRadius: 9, padding: "10px 0", fontSize: 12.5, fontWeight: 800,
-        background: gold ? "linear-gradient(90deg,var(--gold),var(--gold-2))" : "var(--inset)",
+        background: gold ? "var(--gold)" : "var(--inset)",
         color: gold ? "#0a0b0f" : "var(--fg-2)",
         border: gold ? "none" : "1px solid var(--line)",
       }}
@@ -76,7 +76,7 @@ export function AdminDialogHost() {
     d.kind === "prompt" ? (
       <>
         <div style={{ fontSize: 14, fontWeight: 800, marginBottom: d.hint ? 4 : 12 }}>{d.title}</div>
-        {d.hint && <div style={{ fontSize: 10.5, color: "var(--fg-3)", marginBottom: 10, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{d.hint}</div>}
+        {d.hint && <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginBottom: 10, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{d.hint}</div>}
         {d.multiline ? (
           <textarea
             autoFocus
@@ -102,7 +102,7 @@ export function AdminDialogHost() {
     ) : d.kind === "confirm" ? (
       <>
         <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.7, marginBottom: 6, whiteSpace: "pre-wrap" }}>{d.text}</div>
-        <div style={{ fontSize: 10, color: "var(--fg-3)", marginBottom: 14 }}>该操作将写入审计日志,确认执行?</div>
+        <div style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 14 }}>该操作将写入审计日志,确认执行?</div>
         <div style={{ display: "flex", gap: 10 }}>
           <Btn label="取消" onClick={() => close(false)} />
           <Btn label="确认执行" gold onClick={() => close(true)} />

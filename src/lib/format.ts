@@ -1,5 +1,5 @@
 /**
- * 盘口文本与涨跌格式化(从设计稿逻辑类原样移植,全站唯一来源)。
+ * 指数文本与涨跌格式化(从设计稿逻辑类原样移植,全站唯一来源)。
  */
 
 export const AH_TEXT: Record<string, string> = {
@@ -13,13 +13,13 @@ export const OU_TEXT: Record<string, string> = {
   "3.75": "三半/四", "4": "四球", "4.25": "四/四半", "4.5": "四球半",
 };
 
-/** 亚盘盘口 → 中文(负让球加「受」前缀) */
+/** 让球指数 → 中文(负让球加「受」前缀) */
 export function ahText(line: number): string {
   const t = AH_TEXT[String(Math.abs(line))] ?? String(Math.abs(line));
   return (line < 0 ? "受" : "") + t;
 }
 
-/** 大小球盘口 → 中文 */
+/** 大小指数 → 中文 */
 export function ouText(line: number): string {
   return OU_TEXT[String(line)] ?? String(line);
 }

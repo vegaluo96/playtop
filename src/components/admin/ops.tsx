@@ -1,6 +1,6 @@
 "use client";
 
-/** 用户管理 / 订单与积分 / 赛事与内容 / 营销配置(四个运营模块) */
+/** 用户管理 / 订单与额度 / 赛事与内容 / 营销配置(四个运营模块) */
 import { aAlert, aConfirm, aPrompt } from "./dialogs";
 import { useCallback, useEffect, useState } from "react";
 import { ABtn, ACard, AChip, AGrid, AInput, Th, fmtT, post, val } from "./ui";
@@ -8,7 +8,7 @@ import { ABtn, ACard, AChip, AGrid, AInput, Th, fmtT, post, val } from "./ui";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
 
-const ST_COLOR: Record<string, string> = { 正常: "#959ba6", 付费: "#e9b949", 免费: "#959ba6", 风控: "var(--red)", 已封禁: "#5c626e" };
+const ST_COLOR: Record<string, string> = { 正常: "var(--fg-3)", 付费: "var(--gold)", 免费: "var(--fg-3)", 风控: "var(--red)", 已封禁: "var(--fg-3)" };
 
 export function UsersView() {
   const [data, setData] = useState<V | null>(null);
@@ -45,22 +45,22 @@ export function UsersView() {
       </div>
       <ACard pad={false}>
         <AGrid cols="1.6fr 70px 90px 90px 60px 60px 70px 150px" head>
-          <Th t="用户" /><Th t="注册" /><Th t="积分余额" right /><Th t="累计充值" right /><Th t="解锁" right /><Th t="邀请" right /><Th t="状态" center /><Th t="操作" right />
+          <Th t="用户" /><Th t="注册" /><Th t="账户额度" right /><Th t="累计购买" right /><Th t="解锁" right /><Th t="邀请" right /><Th t="状态" center /><Th t="操作" right />
         </AGrid>
         {(data?.rows ?? []).map((u: V) => {
           const st = u.status === "正常" ? (u.pay > 0 ? "付费" : "免费") : u.status;
           return (
             <AGrid key={u.id} cols="1.6fr 70px 90px 90px 60px 60px 70px 150px">
               <span className="mono" style={{ fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.email}</span>
-              <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{fmtT(u.created_at).slice(0, 5)}</span>
+              <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{fmtT(u.created_at).slice(0, 5)}</span>
               <span className="mono" style={{ fontSize: 11, fontWeight: 700, textAlign: "right", color: "var(--gold)" }}>{u.pts.toLocaleString()}</span>
               <span className="mono" style={{ fontSize: 11, textAlign: "right", color: "var(--fg-2)" }}>¥{u.pay.toLocaleString()}</span>
               <span className="mono" style={{ fontSize: 11, textAlign: "right", color: "var(--fg-2)" }}>{u.un}</span>
               <span className="mono" style={{ fontSize: 11, textAlign: "right", color: "var(--fg-2)" }}>{u.iv}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, textAlign: "center", color: ST_COLOR[st] ?? "#959ba6" }}>{st}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, textAlign: "center", color: ST_COLOR[st] ?? "var(--fg-3)" }}>{st}</span>
               <span style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <ABtn small kind="line" label="调积分" onClick={async () => {
-                  const dv = await aPrompt(`为 ${u.email} 调整积分(正补偿/负扣减):`);
+                <ABtn small kind="line" label="调额度" onClick={async () => {
+                  const dv = await aPrompt(`为 ${u.email} 调整账户额度(正补偿/负扣减):`);
                   if (dv == null || !Number(dv)) return;
                   const reason = (await aPrompt("原因(写入流水与审计):")) ?? "";
                   void act("adjust", u.id, { delta: Number(dv), reason });
@@ -74,7 +74,7 @@ export function UsersView() {
             </AGrid>
           );
         })}
-        <div style={{ padding: "9px 14px", fontSize: 10, color: "var(--fg-3)" }}>共 {data?.total ?? 0} 名用户 · 显示最近 200</div>
+        <div style={{ padding: "9px 14px", fontSize: 11, color: "var(--fg-3)" }}>共 {data?.total ?? 0} 名用户 · 显示最近 200</div>
       </ACard>
     </>
   );
@@ -90,30 +90,30 @@ export function OrdersView() {
     void load();
     void loadCodes();
   }, [load, loadCodes]);
-  const TAGC: Record<string, string> = { 充值: "var(--green)", 解锁: "#e9b949", 兑换: "#5b9dff", 邀请: "#959ba6", 礼包: "#e9b949", 调整: "var(--red)" };
+  const TAGC: Record<string, string> = { 购买: "var(--green)", 解锁: "var(--gold)", 兑换: "var(--home)", 邀请: "var(--fg-3)", 礼包: "var(--gold)", 调整: "var(--red)" };
 
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        <span style={{ fontSize: 15, fontWeight: 800 }}>订单与积分</span>
+        <span style={{ fontSize: 15, fontWeight: 800 }}>订单与额度</span>
         <span style={{ flex: 1 }} />
-        {["全部", "充值", "解锁", "兑换", "邀请"].map((l) => (
+        {["全部", "购买", "解锁", "兑换", "邀请"].map((l) => (
           <AChip key={l} label={l} active={f === l} onClick={() => setF(l)} />
         ))}
       </div>
       <ACard pad={false} style={{ marginBottom: 14 }}>
         <AGrid cols="110px 150px 70px 1fr 80px 80px 70px" head>
-          <Th t="时间" /><Th t="用户" /><Th t="类型" /><Th t="明细" /><Th t="金额" right /><Th t="积分" right /><Th t="状态" center />
+          <Th t="时间" /><Th t="用户" /><Th t="类型" /><Th t="明细" /><Th t="金额" right /><Th t="额度" right /><Th t="状态" center />
         </AGrid>
         {(data?.rows ?? []).map((o: V, i: number) => (
           <AGrid key={i} cols="110px 150px 70px 1fr 80px 80px 70px">
-            <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{fmtT(o.t)}</span>
+            <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{fmtT(o.t)}</span>
             <span className="mono" style={{ fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.u}</span>
-            <span><span style={{ fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: "var(--inset)", color: TAGC[o.tag] ?? "#959ba6" }}>{o.tag}</span></span>
+            <span><span style={{ fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 7px", background: "var(--inset)", color: TAGC[o.tag] ?? "var(--fg-3)" }}>{o.tag}</span></span>
             <span style={{ fontSize: 11, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.x}</span>
             <span className="mono" style={{ fontSize: 11, textAlign: "right", color: "var(--fg-2)" }}>{o.rmb}</span>
             <span className="mono" style={{ fontSize: 11, fontWeight: 700, textAlign: "right", color: o.pts.startsWith("+") ? "var(--green)" : o.pts.startsWith("-") ? "var(--red)" : "var(--fg-3)" }}>{o.pts}</span>
-            <span style={{ fontSize: 10, fontWeight: 700, textAlign: "center", color: o.st === "成功" ? "var(--green)" : "var(--gold)" }}>{o.st}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", color: o.st === "成功" ? "var(--green)" : "var(--gold)" }}>{o.st}</span>
           </AGrid>
         ))}
       </ACard>
@@ -123,7 +123,7 @@ export function OrdersView() {
           right={<ABtn small kind="line" label="+ 生成批次" onClick={async () => {
             const code = (await aPrompt("码(4-16 位字母数字,如 WC2026):"))?.toUpperCase();
             if (!code) return;
-            const points = Number((await aPrompt("面值(积分):")) ?? 0);
+            const points = Number((await aPrompt("面值(额度):")) ?? 0);
             const maxUses = Number((await aPrompt("可领次数(批次容量):")) ?? 0);
             if (!(await aConfirm(`生成 ${code}:+${points} 分 × ${maxUses} 次`))) return;
             const j = await post("/api/admin/codes", { code, points, maxUses });
@@ -131,27 +131,27 @@ export function OrdersView() {
             void loadCodes();
           }} />}
         >
-          {codes.length === 0 && <div style={{ fontSize: 10.5, color: "var(--fg-3)" }}>暂无兑换码批次</div>}
+          {codes.length === 0 && <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>暂无兑换码批次</div>}
           {codes.map((c: V) => (
             <div key={c.code} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>
               <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>{c.code}</span>
-              <span style={{ fontSize: 10, color: "var(--fg-2)" }}>+{c.points} 分 · 限 1 次/人</span>
+              <span style={{ fontSize: 11, color: "var(--fg-2)" }}>+{c.points} 分 · 限 1 次/人</span>
               <span style={{ flex: 1 }} />
-              <span className="mono" style={{ fontSize: 10, color: "var(--fg-2)" }}>{c.used_count.toLocaleString()} / {c.max_uses.toLocaleString()}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: c.st === "生效中" ? "var(--green)" : c.st === "即将售罄" ? "var(--gold)" : "var(--fg-3)" }}>{c.st}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{c.used_count.toLocaleString()} / {c.max_uses.toLocaleString()}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: c.st === "生效中" ? "var(--green)" : c.st === "即将售罄" ? "var(--gold)" : "var(--fg-3)" }}>{c.st}</span>
             </div>
           ))}
         </ACard>
         <ACard title="邀请结算(今日)">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
-            {[[data?.invite?.ok ?? 0, "有效邀请", undefined], [`+${data?.invite?.pts ?? 0}`, "发放积分", "var(--gold)"], [data?.invite?.blocked ?? 0, "触限拦截", "var(--red)"]].map(([v, label, c]) => (
+            {[[data?.invite?.ok ?? 0, "有效邀请", undefined], [`+${data?.invite?.pts ?? 0}`, "发放额度", "var(--gold)"], [data?.invite?.blocked ?? 0, "触限拦截", "var(--red)"]].map(([v, label, c]) => (
               <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "9px 0", textAlign: "center" }}>
                 <div className="mono" style={{ fontSize: 15, fontWeight: 800, color: c as string | undefined }}>{v as string}</div>
-                <div style={{ fontSize: 9, color: "var(--fg-3)" }}>{label as string}</div>
+                <div style={{ fontSize: 11, color: "var(--fg-3)" }}>{label as string}</div>
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 10, color: "var(--fg-3)", lineHeight: 1.7 }}>结算口径:好友注册即计;超出 日/周/月 上限自动拦截;疑似自邀(同 IP)进风控队列。</div>
+          <div style={{ fontSize: 11, color: "var(--fg-3)", lineHeight: 1.7 }}>结算口径:好友注册即计;超出 日/周/月 上限自动拦截;疑似自邀(同 IP)进风控队列。</div>
         </ACard>
       </div>
     </>
@@ -179,23 +179,23 @@ export function MatchesView() {
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 14, alignItems: "start" }}>
         <ACard pad={false}>
           <AGrid cols="1.4fr 70px 60px 100px 90px 60px 110px" head>
-            <Th t="比赛" /><Th t="联赛" /><Th t="开赛" /><Th t="免费场" center /><Th t="预测定价" right /><Th t="状态" center /><Th t="操作" right />
+            <Th t="比赛" /><Th t="联赛" /><Th t="开赛" /><Th t="免费场" center /><Th t="报告定价" right /><Th t="状态" center /><Th t="操作" right />
           </AGrid>
           {(data?.rows ?? []).map((m: V) => (
             <AGrid key={m.id} cols="1.4fr 70px 60px 100px 90px 60px 110px">
               <span style={{ fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.m}</span>
-              <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{m.lg}</span>
-              <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{m.t}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, textAlign: "center", color: m.free ? "var(--green)" : "var(--fg-3)" }}>{m.free ? "今日免费场" : "—"}</span>
-              <span className="mono" style={{ fontSize: 10.5, textAlign: "right", color: "var(--fg-2)" }}>{m.price}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, textAlign: "center", color: m.st === "隐藏" ? "var(--red)" : m.st === "滚球" ? "var(--gold)" : "var(--green)" }}>{m.st}</span>
+              <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{m.lg}</span>
+              <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{m.t}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", color: m.free ? "var(--green)" : "var(--fg-3)" }}>{m.free ? "今日免费场" : "—"}</span>
+              <span className="mono" style={{ fontSize: 11.5, textAlign: "right", color: "var(--fg-2)" }}>{m.price}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, textAlign: "center", color: m.st === "隐藏" ? "var(--red)" : m.st === "滚球" ? "var(--gold)" : "var(--green)" }}>{m.st}</span>
               <span style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <ABtn small kind="line" label={m.free ? "取消免费" : "设为免费"} onClick={() => void act({ action: m.free ? "unfree" : "free", fixtureId: m.id })} />
                 <ABtn small kind={m.st === "隐藏" ? "green" : "red"} label={m.st === "隐藏" ? "恢复" : "隐藏"} onClick={() => void act({ action: m.st === "隐藏" ? "show" : "hide", fixtureId: m.id })} />
               </span>
             </AGrid>
           ))}
-          <div style={{ padding: "9px 14px", fontSize: 10, color: "var(--fg-3)" }}>免费场策略:每日可设多场,逐场点「设为免费」即可;当日未设置时调度自动选定 1 场。隐藏=列表不展示(数据仍归档)</div>
+          <div style={{ padding: "9px 14px", fontSize: 11, color: "var(--fg-3)" }}>免费场策略:每日可设多场,逐场点「设为免费」即可;当日未设置时调度自动选定 1 场。隐藏=列表不展示(数据仍归档)</div>
         </ACard>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <ACard title="联赛开关" right={<ABtn small kind="line" label="+ 添加联赛" onClick={async () => {
@@ -226,7 +226,7 @@ export function MatchesView() {
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 10 }}>开关决定抓取与展示范围;↑↓ 调整用户端 chips 顺序,保存即生效;worker 下一轮自动套用分层调度</div>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 10 }}>开关决定抓取与展示范围;↑↓ 调整用户端 chips 顺序,保存即生效;worker 下一轮自动套用分层调度</div>
           </ACard>
           <ACard title="公告 / Banner" right={<ABtn small kind="line" label="+ 新建公告" onClick={async () => {
             const text = await aPrompt("公告内容:");
@@ -235,13 +235,13 @@ export function MatchesView() {
               void load();
             }
           }} />}>
-            {(data?.anns ?? []).length === 0 && <div style={{ fontSize: 10.5, color: "var(--fg-3)" }}>暂无公告</div>}
+            {(data?.anns ?? []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>暂无公告</div>}
             {(data?.anns ?? []).map((a: V) => (
               <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
                 <span style={{ flex: 1, fontSize: 11, color: "var(--fg-mid)" }}>{a.text}</span>
                 <span
                   onClick={() => void act({ action: "ann_toggle", id: a.id })}
-                  style={{ fontSize: 10, fontWeight: 700, cursor: "pointer", color: a.status === "上线中" ? "var(--green)" : "var(--fg-3)" }}
+                  style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", color: a.status === "上线中" ? "var(--green)" : "var(--fg-3)" }}
                 >
                   {a.status}
                 </span>
@@ -272,19 +272,19 @@ export function MktView() {
   return (
     <>
       <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>
-        营销配置 <span style={{ fontSize: 10, color: "var(--fg-3)", fontWeight: 400 }}>· 改动需二次确认并写入审计日志</span>
+        营销配置 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>· 改动需二次确认并写入审计日志</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "start" }}>
-        <ACard title="充值档位">
+        <ACard title="购买额度档位">
           <AGrid cols="70px 1fr 70px 70px" head>
-            <Th t="金额" /><Th t="到账积分" /><Th t="加赠" right /><Th t="标签" center />
+            <Th t="金额" /><Th t="到账额度" /><Th t="加赠" right /><Th t="标签" center />
           </AGrid>
           {v.tiers.map((t: V, i: number) => (
             <AGrid key={i} cols="70px 1fr 70px 70px">
               <span className="mono" style={{ fontSize: 11 }}>¥{t.rmb}</span>
               <span className="mono" style={{ fontSize: 11, color: "var(--gold)" }}>{t.pts.toLocaleString()}</span>
-              <span style={{ fontSize: 10, textAlign: "right", color: t.tag ? "var(--green)" : "var(--fg-2)" }}>{t.tag ?? "—"}</span>
-              <span style={{ fontSize: 10, textAlign: "center", color: t.hot ? "var(--gold)" : "var(--fg-3)" }}>{t.hot ? "最划算" : "—"}</span>
+              <span style={{ fontSize: 11, textAlign: "right", color: t.tag ? "var(--green)" : "var(--fg-2)" }}>{t.tag ?? "—"}</span>
+              <span style={{ fontSize: 11, textAlign: "center", color: t.hot ? "var(--gold)" : "var(--fg-3)" }}>{t.hot ? "最划算" : "—"}</span>
             </AGrid>
           ))}
           <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
@@ -293,20 +293,20 @@ export function MktView() {
               const next = await aPrompt("档位 JSON([{rmb,pts,tag?,hot?},…]):", cur);
               if (next && next !== cur) {
                 try {
-                  void save({ action: "tiers", tiers: JSON.parse(next) }, "更新充值档位");
+                  void save({ action: "tiers", tiers: JSON.parse(next) }, "更新购买额度档位");
                 } catch {
                   void aAlert("JSON 无效");
                 }
               }
             }} />
-            <span style={{ fontSize: 10, color: "var(--fg-3)" }}>首充加赠 50%(开关在右侧规则卡)</span>
+            <span style={{ fontSize: 11, color: "var(--fg-3)" }}>首购加赠 50%(开关在右侧规则卡)</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
             <span style={{ flex: 1, fontSize: 11, color: v.rechargeMaintenance ? "var(--gold)" : "var(--fg-2)", fontWeight: 700 }}>
-              充值维护{v.rechargeMaintenance ? " · 维护中(用户端已暂停充值)" : " · 正常"}
+              购买额度维护{v.rechargeMaintenance ? " · 维护中(用户端已暂停购买额度)" : " · 正常"}
             </span>
-            <ABtn small kind={v.rechargeMaintenance ? "red" : "line"} label={v.rechargeMaintenance ? "恢复充值" : "开启维护"}
-              onClick={() => void save({ action: "recharge_maintenance", on: !v.rechargeMaintenance }, v.rechargeMaintenance ? "恢复充值通道" : "开启充值维护(用户端暂停充值)")} />
+            <ABtn small kind={v.rechargeMaintenance ? "red" : "line"} label={v.rechargeMaintenance ? "恢复购买" : "开启维护"}
+              onClick={() => void save({ action: "recharge_maintenance", on: !v.rechargeMaintenance }, v.rechargeMaintenance ? "恢复购买额度通道" : "开启购买额度维护(用户端暂停购买额度)")} />
           </div>
         </ACard>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -314,24 +314,24 @@ export function MktView() {
             <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
               {[["赛前价", "mk-pre", v.pricePre], ["滚球价", "mk-live", v.priceLive]].map(([label, id, value]) => (
                 <div key={id as string} style={{ flex: 1, background: "var(--inset)", borderRadius: 8, padding: "9px 12px" }}>
-                  <div style={{ fontSize: 9, color: "var(--fg-3)", marginBottom: 4 }}>{label as string}(积分)</div>
+                  <div style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 4 }}>{label as string}(额度)</div>
                   <AInput id={id as string} mono defaultValue={String(value)} />
                 </div>
               ))}
             </div>
             <ABtn small kind="line" label="保存定价" onClick={() => void save({ action: "prices", price_pre: Number(val("mk-pre")), price_live: Number(val("mk-live")) }, `解锁定价 → 赛前 ${val("mk-pre")} / 滚球 ${val("mk-live")}`)} />
-            <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 8 }}>开赛自动切换滚球价 · 已解锁用户不受影响</div>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>开赛自动切换滚球价 · 已解锁用户不受影响</div>
           </ACard>
           <ACard title="新人与邀请">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
-              {[["新人礼包", "mk-gift", v.gift], ["每次邀请", "mk-iv", v.invitePoints], ["日上限", "mk-d", v.caps.day], ["周上限", "mk-w", v.caps.week], ["月上限", "mk-m", v.caps.month]].map(([label, id, value]) => (
+              {[["基础报告额度", "mk-gift", v.gift], ["每次邀请", "mk-iv", v.invitePoints], ["日上限", "mk-d", v.caps.day], ["周上限", "mk-w", v.caps.week], ["月上限", "mk-m", v.caps.month]].map(([label, id, value]) => (
                 <div key={id as string}>
-                  <div style={{ fontSize: 9, color: "var(--fg-3)", marginBottom: 4 }}>{label as string}</div>
+                  <div style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 4 }}>{label as string}</div>
                   <AInput id={id as string} mono defaultValue={String(value)} />
                 </div>
               ))}
               <div>
-                <div style={{ fontSize: 9, color: "var(--fg-3)", marginBottom: 4 }}>首充加赠 50%</div>
+                <div style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 4 }}>首购加赠 50%</div>
                 <select id="mk-fb" defaultValue={v.firstBonusOn ? "1" : "0"} style={{ width: "100%", background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, padding: "8px 12px", fontSize: 11.5, color: "var(--fg)", outline: "none" }}>
                   <option value="1">开</option>
                   <option value="0">关</option>

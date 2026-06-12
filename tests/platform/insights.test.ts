@@ -38,7 +38,7 @@ describe("盘路分类", () => {
     expect(ouResult(-0.25)).toBe("小半");
   });
 
-  it("teamRoad:收盘帧×比分,客队视角让球取反;战绩聚合与连红", () => {
+  it("teamRoad:收盘帧×比分,客队视角让球取反;战绩聚合与连续命中", () => {
     // 队 100:两场主胜赢盘 + 一场客负输盘
     seedFixture(1, 10, 100, 200, 2, 0); // 主 让0.5 赢
     seedSnap(1, "ah", 0.5, 0.9, 0.96, null, NOW - 10 * DAY - 3_600_000);
@@ -55,7 +55,7 @@ describe("盘路分类", () => {
     expect(r.ou.rows[0].res).toBe("小");
   });
 
-  it("无归档盘口的比赛不入盘路;未完场不入", () => {
+  it("无归档指数的比赛不入盘路;未完场不入", () => {
     seedFixture(5, 3, 100, 200, 2, 0); // 无快照
     seedFixture(6, 1, 100, 200, 1, 0, "NS");
     expect(teamRoad(100, NOW).ah.rows).toHaveLength(0);
@@ -63,7 +63,7 @@ describe("盘路分类", () => {
 });
 
 describe("凯利/离散/升降盘/返还率", () => {
-  it("euKelly:≥3 家出共识;单家赔率×共识概率,>1 可识别", () => {
+  it("euKelly:≥3 家出共识;单家公司报价×共识概率,>1 可识别", () => {
     const m = euKelly([
       { h: 2.0, d: 3.4, a: 3.6 },
       { h: 2.05, d: 3.4, a: 3.5 },
@@ -74,7 +74,7 @@ describe("凯利/离散/升降盘/返还率", () => {
     expect(kellyOf(2.6, m.prob.h)!).toBeGreaterThan(1); // 离群家主胜凯利 >1
     expect(kellyOf(2.0, m.prob.h)!).toBeLessThan(1);
     expect(m.disp.h).toBeGreaterThan(m.disp.d); // 主胜分歧大于平局
-    expect(euKelly([{ h: 2, d: 3.4, a: 3.6 }])).toBeNull(); // 样本不足
+    expect(euKelly([{ h: 2, d: 3.4, a: 3.6 }])).toBeNull(); // 归档样本未达阈值
   });
 
   it("lineTrend 统计升降持平;payoutRate 双向/三向", () => {

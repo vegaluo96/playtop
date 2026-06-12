@@ -88,23 +88,23 @@ export async function checkReadonly(opts: { skipNetwork?: boolean; now?: number 
       todays.length > 0 ? `${todays.length} 场 · 最近更新 ${Math.round((now - lastUpd) / 60_000)}m 前` : "0 场:检查联赛开关与 worker 日表抓取"),
   );
 
-  // 盘口快照新鲜度:有未完场场次时,最新快照不得晚于 2×当前最密档间隔(下限 15min)
+  // 指数快照新鲜度:有未完场场次时,最新快照不得晚于 2×当前最密档间隔(下限 15min)
   const pending = todays.filter((f) => !["FT", "AET", "PEN", "AWD", "WO"].includes(f.status));
   if (pending.length === 0) {
-    rows.push(row("L1 抓取", "盘口快照新鲜度", "skip", "今日无在售场次"));
+    rows.push(row("L1 抓取", "指数快照新鲜度", "skip", "今日无在售场次"));
   } else {
     const densest = Math.min(...pending.map((f) => cfgTierIntervals()[tierFor(f.kickoff_utc, now, f.status).idx]));
     const lastSnap = (d.prepare("SELECT MAX(captured_at) m FROM odds_snapshots").get() as { m: number | null }).m ?? 0;
     const limit = Math.max(2 * densest, 15 * 60_000);
     rows.push(
-      row("L1 抓取", "盘口快照新鲜度", lastSnap && now - lastSnap < limit ? "ok" : "fail",
-        lastSnap ? `最新 ${Math.round((now - lastSnap) / 60_000)}m 前(阈值 ${Math.round(limit / 60_000)}m)` : "从未有快照:AF 对该场次可能无赔率覆盖,或 odds 抓取失败"),
+      row("L1 抓取", "指数快照新鲜度", lastSnap && now - lastSnap < limit ? "ok" : "fail",
+        lastSnap ? `最新 ${Math.round((now - lastSnap) / 60_000)}m 前(阈值 ${Math.round(limit / 60_000)}m)` : "从未有快照:AF 对该场次可能无指数覆盖,或 odds 抓取失败"),
     );
   }
 
   const predCovered = todays.filter((f) => hasPrediction(f.fixture_id)).length;
   rows.push(
-    row("L1 抓取", "预测快照覆盖", todays.length === 0 ? "skip" : predCovered > 0 ? "ok" : "fail",
+    row("L1 抓取", "概率快照覆盖", todays.length === 0 ? "skip" : predCovered > 0 ? "ok" : "fail",
       todays.length > 0 ? `${predCovered}/${todays.length} 场` : "今日无场次"),
   );
 
@@ -135,7 +135,7 @@ export async function checkReadonly(opts: { skipNetwork?: boolean; now?: number 
       todays.length === 0 ? "今日无场次" : free ? (freeHidden ? "免费场被隐藏,需在后台改选" : `fixture=${free.fixture_id}`) : "未设定:worker 应自动选定"),
   );
 
-  // 盘口配对合理性:满水率(两腿隐含概率和)必须落在 1.00–1.18,配错腿/坏数据立刻露馅
+  // 指数配对合理性:满水率(两腿隐含概率和)必须落在 1.00–1.18,配错腿/坏数据立刻露馅
   const latestPairs = d
     .prepare(
       `SELECT fixture_id, bookmaker, market, line, h, a FROM odds_snapshots
@@ -146,14 +146,14 @@ export async function checkReadonly(opts: { skipNetwork?: boolean; now?: number 
     )
     .all() as unknown as { fixture_id: number; bookmaker: string; market: string; line: number; h: number; a: number }[];
   if (latestPairs.length === 0) {
-    rows.push(row("L2 衍生", "盘口配对合理性", "skip", "暂无盘口快照"));
+    rows.push(row("L2 衍生", "指数配对合理性", "skip", "暂无指数快照"));
   } else {
     const bad = latestPairs.filter((s2) => {
       const m = pairMargin(s2.h + 1, s2.a + 1);
       return m < 1.0 || m > 1.18;
     });
     rows.push(
-      row("L2 衍生", "盘口配对合理性", bad.length === 0 ? "ok" : "fail",
+      row("L2 衍生", "指数配对合理性", bad.length === 0 ? "ok" : "fail",
         bad.length === 0
           ? `${latestPairs.length} 组满水率均在 1.00–1.18`
           : `${bad.length}/${latestPairs.length} 组异常,如 fixture=${bad[0].fixture_id} ${bad[0].market} ${bad[0].h}/${bad[0].a}(疑似错腿配对,跑 renorm 重算)`),
@@ -170,7 +170,7 @@ export async function checkReadonly(opts: { skipNetwork?: boolean; now?: number 
     .all() as unknown as { fixture_id: number }[];
   const settleable = settleableRows.find((r) => Number(dig(latestPrediction(r.fixture_id), "predictions", "winner", "id")));
   if (!settleable) {
-    rows.push(row("L2 衍生", "战绩结算", "skip", "暂无「完场且预测含 winner」的场次"));
+    rows.push(row("L2 衍生", "战绩结算", "skip", "暂无「完场且概率含 winner」的场次"));
   } else {
     const rec = d.prepare("SELECT 1 FROM model_records WHERE fixture_id=?").get(settleable.fixture_id);
     rows.push(row("L2 衍生", "战绩结算", rec ? "ok" : "fail", `样本 fixture=${settleable.fixture_id}`));
@@ -259,7 +259,7 @@ export async function checkBusiness(base: string): Promise<CheckRow[]> {
   };
 
   try {
-    // 注册 → 礼包 → 首充
+    // 注册 → 礼包 → 首购
     const reg = await call("/api/auth/login", { method: "POST", body: JSON.stringify({ email: emailA, password: "Selfcheck66" }) });
     rows.push(row("L4 闭环", "注册自动建号", reg.json?.ok === true ? "ok" : "fail", reg.json?.error as string | undefined));
     const me1 = await call("/api/me");
@@ -269,7 +269,7 @@ export async function checkBusiness(base: string): Promise<CheckRow[]> {
     const tier0 = cfgRechargeTiers()[0];
     const expCredit = cfgFirstBonusOn() ? tier0.pts + Math.floor(tier0.pts * 0.5) : tier0.pts;
     const re = await call("/api/wallet", { method: "POST", body: JSON.stringify({ action: "recharge", tier: 0 }) });
-    rows.push(row("L4 闭环", "首充加赠", re.json?.pts === 58 + expCredit ? "ok" : "fail", `期望 ${58 + expCredit},实际 ${re.json?.pts}`));
+    rows.push(row("L4 闭环", "首购加赠", re.json?.pts === 58 + expCredit ? "ok" : "fail", `期望 ${58 + expCredit},实际 ${re.json?.pts}`));
 
     // 解锁(选今日非免费场)
     const t0 = todayStartMs();
@@ -460,10 +460,10 @@ export function renormalizeOdds(fixtureId?: number): { fixtures: number; raws: n
   return { fixtures: fids.length, raws: raws.length, moves };
 }
 
-/* ── 盘口保真度审计:AF 原始 → 归一化 → 落库 → 显示,四层对照 ── */
+/* ── 指数保真度审计:AF 原始 → 归一化 → 落库 → 显示,四层对照 ── */
 /**
- * 批量盘口校验:未来 48h 内全部未完场赛事,逐场对照「AF 源共识盘 vs 我方落库主盘」,
- * 程序自动判定:✓ 一致 ｜ △ 水位偏差(同线,|Δ|>0.05,多为书商基准差) ｜ ✗ 盘口线不一致(真问题)。
+ * 批量指数校验:未来 48h 内全部未完场赛事,逐场对照「AF 源共识指数线 vs 我方落库主指数线」,
+ * 程序自动判定:✓ 一致 ｜ △ 水位偏差(同线,|Δ|>0.05,多为书商基准差) ｜ ✗ 指数线不一致(真问题)。
  * 每场消耗 1 次 AF 请求,默认上限 20 场。
  */
 export async function verifyOdds(maxN = 20): Promise<string> {
@@ -479,7 +479,7 @@ export async function verifyOdds(maxN = 20): Promise<string> {
     const s = [...xs].sort((p, q) => p - q);
     return s.length ? s[Math.floor((s.length - 1) / 2)] : null;
   };
-  const lines: string[] = [`■ 批量盘口校验 · ${fixtures.length} 场(未来 48h)· 判定口径:线不一致=✗ / 同线水位差>0.05=△ / 否则 ✓`];
+  const lines: string[] = [`■ 批量指数校验 · ${fixtures.length} 场(未来 48h)· 判定口径:指数线不一致=✗ / 同线水位差>0.05=△ / 否则 ✓`];
   let ok = 0, warn = 0, bad = 0, skip = 0;
 
   for (const f of fixtures) {
@@ -492,7 +492,7 @@ export async function verifyOdds(maxN = 20): Promise<string> {
     }
     const name = `${f.home_name} vs ${f.away_name}`.slice(0, 30);
     if (!raw) {
-      lines.push(`  ⊘ ${name} · fixture=${f.fixture_id}:AF 暂无赔率(未开盘或拉取失败)`);
+      lines.push(`  ⊘ ${name} · fixture=${f.fixture_id}:AF 暂无指数(未开盘或拉取失败)`);
       skip++;
       continue;
     }
@@ -526,7 +526,7 @@ export async function verifyOdds(maxN = 20): Promise<string> {
     bad > 0
       ? "  结论:存在线不一致项,需逐场 audit 排查!"
       : ok > 0
-        ? "  结论:全部盘口线与 AF 源一致,数据无错。"
+        ? "  结论:全部指数线与 AF 源一致,数据无错。"
         : "  结论:本轮无可判定项(均无数据)。",
   );
   return lines.join("\n");
@@ -534,7 +534,7 @@ export async function verifyOdds(maxN = 20): Promise<string> {
 
 export async function auditOdds(fixtureId: number, base?: string): Promise<string> {
   const d = db();
-  const lines: string[] = [`■ 盘口保真度审计 · fixture=${fixtureId}`];
+  const lines: string[] = [`■ 指数保真度审计 · fixture=${fixtureId}`];
   const fx = d.prepare("SELECT home_name, away_name, status, kickoff_utc, payload FROM fixtures_cache WHERE fixture_id=?").get(fixtureId) as
     | { home_name: string; away_name: string; status: string; kickoff_utc: number; payload: string } | undefined;
   if (!fx) return `fixture ${fixtureId} 不在库中`;
@@ -573,7 +573,7 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
     }
   }
   if (liveRaw) {
-    lines.push("  ① AF 实时原始(欧赔)→ 归一化(亚盘/大小为净水=欧赔-1,line 正=主让):");
+    lines.push("  ① AF 实时原始(胜平负)→ 归一化(让球/大小为净水=欧赔-1,line 正=主让):");
     for (const bm of normalizeOddsItem(liveRaw).slice(0, 25)) {
       for (const mk of bm.markets) {
         lines.push(`     ${bm.bookmaker.padEnd(12)} ${mk.market} line=${mk.line ?? "—"} h=${mk.h} a=${mk.a}${mk.d != null ? ` d=${mk.d}` : ""}`);
@@ -606,7 +606,7 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
     try {
       const j = (await fetch(`${base}/api/match/${fixtureId}`, { cache: "no-store" }).then((r) => r.json())) as Record<string, never>;
       const sum = j["summary"] as { ah?: { text: string; w: string }; ou?: { text: string; w: string }; eu?: { w: string } } | undefined;
-      lines.push(`  ③ 前端显示:亚盘「${sum?.ah?.text ?? "—"} ${sum?.ah?.w ?? ""}」 大小「${sum?.ou?.text ?? "—"} ${sum?.ou?.w ?? ""}」 胜平负「${sum?.eu?.w ?? "—"}」`);
+      lines.push(`  ③ 前端显示:让球「${sum?.ah?.text ?? "—"} ${sum?.ah?.w ?? ""}」 大小「${sum?.ou?.text ?? "—"} ${sum?.ou?.w ?? ""}」 胜平负「${sum?.eu?.w ?? "—"}」`);
     } catch {
       lines.push("  ③ 前端显示:API 不可达");
     }
@@ -641,6 +641,6 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
   } catch (e) {
     lines.push(`  ⑤ AF 实时阵容拉取失败:${e instanceof Error ? e.message : e}`);
   }
-  lines.push("  口径说明:平台水位为净水(港盘),= 书商欧赔 − 1;主盘 = 两侧净水最均衡的盘口线;各市场独立取最新书商,不强制同一书商。");
+  lines.push("  口径说明:平台水位为净水(港盘),= 书商欧赔 − 1;主指数线 = 两侧净水最均衡的指数线;各市场独立取最新书商,不强制同一书商。");
   return lines.join("\n");
 }

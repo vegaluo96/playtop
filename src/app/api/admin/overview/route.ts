@@ -50,7 +50,7 @@ export async function GET() {
   // 收入构成(按档位)
   const revmix = (d.prepare("SELECT rmb k, COALESCE(SUM(rmb),0) v, COUNT(*) n FROM ledger WHERE kind='recharge' AND created_at>=? GROUP BY rmb ORDER BY v DESC").all(t0) as unknown as { k: number; v: number; n: number }[]);
 
-  // 积分流水
+  // 额度流水
   const grant = one("SELECT COALESCE(SUM(delta),0) v FROM ledger WHERE delta>0 AND created_at>=?", t0).v ?? 0;
   const grantMix = d.prepare("SELECT kind, COALESCE(SUM(delta),0) v FROM ledger WHERE delta>0 AND created_at>=? GROUP BY kind").all(t0) as unknown as { kind: string; v: number }[];
   const consume = one("SELECT COALESCE(SUM(-delta),0) v FROM ledger WHERE kind='unlock' AND created_at>=?", t0).v ?? 0;
@@ -87,14 +87,14 @@ export async function GET() {
     alerts,
     kpis: [
       { label: "今日收入", v: `¥${revToday.toLocaleString()}`, c: "gold", delta: deltaPct(revToday, revYday) },
-      { label: "充值订单", v: String(ordersN(t0, t0 + 86_400_000)), delta: "演示支付 · 无失败" },
+      { label: "购买订单", v: String(ordersN(t0, t0 + 86_400_000)), delta: "演示支付 · 无失败" },
       { label: "付费用户", v: String(payersToday), delta: deltaPct(payersToday, payers(y0, t0)) },
       { label: "ARPPU", v: payersToday > 0 ? `¥${Math.round((revToday / payersToday) * 10) / 10}` : "—", c: "gold", delta: "" },
       { label: "付费转化率", v: pct(payersToday, dau), delta: `DAU ${dau}` },
       { label: "新注册", v: String(regsToday), delta: `${deltaPct(regsToday, regsYday)} · 邀请占 ${pct(regsInvited, regsToday)}` },
       { label: "DAU / 次日留存", v: `${dau} · ${pct(yRegActive, yReg)}`, delta: "" },
-      { label: "预测解锁", v: String(unlocksToday), c: "gold", delta: `复购率 ${pct(rebuyMulti, rebuyBase)}` },
-      { label: "积分负债(未消耗)", v: `${debt.toLocaleString()}`, c: "red", delta: `≈ ¥${Math.round(debt / 10).toLocaleString()}` },
+      { label: "报告解锁", v: String(unlocksToday), c: "gold", delta: `复购率 ${pct(rebuyMulti, rebuyBase)}` },
+      { label: "额度负债(未消耗)", v: `${debt.toLocaleString()}`, c: "red", delta: `≈ ¥${Math.round(debt / 10).toLocaleString()}` },
       { label: "待处理工单", v: String(openTickets), delta: "" },
     ],
     week,
@@ -103,8 +103,8 @@ export async function GET() {
     funnel: [
       { label: "访客", v: visits, pct: "100%" },
       { label: "注册", v: regsToday, pct: pct(regsToday, visits) },
-      { label: "解锁预测", v: unlockUsersToday, pct: pct(unlockUsersToday, visits) },
-      { label: "充值", v: payersToday, pct: pct(payersToday, visits) },
+      { label: "解锁报告", v: unlockUsersToday, pct: pct(unlockUsersToday, visits) },
+      { label: "购买额度", v: payersToday, pct: pct(payersToday, visits) },
     ],
     hot,
     af,

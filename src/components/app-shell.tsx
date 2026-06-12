@@ -76,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             display: "grid",
             gridTemplateColumns: "1fr 1fr 1fr 1fr",
             borderTop: "1px solid var(--line)",
-            background: "#0e1015",
+            background: "var(--card)",
             paddingBottom: "max(6px, env(safe-area-inset-bottom))",
           }}
         >
@@ -90,8 +90,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: 3,
-                  padding: "8px 0 4px",
+                  gap: 4,
+                  padding: "8px 0 5px",
                   cursor: "pointer",
                   color: active ? "var(--gold)" : "var(--fg-3)",
                 }}
@@ -99,7 +99,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                   {tab.icon}
                 </svg>
-                <span style={{ fontSize: 10, fontWeight: 700 }}>{tab.label()}</span>
+                <span style={{ fontSize: 12, fontWeight: 750 }}>{tab.label()}</span>
               </div>
             );
           })}
