@@ -114,13 +114,16 @@ async function tickLive(now: number): Promise<void> {
   const window = fixturesBetween(now - 4 * H, now + 5 * 60_000).filter(
     (f) => !isFinished(f.status) && f.kickoff_utc <= now + 5 * 60_000,
   );
-  if (window.length === 0) return;
-  try {
-    const env = await paced(() => tracked("fixtures (live)", "滚球 1min", () => afGet(`/fixtures?live=${FOLLOWED().join("-")}`, { force: true })));
-    const items = Array.isArray(env.response) ? env.response : [];
-    for (const item of items) upsertFixture(item);
-  } catch (e) {
-    log(`live 拉取失败:${msg(e)}`);
+  // 出网拉取仅在有在售/滚球场次时进行(配额保护);后面的事件合成零出网,必须每轮跑——
+  // 否则「窗口里只剩刚完场场次」时完场节点会漏记
+  if (window.length > 0) {
+    try {
+      const env = await paced(() => tracked("fixtures (live)", "滚球 1min", () => afGet(`/fixtures?live=${FOLLOWED().join("-")}`, { force: true })));
+      const items = Array.isArray(env.response) ? env.response : [];
+      for (const item of items) upsertFixture(item);
+    } catch (e) {
+      log(`live 拉取失败:${msg(e)}`);
+    }
   }
   // 滚球 bundle 批量拉取(fixtures?ids= 一次最多 20 场,省配额;events/statistics/players 同请求带回)
   const lives = fixturesBetween(now - 4 * H, now).filter((x) => isLive(x.status));
