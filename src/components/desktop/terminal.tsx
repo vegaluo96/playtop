@@ -327,7 +327,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                     <div className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ah ? X : `${f2(m.ah.h)}/${f2(m.ah.a)}`} pulse={m.masked ? null : m.ah?.chgAt} pulseDir={m.ah?.hd} /></div>
                   </div>
                   <div style={{ flexShrink: 0, textAlign: "right", width: 54 }}>
-                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || m.ou?.line == null ? X : m.ou.line.toFixed(2)} pulse={m.masked ? null : m.ou?.chgAt} /></div>
+                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ou ? X : m.ou.text} pulse={m.masked ? null : m.ou?.chgAt} /></div>
                     <div className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)", whiteSpace: "nowrap", display: "flex", justifyContent: "flex-end" }}><Flash v={m.masked || !m.ou ? X : `${f2(m.ou.h)}/${f2(m.ou.a)}`} pulse={m.masked ? null : m.ou?.chgAt} pulseDir={m.ou?.hd} /></div>
                   </div>
                   <div style={{ flexShrink: 0, textAlign: "right", width: 44 }}>

@@ -236,7 +236,7 @@ function MobileMatchesPage() {
                 <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
                   <ArrowVal v={m.ou?.h} d={m.ou?.hd} masked={m.masked} chgAt={m.ou?.chgAt} />
                   <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>
-                    <Flash v={m.masked ? "●●" : m.ou?.line != null ? m.ou.line.toFixed(2) : "—"} />
+                    <Flash v={m.masked ? "●●" : (m.ou?.text || "—")} />
                   </div>
                   <ArrowVal v={m.ou?.a} d={m.ou?.ad} masked={m.masked} chgAt={m.ou?.chgAt} />
                 </div>

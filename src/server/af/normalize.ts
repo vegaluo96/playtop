@@ -201,53 +201,66 @@ export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
   const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
   const odds = arr(dig(item, "odds"));
   const find = (re: RegExp) => odds.find((o) => re.test(String(dig(o, "name") ?? "")));
-  const mainVals = (o: unknown) => {
-    const all = arr(dig(o, "values"));
-    const mains = all.filter((v) => dig(v, "main") === true);
-    return mains.length >= 2 ? mains : all; // 书商标了主盘就用主盘
-  };
   const num = (v: unknown) => parseFloat(String(v ?? ""));
   const out: LiveMarketFrame[] = [];
 
+  /**
+   * 两腿配对挑主盘:滚球一个玩法挂十几条线,绝不能取数组首条(那是边缘线)。
+   * 规则:按 |handicap| 分组配对(两腿必须同线)→ 有 main 标志的对优先 →
+   * 否则取「水位最均衡且满水率落在 1.00–1.25」的一对(与赛前 pickBalanced 同思想)。
+   */
+  const pickMainPair = (vals: unknown[], sideARe: RegExp, sideBRe: RegExp) => {
+    interface Leg { odd: number; suspended: boolean; main: boolean; hc: number }
+    const byLine = new Map<string, { a?: Leg; b?: Leg }>();
+    for (const v of vals) {
+      const odd = num(dig(v, "odd"));
+      if (!(odd > 1)) continue;
+      const hc = num(dig(v, "handicap"));
+      const key = Number.isFinite(hc) ? String(Math.abs(hc)) : "";
+      const leg: Leg = { odd, suspended: Boolean(dig(v, "suspended")), main: dig(v, "main") === true, hc: Number.isFinite(hc) ? hc : 0 };
+      const slot = byLine.get(key) ?? {};
+      const val = String(dig(v, "value"));
+      if (sideARe.test(val)) slot.a = slot.a ?? leg;
+      else if (sideBRe.test(val)) slot.b = slot.b ?? leg;
+      byLine.set(key, slot);
+    }
+    let best: { a: Leg; b: Leg; bal: number; main: boolean } | null = null;
+    for (const slot of byLine.values()) {
+      if (!slot.a || !slot.b) continue;
+      const margin = 1 / slot.a.odd + 1 / slot.b.odd;
+      if (margin < 1.0 || margin > 1.25) continue; // 满水率自证:配错腿/坏数据直接拒收
+      const isMain = slot.a.main || slot.b.main;
+      const bal = Math.abs(slot.a.odd - slot.b.odd);
+      if (!best || (isMain && !best.main) || (isMain === best.main && bal < best.bal)) best = { a: slot.a, b: slot.b, bal, main: isMain };
+    }
+    return best;
+  };
+
   const ahO = find(/asian handicap/i);
   if (ahO) {
-    const vals = mainVals(ahO);
-    const h = vals.find((v) => /^home$/i.test(String(dig(v, "value"))) || /home/i.test(String(dig(v, "value"))));
-    const a = vals.find((v) => /^away$/i.test(String(dig(v, "value"))) || /away/i.test(String(dig(v, "value"))));
-    if (h && a) {
-      const hc = num(dig(h, "handicap"));
-      const hOdd = num(dig(h, "odd"));
-      const aOdd = num(dig(a, "odd"));
-      if (hOdd > 1 && aOdd > 1)
-        out.push({
-          market: "ah",
-          line: Number.isFinite(hc) ? -hc : null, // AF handicap 为主队受让数 → 取反得主让
-          h: Math.round((hOdd - 1) * 100) / 100,
-          a: Math.round((aOdd - 1) * 100) / 100,
-          d: null,
-          suspended: Boolean(dig(h, "suspended")) || Boolean(dig(a, "suspended")),
-        });
-    }
+    const pair = pickMainPair(arr(dig(ahO, "values")), /home/i, /away/i);
+    if (pair)
+      out.push({
+        market: "ah",
+        line: -pair.a.hc, // AF handicap 为主队受让数 → 取反得主让
+        h: Math.round((pair.a.odd - 1) * 100) / 100,
+        a: Math.round((pair.b.odd - 1) * 100) / 100,
+        d: null,
+        suspended: pair.a.suspended || pair.b.suspended,
+      });
   }
   const ouO = find(/over\/under/i);
   if (ouO) {
-    const vals = mainVals(ouO);
-    const over = vals.find((v) => /over/i.test(String(dig(v, "value"))));
-    const under = vals.find((v) => /under/i.test(String(dig(v, "value"))));
-    if (over && under) {
-      const hc = num(dig(over, "handicap"));
-      const oOdd = num(dig(over, "odd"));
-      const uOdd = num(dig(under, "odd"));
-      if (oOdd > 1 && uOdd > 1)
-        out.push({
-          market: "ou",
-          line: Number.isFinite(hc) ? hc : null,
-          h: Math.round((oOdd - 1) * 100) / 100,
-          a: Math.round((uOdd - 1) * 100) / 100,
-          d: null,
-          suspended: Boolean(dig(over, "suspended")) || Boolean(dig(under, "suspended")),
-        });
-    }
+    const pair = pickMainPair(arr(dig(ouO, "values")), /over/i, /under/i);
+    if (pair)
+      out.push({
+        market: "ou",
+        line: Math.abs(pair.a.hc),
+        h: Math.round((pair.a.odd - 1) * 100) / 100,
+        a: Math.round((pair.b.odd - 1) * 100) / 100,
+        d: null,
+        suspended: pair.a.suspended || pair.b.suspended,
+      });
   }
   const x12 = find(/fulltime result|match winner|1x2/i);
   if (x12) {

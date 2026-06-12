@@ -113,6 +113,53 @@ describe("normalizeLiveOddsItem", () => {
     expect(euF.d).toBe(4.5);
   });
 
+  it("多线无 main:不取首条边缘线,按满水率+均衡挑真实主盘(大小球不对的根因)", () => {
+    const item = {
+      odds: [
+        {
+          name: "Over/Under Line",
+          values: [
+            // AF 返回顺序:低线在前——旧逻辑会错取 0.5 球
+            { value: "Over", handicap: "0.5", odd: "1.05" }, { value: "Under", handicap: "0.5", odd: "8.50" },
+            { value: "Over", handicap: "1.5", odd: "1.30" }, { value: "Under", handicap: "1.5", odd: "3.40" },
+            { value: "Over", handicap: "2.5", odd: "1.90" }, { value: "Under", handicap: "2.5", odd: "1.92" },
+            { value: "Over", handicap: "3.5", odd: "3.10" }, { value: "Under", handicap: "3.5", odd: "1.35" },
+          ],
+        },
+        {
+          name: "Asian Handicap",
+          values: [
+            { value: "Home", handicap: "-2.5", odd: "4.80" }, { value: "Away", handicap: "2.5", odd: "1.16" },
+            { value: "Home", handicap: "-0.5", odd: "1.88" }, { value: "Away", handicap: "0.5", odd: "1.94" },
+            { value: "Home", handicap: "-1.5", odd: "2.90" }, { value: "Away", handicap: "1.5", odd: "1.40" },
+          ],
+        },
+      ],
+    };
+    const frames = normalizeLiveOddsItem(item);
+    const ouF = frames.find((f) => f.market === "ou")!;
+    expect(ouF.line).toBe(2.5); // 最均衡 = 真实主盘,而非首条 0.5
+    expect(ouF.h).toBeCloseTo(0.9, 2);
+    const ahF = frames.find((f) => f.market === "ah")!;
+    expect(ahF.line).toBe(0.5); // Home -0.5 为主盘 → 主让半球
+    expect(ahF.h).toBeCloseTo(0.88, 2);
+    expect(ahF.a).toBeCloseTo(0.94, 2); // 两腿必须同线,不得错配 0.5/1.5
+  });
+
+  it("有 main 标志时严格用 main 对,即便别的线更均衡", () => {
+    const item = {
+      odds: [{
+        name: "Over/Under Line",
+        values: [
+          { value: "Over", handicap: "2.5", odd: "1.90", main: false }, { value: "Under", handicap: "2.5", odd: "1.92", main: false },
+          { value: "Over", handicap: "3", odd: "2.05", main: true }, { value: "Under", handicap: "3", odd: "1.78", main: true },
+        ],
+      }],
+    };
+    const ouF = normalizeLiveOddsItem(item).find((f) => f.market === "ou")!;
+    expect(ouF.line).toBe(3);
+  });
+
   it("坏数据安全返回空", () => {
     expect(normalizeLiveOddsItem({})).toEqual([]);
     expect(normalizeLiveOddsItem(null)).toEqual([]);
