@@ -191,6 +191,26 @@ describe("模型战绩结算", () => {
     expect(s.yesterdayRows.length + s.week.reduce((n, w) => n + w.total, 0)).toBeGreaterThan(0);
   });
 
+  it("modelStats 用同一 30 日窗口聚合命中率/昨日/周趋势/连中", () => {
+    const ins = db().prepare(
+      "INSERT INTO model_records (fixture_id, date, match_name, pick, score, hit, settled_at) VALUES (?,?,?,?,?,?,?)",
+    );
+    ins.run(401, "2026-06-10", "A vs B", "A 胜", "0-1", 0, 1000);
+    ins.run(402, "2026-06-11", "C vs D", "C 胜", "2-0", 1, 2000);
+    ins.run(403, "2026-06-11", "E vs F", "F 胜", "1-1", 0, 3000);
+    ins.run(404, "2026-06-12", "G vs H", "G 胜", "3-1", 1, 4000);
+
+    const s = modelStats(Date.parse("2026-06-12T04:00:00Z"));
+
+    expect(s.hitRate30).toBe(50);
+    expect(s.yesterday).toEqual({ hit: 1, total: 2 });
+    expect(s.yesterdayRows.map((r) => r.match)).toEqual(["C vs D", "E vs F"]);
+    expect(s.week.find((r) => r.date === "2026-06-10")).toEqual({ date: "2026-06-10", hit: 0, total: 1 });
+    expect(s.week.find((r) => r.date === "2026-06-11")).toEqual({ date: "2026-06-11", hit: 1, total: 2 });
+    expect(s.week.find((r) => r.date === "2026-06-12")).toEqual({ date: "2026-06-12", hit: 1, total: 1 });
+    expect(s.streak).toBe(1);
+  });
+
   it("无预测快照的完场不结算", () => {
     upsertFixture(afFixture(301, { status: "FT", gh: 0, ga: 0 }));
     settleFixture(fixtureById(301)!);

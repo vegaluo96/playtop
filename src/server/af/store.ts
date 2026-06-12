@@ -458,18 +458,23 @@ export function modelStats(nowMs = Date.now()): ModelStats {
   const day = (offset: number) => new Date(nowMs + 8 * 3_600_000 - offset * 86_400_000).toISOString().slice(0, 10);
   const since30 = day(30);
   const all30 = d
-    .prepare("SELECT hit FROM model_records WHERE date >= ? AND hit IS NOT NULL ORDER BY settled_at")
-    .all(since30) as { hit: number }[];
+    .prepare("SELECT date, match_name, pick, score, hit FROM model_records WHERE date >= ? AND hit IS NOT NULL ORDER BY settled_at")
+    .all(since30) as { date: string; match_name: string; pick: string; score: string; hit: number }[];
   const hitRate30 = all30.length > 0 ? Math.round((all30.filter((r) => r.hit).length / all30.length) * 1000) / 10 : null;
-  const yRows = d
-    .prepare("SELECT match_name, pick, score, hit FROM model_records WHERE date = ? AND hit IS NOT NULL")
-    .all(day(1)) as { match_name: string; pick: string; score: string; hit: number }[];
+  const yesterdayDate = day(1);
+  const yRows = all30.filter((r) => r.date === yesterdayDate);
   let streak = 0;
   for (let i = all30.length - 1; i >= 0 && all30[i].hit; i--) streak++;
+  const byDate = new Map<string, { hit: number; total: number }>();
+  for (const row of all30) {
+    const current = byDate.get(row.date) ?? { hit: 0, total: 0 };
+    current.total++;
+    if (row.hit) current.hit++;
+    byDate.set(row.date, current);
+  }
   const week = Array.from({ length: 7 }, (_, i) => {
     const dt = day(6 - i);
-    const rows = d.prepare("SELECT hit FROM model_records WHERE date = ? AND hit IS NOT NULL").all(dt) as { hit: number }[];
-    return { date: dt, hit: rows.filter((r) => r.hit).length, total: rows.length };
+    return { date: dt, ...(byDate.get(dt) ?? { hit: 0, total: 0 }) };
   });
   return {
     hitRate30,
