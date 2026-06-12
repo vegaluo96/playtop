@@ -131,11 +131,11 @@ function MobileMatchDetail({ id }: { id: string }) {
         <div style={{ fontSize: 9.5, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.6 }}>{idx?.method}</div>
       </Card>
       <Card style={{ marginTop: 8, overflow: "hidden" }}>
-        <Th cols={["时间", "盘口", cols[0], cols[1]]} widths="62px 1fr 58px 58px" />
+        <Th cols={["时间", "盘口", cols[0], cols[1]]} widths="78px 1fr 52px 52px" />
         {data.rows.length === 0 && <div style={{ padding: 14, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>快照积累中</div>}
         {data.rows.map((r: V, i: number) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "62px 1fr 58px 58px", padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-            <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.t}</span>
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "78px 1fr 52px 52px", padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+            <span className="mono" style={{ fontSize: 10, color: "var(--fg-2)" }}>{r.t}</span>
             <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: r.chg ? "var(--gold)" : "var(--fg-mid)" }}>{r.text}</span>
               {r.chg && <span style={{ fontSize: 9, fontWeight: 700, color: "var(--gold)" }}>变盘</span>}
@@ -151,9 +151,11 @@ function MobileMatchDetail({ id }: { id: string }) {
     </>
   );
 
-  const compTable = (title: string, rows: V[], headEu = false) => (
+  const compTable = (title: string, rows: V[], mk: "ah" | "ou" | "eu") => {
+    const headEu = mk === "eu";
+    return (
     <>
-      <SectionTitle title={title} />
+      <SectionTitle title={title} right="点击任意公司看其历史" />
       <Card style={{ overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 16px 1fr", padding: "8px 12px", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
           <span style={{ fontSize: 10, color: "var(--fg-3)" }}>公司</span>
@@ -163,7 +165,7 @@ function MobileMatchDetail({ id }: { id: string }) {
         </div>
         {rows.length === 0 && <div style={{ padding: 14, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>数据积累中</div>}
         {rows.map((c: V) => (
-          <div key={c.co} style={{ display: "grid", gridTemplateColumns: "60px 1fr 16px 1fr", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+          <div key={c.co} onClick={() => c.bid && setHistory({ id: h.id, mk, bid: c.bid, co: c.co })} style={{ display: "grid", gridTemplateColumns: "60px 1fr 16px 1fr", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", cursor: c.bid ? "pointer" : "default" }}>
             <span style={{ fontSize: 12, fontWeight: 700 }}>{c.co}</span>
             <span>
               {!headEu && <span style={{ display: "block", fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}>{c.iText}</span>}
@@ -187,7 +189,8 @@ function MobileMatchDetail({ id }: { id: string }) {
         ))}
       </Card>
     </>
-  );
+    );
+  };
 
   const lineupPitch = (side: V, color: string) =>
     side && (
@@ -332,10 +335,10 @@ function MobileMatchDetail({ id }: { id: string }) {
               <div style={{ fontSize: 9.5, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.6 }}>{v.odds.index?.eu?.method}</div>
             </Card>
             <Card style={{ marginTop: 8, overflow: "hidden" }}>
-              <Th cols={["时间", "主胜", "平局", "客胜"]} widths="62px 1fr 1fr 1fr" />
+              <Th cols={["时间", "主胜", "平局", "客胜"]} widths="78px 1fr 1fr 1fr" />
               {v.odds.eu.map((r: V, i: number) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "62px 1fr 1fr 1fr", padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-                  <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.t}</span>
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "78px 1fr 1fr 1fr", padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+                  <span className="mono" style={{ fontSize: 10, color: "var(--fg-2)" }}>{r.t}</span>
                   <span className="mono" style={{ fontSize: 13, textAlign: "right" }}>{r.h}</span>
                   <span className="mono" style={{ fontSize: 12, textAlign: "right", color: "var(--fg-2)" }}>{r.d}</span>
                   <span className="mono" style={{ fontSize: 13, textAlign: "right" }}>{r.a}</span>
@@ -352,9 +355,9 @@ function MobileMatchDetail({ id }: { id: string }) {
           <>
             <div style={{ height: 6 }} />
             <CompMetaBar comp={v.comp} />
-            {compTable("亚盘 · 多公司对比", v.comp.ah)}
-            {compTable("大小球 · 多公司对比", v.comp.ou)}
-            {compTable("胜平负 · 多公司对比", v.comp.eu, true)}
+            {compTable("亚盘 · 多公司对比", v.comp.ah, "ah")}
+            {compTable("大小球 · 多公司对比", v.comp.ou, "ou")}
+            {compTable("胜平负 · 多公司对比", v.comp.eu, "eu")}
             <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>各公司变盘时间与幅度可横向比对。</div>
           </>
         )}
@@ -388,7 +391,7 @@ function MobileMatchDetail({ id }: { id: string }) {
               </Card>
             ))}
             <CornersRefNote cr={v.insights?.cornersRef} home={h.home} away={h.away} />
-            <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "6px 4px 0", lineHeight: 1.6 }}>玩法赔率为欧赔原值,来自单一公司当帧报价;仅供数据参考。</div>
+            {(v.markets ?? []).length > 0 && <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "6px 4px 0", lineHeight: 1.6 }}>玩法赔率为欧赔原值,来自单一公司当帧报价;仅供数据参考。</div>}
           </>
         )}
 
@@ -401,7 +404,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             )}
             {/* 赛前置顶(影响盘口的赛前因素),开赛后跟在直播时间轴后 */}
             <WeatherCard w={v.weather} style={{ marginTop: 8 }} />
-            <FatigueCard fa={v.insights?.fatigue} home={h.home} away={h.away} style={{ marginTop: 8 }} />
+            {!h.finished && <FatigueCard fa={v.insights?.fatigue} home={h.home} away={h.away} style={{ marginTop: 8 }} />}
             {h.live && (
               <>
                 <SectionTitle title="实时技术统计" />
@@ -564,7 +567,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                 </Card>
               ))}
             </div>
-            <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>伤停状态随官方发布实时更新。</div>
+            {v.intel.length > 0 && <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>伤停状态随官方发布实时更新。</div>}
           </>
         )}
 
@@ -626,6 +629,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                 </Card>
               ))}
 
+              {deepV.venue?.name && deepV.venue.name !== "—" && (<>
               <SectionTitle title="球场因素" />
               <Card style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
@@ -642,6 +646,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                 </div>
                 <div style={{ fontSize: 10.5, color: "var(--fg-2)", marginTop: 9 }}>当值主裁:{deepV.referee ?? "官方未公布"}</div>
               </Card>
+              </>)}
 
               <SectionTitle title="射手依赖度" />
               <Card style={{ padding: "6px 14px" }}>

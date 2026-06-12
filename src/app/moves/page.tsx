@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { Chip, GoldBtn, Sheet } from "@/components/ui";
 import { leagueColor } from "@/lib/leagues";
-import { useNewIds, usePoll, useWorkerBeat } from "@/components/live";
+import { useNewIds, useUnifiedPoll } from "@/components/live";
 import { PageHeader } from "@/components/page-header";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
@@ -25,8 +25,6 @@ function MobileMovesPage() {
   const [rows, setRows] = useState<Move[]>([]);
   const [loggedIn, setLoggedIn] = useState(true);
   const [sel, setSel] = useState<Move | null>(null);
-  const [lastAt, setLastAt] = useState<number | null>(null);
-  const workerAt = useWorkerBeat();
   const { prefs } = useApp();
   const router = useRouter();
 
@@ -41,14 +39,13 @@ function MobileMovesPage() {
     } catch {
       /* keep */
     } finally {
-      setLastAt(Date.now());
-    }
+          }
   }, [filter, prefs.tz]);
 
   useEffect(() => {
     void load(); // 切筛选立即刷新
   }, [load]);
-  usePoll(load, 5_000); // 滚球异动随 5s 抓取产生,5s 轮询即可即时入流;后台 tab 暂停
+  const beat = useUnifiedPoll(load); // 四菜单统一节奏:有滚球 3s,否则 10s
 
   const freshIds = useNewIds(rows.map((r) => r.id));
 
@@ -56,7 +53,7 @@ function MobileMovesPage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <PageHeader title="盘口异动" lastAt={lastAt} workerAt={workerAt} intervalMs={5_000} />
+      <PageHeader title="盘口异动" {...beat} />
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
         {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (
           <Chip key={l} label={l} active={filter === l} onClick={() => setFilter(l)} />

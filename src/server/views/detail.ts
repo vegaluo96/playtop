@@ -1,7 +1,7 @@
 /**
  * 详情页视图模型:matchPanorama → 6 个 tab 的渲染数据(全部中文化)。
  */
-import { ahText, f2, hhmm, maskBookmaker, ouText } from "@/lib/format";
+import { ahText, dateStr, f2, hhmm, maskBookmaker, ouText } from "@/lib/format";
 import { leagueZh, roundZh } from "@/lib/leagues";
 import { freshLine, isFinished, isLive } from "../af/schedule";
 import { cfgTierIntervals } from "../platform/config";
@@ -32,8 +32,15 @@ function dig(obj: unknown, ...path: (string | number)[]): unknown {
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 /* ── 赔率走势:全序列 → 变盘点行 + 折线采样 ── */
+/** 序列跨天时时间标注带日期(纯 HH:mm 会显得「时间倒流」) */
+function tLabelOf(series: SnapRow[], tz: string): (at: number) => string {
+  const spanDay = series.length > 1 && dateStr(series[0].captured_at, tz) !== dateStr(series[series.length - 1].captured_at, tz);
+  return (at) => (spanDay ? `${dateStr(at, tz).slice(5)} ${hhmm(at, tz)}` : hhmm(at, tz));
+}
+
 export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
   if (series.length === 0) return { rows: [], chart: [] };
+  const tl = tLabelOf(series, tz);
   const rows: { t: string; text: string; h: string; a: string; chg: boolean }[] = [];
   let prevLine: number | null = null;
   series.forEach((s, i) => {
@@ -41,7 +48,7 @@ export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
     const isEdge = i === 0 || i === series.length - 1;
     if (isEdge || chg) {
       rows.push({
-        t: hhmm(s.captured_at, tz), // 首帧=本站归档起点,不冒充真实初盘
+        t: tl(s.captured_at), // 首帧=本站归档起点,不冒充真实初盘
         text: market === "ah" ? ahText(s.line ?? 0) : ouText(s.line ?? 0),
         h: f2(s.h),
         a: f2(s.a),
@@ -62,9 +69,10 @@ export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
 }
 
 export function euRows(series: SnapRow[], tz: string) {
+  const tl = tLabelOf(series, tz);
   const pick = series.length > 5 ? [series[0], ...series.slice(-4)] : series;
   return pick.map((s) => ({
-    t: hhmm(s.captured_at, tz),
+    t: tl(s.captured_at),
     h: f2(s.h),
     d: f2(s.d ?? 0),
     a: f2(s.a),
@@ -276,7 +284,7 @@ function h2hView(games: unknown[], homeId: number | null, tz: string) {
       const op = curHomeIsHome ? ga : gh;
       const date = Date.parse(String(dig(g, "fixture", "date") ?? ""));
       return {
-        d: Number.isFinite(date) ? new Date(date + 8 * 3_600_000).toISOString().slice(2, 10).replace(/-/g, "-") : "",
+        d: Number.isFinite(date) ? dateStr(date, tz).slice(2) : "", // 按用户时区,不再写死 UTC+8
         c: leagueZh(Number(dig(g, "league", "id")), String(dig(g, "league", "name") ?? "")),
         s: `${gh} - ${ga}`,
         res: my > op ? "胜" : my < op ? "负" : "平",
@@ -709,6 +717,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   const compMap = (list: Panorama["odds"]["compareAh"], market: "ah" | "ou") =>
     list.map((c) => ({
       co: maskBookmaker(c.bookmaker),
+      bid: c.last.bookmaker_id, // 点行查看该公司完整历史报价
       iText: market === "ah" ? ahText(c.first.line ?? 0) : ouText(c.first.line ?? 0),
       iW: `${f2(c.first.h)} / ${f2(c.first.a)}`,
       nText: market === "ah" ? ahText(c.last.line ?? 0) : ouText(c.last.line ?? 0),
@@ -719,6 +728,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   const euMeta = euKelly(p.odds.compareEu.map((c) => c.last));
   const compEu = p.odds.compareEu.map((c) => ({
     co: maskBookmaker(c.bookmaker),
+    bid: c.last.bookmaker_id,
     iW: `${f2(c.first.h)} / ${f2(c.first.d ?? 0)} / ${f2(c.first.a)}`,
     nW: `${f2(c.last.h)} / ${f2(c.last.d ?? 0)} / ${f2(c.last.a)}`,
     k: euMeta ? [kellyOf(c.last.h, euMeta.prob.h), kellyOf(c.last.d ?? null, euMeta.prob.d), kellyOf(c.last.a, euMeta.prob.a)] : null,

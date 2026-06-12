@@ -14,6 +14,9 @@ type V = any;
 export interface HistoryTarget {
   id: number;
   mk: "ah" | "ou" | "eu";
+  /** 指定书商(百家对比行点入):bid=bookmaker_id,co=打码名 */
+  bid?: number;
+  co?: string;
 }
 
 const MKS: [HistoryTarget["mk"], string][] = [["ah", "亚盘"], ["ou", "大小"], ["eu", "胜平负"]];
@@ -34,7 +37,8 @@ export function QuoteHistorySheet({ target, onClose }: { target: HistoryTarget |
   useEffect(() => {
     if (!target) return;
     setData(null);
-    void fetch(`/api/match/${target.id}/history?mk=${mk}&tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" })
+    const bk = target.bid ? `&bk=${target.bid}` : "";
+    void fetch(`/api/match/${target.id}/history?mk=${mk}&tz=${encodeURIComponent(prefs.tz)}${bk}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => j.ok && setData(j));
   }, [target, mk, prefs.tz]);
@@ -45,6 +49,9 @@ export function QuoteHistorySheet({ target, onClose }: { target: HistoryTarget |
     <Sheet open onClose={onClose}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 15, fontWeight: 800 }}>历史报价</span>
+        {target.co && (
+          <span style={{ fontSize: 10, fontWeight: 800, color: "var(--gold)", background: "rgba(233,185,73,.12)", borderRadius: 5, padding: "2px 8px" }}>{target.co}</span>
+        )}
         <span style={{ flex: 1 }} />
         {MKS.map(([k, label]) => (
           <span key={k} onClick={() => setMk(k)} style={{ fontSize: 10.5, fontWeight: 700, cursor: "pointer", borderRadius: 7, padding: "3px 10px", background: mk === k ? "rgba(233,185,73,.14)" : "var(--inset)", color: mk === k ? "var(--gold)" : "var(--fg-3)" }}>
@@ -86,7 +93,8 @@ export function QuoteHistorySheet({ target, onClose }: { target: HistoryTarget |
       </div>
       {data && (
         <div style={{ fontSize: 9.5, color: "var(--fg-4)", paddingTop: 8, lineHeight: 1.6 }}>
-          共 {data.n} 帧{data.n > 500 ? "(展示最近 500 帧)" : ""} · 赛前源 {data.src ?? "—"} · 自 {data.startAt ?? "—"} 归档起;滚球帧来自实时盘归档。
+          共 {data.n} 帧{data.n > 500 ? "(展示最近 500 帧)" : ""} · 自 {data.startAt ?? "—"} 归档起
+          {target.bid ? ` · ${target.co ?? data.src ?? ""} 单家赛前序列` : ` · 赛前源 ${data.src ?? "—"};滚球帧来自实时盘归档`}。
         </div>
       )}
     </Sheet>

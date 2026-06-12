@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp, type Scheme } from "@/components/app-context";
 import { PageHeader } from "@/components/page-header";
-import { usePoll, useWorkerBeat } from "@/components/live";
+import { useUnifiedPoll } from "@/components/live";
 import { RiskFooter } from "@/components/consent-bar";
 import { useUnlockFlow } from "@/components/unlock-flow";
 import { GoldBtn, Sheet, SheetTitle } from "@/components/ui";
@@ -41,14 +41,8 @@ function MobileMePage() {
   const [rdMsg, setRdMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [ticketNew, setTicketNew] = useState(false);
-  const [lastAt, setLastAt] = useState<number | null>(null);
-  const workerAt = useWorkerBeat();
-
-  // 账户数据 60s 保活刷新(余额/解锁状态),页头心跳与之同源
-  usePoll(async () => {
-    await refreshMe();
-    setLastAt(Date.now());
-  }, 60_000);
+  // 四菜单统一节奏:有滚球 3s,否则 10s(账户余额/解锁状态随之保活)
+  const beat = useUnifiedPoll(refreshMe);
 
   useEffect(() => {
     if (me.loggedIn && me.giftPending) setGiftOpen(true);
@@ -136,7 +130,7 @@ function MobileMePage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <PageHeader title="我" lastAt={lastAt} workerAt={workerAt} intervalMs={60_000} />
+      <PageHeader title="我" {...beat} />
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 16px", minHeight: 0 }}>
         {me.loggedIn ? (
           <div style={{ background: "linear-gradient(135deg,#1a1e29,#12141a)", border: "1px solid rgba(233,185,73,.3)", borderRadius: 14, padding: "16px 16px 15px", marginBottom: 12 }}>

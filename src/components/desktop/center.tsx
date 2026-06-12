@@ -111,15 +111,15 @@ export function CenterPane({
         <div style={{ fontSize: 9, color: "var(--fg-3)", marginTop: 4, lineHeight: 1.5 }}>{idx?.method}</div>
       </Card>
       <Card style={{ marginTop: 8, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "52px 1fr 48px 48px", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 44px 44px", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
           {["时间", "盘口", cols[0], cols[1]].map((c, i) => (
             <span key={c} style={{ fontSize: 9, color: "var(--fg-3)", textAlign: i >= 2 ? "right" : "left" }}>{c}</span>
           ))}
         </div>
         {data.rows.length === 0 && <div style={{ padding: 12, fontSize: 10, color: "var(--fg-3)", textAlign: "center" }}>快照积累中</div>}
         {data.rows.map((r: V, i: number) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "52px 1fr 48px 48px", padding: "6px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-            <span style={{ fontSize: 10, color: "var(--fg-2)" }}>{r.t}</span>
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "72px 1fr 44px 44px", padding: "6px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+            <span className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)" }}>{r.t}</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: r.chg ? "var(--gold)" : "var(--fg-mid)", whiteSpace: "nowrap" }}>{r.text}{r.chg ? <span style={{ fontSize: 8.5, marginLeft: 4 }}>变盘</span> : null}</span>
             <span className="mono" style={{ fontSize: 11, textAlign: "right" }}>{r.h}</span>
             <span className="mono" style={{ fontSize: 11, textAlign: "right" }}>{r.a}</span>
@@ -132,13 +132,18 @@ export function CenterPane({
     </div>
   );
 
-  const compCol = (title: string, rows: V[], eu = false) => (
+  const compCol = (title: string, rows: V[], mk: "ah" | "ou" | "eu") => {
+    const eu = mk === "eu";
+    return (
     <div>
-      <div style={{ fontSize: 12, fontWeight: 700, margin: "0 2px 8px" }}>{title}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, margin: "0 2px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        {title}
+        <span style={{ fontSize: 9, color: "var(--fg-4)", fontWeight: 400 }}>点击公司看历史</span>
+      </div>
       <Card style={{ overflow: "hidden" }}>
         {rows.length === 0 && <div style={{ padding: 12, fontSize: 10, color: "var(--fg-3)", textAlign: "center" }}>数据积累中</div>}
         {rows.map((c: V) => (
-          <div key={c.co} style={{ display: "grid", gridTemplateColumns: eu ? "64px 1fr" : "64px 1fr 1fr", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+          <div key={c.co} onClick={() => c.bid && setHistory({ id: h.id, mk, bid: c.bid, co: c.co })} style={{ display: "grid", gridTemplateColumns: eu ? "64px 1fr" : "64px 1fr 1fr", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", cursor: c.bid ? "pointer" : "default" }}>
             <span style={{ fontSize: 11, fontWeight: 700 }}>{c.co}</span>
             {eu ? (
               <span>
@@ -170,7 +175,8 @@ export function CenterPane({
         ))}
       </Card>
     </div>
-  );
+    );
+  };
 
   const pitch = (side: V, color: string) => (
     <div style={{ background: "linear-gradient(180deg,#0f2018,#0c1812)", border: "1px solid #1b3023", borderRadius: 12, padding: "16px 8px", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 320, height: "100%", boxSizing: "border-box" }}>
@@ -311,14 +317,14 @@ export function CenterPane({
                   <div style={{ fontSize: 9, color: "var(--fg-3)", marginTop: 4, lineHeight: 1.5 }}>{v.odds.index?.eu?.method}</div>
                 </Card>
                 <Card style={{ marginTop: 8, overflow: "hidden" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "52px 1fr 1fr 1fr", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 1fr 1fr", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
                     {["时间", "主胜", "平局", "客胜"].map((c, i) => (
                       <span key={c} style={{ fontSize: 9, color: "var(--fg-3)", textAlign: i > 0 ? "right" : "left" }}>{c}</span>
                     ))}
                   </div>
                   {v.odds.eu.map((r: V, i: number) => (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "52px 1fr 1fr 1fr", padding: "6px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-                      <span style={{ fontSize: 10, color: "var(--fg-2)" }}>{r.t}</span>
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "72px 1fr 1fr 1fr", padding: "6px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+                      <span className="mono" style={{ fontSize: 9.5, color: "var(--fg-2)" }}>{r.t}</span>
                       <span className="mono" style={{ fontSize: 11, textAlign: "right" }}>{r.h}</span>
                       <span className="mono" style={{ fontSize: 11, textAlign: "right", color: "var(--fg-2)" }}>{r.d}</span>
                       <span className="mono" style={{ fontSize: 11, textAlign: "right" }}>{r.a}</span>
@@ -344,9 +350,9 @@ export function CenterPane({
           <>
             <CompMetaBar comp={v.comp} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 }}>
-              {compCol("亚盘 · 多公司", v.comp.ah)}
-              {compCol("大小球 · 多公司", v.comp.ou)}
-              {compCol("胜平负 · 多公司", v.comp.eu, true)}
+              {compCol("亚盘 · 多公司", v.comp.ah, "ah")}
+              {compCol("大小球 · 多公司", v.comp.ou, "ou")}
+              {compCol("胜平负 · 多公司", v.comp.eu, "eu")}
             </div>
             <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 2px 0" }}>上行为初盘(开赛前 14 天起本站持续归档的最早盘口),下行为即时盘;各公司变盘时间与幅度可横向比对。</div>
           </>
@@ -394,7 +400,7 @@ export function CenterPane({
               <div style={{ display: "flex", flexDirection: "column", gap: 14, alignSelf: "start" }}>
                 <MatchTimeline tl={v.tech.timeline} home={h.home} away={h.away} live={h.live} />
                 <WeatherCard w={v.weather} />
-                <FatigueCard fa={v.insights?.fatigue} home={h.home} away={h.away} />
+                {!h.finished && <FatigueCard fa={v.insights?.fatigue} home={h.home} away={h.away} />}
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 14, alignSelf: "start" }}>
@@ -612,6 +618,7 @@ export function CenterPane({
           (deepV ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: 14 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {deepV.venue?.name && deepV.venue.name !== "—" && (
                 <Card style={{ padding: "12px 14px" }}>
                   <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
                     <span style={{ fontSize: 12, fontWeight: 700 }}>球场因素</span>
@@ -627,6 +634,7 @@ export function CenterPane({
                     ))}
                   </div>
                 </Card>
+                )}
                 <Card style={{ padding: "8px 14px 4px" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, padding: "4px 0 6px" }}>射手依赖度</div>
                   {(deepV.scorers ?? []).length === 0 && <div style={{ fontSize: 10.5, color: "var(--fg-3)", padding: "7px 0" }}>榜单数据积累中</div>}

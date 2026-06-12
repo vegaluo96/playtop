@@ -12,7 +12,7 @@ import { useSiteConfig } from "@/components/site-config";
 import { Chip } from "@/components/ui";
 import { f2, hhmm, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
-import { Flash, usePoll, useWorkerBeat } from "@/components/live";
+import { Flash, useUnifiedPoll } from "@/components/live";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 
@@ -73,8 +73,6 @@ function MobileMatchesPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [liveCount, setLiveCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
-  const [lastAt, setLastAt] = useState<number | null>(null);
-  const workerAt = useWorkerBeat();
   const { prefs } = useApp();
   const router = useRouter();
   // 联赛 chips:后台配置(含顺序)优先,静态表兜底
@@ -93,16 +91,14 @@ function MobileMatchesPage() {
       /* 网络抖动下保留旧数据 */
     } finally {
       setLoaded(true);
-      setLastAt(Date.now());
     }
   }, [day, league, prefs.tz]);
 
   useEffect(() => {
     void load(); // 切日期/联赛立即刷新
   }, [load]);
-  // 直播视图/列表含滚球行 → 3s(交易所级跳动,只渲染真实变化);其余 10s;后台 tab 暂停
-  const hasLive = day === "live" || rows.some((r) => r.live);
-  usePoll(load, hasLive ? 3_000 : 10_000);
+  // 四菜单统一节奏:平台有滚球 3s(交易所级跳动,只渲染真实变化),否则 10s;后台 tab 暂停
+  const beat = useUnifiedPoll(load);
 
   // 14 天日期带:直播 | 今日 | 明日 | 周X 日期…(worker 提前 14 天归档赛程与赔率)
   const off = parseTzOffset(prefs.tz);
@@ -120,12 +116,7 @@ function MobileMatchesPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <AnnouncementBar />
-      <PageHeader
-        title={<>足球<span style={{ color: "var(--gold)" }}>终端</span></>}
-        lastAt={lastAt}
-        workerAt={workerAt}
-        intervalMs={hasLive ? 3_000 : 10_000}
-      />
+      <PageHeader title={<>足球<span style={{ color: "var(--gold)" }}>终端</span></>} {...beat} />
 
       <div style={{ display: "flex", gap: 8, padding: "6px 16px 8px", overflowX: "auto", flexShrink: 0 }}>
         {dateChips.map((c) => (

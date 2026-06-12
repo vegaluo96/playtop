@@ -98,20 +98,44 @@ export function HeartBeat({ lastAt, intervalMs, workerAt, showNext = false, styl
   );
 }
 
-/** worker 心跳(/api/health)定期取一次 */
-export function useWorkerBeat(): number | null {
-  const [at, setAt] = useState<number | null>(null);
+/** 平台健康(/api/health)定期取一次:worker 心跳 + 当前滚球场次数 */
+export function useHealth(): { workerAt: number | null; liveNow: number } {
+  const [h, setH] = useState<{ workerAt: number | null; liveNow: number }>({ workerAt: null, liveNow: 0 });
   useEffect(() => {
     const load = () =>
       fetch("/api/health", { cache: "no-store" })
         .then((r) => r.json())
-        .then((j) => setAt(j.workerAt ?? null))
+        .then((j) => setH({ workerAt: j.workerAt ?? null, liveNow: Number(j.liveNow) || 0 }))
         .catch(() => {});
     void load();
     const t = setInterval(load, 30_000);
     return () => clearInterval(t);
   }, []);
-  return at;
+  return h;
+}
+
+/** worker 心跳(兼容旧用法) */
+export function useWorkerBeat(): number | null {
+  return useHealth().workerAt;
+}
+
+/**
+ * 四个一级菜单的统一轮询:全站一条规则 —— 平台有滚球场次 3s,否则 10s
+ * (liveNow 来自 /api/health,与列表/详情的「滚球加速」同源)。
+ * 返回值直接喂给 PageHeader,页头「Live · Ns」即本页真实轮询节奏。
+ */
+export function useUnifiedPoll(load: () => void | Promise<void>): { lastAt: number | null; workerAt: number | null; intervalMs: number } {
+  const { workerAt, liveNow } = useHealth();
+  const intervalMs = liveNow > 0 ? 3_000 : 10_000;
+  const [lastAt, setLastAt] = useState<number | null>(null);
+  usePoll(async () => {
+    try {
+      await load();
+    } finally {
+      setLastAt(Date.now());
+    }
+  }, intervalMs);
+  return { lastAt, workerAt, intervalMs };
 }
 
 /** 统一轮询:document.hidden 时暂停(省流量 + 长停留防御),回到前台立即刷一次 */

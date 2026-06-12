@@ -5,6 +5,7 @@
 import { ahText, dateStr, f2, hhmm, maskBookmaker, ouText } from "@/lib/format";
 import { isFinished, isLive } from "../af/schedule";
 import { liveOddsSeries } from "../af/live-store";
+import { db } from "../db";
 import { fixtureById, oddsSeries, type SnapRow } from "../af/store";
 
 export interface QuoteRow {
@@ -17,11 +18,18 @@ export interface QuoteRow {
   live: boolean; // 滚球帧
 }
 
-export function quoteHistory(fixtureId: number, market: "ah" | "ou" | "eu", tz: string) {
+/**
+ * @param bookmakerId 指定书商:百家对比行点入,只看该公司的赛前序列(滚球帧无书商维度,不并入)
+ */
+export function quoteHistory(fixtureId: number, market: "ah" | "ou" | "eu", tz: string, bookmakerId?: number) {
   const fx = fixtureById(fixtureId);
   if (!fx) return null;
-  const pre = oddsSeries(fixtureId, market);
-  const started = isLive(fx.status) || isFinished(fx.status);
+  const pre = bookmakerId
+    ? (db()
+        .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND market = ? AND bookmaker_id = ? ORDER BY captured_at")
+        .all(fixtureId, market, bookmakerId) as unknown as SnapRow[])
+    : oddsSeries(fixtureId, market);
+  const started = !bookmakerId && (isLive(fx.status) || isFinished(fx.status));
   const live: SnapRow[] = started
     ? liveOddsSeries(fixtureId, market)
         .filter((r) => !r.suspended)
