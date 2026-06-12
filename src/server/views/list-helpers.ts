@@ -33,7 +33,17 @@ export function liveAwareSeriesBatch(fixtureIds: number[], market: OddsMarket, l
 
   const liveIds = ids.filter((id) => liveFixtureIds.has(id));
   if (liveIds.length === 0) return result;
-  const liveSql = `SELECT fixture_id, line, h, a, d, suspended, captured_at FROM live_odds_snapshots WHERE market = ? AND fixture_id IN (${placeholders(liveIds.length)}) ORDER BY fixture_id, captured_at`;
+  const liveSql = `
+    SELECT fixture_id, line, h, a, d, suspended, captured_at
+    FROM (
+      SELECT fixture_id, line, h, a, d, suspended, captured_at,
+        ROW_NUMBER() OVER (PARTITION BY fixture_id ORDER BY captured_at DESC) rn
+      FROM live_odds_snapshots
+      WHERE market = ? AND suspended = 0 AND fixture_id IN (${placeholders(liveIds.length)})
+    )
+    WHERE rn <= 2
+    ORDER BY fixture_id, captured_at
+  `;
   const liveRows = db().prepare(liveSql).all(market, ...liveIds) as unknown as (SnapRow & { suspended: number })[];
   const liveByFixture = new Map<number, (SnapRow & { suspended: number })[]>();
   for (const row of liveRows) {
@@ -43,8 +53,6 @@ export function liveAwareSeriesBatch(fixtureIds: number[], market: OddsMarket, l
   }
   for (const [fixtureId, rowsForFixture] of liveByFixture) {
     const mapped: SnapRow[] = rowsForFixture
-      .filter((r) => !r.suspended)
-      .slice(-2)
       .map((r) => ({
         fixture_id: fixtureId,
         bookmaker_id: 0,

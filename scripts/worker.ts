@@ -81,6 +81,9 @@ const DELAY = Number(process.env.AF_DELAY_MS || 300);
 const TICK_MS = 60_000;
 const H = 3_600_000;
 const TZ8 = 8 * H;
+const FINAL_DETAIL_LOOKBACK_MS = 6 * H;
+const FINAL_DETAIL_RETRY_MS = 10 * 60_000;
+const FINAL_DETAIL_MAX_RUNS = 3;
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 let lastCallAt = 0;
@@ -99,6 +102,21 @@ const lastDetail = new Map<number, number>();
 const lastLineup = new Map<number, number>();
 const lineupDone = new Set<number>();
 const predRefetched = new Set<number>();
+
+function finalDetailState(fixtureId: number): { last: number; runs: number } {
+  try {
+    const raw = kvGet(`fx:${fixtureId}:final_detail_refresh`);
+    if (!raw) return { last: 0, runs: 0 };
+    const parsed = JSON.parse(raw) as { last?: number; runs?: number };
+    return { last: Number(parsed.last) || 0, runs: Number(parsed.runs) || 0 };
+  } catch {
+    return { last: 0, runs: 0 };
+  }
+}
+
+function saveFinalDetailState(fixtureId: number, state: { last: number; runs: number }): void {
+  kvSet(`fx:${fixtureId}:final_detail_refresh`, JSON.stringify(state));
+}
 
 async function refreshDayFixtures(date: string): Promise<void> {
   const key = `fixtures_day:${date}`;
@@ -209,6 +227,25 @@ async function refreshFixtureDetails(
   });
 }
 
+async function refreshRecentlyFinishedDetails(now: number): Promise<void> {
+  const finished = fixturesBetween(now - FINAL_DETAIL_LOOKBACK_MS, now + 5 * 60_000).filter((f) => isFinished(f.status));
+  for (const f of finished) {
+    const state = finalDetailState(f.fixture_id);
+    if (state.runs >= FINAL_DETAIL_MAX_RUNS || now - state.last < FINAL_DETAIL_RETRY_MS) continue;
+    saveFinalDetailState(f.fixture_id, { last: now, runs: state.runs + 1 });
+    try {
+      await refreshFixtureDetails(f.fixture_id, "完场详情补抓", {
+        events: true,
+        statistics: true,
+        lineups: true,
+        players: true,
+      });
+    } catch (e) {
+      log(`完场详情补抓 ${f.fixture_id} 失败:${msg(e)}`);
+    }
+  }
+}
+
 async function tickFixture(fxId: number, now: number): Promise<void> {
   const f = fixtureById(fxId);
   if (!f || isFinished(f.status)) return;
@@ -311,6 +348,7 @@ async function cycle(): Promise<void> {
     await refreshDayFixtures(day8(now, -1)).catch(() => {});
   }
   await tickLive(now);
+  await refreshRecentlyFinishedDetails(now);
   const horizon = fixturesBetween(now - 4 * H, now + 14 * 24 * H);
   for (const f of horizon) await tickFixture(f.fixture_id, now);
   settleAndDailyFree(now);

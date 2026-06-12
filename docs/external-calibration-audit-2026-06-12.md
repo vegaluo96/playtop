@@ -2,6 +2,7 @@
 
 > Current slice only. Do not read this as a whole-site completion statement.
 > Capture time: 2026-06-12T14:47:48Z / 2026-06-12 22:47 CST.
+> Continuation update: 2026-06-12T16:37:29Z / 2026-06-13 00:37 CST.
 > Target repo: `/Users/vega/Documents/Codex/playtop-zsky-copy`, branch `main`.
 
 ## Scope And Rules
@@ -13,6 +14,16 @@
 - Production deploy completed at commit `d8055e6`; `playtop-web` and `playtop-worker` were online after `scripts/deploy.sh`.
 - No secret was written to the repo. AF/API checks used the production server environment.
 - AF detail calibration is source-of-truth verification against the platform upstream. It is separate from media/external-source corroboration.
+
+## 2026-06-13 Continuation
+
+Current status: this is a continuation slice, not a whole-site completion claim.
+
+- Production read-only DB check found the current sample finished matches already have non-empty AF detail payloads: Mexico-South Africa has events 18 / statistics 2 / lineups 2 / players 2; South Korea-Czechia has events 14 / statistics 2 / lineups 2 / players 2.
+- AF detail public calibration was rerun for fixtures `1489369,1538999,1539000,1489370`: `✓16 △0 ✗0 ⊘0`. Scores, events, stats, official lineup state, and pre-match null states match AF for this slice.
+- Public external odds calibration was rerun from `docs/external-odds-samples-2026-06-12.json`: `✓0 △10 ✗0 ⊘0`. This remains WARN because the samples are not same-line/same-time and several are partial tip markets.
+- Applied code corrections in this continuation: terminal detail refresh after FT now retries AF `events/statistics/lineups/players` three times over the post-match window; AF empty-result caches for injuries, standings, rankings, ratings, formations, squads, coaches, transfers, and H2H now use a shorter negative TTL; list odds reads only the last two unsuspended live frames per fixture/market instead of scanning all historical live frames.
+- Fake-function correction: user recharge dialogs no longer say "演示环境:点击档位即模拟支付到账" while the channel is under maintenance, and the admin overview no longer labels disabled production purchase flow as "演示支付". Real payment integration is still a product-policy OPEN item.
 
 ## Production Public Fixtures Checked
 
@@ -47,7 +58,7 @@ This table is the operator-facing answer to "which parts are calibrated, which s
 | Odds / handicap | Production AF source audit has no line mismatch: future 48h selfcheck returned ✓9 / △3 water-basis differences / ✗0 / ⊘0. | Media/external odds still have no PASS. 10 samples are WARN only because none is same-line/same-time. AH and live/in-play external evidence remain OPEN. |
 | Technical stats | AF detail calibration PASS for the two finished matches: Mexico-South Africa 17 public stat rows match AF; South Korea-Czechia 16 rows match AF. | Media/external exact stat tables remain OPEN; no trusted match-centre table captured with identical full numbers. |
 | Team form / injuries | Empty recent-form arrays display "数据积累中"; empty official injuries remain no official report. Leaderboard shells and unusable transfer rows are now filtered in production. | Player ratings and season panels are AF-sourced but still need optional external/media spot checks if non-AF corroboration is required. |
-| Fake-function scan | No match-data fabrication FAIL found in this pass; empty modules mostly show "暂无/未公布/数据积累中". | Recharge/demo payment remains product-policy WARN/OPEN; real payment or production hiding/gating still needs a decision. |
+| Fake-function scan | No match-data fabrication FAIL found in this pass; empty modules mostly show "暂无/未公布/数据积累中". Production recharge simulation copy was removed from disabled user/admin states in the continuation update. | Real payment integration remains product-policy WARN/OPEN; production should stay maintenance-gated until a real gateway exists. |
 
 ## Corrections Applied In Repo
 
@@ -65,6 +76,10 @@ Status: fixed, pushed to GitHub `main`, and deployed to production.
 - Coach cards: deep coach cards now prefer the fixture-level lineup coach from `/fixtures/lineups` over stale team-level `/coachs` profiles. If the fixture coach differs from the team profile, the UI keeps the match coach name and marks profile/trophy metadata as pending instead of showing the wrong coach's biography.
 - Empty data shells: deep league leaderboards now return/render only populated boards; if all boards are empty, mobile and desktop show one official pending state instead of four empty cards. Unusable transfer rows such as missing date, unusable type, or player names like "Data unavailable"/"数据不可用" are converted to an official-pending state, not displayed as concrete transactions.
 - AF detail public calibration: added `scripts/af-detail-public-calibrate.ts` and `npm run calibrate:af-detail`. It compares AF `/fixtures`, `/fixtures/events`, `/fixtures/statistics`, and `/fixtures/lineups` with public `/api/match/<fixtureId>?deep=1` without DB/KV writes.
+- Post-match AF detail refresh: worker now retries the official AF detail endpoints after FT so final events/statistics/player ratings that arrive after the last live tick can replace partial live payloads.
+- AF negative-cache correction: empty official arrays/nulls use short TTL when appropriate, so AF data that appears after an initial empty response is not hidden for 6-24 hours.
+- Live odds list performance: list endpoints now read only the last two unsuspended live odds frames per fixture/market from SQLite, instead of loading every historical live frame and slicing in JavaScript.
+- Recharge fake-function copy: disabled production purchase flows show maintenance/ledger wording instead of simulation wording.
 - Regression tests: added `tests/platform/detail-calibration.test.ts` to lock the standings, coach-card, leaderboard, and transfer fixes; added fixture-payload merge and odds raw-retention coverage in `tests/af/store.test.ts`; added timeline ordering coverage in `tests/af/events-synth.test.ts`; added `tests/af/fixture-details.test.ts` for AF detail fetch planning and non-empty-only merge behavior.
 - Test stability: `tests/platform/selfcheck.test.ts` now uses a fixed midday timestamp, avoiding false failures when the test runs late in the day and its seeded `now + 2h` fixture crosses into tomorrow.
 
@@ -175,7 +190,7 @@ OPEN:
 Status: WARN, no immediate data-fabrication FAIL found.
 
 - Match data modules generally use "暂无", "未公布", "数据积累中", or hidden/null states when source data is absent.
-- Production recharge is gated by `demoRechargeEnabled()`; when production demo recharge is not enabled, public config reports recharge maintenance. UI still includes "演示环境:点击档位即模拟支付到账" in recharge dialogs, and admin overview labels "演示支付 · 无失败". This is transparent but remains an operational fake-function risk until a real payment gateway exists or recharge is hidden.
+- Production recharge is gated by `demoRechargeEnabled()`; when production demo recharge is not enabled, public config reports recharge maintenance. Continuation update removed the user/admin simulation wording from disabled states. Real payment remains a product-policy OPEN item until a gateway exists or recharge stays hidden/maintenance-gated.
 - `src/server/views/common.ts` has a disclosed "盘口推导" fallback for predictions when AF model direction is missing. This is not external calibration and should remain clearly labelled.
 
 ## External Source Links
@@ -207,5 +222,5 @@ Status: WARN, no immediate data-fabrication FAIL found.
 3. Capture an official or trusted match-centre full stat table for Mexico-South Africa and South Korea-Czechia to close exact possession/shots/cards/corners/xG values.
 4. Capture an official FIFA/FotMob/SofaScore lineup table for Mexico-South Africa to close the remaining formation wording conflict and remove the residual Guardian text mismatch WARN.
 5. Re-check Canada-Bosnia and USA-Paraguay after official lineups and match events are published.
-6. Decide product policy for recharge: connect real payment, keep demo explicitly gated, or hide recharge entirely in production.
+6. Decide product policy for recharge: connect real payment, keep demo explicitly gated for non-production, or keep recharge hidden/maintenance-gated in production.
 7. Continue media/external odds sourcing; without same-line/same-time public evidence, odds rows remain WARN rather than PASS even though AF-source audit has no line mismatch.

@@ -1,5 +1,5 @@
 /** 快照落库 + 异动 diff + 战绩结算(内存库,模拟 AF 信封) */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 process.env.PLAYTOP_DB = ":memory:";
 
@@ -16,6 +16,7 @@ import {
   oddsCompare,
   oddsSeries,
   oddsSeriesBatch,
+  kvCached,
   latestPredictionsMap,
   settleFixture,
   upsertFixture,
@@ -91,6 +92,30 @@ describe("fixtures_cache", () => {
       lineups: [{ team: { id: 50 }, coach: { name: "Coach A" } }],
       statistics: [{ team: { id: 50 }, statistics: [] }],
     });
+  });
+});
+
+describe("kvCached", () => {
+  it("空官方结果使用短 TTL,避免 AF 后续补齐后长时间仍显示暂无", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const fetcher = vi.fn(async () => {
+        calls++;
+        return calls === 1 ? [] : ["ready"];
+      });
+
+      vi.setSystemTime(new Date(1_000));
+      await expect(kvCached("empty-af", 60_000, fetcher, { emptyTtlMs: 1_000 })).resolves.toEqual([]);
+      vi.setSystemTime(new Date(1_500));
+      await expect(kvCached("empty-af", 60_000, fetcher, { emptyTtlMs: 1_000 })).resolves.toEqual([]);
+      vi.setSystemTime(new Date(2_100));
+      await expect(kvCached("empty-af", 60_000, fetcher, { emptyTtlMs: 1_000 })).resolves.toEqual(["ready"]);
+
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

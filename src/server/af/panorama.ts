@@ -25,6 +25,7 @@ import {
 
 const H = 3_600_000;
 const DETAIL_PROBE_TTL_MS = 5 * 60_000;
+const EMPTY_AF_TTL_MS = 30 * 60_000;
 
 function dig(obj: unknown, ...path: (string | number)[]): unknown {
   let cur: unknown = obj;
@@ -129,7 +130,7 @@ async function loadDeep(fx: FixtureRow): Promise<Panorama["deep"]> {
     kvCached<unknown[]>(key, ttl, async () => {
       const r = await runAfEndpoint(ep, params);
       return Array.isArray(r.response) ? r.response : [];
-    }).catch(() => [] as unknown[]);
+    }, { emptyTtlMs: EMPTY_AF_TTL_MS }).catch(() => [] as unknown[]);
 
   const [topscorers, topassists, topyellow, topred] = await Promise.all([
     list(`lg:${lg}:${season}:topscorers`, day, "players.topscorers", { league: String(lg), season: String(season) }),
@@ -147,7 +148,7 @@ async function loadDeep(fx: FixtureRow): Promise<Panorama["deep"]> {
       kvCached<unknown>(`team:${teamId}:${season}:lgstats:${lg}`, 6 * H, async () => {
         const r = await runAfEndpoint("teams.statistics", { league: String(lg), season: String(season), team: String(teamId) });
         return r.response ?? null;
-      }).catch(() => null),
+      }, { emptyTtlMs: EMPTY_AF_TTL_MS }).catch(() => null),
     ]);
     // 现任教练 = career 中该队且 end=null;退而取第一条
     const coach =
@@ -187,7 +188,7 @@ export async function matchPanorama(fixtureId: number, opts: { deep?: boolean; i
       : kvCached<unknown[]>(`fx:${fixtureId}:injuries`, 6 * H, async () => {
           const r = await runAfEndpoint("injuries", { fixture: String(fixtureId) });
           return Array.isArray(r.response) ? r.response : [];
-        }).catch(() => [] as unknown[]);
+        }, { emptyTtlMs: EMPTY_AF_TTL_MS }).catch(() => [] as unknown[]);
   const deepPromise = opts.deep ? loadDeep(fx) : Promise.resolve(null);
   const odds = oddsBundle(fixtureId);
   const movements = movementsOf(fixtureId);

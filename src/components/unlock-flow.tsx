@@ -163,7 +163,9 @@ export function useUnlockFlow(onUnlocked?: () => void) {
             </div>
           ))}
         </div>
-        <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>演示环境:点击档位即模拟支付到账</div>
+        <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>
+          {maintenance ? "购买通道维护中,暂不支持在线购买" : "购买成功后额度将写入账务明细"}
+        </div>
       </Sheet>
     </>
   );

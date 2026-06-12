@@ -3,10 +3,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { currentAdmin } from "@/server/admin/auth";
 import { day8, metric, topMetrics } from "@/server/admin/metrics";
-import { dailyFreeFixtureIds } from "@/server/platform/wallet";
+import { dailyFreeFixtureIds, demoRechargeEnabled } from "@/server/platform/wallet";
 import { kvGet } from "@/server/af/store";
 import { llmStats } from "@/server/llm/report";
 import { readLlmBalance } from "@/server/llm/client";
+import { cfgRechargeMaintenance } from "@/server/platform/config";
 
 const TZ8 = 8 * 3_600_000;
 const dayStartMs = (offset = 0) => Math.floor((Date.now() + TZ8) / 86_400_000 - offset) * 86_400_000 - TZ8;
@@ -82,6 +83,7 @@ export async function GET() {
 
   const af = JSON.parse(kvGet("af_status") || "null");
   const snapsToday = one("SELECT COUNT(*) v FROM odds_snapshots WHERE captured_at>=?", t0).v ?? 0;
+  const rechargePaused = cfgRechargeMaintenance() || !demoRechargeEnabled();
 
   return NextResponse.json({
     ok: true,
@@ -89,7 +91,7 @@ export async function GET() {
     alerts,
     kpis: [
       { label: "今日收入", v: `¥${revToday.toLocaleString()}`, c: "gold", delta: deltaPct(revToday, revYday) },
-      { label: "购买订单", v: String(ordersN(t0, t0 + 86_400_000)), delta: "演示支付 · 无失败" },
+      { label: "购买订单", v: String(ordersN(t0, t0 + 86_400_000)), delta: rechargePaused ? "购买通道维护中" : "演示支付 · 无失败" },
       { label: "付费用户", v: String(payersToday), delta: deltaPct(payersToday, payers(y0, t0)) },
       { label: "ARPPU", v: payersToday > 0 ? `¥${Math.round((revToday / payersToday) * 10) / 10}` : "—", c: "gold", delta: "" },
       { label: "付费转化率", v: pct(payersToday, dau), delta: `DAU ${dau}` },

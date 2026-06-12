@@ -621,7 +621,9 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
             </div>
           ))}
         </div>
-        <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>演示环境:点击档位即模拟支付到账</div>
+        <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>
+          {rechargeMaintenance ? "购买通道维护中,暂不支持在线购买" : "购买成功后额度将写入账务明细"}
+        </div>
       </Modal>
 
       <Modal open={modal?.kind === "refresh"} onClose={() => setModal(null)} width={440}>

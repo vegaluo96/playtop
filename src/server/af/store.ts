@@ -517,13 +517,24 @@ export function kvSet(key: string, value: string): void {
   db().prepare("INSERT INTO kv (k, v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").run(key, value);
 }
 
+export interface KvCachedOptions {
+  /** 空数组/null 这类“官方暂未返回”结果使用更短 TTL,避免 AF 后续补齐后前台长时间仍显示暂无。 */
+  emptyTtlMs?: number;
+}
+
+function isEmptyCacheData(data: unknown): boolean {
+  if (data == null) return true;
+  return Array.isArray(data) && data.length === 0;
+}
+
 /** kv JSON 缓存(带 TTL),给深挖/榜单等低频端点用 */
-export function kvCached<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
+export function kvCached<T>(key: string, ttlMs: number, fetcher: () => Promise<T>, opts: KvCachedOptions = {}): Promise<T> {
   const raw = kvGet(key);
   if (raw) {
     try {
       const { at, data } = JSON.parse(raw) as { at: number; data: T };
-      if (Date.now() - at < ttlMs) return Promise.resolve(data);
+      const effectiveTtl = opts.emptyTtlMs != null && isEmptyCacheData(data) ? Math.min(ttlMs, opts.emptyTtlMs) : ttlMs;
+      if (Date.now() - at < effectiveTtl) return Promise.resolve(data);
     } catch {
       /* 重新拉 */
     }

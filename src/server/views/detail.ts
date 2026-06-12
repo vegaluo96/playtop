@@ -24,6 +24,7 @@ import { lineupsView, type LineupsView } from "./detail-lineups";
 export { timelineView } from "./detail-tech";
 
 const H = 3_600_000;
+const EMPTY_AF_TTL_MS = 30 * 60_000;
 
 function dig(obj: unknown, ...path: (string | number)[]): unknown {
   let cur: unknown = obj;
@@ -104,7 +105,7 @@ async function h2hRows(homeId: number | null, awayId: number | null, pred: Recor
       const rows = await kvCached<unknown[]>(`h2h:${homeId}-${awayId}`, 12 * H, async () => {
         const r = await runAfEndpoint("fixtures.headtohead", { h2h: `${homeId}-${awayId}`, last: "10", status: "FT-AET-PEN" });
         return Array.isArray(r.response) ? r.response : [];
-      });
+      }, { emptyTtlMs: EMPTY_AF_TTL_MS });
       if (rows.length > 0) return rows;
     } catch {
       /* 回退 predictions 子集 */
@@ -139,7 +140,7 @@ async function standingsView(leagueId: number, season: number, homeId: number | 
       const r = await runAfEndpoint("standings", { league: String(leagueId), season: String(season) });
       const groups = arr(dig(arr(r.response)[0], "league", "standings"));
       return groups.flatMap((g) => arr(g)); // 拍平全部小组:世界杯等多组赛事两队可能分属不同组
-    });
+    }, { emptyTtlMs: EMPTY_AF_TTL_MS });
     const rowOf = (row: unknown) => ({
       rk: Number(dig(row, "rank")) || 0,
       teamId: (Number(dig(row, "team", "id")) || null) as number | null,
@@ -275,7 +276,7 @@ async function deepView(p: Panorama, lineups: LineupsView) {
         if (arr2.length === 0 || r.paging.current >= r.paging.total) break;
       }
       return out;
-    }).catch(() => [] as unknown[]);
+    }, { emptyTtlMs: EMPTY_AF_TTL_MS }).catch(() => [] as unknown[]);
     return players
       .map((pl) => ({
         side,
@@ -375,7 +376,7 @@ async function deepView(p: Panorama, lineups: LineupsView) {
       const lineups = arr(dig(r.response, "lineups"));
       const top = lineups.sort((x, y) => Number(dig(y, "played")) - Number(dig(x, "played")))[0];
       return top ? `${dig(top, "formation")}(${dig(top, "played")} 场)` : null;
-    }).catch(() => null);
+    }, { emptyTtlMs: EMPTY_AF_TTL_MS }).catch(() => null);
   };
   const depthOf = (squad: unknown, team: string, formation: string | null) => {
     const players = arr(dig(squad, "players"));
