@@ -33,6 +33,8 @@ interface Row {
   away: string;
   homeId: number | null;
   awayId: number | null;
+  homeLogo: string | null;
+  awayLogo: string | null;
   moved: boolean;
   masked: boolean;
   free: boolean;
@@ -141,7 +143,7 @@ function MobileMatchesPage() {
           <div style={{ minWidth: 0 }}>
             <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--home)", background: "var(--team-home-bg)", borderRadius: 3, padding: "1px 5px" }}>主</span>
-              <TeamLogo id={m.homeId} name={m.home} size={16} />
+              <TeamLogo id={m.homeId} name={m.home} src={m.homeLogo} size={16} />
               <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
             </div>
             <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", fontSize: 11, color: m.live ? "var(--gold)" : "var(--fg-4)", paddingLeft: 1, whiteSpace: "nowrap" }}>
@@ -149,7 +151,7 @@ function MobileMatchesPage() {
             </div>
             <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--team-away)", background: "var(--team-away-bg)", borderRadius: 3, padding: "1px 5px" }}>客</span>
-              <TeamLogo id={m.awayId} name={m.away} size={16} />
+              <TeamLogo id={m.awayId} name={m.away} src={m.awayLogo} size={16} />
               <span style={{ fontSize: 15, fontWeight: 600, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.away}</span>
             </div>
           </div>

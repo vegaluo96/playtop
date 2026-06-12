@@ -260,7 +260,7 @@ function MobileMatchDetail({ id }: { id: string }) {
         <div style={{ textAlign: "right", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
             <span style={{ fontSize: 16, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.home}</span>
-            <TeamLogo id={h.homeId} name={h.home} size={22} />
+            <TeamLogo id={h.homeId} name={h.home} src={h.homeLogo} size={22} />
           </div>
           <div style={{ fontSize: 11, fontWeight: 800, color: "var(--home)", marginTop: 2 }}>主场</div>
         </div>
@@ -274,7 +274,7 @@ function MobileMatchDetail({ id }: { id: string }) {
         </div>
         <div style={{ textAlign: "left", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <TeamLogo id={h.awayId} name={h.away} size={22} />
+            <TeamLogo id={h.awayId} name={h.away} src={h.awayLogo} size={22} />
             <span style={{ fontSize: 16, fontWeight: 800, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.away}</span>
           </div>
           <div style={{ fontSize: 11, fontWeight: 800, color: "var(--team-away)", marginTop: 2 }}>客场</div>
@@ -546,7 +546,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                 <div key={`${r.grp}-${r.rk}-${r.team}`} style={{ display: "grid", gridTemplateColumns: "28px 1fr 30px 64px 36px 36px", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.hl ? "var(--selected-bg-soft)" : "transparent" }}>
                   <span className="mono" style={{ fontSize: 11, fontWeight: 800, color: r.hl ? "var(--gold)" : "var(--fg-3)" }}>{r.rk}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                    <TeamLogo id={r.teamId} name={r.team} size={15} />
+                    <TeamLogo id={r.teamId} name={r.team} src={r.logo} size={15} />
                     <span style={{ fontSize: 12, fontWeight: r.hl ? 800 : 600, color: r.hl ? (r.hl === "h" ? "var(--home)" : "var(--team-away)") : "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.team}</span>
                   </span>
                   <span className="mono" style={{ fontSize: 11, textAlign: "center", color: "var(--fg-2)" }}>{r.p}</span>

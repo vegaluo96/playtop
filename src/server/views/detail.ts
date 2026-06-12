@@ -20,6 +20,7 @@ import { formZh, predSummary } from "./common";
 import type { SnapRow } from "../af/store";
 import { halfStats, liveStats, timelineView } from "./detail-tech";
 import { lineupsView, type LineupsView } from "./detail-lineups";
+import { publicImageUrl, teamLogoFromFixturePayload } from "./team-assets";
 
 export { timelineView } from "./detail-tech";
 
@@ -145,6 +146,7 @@ async function standingsView(leagueId: number, season: number, homeId: number | 
       rk: Number(dig(row, "rank")) || 0,
       teamId: (Number(dig(row, "team", "id")) || null) as number | null,
       team: nameZh(String(dig(row, "team", "name") ?? "")),
+      logo: publicImageUrl(dig(row, "team", "logo")),
       p: Number(dig(row, "all", "played")) || 0,
       w: Number(dig(row, "all", "win")) || 0,
       dr: Number(dig(row, "all", "draw")) || 0,
@@ -539,6 +541,8 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       away: nameZh(fx.away_name),
       homeId: fx.home_id,
       awayId: fx.away_id,
+      homeLogo: teamLogoFromFixturePayload(p.bundle, "home"),
+      awayLogo: teamLogoFromFixturePayload(p.bundle, "away"),
       live,
       finished: isFinished(fx.status),
       score: fx.goals_home != null ? `${fx.goals_home}-${fx.goals_away}` : null,

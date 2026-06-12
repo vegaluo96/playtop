@@ -18,6 +18,7 @@ import { currentUser } from "@/server/platform/session";
 import { guestMasked } from "@/server/platform/rules";
 import { unlockedIds } from "@/server/platform/wallet";
 import { nameZh } from "@/server/views/names";
+import { teamLogoFromFixturePayload } from "@/server/views/team-assets";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
@@ -100,6 +101,8 @@ export async function GET(req: NextRequest) {
       away: nameZh(f.away_name),
       homeId: f.home_id,
       awayId: f.away_id,
+      homeLogo: teamLogoFromFixturePayload(f.payload, "home"),
+      awayLogo: teamLogoFromFixturePayload(f.payload, "away"),
       moved: !masked && (movedMap.get(f.fixture_id) ?? false),
       ex: live && !masked ? liveExtras(f.payload) : null,
       masked,

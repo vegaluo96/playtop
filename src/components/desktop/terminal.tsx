@@ -352,7 +352,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                       {!m.masked && <WatchStar on={watch.ids.has(m.id)} onToggle={() => watch.toggle(m.id)} size={11} style={{ marginLeft: "auto" }} />}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-                      <TeamLogo id={m.homeId} name={m.home} size={14} />
+                      <TeamLogo id={m.homeId} name={m.home} src={m.homeLogo} size={14} />
                       <span style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
                         {m.home} <span style={{ color: "var(--fg-3)", fontWeight: 400 }}>vs</span> {m.away}
                       </span>

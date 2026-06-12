@@ -20,6 +20,7 @@ type MarketStatus = "open" | "masked" | "empty" | "suspended" | "stale";
 
 const MARKET_NAME: Record<MarketKind, string> = { ah: "让球", ou: "大小", eu: "胜平负" };
 const MASK = "-.--";
+const MIDDLE_ROW_FONT_SIZE = 11.5;
 
 function statusOf(cell: MarketCellData | null | undefined, masked: boolean, status?: MarketStatus): MarketStatus {
   if (status) return status;
@@ -105,7 +106,15 @@ export function MarketCell({
     return (
       <div title={title} data-market-kind={kind} data-market-status={st} style={wrap}>
         {vals.map((v, i) => (
-          <MarketValue key={i} v={v ?? undefined} dir={dirs[i] ?? undefined} masked={masked || st === "masked"} pulse={cell?.chgAt} small={i === 1} />
+          <MarketValue
+            key={i}
+            v={v ?? undefined}
+            dir={dirs[i] ?? undefined}
+            masked={masked || st === "masked"}
+            pulse={cell?.chgAt}
+            small={i === 1}
+            style={i === 1 ? { fontSize: MIDDLE_ROW_FONT_SIZE, fontWeight: 750 } : undefined}
+          />
         ))}
       </div>
     );
@@ -115,7 +124,7 @@ export function MarketCell({
   return (
     <div title={title} data-market-kind={kind} data-market-status={st} style={wrap}>
       <MarketValue v={cell?.h} dir={cell?.hd} masked={masked || st === "masked"} pulse={cell?.chgAt} />
-      <div className={kind === "ou" ? "mono" : undefined} style={{ height: 17, display: "flex", alignItems: "center", justifyContent: "center", fontSize: kind === "ou" ? 11.5 : 11, fontWeight: 700, color: st === "empty" ? "var(--fg-3)" : "var(--gold)" }}>
+      <div className={kind === "ou" ? "mono" : undefined} style={{ height: 17, display: "flex", alignItems: "center", justifyContent: "center", fontSize: MIDDLE_ROW_FONT_SIZE, fontWeight: 700, color: st === "empty" ? "var(--fg-3)" : "var(--gold)" }}>
         <Flash v={line} pulse={masked ? null : cell?.chgAt} />
       </div>
       <MarketValue v={cell?.a} dir={cell?.ad} masked={masked || st === "masked"} pulse={cell?.chgAt} />

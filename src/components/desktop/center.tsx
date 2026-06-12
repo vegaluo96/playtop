@@ -254,7 +254,7 @@ export function CenterPane({
         <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 22, fontWeight: 800, whiteSpace: "nowrap" }}>{h.home}</span>
-            <TeamLogo id={h.homeId} name={h.home} size={26} />
+            <TeamLogo id={h.homeId} name={h.home} src={h.homeLogo} size={26} />
             <span style={{ fontSize: 11, fontWeight: 800, color: "var(--home)" }}>主</span>
           </div>
           <span className="mono" style={{ fontSize: 24, fontWeight: 800, color: h.live || h.finished ? "var(--gold)" : "var(--fg-4)", whiteSpace: "nowrap" }}>
@@ -262,7 +262,7 @@ export function CenterPane({
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={{ fontSize: 11, fontWeight: 800, color: "var(--team-away)" }}>客</span>
-            <TeamLogo id={h.awayId} name={h.away} size={26} /><span style={{ fontSize: 22, fontWeight: 800, color: "var(--fg-mid)", whiteSpace: "nowrap" }}>{h.away}</span>
+            <TeamLogo id={h.awayId} name={h.away} src={h.awayLogo} size={26} /><span style={{ fontSize: 22, fontWeight: 800, color: "var(--fg-mid)", whiteSpace: "nowrap" }}>{h.away}</span>
           </div>
           <span style={{ flex: 1 }} />
           <div style={{ display: "flex", gap: 8 }}>
@@ -510,7 +510,7 @@ export function CenterPane({
                     <div key={`${r.grp}-${r.rk}-${r.team}`} style={{ display: "grid", gridTemplateColumns: "24px 1fr 26px 56px 32px 32px", padding: "5px 0", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.hl ? "var(--selected-bg-soft)" : "transparent" }}>
                       <span className="mono" style={{ fontSize: 11, fontWeight: 800, color: r.hl ? "var(--gold)" : "var(--fg-3)" }}>{r.rk}</span>
                       <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-                        <TeamLogo id={r.teamId} name={r.team} size={13} />
+                        <TeamLogo id={r.teamId} name={r.team} src={r.logo} size={13} />
                         <span style={{ fontSize: 11.5, fontWeight: r.hl ? 800 : 600, color: r.hl ? (r.hl === "h" ? "var(--home)" : "var(--team-away)") : "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.team}</span>
                       </span>
                       <span className="mono" style={{ fontSize: 11, textAlign: "center", color: "var(--fg-2)" }}>{r.p}</span>
