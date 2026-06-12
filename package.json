@@ -5,7 +5,7 @@
   "description": "ZSKY.COM 足球天空 — 亚盘/大小球/胜平负足球数据分析平台",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/prepare-standalone.mjs",
     "start": "node .next/standalone/server.js",
     "af": "tsx scripts/af-probe.ts",
     "calibrate": "tsx scripts/odds-calibrate.ts",
