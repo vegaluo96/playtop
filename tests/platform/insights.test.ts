@@ -1,4 +1,4 @@
-/** 赌球洞察:盘路分类(主客视角/四分之一球)、凯利与离散、升降盘、同赔历史 */
+/** 指数洞察:盘路分类(主客视角/四分之一球)、凯利与离散、升降盘、同赔历史 */
 import { beforeEach, describe, expect, it } from "vitest";
 
 process.env.PLAYTOP_DB = ":memory:";

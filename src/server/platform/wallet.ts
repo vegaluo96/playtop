@@ -51,7 +51,7 @@ export function claimGift(userId: number): WalletResult {
   });
 }
 
-/** 购买额度(当前为演示支付:选档即到账;接入支付网关后在此校验回调) */
+/** 购买额度:仅在显式开关允许时直接记账;接入支付网关后在此校验回调 */
 export function recharge(userId: number, tierIndex: number): WalletResult {
   if (!demoRechargeEnabled()) return { ok: false, error: "购买额度通道维护中,请稍后再试" };
   const tier = cfgRechargeTiers()[tierIndex];

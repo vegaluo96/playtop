@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS odds_snapshots (
   captured_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_odds_snap ON odds_snapshots(fixture_id, market, bookmaker_id, captured_at);
+CREATE INDEX IF NOT EXISTS idx_odds_snap_timeline ON odds_snapshots(fixture_id, market, captured_at);
 CREATE TABLE IF NOT EXISTS movements (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   fixture_id INTEGER NOT NULL,
@@ -157,6 +158,7 @@ CREATE TABLE IF NOT EXISTS live_odds_snapshots (
   captured_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_live_odds ON live_odds_snapshots(fixture_id, market, captured_at);
+CREATE INDEX IF NOT EXISTS idx_live_odds_market_time ON live_odds_snapshots(market, fixture_id, captured_at DESC);
 -- 外部盘口校准样本(百度/足球财富/其它公开源人工或 adapter 导入;不参与业务展示)
 CREATE TABLE IF NOT EXISTS odds_external_samples (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

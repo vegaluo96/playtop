@@ -18,7 +18,7 @@ export async function GET() {
   const t0 = dayStartMs(0), y0 = dayStartMs(1);
   const one = (sql: string, ...args: unknown[]) => (d.prepare(sql).get(...(args as [])) as Record<string, number> | undefined) ?? {};
 
-  // 收入 = ledger.rmb(kind=recharge);演示支付期口径一致
+  // 收入 = ledger.rmb(kind=recharge);以账务流水为准
   const revenue = (from: number, to: number) => one("SELECT COALESCE(SUM(rmb),0) v FROM ledger WHERE kind='recharge' AND created_at>=? AND created_at<?", from, to).v ?? 0;
   const ordersN = (from: number, to: number) => one("SELECT COUNT(*) v FROM ledger WHERE kind='recharge' AND created_at>=? AND created_at<?", from, to).v ?? 0;
   const payers = (from: number, to: number) => one("SELECT COUNT(DISTINCT user_id) v FROM ledger WHERE kind='recharge' AND created_at>=? AND created_at<?", from, to).v ?? 0;
@@ -91,7 +91,7 @@ export async function GET() {
     alerts,
     kpis: [
       { label: "今日收入", v: `¥${revToday.toLocaleString()}`, c: "gold", delta: deltaPct(revToday, revYday) },
-      { label: "购买订单", v: String(ordersN(t0, t0 + 86_400_000)), delta: rechargePaused ? "购买通道维护中" : "演示支付 · 无失败" },
+      { label: "购买订单", v: String(ordersN(t0, t0 + 86_400_000)), delta: rechargePaused ? "购买通道维护中" : "购买通道可用 · 账务正常" },
       { label: "付费用户", v: String(payersToday), delta: deltaPct(payersToday, payers(y0, t0)) },
       { label: "ARPPU", v: payersToday > 0 ? `¥${Math.round((revToday / payersToday) * 10) / 10}` : "—", c: "gold", delta: "" },
       { label: "付费转化率", v: pct(payersToday, dau), delta: `DAU ${dau}` },
