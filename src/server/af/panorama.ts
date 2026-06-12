@@ -8,9 +8,12 @@
 import { afGet } from "./client";
 import { runAfEndpoint } from "./catalog";
 import { mustForce, isLive } from "./schedule";
+import { fixtureDetailPartKey, fixtureDetailPartsForBundle, refreshFixtureDetailsFromAf } from "./fixture-details";
 import {
   fixtureById,
   kvCached,
+  kvGet,
+  kvSet,
   latestPrediction,
   movementsOf,
   oddsCompare,
@@ -22,6 +25,7 @@ import {
 } from "./store";
 
 const H = 3_600_000;
+const DETAIL_PROBE_TTL_MS = 5 * 60_000;
 
 function dig(obj: unknown, ...path: (string | number)[]): unknown {
   let cur: unknown = obj;
@@ -65,8 +69,34 @@ export interface Panorama {
   } | null;
 }
 
-/** 确保 fixtures_cache 里有基础 bundle(必要时出网拉一枪);详情字段由 worker 独立端点补齐 */
-async function ensureBundle(fixtureId: number): Promise<FixtureRow | null> {
+async function ensureDetailSlices(fx: FixtureRow, opts: { deep?: boolean }, now: number): Promise<FixtureRow> {
+  let bundle: Record<string, unknown> = {};
+  try {
+    bundle = JSON.parse(fx.payload) as Record<string, unknown>;
+  } catch {
+    bundle = {};
+  }
+  const parts = fixtureDetailPartsForBundle(fx, bundle, { deep: opts.deep, now });
+  const partKey = fixtureDetailPartKey(parts);
+  if (!partKey) return fx;
+
+  const probeKey = `fx:${fx.fixture_id}:detail_probe:${partKey}`;
+  const lastProbe = Number(kvGet(probeKey) ?? 0);
+  if (now - lastProbe < DETAIL_PROBE_TTL_MS) return fx;
+  kvSet(probeKey, String(now));
+
+  try {
+    const force = mustForce(fx.kickoff_utc, now, fx.status) || isLive(fx.status);
+    const patch = await refreshFixtureDetailsFromAf(fx.fixture_id, parts, { force });
+    if (Object.keys(patch).length > 0) return fixtureById(fx.fixture_id) ?? fx;
+  } catch {
+    /* 离线/配额/端点暂未返回:退回缓存,前端按官方未返回口径展示 */
+  }
+  return fx;
+}
+
+/** 确保 fixtures_cache 里有基础 bundle,并在用户打开详情时按需补齐 AF 独立详情字段 */
+async function ensureBundle(fixtureId: number, opts: { deep?: boolean } = {}): Promise<FixtureRow | null> {
   let fx = fixtureById(fixtureId);
   const now = Date.now();
   const needFresh =
@@ -90,7 +120,7 @@ async function ensureBundle(fixtureId: number): Promise<FixtureRow | null> {
       /* 离线/配额:退回缓存 */
     }
   }
-  return fx;
+  return fx ? ensureDetailSlices(fx, opts, now) : null;
 }
 
 async function loadDeep(fx: FixtureRow): Promise<Panorama["deep"]> {
@@ -144,7 +174,7 @@ async function loadDeep(fx: FixtureRow): Promise<Panorama["deep"]> {
 }
 
 export async function matchPanorama(fixtureId: number, opts: { deep?: boolean } = {}): Promise<Panorama | null> {
-  const fx = await ensureBundle(fixtureId);
+  const fx = await ensureBundle(fixtureId, opts);
   if (!fx) return null;
   let bundle: Record<string, unknown> = {};
   try {

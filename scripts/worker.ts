@@ -24,7 +24,6 @@ import {
   kvSet,
   setDailyFree,
   freeFixtureCount,
-  mergeFixturePayload,
   settleFixture,
   upsertFixture,
 } from "../src/server/af/store";
@@ -34,6 +33,7 @@ import { fetchLlmBalance } from "../src/server/llm/client";
 import { archiveLiveOdds, pruneLiveData } from "../src/server/af/live-store";
 import { normalizeLiveOddsItem } from "../src/server/af/normalize";
 import { synthFromFixture } from "../src/server/af/events-synth";
+import { refreshFixtureDetailsFromAf } from "../src/server/af/fixture-details";
 import { getLlmReport, shouldPregenReport } from "../src/server/llm/report";
 import { buildReport } from "../src/server/views/report";
 import { matchPanorama } from "../src/server/af/panorama";
@@ -203,29 +203,9 @@ async function refreshFixtureDetails(
   tier: string,
   parts: { events?: boolean; statistics?: boolean; lineups?: boolean; players?: boolean },
 ): Promise<Record<string, unknown>> {
-  const patch: Record<string, unknown> = {};
-  const pull = async (key: string, path: string) => {
-    const env = await paced(() => tracked(key, tier, () => afGet(path, { force: true })));
-    return Array.isArray(env.response) ? env.response : [];
-  };
-  if (parts.events) {
-    const events = await pull("fixtures.events", `/fixtures/events?fixture=${fixtureId}`);
-    if (events.length > 0) patch.events = events;
-  }
-  if (parts.statistics) {
-    const statistics = await pull("fixtures.statistics", `/fixtures/statistics?fixture=${fixtureId}`);
-    if (statistics.length > 0) patch.statistics = statistics;
-  }
-  if (parts.lineups) {
-    const lineups = await pull("fixtures.lineups", `/fixtures/lineups?fixture=${fixtureId}`);
-    if (lineups.length > 0) patch.lineups = lineups;
-  }
-  if (parts.players) {
-    const players = await pull("fixtures.players", `/fixtures/players?fixture=${fixtureId}`);
-    if (players.length > 0) patch.players = players;
-  }
-  if (Object.keys(patch).length > 0) mergeFixturePayload(fixtureId, patch);
-  return patch;
+  return refreshFixtureDetailsFromAf(fixtureId, parts, {
+    fetcher: (key, path) => paced(() => tracked(key, tier, () => afGet(path, { force: true }))),
+  });
 }
 
 async function tickFixture(fxId: number, now: number): Promise<void> {
