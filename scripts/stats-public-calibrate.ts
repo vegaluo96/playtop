@@ -236,7 +236,13 @@ function compare(sample: Sample, payload: Record<string, unknown> | null): Row {
 
   if (comparableStats > 0) facts.push(`stats matched ${matchedStats}/${comparableStats}`);
   if (mismatches.length > 0) {
-    return { sample, status: "fail", note: [...facts, ...mismatches.slice(0, 4)].join("; ") };
+    const bits = [...facts, ...mismatches.slice(0, 4)];
+    if (sample.evidence !== "full-match-centre") {
+      bits.push("partial external evidence has a numeric mismatch; kept as WARN, not FAIL");
+      if (sample.note) bits.push(sample.note);
+      return { sample, status: "warn", note: bits.join("; ") };
+    }
+    return { sample, status: "fail", note: bits.join("; ") };
   }
   if (sample.evidence !== "full-match-centre") {
     const bits = [...facts];

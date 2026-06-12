@@ -23,7 +23,7 @@ Current status: this is a continuation slice, not a whole-site completion claim.
 - Production read-only DB check found the current sample finished matches already have non-empty AF detail payloads: Mexico-South Africa has events 18 / statistics 2 / lineups 2 / players 2; South Korea-Czechia has events 14 / statistics 2 / lineups 2 / players 2.
 - AF detail public calibration was rerun for fixtures `1489369,1538999,1539000,1489370`: `✓16 △0 ✗0 ⊘0`. Scores, events, stats, official lineup state, and pre-match null states match AF for this slice.
 - Public external odds calibration was rerun from `docs/external-odds-samples-2026-06-12.json`: `✓0 △10 ✗0 ⊘0`. This remains WARN because the samples are not same-line/same-time and several are partial tip markets.
-- Public external technical-stats calibration was added and run from `docs/external-stats-samples-2026-06-12.json`: `✓0 △2 ✗0 ⊘0`. It confirms the partial ET score/red-card snapshots do not contradict production, but keeps both rows WARN because no full FIFA/FotMob/SofaScore-style match-centre table was captured.
+- Public external technical-stats calibration was expanded and run from `docs/external-stats-samples-2026-06-12.json`: `✓0 △3 ✗0 ⊘0`. ET partial snapshots do not contradict scores/red cards. Times of India adds Mexico-South Africa possession/shots, with possession aligned but shots differing from AF/ZSKY (TOI 15-4 vs ZSKY/AF 16-3); because this is still partial article evidence rather than a full match-centre table, it stays WARN, not FAIL/PASS.
 - Applied code corrections in this continuation: terminal detail refresh after FT now retries AF `events/statistics/lineups/players` three times over the post-match window; AF empty-result caches for injuries, standings, rankings, ratings, formations, squads, coaches, transfers, and H2H now use a shorter negative TTL; list odds reads only the last two unsuspended live frames per fixture/market instead of scanning all historical live frames.
 - Fake-function correction: user recharge dialogs no longer say "演示环境:点击档位即模拟支付到账" while the channel is under maintenance, and the admin overview no longer labels disabled production purchase flow as "演示支付". Real payment integration is still a product-policy OPEN item.
 - Selfcheck correction: production L4 selfcheck now skips the demo first-purchase assertion when the purchase channel is maintenance-gated, while still checking gift, unlock, ledger, invite, redemption, and cleanup flows.
@@ -59,7 +59,7 @@ This table is the operator-facing answer to "which parts are calibrated, which s
 | Pre-match null states | Canada-Bosnia and USA-Paraguay correctly keep `score:null`, `timeline:null`, `stats:null`, and `lineups.ready:false`. | Re-check after official lineups and match events publish. |
 | Standings | Group A table now shows only the shared group rows for the two finished Group A matches; generic duplicate group rows are filtered. | Keep media/external standings WARN until an official standings table snapshot is captured. |
 | Odds / handicap | Production AF source audit has no line mismatch: future 48h selfcheck returned ✓9 / △3 water-basis differences / ✗0 / ⊘0. | Media/external odds still have no PASS. 10 samples are WARN only because none is same-line/same-time. AH and live/in-play external evidence remain OPEN. |
-| Technical stats | AF detail calibration PASS for the two finished matches: Mexico-South Africa 17 public stat rows match AF; South Korea-Czechia 16 rows match AF. Partial ET external snapshots do not contradict score/red-card facts. | Media/external exact stat tables remain OPEN/WARN; `calibrate:stats-public` is now available, but current samples are partial article evidence rather than full trusted match-centre tables. |
+| Technical stats | AF detail calibration PASS for the two finished matches: Mexico-South Africa 17 public stat rows match AF; South Korea-Czechia 16 rows match AF. Partial ET/TOI external snapshots do not contradict scores/red cards; TOI possession for Mexico-South Africa matches 61%-39%. | Media/external exact stat tables remain OPEN/WARN; TOI reports Mexico-South Africa shots 15-4 while ZSKY/AF shows 16-3, but TOI is not a full match-centre table, so do not rewrite AF-sourced data. |
 | Team form / injuries | Empty recent-form arrays display "数据积累中"; empty official injuries remain no official report. Leaderboard shells and unusable transfer rows are now filtered in production. | Player ratings and season panels are AF-sourced but still need optional external/media spot checks if non-AF corroboration is required. |
 | Fake-function scan | No match-data fabrication FAIL found in this pass; empty modules mostly show "暂无/未公布/数据积累中". Production recharge simulation copy was removed from disabled user/admin states in the continuation update. | Real payment integration remains product-policy WARN/OPEN; production should stay maintenance-gated until a real gateway exists. |
 
@@ -122,7 +122,7 @@ Added `scripts/stats-public-calibrate.ts`, `npm run calibrate:stats-public`, and
 Run result:
 
 ```text
-■ Public external stats calibration · samples 2 · ✓0 △2 ✗0 ⊘0
+■ Public external stats calibration · samples 3 · ✓0 △3 ✗0 ⊘0
 ```
 
 Key observations:
@@ -130,6 +130,7 @@ Key observations:
 | Match | External source | External sample | ZSKY public | Status |
 |---|---|---|---|---|
 | Mexico-South Africa | [Economic Times](https://economictimes.indiatimes.com/news/new-updates/fifa-world-cup-2026-stats-mexico-vs-south-africa-first-match-full-time-score-goal-scorers-match-statistics-and-what-the-results-mean/articleshow/131672153.cms) | Score 2-0; red cards 1-2. | Score 2-0; red cards 1-2; full AF stat table has 17 rows. | WARN, partial article only. |
+| Mexico-South Africa | [Times of India](https://timesofindia.indiatimes.com/sports/football/fifa-world-cup/more-red-cards-than-goals-mexicos-2-0-win-over-south-africa-becomes-first-world-cup-opener-with-three-dismissals/articleshow/131668768.cms) | Possession 61%-39%; shots 15-4. | Possession 61%-39%; shots 16-3; full AF stat table has 17 rows. | WARN, partial article only; shot total differs, no AF rewrite. |
 | South Korea-Czechia | [Economic Times](https://economictimes.indiatimes.com/news/new-updates/south-korea-vs-czechia-fifa-world-cup-2026-highlights-stats-scores-and-how-the-match-unfolded/articleshow/131674064.cms) | Score 2-1 and scorers only. | Score 2-1; full AF stat table has 16 rows. | WARN, no comparable full technical stat table. |
 
 OPEN:
@@ -176,7 +177,7 @@ OPEN:
 - Score/goals: PASS. Production 2-0, goals at 9' Julian Quinones and 67' Raul Jimenez match [Guardian live report](https://www.theguardian.com/football/live/2026/jun/11/mexico-v-south-africa-world-cup-2026-opening-match-live), [AP](https://apnews.com/article/4c9de5961b70f1b2cc6e754ff2db57c2), and [FMF State of Mind](https://www.fmfstateofmind.com/world-cup/27214/mexico-defeat-south-africa-to-finally-win-a-world-cup-opener).
 - Cards/VAR: PASS/WARN. Production has South Africa reds at 49' and 84', Mexico red at 90+2', plus VAR card upgrade at 82'. Guardian and FMF both corroborate the three reds and Zwane VAR upgrade; minute naming differs slightly by source, so keep WARN for exact minute.
 - Substitutions: PASS/WARN. FMF narrative corroborates the major second-half changes, including Luis Chavez/Gilberto Mora, Edson Alvarez/Armando Gonzalez, Alexis Vega, and South Africa changes. Not a full substitution table from an official match centre.
-- Technical stats: WARN/OPEN. Production exposes 17 stats (61%-39% possession, 16-3 shots, 4-2 shots on target, 3-1 corners, 1-2 red cards, etc.). `calibrate:stats-public` confirms the Economic Times partial score/red-card snapshot does not contradict production, but no external match-centre page with the exact full numeric table was captured.
+- Technical stats: WARN/OPEN. Production exposes 17 stats (61%-39% possession, 16-3 shots, 4-2 shots on target, 3-1 corners, 1-2 red cards, etc.). `calibrate:stats-public` confirms the Economic Times partial score/red-card snapshot does not contradict production, and Times of India possession matches 61%-39%. Times of India reports total shots 15-4, which differs from AF/ZSKY 16-3, but this is a partial article source, not a full match-centre table, so no source rewrite is justified.
 
 ### South Korea-Czechia
 
@@ -228,6 +229,7 @@ Status: WARN, no immediate data-fabrication FAIL found.
 - [AP - Mexico 2-0 South Africa report](https://apnews.com/article/4c9de5961b70f1b2cc6e754ff2db57c2)
 - [FMF State of Mind - Mexico defeats South Africa](https://www.fmfstateofmind.com/world-cup/27214/mexico-defeat-south-africa-to-finally-win-a-world-cup-opener)
 - [Times of India - Mexico vs South Africa confirmed lineups](https://timesofindia.indiatimes.com/sports/football/fifa-world-cup/mexico-vs-south-africa-confirmed-line-ups-will-six-time-world-cup-icon-and-tournaments-youngest-player-feature-tonight/articleshow/131667166.cms)
+- [Times of India - Mexico vs South Africa key match statistics](https://timesofindia.indiatimes.com/sports/football/fifa-world-cup/more-red-cards-than-goals-mexicos-2-0-win-over-south-africa-becomes-first-world-cup-opener-with-three-dismissals/articleshow/131668768.cms)
 - [The Sun Ireland - Mexico vs South Africa betting tips](https://www.thesun.ie/betting/17078702/mexico-vs-south-africa-betting-tips-world-cup-2026/)
 - [New York Post - Mexico vs South Africa odds/pick](https://nypost.com/2026/06/11/betting/mexico-vs-south-africa-prediction-odds-picks-best-bet-for-world-cup-opener/)
 - [Guardian - South Korea 2-1 Czechia live report](https://www.theguardian.com/football/live/2026/jun/12/fifa-world-cup-2026-live-south-korea-v-czechia-updates-kor-vs-cze-group-a-match-score-latest)

@@ -13,6 +13,20 @@
     "note": "ET only publishes score/red-card snapshot, not a full match-centre technical table. Keep WARN even when comparable values match."
   },
   {
+    "fixtureId": 1489369,
+    "match": "Mexico-South Africa",
+    "source": "The Times of India",
+    "url": "https://timesofindia.indiatimes.com/sports/football/fifa-world-cup/more-red-cards-than-goals-mexicos-2-0-win-over-south-africa-becomes-first-world-cup-opener-with-three-dismissals/articleshow/131668768.cms",
+    "capturedAt": "2026-06-11T21:41:00Z",
+    "evidence": "partial-article",
+    "score": [2, 0],
+    "stats": {
+      "Ball Possession": [61, 39],
+      "Total Shots": [15, 4]
+    },
+    "note": "TOI gives partial key stats, not a full match-centre table. Possession matches ZSKY/AF, but shot total differs from ZSKY/AF 16-3, so keep WARN until an official full table is captured."
+  },
+  {
     "fixtureId": 1538999,
     "match": "South Korea-Czechia",
     "source": "The Economic Times",
