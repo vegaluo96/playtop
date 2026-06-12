@@ -20,7 +20,14 @@ type MarketStatus = "open" | "masked" | "empty" | "suspended" | "stale";
 
 const MARKET_NAME: Record<MarketKind, string> = { ah: "让球", ou: "大小", eu: "胜平负" };
 const MASK = "-.--";
-const MIDDLE_ROW_FONT_SIZE = 11.5;
+const VALUE_ROW_HEIGHT = 21;
+const MIDDLE_ROW_HEIGHT = 18;
+const VALUE_FONT_SIZE = 15;
+const VALUE_FONT_WEIGHT = 800;
+const MIDDLE_ROW_FONT_SIZE = 12.5;
+const MIDDLE_ROW_FONT_WEIGHT = 760;
+const SMALL_VALUE_FONT_SIZE = 12.5;
+const SMALL_VALUE_FONT_WEIGHT = 760;
 
 function statusOf(cell: MarketCellData | null | undefined, masked: boolean, status?: MarketStatus): MarketStatus {
   if (status) return status;
@@ -49,15 +56,25 @@ export function MarketValue({
   className?: string;
 }) {
   const { justifyContent, ...valueStyle } = style ?? {};
+  const rowHeight = small ? MIDDLE_ROW_HEIGHT : VALUE_ROW_HEIGHT;
   return (
-    <div style={{ height: small ? 17 : 20, display: "flex", alignItems: "center", justifyContent: justifyContent ?? "center" }}>
+    <div style={{ height: rowHeight, minHeight: rowHeight, display: "flex", alignItems: "center", justifyContent: justifyContent ?? "center" }}>
       <Flash
         v={masked || v == null || v === "" ? MASK : typeof v === "number" ? f2(v) : v}
         arrow={!masked && v != null && dir != null && dir !== 0}
         pulse={masked ? null : pulse}
         pulseDir={dir ?? undefined}
         className={className}
-        style={{ fontSize: small ? 12.5 : 14.5, lineHeight: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: small ? 750 : 700, color: dim ? "var(--fg-2)" : undefined, ...valueStyle }}
+        style={{
+          fontSize: small ? SMALL_VALUE_FONT_SIZE : VALUE_FONT_SIZE,
+          lineHeight: 1,
+          letterSpacing: 0,
+          fontVariantNumeric: "tabular-nums",
+          whiteSpace: "nowrap",
+          fontWeight: small ? SMALL_VALUE_FONT_WEIGHT : VALUE_FONT_WEIGHT,
+          color: dim ? "var(--fg-2)" : undefined,
+          ...valueStyle,
+        }}
       />
     </div>
   );
@@ -93,7 +110,7 @@ export function MarketCell({
     background: "var(--inset)",
     border: `1px solid ${st === "stale" ? "var(--warn-border)" : "transparent"}`,
     borderRadius: 8,
-    padding: "3px 0",
+    padding: "4px 0",
     opacity: dim ? 0.68 : 1,
     minWidth: 0,
     boxSizing: "border-box",
@@ -113,7 +130,7 @@ export function MarketCell({
             masked={masked || st === "masked"}
             pulse={cell?.chgAt}
             small={i === 1}
-            style={i === 1 ? { fontSize: MIDDLE_ROW_FONT_SIZE, fontWeight: 750 } : undefined}
+            style={i === 1 ? { fontSize: MIDDLE_ROW_FONT_SIZE, fontWeight: MIDDLE_ROW_FONT_WEIGHT, color: "var(--fg-2)" } : undefined}
           />
         ))}
       </div>
@@ -124,8 +141,24 @@ export function MarketCell({
   return (
     <div title={title} data-market-kind={kind} data-market-status={st} style={wrap}>
       <MarketValue v={cell?.h} dir={cell?.hd} masked={masked || st === "masked"} pulse={cell?.chgAt} />
-      <div className={kind === "ou" ? "mono" : undefined} style={{ height: 17, display: "flex", alignItems: "center", justifyContent: "center", fontSize: MIDDLE_ROW_FONT_SIZE, fontWeight: 700, color: st === "empty" ? "var(--fg-3)" : "var(--gold)" }}>
-        <Flash v={line} pulse={masked ? null : cell?.chgAt} />
+      <div
+        className={kind === "ou" ? "mono" : undefined}
+        style={{
+          height: MIDDLE_ROW_HEIGHT,
+          minHeight: MIDDLE_ROW_HEIGHT,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: MIDDLE_ROW_FONT_SIZE,
+          fontWeight: MIDDLE_ROW_FONT_WEIGHT,
+          lineHeight: 1,
+          letterSpacing: 0,
+          color: st === "empty" ? "var(--fg-3)" : "var(--fg-2)",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+        }}
+      >
+        <Flash v={line} pulse={masked ? null : cell?.chgAt} style={{ lineHeight: 1, fontVariantNumeric: "tabular-nums" }} />
       </div>
       <MarketValue v={cell?.a} dir={cell?.ad} masked={masked || st === "masked"} pulse={cell?.chgAt} />
     </div>
