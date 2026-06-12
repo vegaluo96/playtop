@@ -131,7 +131,7 @@ export const NAMES_ZH: Record<string, string> = {
   "Salah": "萨拉赫", "Szoboszlai": "索博斯洛伊", "Konate": "科纳特", "Robertson": "罗伯逊", "Gakpo": "加克波",
   "Bellingham": "贝林厄姆", "Valverde": "巴尔韦德", "Courtois": "库尔图瓦", "Rudiger": "吕迪格",
   "Camavinga": "卡马文加", "Tchouameni": "琼阿梅尼", "Carvajal": "卡瓦哈尔", "Mbappe": "姆巴佩",
-  "Lewandowski": "莱万多夫斯基", "Pedri": "佩德里", "Yamal": "亚马尔", "Kounde": "孔德", "Balde": "巴尔德",
+  "Lewandowski": "莱万多夫斯基", "Yamal": "亚马尔", "Kounde": "孔德", "Balde": "巴尔德",
   "Kane": "凯恩", "Musiala": "穆夏拉", "Kimmich": "基米希", "Sane": "萨内", "Neuer": "诺伊尔",
   "Wirtz": "维尔茨", "Xhaka": "扎卡", "Maddison": "麦迪逊", "Romero": "罗梅罗", "Isak": "伊萨克",
   "Barella": "巴雷拉", "Bastoni": "巴斯托尼", "Thuram": "图拉姆", "Leao": "莱奥", "Maignan": "迈尼昂",
