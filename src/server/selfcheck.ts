@@ -435,34 +435,35 @@ export async function dailyReadonlyCheck(now = Date.now()): Promise<void> {
 /** 重放 odds_raw 重建快照与异动(归一化逻辑修正后修复历史数据;原始数据不动) */
 export function renormalizeOdds(fixtureId?: number): { fixtures: number; raws: number; moves: number } {
   const d = db();
-  const where = fixtureId ? "WHERE fixture_id = ?" : "";
-  const args = fixtureId ? [fixtureId] : [];
-  const raws = d
-    .prepare(`SELECT id, fixture_id, payload, captured_at FROM odds_raw ${where} ORDER BY fixture_id, captured_at`)
-    .all(...(args as [number] | [])) as unknown as { id: number; fixture_id: number; payload: string; captured_at: number }[];
-  const fids = [...new Set(raws.map((r) => r.fixture_id))];
+  const fids = fixtureId
+    ? (d.prepare("SELECT 1 FROM odds_raw WHERE fixture_id = ? LIMIT 1").get(fixtureId) ? [fixtureId] : [])
+    : (d.prepare("SELECT DISTINCT fixture_id FROM odds_raw ORDER BY fixture_id").all() as { fixture_id: number }[]).map((r) => r.fixture_id);
   let moves = 0;
-  tx(() => {
-    for (const fid of fids) {
+  let rawsCount = 0;
+  for (const fid of fids) {
+    const raws = d
+      .prepare("SELECT payload, captured_at FROM odds_raw WHERE fixture_id = ? ORDER BY captured_at")
+      .all(fid) as unknown as { payload: string; captured_at: number }[];
+    rawsCount += raws.length;
+    tx(() => {
       d.prepare("DELETE FROM odds_snapshots WHERE fixture_id = ?").run(fid);
       d.prepare("DELETE FROM movements WHERE fixture_id = ?").run(fid);
-    }
-  });
-  // 重放经 archiveOdds(会再写一份 raw),完成后按 (fixture,时间戳,payload) 去重
-  for (const r of raws) {
-    try {
-      moves += archiveOdds(r.fixture_id, JSON.parse(r.payload), r.captured_at);
-    } catch {
-      /* 单条坏 payload 跳过 */
+    });
+    for (const r of raws) {
+      try {
+        moves += archiveOdds(fid, JSON.parse(r.payload), r.captured_at, { persistRaw: false });
+      } catch {
+        /* 单条坏 payload 跳过 */
+      }
     }
   }
-  // 去掉重放产生的重复 raw(保留原 id 较小者)
+  // 去掉历史上可能已存在的重复 raw(保留原 id 较小者)
   d.prepare(
     `DELETE FROM odds_raw WHERE id NOT IN (
        SELECT MIN(id) FROM odds_raw GROUP BY fixture_id, captured_at, payload
      )${fixtureId ? " AND fixture_id = " + Number(fixtureId) : ""}`,
   ).run();
-  return { fixtures: fids.length, raws: raws.length, moves };
+  return { fixtures: fids.length, raws: rawsCount, moves };
 }
 
 /* ── 指数保真度审计:AF 原始 → 归一化 → 落库 → 显示,四层对照 ── */

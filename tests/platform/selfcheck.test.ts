@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 process.env.PLAYTOP_DB = ":memory:";
 
 import { _resetDbForTest, db } from "../../src/server/db";
-import { checkReadonly, cleanupSelfcheckData, summarize, formatReport } from "../../src/server/selfcheck";
+import { checkReadonly, cleanupSelfcheckData, summarize, formatReport, renormalizeOdds } from "../../src/server/selfcheck";
 import { archiveOdds, archivePrediction, kvSet, setDailyFree, upsertFixture } from "../../src/server/af/store";
 import { loginOrRegister } from "../../src/server/platform/auth";
 import { claimGift, recharge } from "../../src/server/platform/wallet";
@@ -86,6 +86,21 @@ describe("checkReadonly(只读层判定)", () => {
     db().prepare("DELETE FROM movements").run();
     const rows = await checkReadonly({ skipNetwork: true, now: FIXED_NOW });
     expect(rows.find((r) => r.key === "异动生成")?.status).toBe("fail");
+  });
+
+  it("renormalizeOdds 分批重放 raw,不复制 odds_raw", () => {
+    seedHealthy(FIXED_NOW);
+    const before = (db().prepare("SELECT COUNT(*) n FROM odds_raw WHERE fixture_id=7001").get() as { n: number }).n;
+    db().prepare("DELETE FROM odds_snapshots WHERE fixture_id=7001").run();
+    db().prepare("DELETE FROM movements WHERE fixture_id=7001").run();
+
+    const out = renormalizeOdds(7001);
+
+    const after = (db().prepare("SELECT COUNT(*) n FROM odds_raw WHERE fixture_id=7001").get() as { n: number }).n;
+    expect(out.raws).toBe(before);
+    expect(after).toBe(before);
+    expect((db().prepare("SELECT COUNT(*) n FROM odds_snapshots WHERE fixture_id=7001").get() as { n: number }).n).toBeGreaterThan(0);
+    expect((db().prepare("SELECT COUNT(*) n FROM movements WHERE fixture_id=7001").get() as { n: number }).n).toBeGreaterThan(0);
   });
 });
 

@@ -222,14 +222,16 @@ export function oddsCompareFromRows(rows: SnapRow[]): OddsCompareRow[] {
  * 归档一次 /odds 拉取:原始 payload 落 odds_raw,归一化落 odds_snapshots,
  * 与同书商同市场上一帧 diff → movements。返回新增异动数。
  */
-export function archiveOdds(fixtureId: number, oddsItem: unknown, capturedAt = Date.now()): number {
+export function archiveOdds(fixtureId: number, oddsItem: unknown, capturedAt = Date.now(), opts: { persistRaw?: boolean } = {}): number {
   const books = normalizeOddsItem(oddsItem, { fixtureId, onIssue: recordDiagnosticIssue });
   return tx(() => {
     const d = db();
     // 原始 AF 包先落库:即使当前归一化没有吃到市场,后续也能重放排查解析/玩法口径问题。
-    d.prepare("INSERT INTO odds_raw (fixture_id, payload, captured_at) VALUES (?,?,?)").run(
-      fixtureId, JSON.stringify(oddsItem), capturedAt,
-    );
+    if (opts.persistRaw !== false) {
+      d.prepare("INSERT INTO odds_raw (fixture_id, payload, captured_at) VALUES (?,?,?)").run(
+        fixtureId, JSON.stringify(oddsItem), capturedAt,
+      );
+    }
     if (books.length === 0) return 0;
     let moves = 0;
     const prevStmt = d.prepare(
