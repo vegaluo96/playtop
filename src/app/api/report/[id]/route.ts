@@ -15,18 +15,20 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const fid = Number(id);
   if (!fid) return NextResponse.json({ ok: false, error: "无效的比赛 id" }, { status: 400 });
   const tz = req.nextUrl.searchParams.get("tz") || "UTC+8";
+  const userPromise = currentUser();
   const p = await matchPanorama(fid);
   if (!p) return NextResponse.json({ ok: false, error: "比赛不存在或数据未就绪" }, { status: 404 });
-  const user = await currentUser();
+  const user = await userPromise;
   const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
   const unlocked = !!user && isUnlocked(user.id, fid, today);
   const { ps, secs } = buildReport(p);
   let sections = secs;
   let genBy = "template";
-  let versions = listReportVersions(fid);
+  let versions: ReturnType<typeof listReportVersions> = [];
   const reqVer = Number(req.nextUrl.searchParams.get("v")) || null;
   let curVer: number | null = null;
   if (unlocked) {
+    versions = listReportVersions(fid);
     if (reqVer != null) {
       // 历史版本回看
       const v = getReportVersion(fid, reqVer);

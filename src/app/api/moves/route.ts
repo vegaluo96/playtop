@@ -14,8 +14,9 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const type = q.get("type") || "全部";
   const tz = q.get("tz") || "UTC+8";
-  const user = await currentUser();
+  const userPromise = currentUser();
   const list = recentMovements(60, type);
+  const user = await userPromise;
 
   const rows = list.map((m, i) => {
     const masked = !user && i >= GUEST_VISIBLE_ROWS;

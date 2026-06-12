@@ -15,6 +15,8 @@ import {
   oddsBundle,
   oddsCompare,
   oddsSeries,
+  oddsSeriesBatch,
+  latestPredictionsMap,
   settleFixture,
   upsertFixture,
 } from "../../src/server/af/store";
@@ -156,6 +158,25 @@ describe("odds 归档与异动", () => {
     expect(bundle.compareAh).toEqual(oddsCompare(204, "ah"));
     expect(bundle.compareEu).toEqual(oddsCompare(204, "eu"));
   });
+
+  it("oddsSeriesBatch 与 oddsSeries 单场口径一致", () => {
+    upsertFixture(afFixture(205));
+    upsertFixture(afFixture(206));
+    const ins = db().prepare(
+      "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)",
+    );
+    ins.run(205, 8, "Bet365", "ah", 0.25, 0.92, 0.94, null, 1000);
+    ins.run(205, 8, "Bet365", "ah", 0.5, 0.88, 1.0, null, 2000);
+    ins.run(205, 4, "平博", "ah", 0.5, 0.9, 0.98, null, 2100);
+    ins.run(206, 99, "10Bet", "ah", 1, 0.86, 1.02, null, 1000);
+    ins.run(206, 4, "平博", "ah", 0.75, 0.91, 0.95, null, 1500);
+    ins.run(206, 8, "Bet365", "ah", 0.75, 0.89, 0.97, null, 1600);
+
+    const batch = oddsSeriesBatch([205, 206], "ah");
+
+    expect(batch.get(205)).toEqual(oddsSeries(205, "ah"));
+    expect(batch.get(206)).toEqual(oddsSeries(206, "ah"));
+  });
 });
 
 describe("模型战绩结算", () => {
@@ -174,5 +195,19 @@ describe("模型战绩结算", () => {
     upsertFixture(afFixture(301, { status: "FT", gh: 0, ga: 0 }));
     settleFixture(fixtureById(301)!);
     expect(modelStats().hitRate30).toBeNull();
+  });
+
+  it("latestPredictionsMap 批量返回每场最新预测快照", () => {
+    upsertFixture(afFixture(302));
+    upsertFixture(afFixture(303));
+    archivePrediction(302, { predictions: { percent: { home: "40%", draw: "30%", away: "30%" } } }, 1000);
+    archivePrediction(302, { predictions: { percent: { home: "55%", draw: "25%", away: "20%" } } }, 2000);
+    archivePrediction(303, { predictions: { percent: { home: "20%", draw: "35%", away: "45%" } } }, 1500);
+
+    const map = latestPredictionsMap([302, 303, 304]);
+
+    expect(map.get(302)).toMatchObject({ predictions: { percent: { home: "55%" } } });
+    expect(map.get(303)).toMatchObject({ predictions: { percent: { away: "45%" } } });
+    expect(map.has(304)).toBe(false);
   });
 });

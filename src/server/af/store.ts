@@ -174,6 +174,10 @@ function bookmakerRank(name: string): number {
   return i < 0 ? 99 : i;
 }
 
+function placeholders(n: number): string {
+  return Array.from({ length: n }, () => "?").join(",");
+}
+
 function rowsByBookmaker(rows: SnapRow[]): Map<string, SnapRow[]> {
   const byBook = new Map<string, SnapRow[]>();
   for (const row of rows) {
@@ -274,6 +278,24 @@ export function oddsSeries(fixtureId: number, market: OddsMarket): SnapRow[] {
   return mainOddsSeriesFromRows(rows, market);
 }
 
+/** 多场同市场主盘序列批量查询,供列表型接口避免逐场扫 odds_snapshots。 */
+export function oddsSeriesBatch(fixtureIds: number[], market: OddsMarket): Map<number, SnapRow[]> {
+  const ids = [...new Set(fixtureIds)];
+  const result = new Map<number, SnapRow[]>();
+  if (ids.length === 0) return result;
+  const rows = db()
+    .prepare(`SELECT * FROM odds_snapshots WHERE market = ? AND fixture_id IN (${placeholders(ids.length)}) ORDER BY fixture_id, bookmaker, captured_at`)
+    .all(market, ...ids) as unknown as SnapRow[];
+  const byFixture = new Map<number, SnapRow[]>();
+  for (const row of rows) {
+    const series = byFixture.get(row.fixture_id) ?? [];
+    series.push(row);
+    byFixture.set(row.fixture_id, series);
+  }
+  for (const [fixtureId, series] of byFixture) result.set(fixtureId, mainOddsSeriesFromRows(series, market));
+  return result;
+}
+
 function oddsByMarket(fixtureId: number): Record<OddsMarket, SnapRow[]> {
   const rows = db()
     .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? ORDER BY market, bookmaker, captured_at")
@@ -359,6 +381,35 @@ export function latestPrediction(fixtureId: number): unknown | null {
   } catch {
     return null;
   }
+}
+
+/** 多场最新预测快照批量查询;解析失败等同无官方可用预测。 */
+export function latestPredictionsMap(fixtureIds: number[]): Map<number, unknown> {
+  const ids = [...new Set(fixtureIds)];
+  const result = new Map<number, unknown>();
+  if (ids.length === 0) return result;
+  const rows = db()
+    .prepare(
+      `SELECT p.fixture_id, p.payload
+       FROM predictions_snapshots p
+       JOIN (
+         SELECT fixture_id, MAX(captured_at) captured_at
+         FROM predictions_snapshots
+         WHERE fixture_id IN (${placeholders(ids.length)})
+         GROUP BY fixture_id
+       ) latest ON latest.fixture_id = p.fixture_id AND latest.captured_at = p.captured_at
+       ORDER BY p.fixture_id, p.id DESC`,
+    )
+    .all(...ids) as unknown as { fixture_id: number; payload: string }[];
+  for (const row of rows) {
+    if (result.has(row.fixture_id)) continue;
+    try {
+      result.set(row.fixture_id, JSON.parse(row.payload));
+    } catch {
+      /* 无法解析则视为暂无可用预测 */
+    }
+  }
+  return result;
 }
 
 export function hasPrediction(fixtureId: number): boolean {

@@ -1,7 +1,7 @@
 /** 列表页 DB 取数小件(从 store 转出,带轻量缓存语义) */
 import { db } from "../db";
 import { dailyFreeFixtureIds } from "../platform/wallet";
-import { mainOddsSeriesFromRows, oddsSeries, type OddsMarket, type SnapRow } from "../af/store";
+import { oddsSeries, oddsSeriesBatch, type OddsMarket, type SnapRow } from "../af/store";
 import { liveOddsSeries } from "../af/live-store";
 
 export { fixturesBetween, oddsSeries } from "../af/store";
@@ -29,15 +29,7 @@ export function liveAwareSeriesBatch(fixtureIds: number[], market: OddsMarket, l
   const result = new Map<number, SnapRow[]>();
   if (ids.length === 0) return result;
 
-  const sql = `SELECT * FROM odds_snapshots WHERE market = ? AND fixture_id IN (${placeholders(ids.length)}) ORDER BY fixture_id, bookmaker, captured_at`;
-  const rows = db().prepare(sql).all(market, ...ids) as unknown as SnapRow[];
-  const byFixture = new Map<number, SnapRow[]>();
-  for (const row of rows) {
-    const series = byFixture.get(row.fixture_id) ?? [];
-    series.push(row);
-    byFixture.set(row.fixture_id, series);
-  }
-  for (const [fixtureId, series] of byFixture) result.set(fixtureId, mainOddsSeriesFromRows(series, market).slice(-2));
+  for (const [fixtureId, series] of oddsSeriesBatch(ids, market)) result.set(fixtureId, series.slice(-2));
 
   const liveIds = ids.filter((id) => liveFixtureIds.has(id));
   if (liveIds.length === 0) return result;

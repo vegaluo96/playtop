@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const day = q.get("day") || "today";
   const league = q.get("league") || "all";
   const off = parseTzOffset(q.get("tz") || "UTC+8");
-  const user = await currentUser();
+  const userPromise = currentUser();
 
   const now = Date.now();
   const dayStart = Math.floor((now + off * 3_600_000) / 86_400_000) * 86_400_000 - off * 3_600_000;
@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
   if (league !== "all") fixtures = fixtures.filter((f) => f.league_id === Number(league));
   fixtures.sort((a, b) => a.kickoff_utc - b.kickoff_utc);
 
+  const user = await userPromise;
   const freeSet = dailyFreeSetToday();
   const unlockedSet = user ? new Set(unlockedIds(user.id)) : new Set<number>();
   const liveCount = fixturesBetween(now - 4 * 3_600_000, now + 5 * 60_000).filter((f) => isLive(f.status)).length;

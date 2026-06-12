@@ -5,11 +5,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hhmm, parseTzOffset } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
-import { fixtureById, fixturesBetween, latestPrediction, modelStats, oddsSeries } from "@/server/af/store";
+import { fixtureById, fixturesBetween, latestPredictionsMap, modelStats, oddsSeriesBatch } from "@/server/af/store";
 import { isLive } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
 import { cfgUnlockPrice } from "@/server/platform/config";
-import { dailyFreeFixtureIds, isUnlocked } from "@/server/platform/wallet";
+import { dailyFreeFixtureIds, unlockedIds } from "@/server/platform/wallet";
 import { predSummary } from "@/server/views/common";
 import { nameZh } from "@/server/views/names";
 
@@ -17,28 +17,36 @@ export async function GET(req: NextRequest) {
   const tz = req.nextUrl.searchParams.get("tz") || "UTC+8";
   const fixtureParam = Number(req.nextUrl.searchParams.get("fixture")) || null;
   const off = parseTzOffset(tz);
-  const user = await currentUser();
+  const userPromise = currentUser();
   const now = Date.now();
   const dayStart = Math.floor((now + off * 3_600_000) / 86_400_000) * 86_400_000 - off * 3_600_000;
   // fixture 参数:单场卡(不限今日;桌面右栏「AI 概率报告 · 本场」用)
   const fixtures = fixtureParam
     ? [fixtureById(fixtureParam)].filter((f) => f != null)
     : fixturesBetween(dayStart, dayStart + 86_400_000).sort((a, b) => a.kickoff_utc - b.kickoff_utc);
+  const fixtureIds = fixtures.map((f) => f.fixture_id);
+  const predictions = latestPredictionsMap(fixtureIds);
+  const cardFixtures = fixtures.filter((f) => predictions.has(f.fixture_id));
+  const cardFixtureIds = cardFixtures.map((f) => f.fixture_id);
+  const ahSeries = oddsSeriesBatch(cardFixtureIds, "ah");
+  const ouSeries = oddsSeriesBatch(cardFixtureIds, "ou");
   const today = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
   const freeSet = new Set(dailyFreeFixtureIds(today));
+  const user = await userPromise;
+  const unlockedSet = user ? new Set(unlockedIds(user.id)) : new Set<number>();
 
-  const cards = fixtures
+  const cards = cardFixtures
     .map((f) => {
       const lastSnap = (mk: "ah" | "ou") => {
-        const s = oddsSeries(f.fixture_id, mk);
+        const s = (mk === "ah" ? ahSeries : ouSeries).get(f.fixture_id) ?? [];
         const r = s[s.length - 1];
         return r ? { line: r.line, h: r.h, a: r.a } : null;
       };
-      const ps = predSummary(latestPrediction(f.fixture_id), f.home_id, {
+      const ps = predSummary(predictions.get(f.fixture_id) ?? null, f.home_id, {
         ah: lastSnap("ah"), ou: lastSnap("ou"), homeName: nameZh(f.home_name), awayName: nameZh(f.away_name),
       });
       if (!ps) return null;
-      const unlocked = !!user && isUnlocked(user.id, f.fixture_id, today);
+      const unlocked = !!user && (freeSet.has(f.fixture_id) || unlockedSet.has(f.fixture_id));
       const price = cfgUnlockPrice(f.kickoff_utc, now);
       return {
         id: f.fixture_id,
