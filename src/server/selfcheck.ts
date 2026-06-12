@@ -5,7 +5,7 @@
  */
 import { db, tx } from "./db";
 import { afGet } from "./af/client";
-import { archiveOdds, fixturesBetween, hasPrediction, kvGet, kvSet } from "./af/store";
+import { archiveOdds, fixturesBetween, hasPrediction, kvGet, kvSet, mainOddsSnapshot } from "./af/store";
 import { normalizeOddsItem, pairMargin } from "./af/normalize";
 import { tierFor } from "./af/schedule";
 import { cfgAfKey, cfgFirstBonusOn, cfgLlmKey, cfgRechargeTiers, cfgTierIntervals, cfgUnlockPrice } from "./platform/config";
@@ -493,9 +493,7 @@ export async function verifyOdds(maxN = 20): Promise<string> {
       const at = ms.filter((m) => (m.line ?? 0) === cLine);
       const cH = median(at.map((m) => m.h))!;
       const cA = median(at.map((m) => m.a))!;
-      const mine = d
-        .prepare("SELECT bookmaker, line, h, a FROM odds_snapshots WHERE fixture_id=? AND market=? ORDER BY captured_at DESC LIMIT 1")
-        .get(f.fixture_id, mk) as { bookmaker: string; line: number; h: number; a: number } | undefined;
+      const mine = mainOddsSnapshot(f.fixture_id, mk);
       if (!mine) {
         lines.push(`  ⊘ ${name} ${mk}:库内无快照(待 worker 抓取)`);
         skip++;
@@ -553,12 +551,7 @@ export async function auditOdds(fixtureId: number, base?: string): Promise<strin
       const at = ms.filter((m) => (m.line ?? 0) === line);
       return { line, h: median(at.map((m) => m.h))!, a: median(at.map((m) => m.a))!, n: at.length, tot: ms.length };
     };
-    const dbMain = (mk: "ah" | "ou") => {
-      const r = d
-        .prepare(`SELECT bookmaker, line, h, a FROM odds_snapshots WHERE fixture_id=? AND market=? ORDER BY captured_at DESC LIMIT 1`)
-        .get(fixtureId, mk) as { bookmaker: string; line: number; h: number; a: number } | undefined;
-      return r;
-    };
+    const dbMain = (mk: "ah" | "ou") => mainOddsSnapshot(fixtureId, mk);
     const fmt = (x: { line: number | null; h: number; a: number } | null | undefined) =>
       x ? `line=${x.line} 水=${x.h}/${x.a}` : "—";
     lines.push("  ★ 主盘速览(AF 源共识 vs 我方落库):");

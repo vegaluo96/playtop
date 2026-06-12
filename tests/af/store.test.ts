@@ -3,11 +3,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 process.env.PLAYTOP_DB = ":memory:";
 
-import { _resetDbForTest } from "../../src/server/db";
+import { _resetDbForTest, db } from "../../src/server/db";
 import {
   archiveOdds,
   archivePrediction,
   fixtureById,
+  mainOddsSnapshot,
   modelStats,
   movementsOf,
   oddsCompare,
@@ -81,6 +82,18 @@ describe("odds 归档与异动", () => {
     archiveOdds(201, odds(1, 0.9, 0.96), 1000);
     archiveOdds(201, odds(1, 0.9, 0.96), 2000);
     expect(oddsSeries(201, "ah")).toHaveLength(1);
+  });
+
+  it("主盘按共识盘口+主流书商优先,不被最新离群书商带偏", () => {
+    upsertFixture(afFixture(202));
+    const ins = db().prepare(
+      "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)",
+    );
+    ins.run(202, 8, "Bet365", "ou", 2.25, 0.9, 0.95, null, 1000);
+    ins.run(202, 4, "平博", "ou", 2.25, 0.92, 0.93, null, 1100);
+    ins.run(202, 99, "10Bet", "ou", 2.5, 0.88, 0.9, null, 5000);
+    expect(mainOddsSnapshot(202, "ou")).toMatchObject({ bookmaker: "Bet365", line: 2.25 });
+    expect(oddsSeries(202, "ou").at(-1)).toMatchObject({ bookmaker: "Bet365", line: 2.25 });
   });
 });
 

@@ -165,26 +165,48 @@ export function archiveOdds(fixtureId: number, oddsItem: unknown, capturedAt = D
 }
 
 /**
- * 某场某市场的快照序列:按实际抓取情况选源——取该市场「最新一帧最新鲜」的书商
- * (同鲜度按 PRIMARY 顺序),不强制全场同源;全部书商数据都在,百家对比可查任一家。
+ * 某场某市场主盘:各书商最新帧先形成共识盘口,再在共识盘口内按主流书商优先级选展示源。
+ * 这样避免冷门书商晚几分钟更新时,把离群线误当成全站主盘。
  */
-export function oddsSeries(fixtureId: number, market: "ah" | "ou" | "eu"): SnapRow[] {
+export function mainOddsSnapshot(fixtureId: number, market: "ah" | "ou" | "eu"): SnapRow | null {
   const d = db();
-  const latest = d
+  const rows = d
     .prepare(
-      "SELECT bookmaker, MAX(captured_at) at FROM odds_snapshots WHERE fixture_id = ? AND market = ? GROUP BY bookmaker",
+      `SELECT s.* FROM odds_snapshots s
+       JOIN (
+         SELECT bookmaker, MAX(captured_at) at
+         FROM odds_snapshots
+         WHERE fixture_id = ? AND market = ?
+         GROUP BY bookmaker
+       ) t ON s.bookmaker = t.bookmaker AND s.captured_at = t.at
+       WHERE s.fixture_id = ? AND s.market = ?`,
     )
-    .all(fixtureId, market) as unknown as { bookmaker: string; at: number }[];
-  if (latest.length === 0) return [];
+    .all(fixtureId, market, fixtureId, market) as unknown as SnapRow[];
+  if (rows.length === 0) return null;
   const rank = (n: string) => {
     const i = PRIMARY_BOOKMAKERS.indexOf(n);
     return i < 0 ? 99 : i;
   };
-  latest.sort((x, y) => y.at - x.at || rank(x.bookmaker) - rank(y.bookmaker));
-  const pick = latest[0].bookmaker;
-  return d
+  const candidates =
+    market === "eu"
+      ? rows
+      : (() => {
+          const lined = rows.filter((r) => r.line != null);
+          if (lined.length === 0) return rows;
+          const sorted = lined.map((r) => r.line as number).sort((a, b) => a - b);
+          const consensus = sorted[Math.floor((sorted.length - 1) / 2)];
+          return lined.filter((r) => r.line === consensus);
+        })();
+  return [...candidates].sort((x, y) => rank(x.bookmaker) - rank(y.bookmaker) || y.captured_at - x.captured_at)[0] ?? null;
+}
+
+/** 某场某市场的主盘快照序列:全部书商数据都在,百家对比可查任一家。 */
+export function oddsSeries(fixtureId: number, market: "ah" | "ou" | "eu"): SnapRow[] {
+  const pick = mainOddsSnapshot(fixtureId, market);
+  if (!pick) return [];
+  return db()
     .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND market = ? AND bookmaker = ? ORDER BY captured_at")
-    .all(fixtureId, market, pick) as unknown as SnapRow[];
+    .all(fixtureId, market, pick.bookmaker) as unknown as SnapRow[];
 }
 
 /** 各书商归档首帧/即时盘(百家对比) */
