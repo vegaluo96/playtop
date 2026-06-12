@@ -3,7 +3,7 @@
 /** 分享弹层 + canvas 海报(设计稿 genShareImg 移植;渠道按钮统一走复制链接) */
 import { useState } from "react";
 import { GoldBtn, Sheet } from "./ui";
-import { SITE_HOST } from "@/lib/site";
+import { SITE_CN_NAME, SITE_HOST } from "@/lib/site";
 
 export interface ShareData {
   title: string;
@@ -39,7 +39,7 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
     x.textAlign = "center";
     x.fillStyle = "#eceef2";
     x.font = "800 44px sans-serif";
-    x.fillText("足球终端", 320, 110);
+    x.fillText(SITE_CN_NAME, 320, 110);
     x.fillStyle = "#959ba6";
     x.font = "22px monospace";
     x.fillText(SITE_HOST, 320, 150);
@@ -66,7 +66,7 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
     });
     x.fillStyle = "#5c626e";
     x.font = "20px sans-serif";
-    x.fillText("注册查看完整盘口与预测", 320, 690);
+    x.fillText("注册查看完整盘口与深度分析", 320, 690);
     if (data.inviteCode) {
       x.fillStyle = "#e9b949";
       x.font = "700 22px monospace";
@@ -87,7 +87,7 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
       <div style={{ background: "linear-gradient(160deg,#1a1e29,#0e1117)", border: "1px solid rgba(233,185,73,.45)", borderRadius: 12, padding: 14, marginBottom: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span style={{ fontSize: 13, fontWeight: 800 }}>
-            足球<span style={{ color: "var(--gold)" }}>终端</span>
+            {SITE_CN_NAME.slice(0, 2)}<span style={{ color: "var(--gold)" }}>{SITE_CN_NAME.slice(2)}</span>
           </span>
           <span className="mono" style={{ fontSize: 9, color: "var(--fg-3)" }}>{SITE_HOST}</span>
         </div>
@@ -103,7 +103,7 @@ export function ShareSheet({ open, onClose, data }: { open: boolean; onClose: ()
         </div>
         {data.inviteCode && (
           <div style={{ textAlign: "center", fontSize: 9, color: "var(--fg-3)" }}>
-            注册查看完整盘口与预测 · 邀请码 <span className="mono" style={{ color: "var(--gold)", fontWeight: 700 }}>{data.inviteCode}</span>
+            注册查看完整盘口与深度分析 · 邀请码 <span className="mono" style={{ color: "var(--gold)", fontWeight: 700 }}>{data.inviteCode}</span>
           </div>
         )}
       </div>

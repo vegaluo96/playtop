@@ -16,6 +16,7 @@ import { Flash, useUnifiedPoll } from "@/components/live";
 import { useWatchlist, WatchStar } from "@/components/watch";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
+import { SITE_CN_NAME } from "@/lib/site";
 
 interface Cell {
   text: string;
@@ -120,7 +121,7 @@ function MobileMatchesPage() {
   ];
 
   const renderRow = (m: Row) => {
-    const tag = m.masked ? "注册可见" : m.free ? "免费预测" : m.unlocked ? "预测已解锁" : "";
+    const tag = m.masked ? "注册可见" : m.free ? "免费分析" : m.unlocked ? "已解锁" : "";
     const exLine = m.ex ? [m.ex.ht ? `半场 ${m.ex.ht}` : null, m.ex.cor ? `角 ${m.ex.cor}` : null, m.ex.red ? `红 ${m.ex.red}` : null].filter(Boolean).join(" · ") : "";
     return (
       <div
@@ -135,7 +136,7 @@ function MobileMatchesPage() {
           {m.live && (
             <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--red)", fontWeight: 700 }}>
               <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-              {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
+              {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "直播"}
             </span>
           )}
           {exLine && <span className="mono" style={{ fontSize: 9, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{exLine}</span>}
@@ -202,7 +203,7 @@ function MobileMatchesPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <AnnouncementBar />
-      <PageHeader title={<>足球<span style={{ color: "var(--gold)" }}>终端</span></>} {...beat} />
+      <PageHeader title={<>{SITE_CN_NAME.slice(0, 2)}<span style={{ color: "var(--gold)" }}>{SITE_CN_NAME.slice(2)}</span></>} {...beat} />
 
       <div style={{ display: "flex", gap: 8, padding: "6px 16px 8px", overflowX: "auto", flexShrink: 0 }}>
         {dateChips.map((c) => (

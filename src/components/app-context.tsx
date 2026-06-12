@@ -8,7 +8,7 @@
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { DEFAULT_LANG, type Lang } from "@/lib/i18n";
+import { DEFAULT_LANG, LANGS, type Lang } from "@/lib/i18n";
 
 export type Scheme = "红升绿降" | "绿升红降";
 
@@ -47,7 +47,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem("playtop.prefs");
-      if (raw) setPrefsState({ ...DEFAULT_PREFS, ...JSON.parse(raw) });
+      if (raw) {
+        const next = { ...DEFAULT_PREFS, ...JSON.parse(raw) } as Prefs;
+        if (!LANGS.includes(next.lang)) next.lang = DEFAULT_LANG;
+        setPrefsState(next);
+      }
     } catch {
       /* 损坏的本地存储直接用默认 */
     }

@@ -1,6 +1,6 @@
 "use client";
 
-/** 管理后台(admin.play.top / /admin):顶栏 + 9 模块侧栏 + 登录门 */
+/** 管理后台(admin.zsky.com / /admin):顶栏 + 9 模块侧栏 + 登录门 */
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/app-context";
 import { DashView } from "@/components/admin/dash";

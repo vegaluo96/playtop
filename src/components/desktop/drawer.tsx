@@ -123,9 +123,9 @@ export function AccountDrawer({ onClose, openModal }: { onClose: () => void; ope
           <div style={{ padding: "18px" }}>
             <div style={{ background: "linear-gradient(135deg,#2a2410,#12141a)", border: "1px solid rgba(233,185,73,.4)", borderRadius: 14, padding: 16 }}>
               <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
-                注册免费看全站 · 再领 <span style={{ color: "var(--gold)" }}>58 积分</span>
+                注册完整查看数据 · 再领 <span style={{ color: "var(--gold)" }}>58 积分</span>
               </div>
-              <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 10, lineHeight: 1.6 }}>注册后全部盘口与异动免费查看;58 积分可解锁 1 场官方预测</div>
+              <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 10, lineHeight: 1.6 }}>注册后完整查看盘口、异动与数据细节;58 积分可解锁 1 场深度分析</div>
               <div onClick={() => router.push("/login")} style={{ background: "linear-gradient(90deg,var(--gold),var(--gold-2))", color: "#0a0b0f", borderRadius: 9, textAlign: "center", padding: "10px 0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
                 邮箱登录 / 注册
               </div>

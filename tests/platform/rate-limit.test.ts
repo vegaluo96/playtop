@@ -55,15 +55,17 @@ describe("登录锁定", () => {
 
 describe("sameOrigin", () => {
   it("本站/admin/www/localhost 放行,外站拒绝,无头放行", () => {
-    expect(sameOrigin(req({ origin: "https://play.top" }), "play.top")).toBe(true);
-    expect(sameOrigin(req({ origin: "https://admin.play.top" }), "play.top")).toBe(true);
-    expect(sameOrigin(req({ referer: "http://localhost:3000/x" }), "play.top")).toBe(true);
-    expect(sameOrigin(req({ origin: "https://evil.com" }), "play.top")).toBe(false);
-    expect(sameOrigin(req(), "play.top")).toBe(true);
+    expect(sameOrigin(req({ origin: "https://zsky.com" }), "zsky.com")).toBe(true);
+    expect(sameOrigin(req({ origin: "https://www.zsky.com" }), "zsky.com")).toBe(true);
+    expect(sameOrigin(req({ origin: "https://admin.zsky.com" }), "zsky.com")).toBe(true);
+    expect(sameOrigin(req({ referer: "http://localhost:3000/x" }), "zsky.com")).toBe(true);
+    expect(sameOrigin(req({ origin: "https://evil.com" }), "zsky.com")).toBe(false);
+    expect(sameOrigin(req(), "zsky.com")).toBe(true);
   });
 
   it("requireSameOrigin 返回可直接复用的 403 响应", () => {
-    expect(requireSameOrigin(req({ origin: "https://play.top" }))).toBeNull();
+    expect(requireSameOrigin(req({ origin: "https://zsky.com" }))).toBeNull();
+    expect(requireSameOrigin(req({ origin: "https://admin.zsky.com" }))).toBeNull();
     const res = requireSameOrigin(req({ origin: "https://evil.com" }));
     expect(res?.status).toBe(403);
   });

@@ -119,7 +119,7 @@ export function useUnlockFlow(onUnlocked?: () => void) {
       <Sheet open={sheet === "unlock"} onClose={() => setSheet(null)} z={60}>
         <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 3 }}>解锁预测 · {target?.match}</div>
         <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 14, lineHeight: 1.6 }}>
-          官方模型预测(建议 / 胜者 / 大小球方向)+ AI 分析报告
+          模型预测(建议 / 胜者 / 大小球方向)+ AI 深度报告
           <br />
           解锁后永久可见
         </div>

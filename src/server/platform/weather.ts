@@ -7,7 +7,7 @@
  */
 import { kvGet, kvSet } from "../af/store";
 
-const UA = "playtop-football-terminal/1.0 play.top (contact: admin@play.top)";
+const UA = "zsky-football-sky/1.0 zsky.com (contact: admin@zsky.com)";
 const H = 3_600_000;
 
 const SYMBOL_ZH: [RegExp, string][] = [

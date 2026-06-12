@@ -6,7 +6,7 @@
  *   /odds/live      仅滚球期每 1min(落 kv)
  *   /predictions    开盘抓 1 次;开赛前 1h 复抓 1 次
  *   /fixtures?id=   T-60min 起每 5min(拿到首发即停;滚球期本身就是 1min)
- *   完场 → 模型战绩结算;每日选定 1 场免费预测
+ *   完场 → 模型战绩结算;每日选定 1 场免费分析
  * 配额保护:相邻出网调用间隔 AF_DELAY_MS(默认 300ms),叠加 client 层 2s 同 URL 防抖。
  */
 import { loadEnvFile } from "../src/server/env-file";

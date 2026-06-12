@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { GoldBtn } from "@/components/ui";
+import { SITE_CN_NAME, SITE_SLOGAN } from "@/lib/site";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -50,14 +51,14 @@ export default function LoginPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px 30px", minHeight: 0, width: "100%", maxWidth: 456, margin: "0 auto", height: "100%" }}>
       <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: 1, textAlign: "center" }}>
-        足球<span style={{ color: "var(--gold)" }}>终端</span>
+        {SITE_CN_NAME.slice(0, 2)}<span style={{ color: "var(--gold)" }}>{SITE_CN_NAME.slice(2)}</span>
       </div>
-      <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)", margin: "6px 0 26px" }}>亚盘 · 大小球 · 胜平负 · 专业数据</div>
+      <div style={{ textAlign: "center", fontSize: 11, color: "var(--fg-3)", margin: "6px 0 26px" }}>{SITE_SLOGAN}</div>
       <div style={{ background: "rgba(233,185,73,.1)", border: "1px dashed rgba(233,185,73,.45)", borderRadius: 10, padding: "10px 12px", marginBottom: 18, display: "flex", alignItems: "center", gap: 9 }}>
         <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#0a0b0f" }}>礼</span>
         <span style={{ fontSize: 11.5, color: "var(--fg-mid)", lineHeight: 1.55 }}>
-          注册后全站盘口与异动<span style={{ color: "var(--up)", fontWeight: 800 }}>免费</span>查看;再送{" "}
-          <span style={{ color: "var(--gold)", fontWeight: 800 }}>58 积分</span>,可解锁 1 场官方预测
+          注册后完整查看盘口、异动与数据细节;再送{" "}
+          <span style={{ color: "var(--gold)", fontWeight: 800 }}>58 积分</span>,可解锁 1 场深度分析
         </span>
       </div>
       <input type="email" placeholder="邮箱" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
@@ -74,7 +75,7 @@ export default function LoginPage() {
       <div style={{ textAlign: "center", fontSize: 10, color: "var(--fg-3)", marginTop: 10 }}>未注册的邮箱将自动创建账户,无需邮箱验证</div>
       <div style={{ textAlign: "center", fontSize: 9.5, color: "var(--fg-4)", marginTop: 6, lineHeight: 1.6 }}>
         登录或注册即表示你已阅读并同意<a href="/about" style={{ color: "var(--fg-3)" }}>《平台性质与免责声明》</a>;
-        本平台仅提供数据资讯,不提供任何投注服务
+        本平台仅提供足球数据资讯与分析,不提供任何投注服务
       </div>
       <div
         onClick={() => router.push("/")}

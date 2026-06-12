@@ -3,19 +3,20 @@
 /** 关于与合规:平台性质声明 / 免责声明 / 数据来源 / 隐私与 Cookie 说明 */
 import { useRouter } from "next/navigation";
 import { APP_VERSION } from "@/lib/version";
+import { SITE_BRAND, SITE_CN_NAME, SITE_HOST } from "@/lib/site";
 
 const SECTIONS: { h: string; ps: string[] }[] = [
   {
     h: "平台性质",
     ps: [
-      "足球终端(play.top)是一个体育数据资讯与分析平台,向用户提供足球赛事的赛程、盘口数据走势、技术统计与模型分析内容。",
-      "本平台不提供任何形式的投注、博彩或资金对赌服务,不接受投注委托,不与任何博彩机构存在合作或资金往来。平台内全部数据与分析仅供信息参考与学习研究使用。",
+      `${SITE_BRAND}(${SITE_CN_NAME})是面向中国用户的足球数据资讯与分析平台,提供赛程、盘口走势、技术统计、阵容情报与模型分析内容。`,
+      "平台不提供任何形式的投注、博彩或资金对赌服务,不接受投注委托,不与任何博彩机构存在合作或资金往来。全部数据与分析仅供信息参考与学习研究使用。",
     ],
   },
   {
     h: "免责声明",
     ps: [
-      "平台展示的盘口数据、综合指数与 AI 分析报告均基于公开数据源自动计算生成,不构成任何形式的投注建议或收益承诺。",
+      "平台展示的盘口数据、综合指数与 AI 深度报告均基于公开数据源自动计算生成,不构成任何形式的投注建议或收益承诺。",
       "用户应遵守所在国家或地区的法律法规。任何因使用本平台信息而产生的直接或间接损失,平台不承担责任。",
       "积分仅用于解锁平台内的深度数据内容,不具备货币属性,不可兑换现金,不可转让。",
     ],
@@ -23,7 +24,7 @@ const SECTIONS: { h: string; ps: string[] }[] = [
   {
     h: "数据来源",
     ps: [
-      "赛事、赔率、阵容与统计数据来自 API-FOOTBALL 官方数据接口;平台按公开频率自动抓取并归档,展示延迟与刷新频率在「数据刷新规则」中向用户完整披露。",
+      "赛事、赔率、阵容与统计数据来自 API-FOOTBALL 数据接口;平台按公开频率自动抓取并归档,展示延迟与刷新频率在「数据刷新规则」中向用户完整披露。",
       "综合指数为本平台基于多家数据源的计算值,计算方法在图表下方公开说明,不冒充任何单一机构报价。",
     ],
   },
@@ -42,7 +43,7 @@ export default function AboutPage() {
     <div style={{ flex: 1, overflowY: "auto", minHeight: 0, maxWidth: 720, margin: "0 auto", width: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", padding: "10px 12px 6px" }}>
         <div onClick={() => router.back()} style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--fg-2)", fontSize: 22, lineHeight: 1 }}>‹</div>
-        <div style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 800 }}>关于足球终端</div>
+        <div style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 800 }}>关于{SITE_CN_NAME}</div>
         <div style={{ width: 34 }} />
       </div>
       <div style={{ padding: "4px 16px 24px" }}>
@@ -60,7 +61,7 @@ export default function AboutPage() {
           </div>
         ))}
         <div className="mono" style={{ textAlign: "center", fontSize: 9, color: "var(--fg-4)", padding: "16px 0 4px" }}>
-          足球终端 v{APP_VERSION} · play.top
+          {SITE_CN_NAME} v{APP_VERSION} · {SITE_HOST}
         </div>
       </div>
     </div>

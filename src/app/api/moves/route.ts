@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       from: masked ? "●●●" : fromS,
       to: masked ? "●●●" : toS,
       water: masked ? "●.●● → ●.●●" : water,
-      note: masked ? "注册后免费查看全部异动" : note,
+      note: masked ? "注册后查看完整异动" : note,
       rows: masked
         ? []
         : isEu

@@ -101,8 +101,8 @@ function MobileMovesPage() {
             onClick={() => router.push("/login")}
             style={{ background: "linear-gradient(180deg,#1a1e29,#12141a)", border: "1px solid rgba(233,185,73,.4)", borderRadius: 12, padding: 14, textAlign: "center", cursor: "pointer" }}
           >
-            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 3 }}>注册后免费查看全部异动</div>
-            <div style={{ fontSize: 10, color: "var(--fg-2)" }}>完全免费 · 注册再送 58 积分,可解锁 1 场官方预测</div>
+            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 3 }}>注册后查看完整异动</div>
+            <div style={{ fontSize: 10, color: "var(--fg-2)" }}>同步领取 58 积分,可解锁 1 场深度分析</div>
           </div>
         )}
       </div>

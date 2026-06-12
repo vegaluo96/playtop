@@ -1,6 +1,6 @@
 "use client";
 
-/** 预测 tab:战绩横幅(详情弹层)+ 全部/已解锁筛选 + 轻量预测卡 → AI 报告 */
+/** 预测 tab:战绩横幅(详情弹层)+ 全部/已解锁筛选 + 轻量预测卡 → AI 深度报告 */
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
@@ -57,7 +57,7 @@ function MobilePredictionsPage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <PageHeader title="赛事预测" {...beat} />
+      <PageHeader title="模型预测" {...beat} />
       <div style={{ display: "flex", gap: 8, padding: "0 12px 10px", flexShrink: 0 }}>
         {["全部", "已解锁"].map((l) => (
           <Chip key={l} label={l === "已解锁" ? `已解锁 ${unlockedCount}` : l} active={filter === l} onClick={() => setFilter(l)} />
@@ -82,7 +82,7 @@ function MobilePredictionsPage() {
         {loaded && shown.length === 0 && (
           <EmptyBox
             title={filter === "已解锁" ? "尚未解锁任何预测" : "今日预测尚未生成"}
-            sub={filter === "已解锁" ? "切到「全部」看看今日免费场,或用积分解锁任意场次" : "比赛开盘后官方模型自动生成预测"}
+            sub={filter === "已解锁" ? "切到「全部」查看免费场,或用积分解锁任意场次" : "比赛开盘后模型会自动生成预测"}
           />
         )}
 
@@ -100,7 +100,7 @@ function MobilePredictionsPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
               <span style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-2)", background: "var(--line)", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>建议</span>
               <span style={{ fontSize: 12.5, fontWeight: 800, flex: 1, color: p.locked ? "var(--fg-3)" : "var(--gold)" }}>
-                {p.locked ? "解锁后查看官方建议与方向" : p.advice}
+                {p.locked ? "解锁后查看模型建议与方向" : p.advice}
               </span>
             </div>
             <ProbBar pH={p.pH} pD={p.pD} pA={p.pA} />
@@ -112,7 +112,7 @@ function MobilePredictionsPage() {
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 10, color: "var(--fg-3)" }}>七维对比 · 近 5 场数据 · 完整分析见 AI 报告 ›</div>
+            <div style={{ fontSize: 10, color: "var(--fg-3)" }}>七维对比 · 近 5 场数据 · 完整分析见 AI 深度报告 ›</div>
             {p.locked && (
               <div
                 onClick={(e) => {
@@ -128,7 +128,7 @@ function MobilePredictionsPage() {
           </div>
         ))}
         <div style={{ textAlign: "center", fontSize: 10, color: "var(--fg-4)", padding: "4px 16px", lineHeight: 1.6 }}>
-          预测由官方模型生成,仅供参考,不构成投注建议。
+          预测由平台模型生成,仅供参考,不构成投注建议。
         </div>
       </div>
 

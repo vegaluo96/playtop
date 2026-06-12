@@ -1,6 +1,6 @@
 "use client";
 
-/** 桌面中栏:比赛头 + 7 tab(盘口走势/百家对比/技术面/AI报告/阵容/情报/深挖) */
+/** 桌面中栏:比赛头 + 5 tab(盘口/赛况/人员/深度/AI 深度) */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { type ChartRow } from "@/components/charts";
@@ -21,7 +21,7 @@ import { SITE_HOST } from "@/lib/site";
 type V = any;
 
 const TAB_DEFS: [DTab, string][] = [
-  ["odds", "盘口"], ["match", "赛况"], ["squad", "人员"], ["deep", "深度"], ["report", "AI 报告"],
+  ["odds", "盘口"], ["match", "赛况"], ["squad", "人员"], ["deep", "深度"], ["report", "AI 深度"],
 ];
 const ODDS_SUBS: [string, string][] = [["trend", "走势"], ["comp", "百家对比"], ["road", "盘路"], ["markets", "更多玩法"]];
 
@@ -300,7 +300,7 @@ export function CenterPane({
               <div style={{ display: "flex", alignItems: "center", gap: 14, background: "var(--card)", border: "1px solid rgba(240,67,79,.3)", borderRadius: 10, padding: "10px 16px", marginBottom: 14, flexWrap: "wrap" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
                   <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-                  <span className="mono" style={{ fontSize: 10, color: "var(--red)", fontWeight: 700, whiteSpace: "nowrap" }}>滚球 LIVE</span>
+                  <span style={{ fontSize: 10, color: "var(--red)", fontWeight: 800, whiteSpace: "nowrap" }}>滚球直播</span>
                 </span>
                 {v.liveOdds.map((r: V) => (
                   <span key={r.mk} style={{ display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
@@ -528,17 +528,17 @@ export function CenterPane({
                 <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="var(--gold)" strokeWidth="1.4" strokeLinecap="round" style={{ marginBottom: 8 }}>
                   <rect x="3" y="7" width="10" height="7" rx="1.5" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
                 </svg>
-                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 5 }}>AI 分析报告已锁定</div>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 5 }}>AI 深度报告已锁定</div>
                 <div style={{ fontSize: 11, color: "var(--fg-2)", lineHeight: 1.7, marginBottom: 14 }}>
-                  包含盘口解读、状态盘路、进球模型、人员情报与结论
+                  包含盘口解读、状态盘路、进球模型、人员情报与风险提示
                   <br />
-                  解锁本场预测后即可阅读全文
+                  解锁本场后即可阅读全文
                 </div>
                 <div
                   onClick={() => (loggedIn ? requestUnlock({ id: report.id, match: report.match, price: report.price }) : router.push("/login"))}
                   style={{ background: "linear-gradient(90deg,var(--gold),var(--gold-2))", color: "#0a0b0f", borderRadius: 10, padding: "11px 0", fontSize: 13, fontWeight: 800, cursor: "pointer" }}
                 >
-                  {loggedIn ? `${report.price} 积分 · 解锁本场预测` : "注册领 58 积分 · 免费解锁 1 场"}
+                  {loggedIn ? `${report.price} 积分 · 解锁本场报告` : "登录领 58 积分 · 解锁本场报告"}
                 </div>
               </div>
             ) : (

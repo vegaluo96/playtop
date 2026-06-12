@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * PlayTop 综合指数图(Robinhood/OKX 视觉):时间域坐标、网格、右侧价格轴、面积渐变、
+ * ZSKY 综合指数图(Robinhood/OKX 视觉):时间域坐标、网格、右侧价格轴、面积渐变、
  * 十字光标取值、开球分割线、变盘标记、区间切换(全部/24H/滚球)。
  * 数据 = 多书商聚合计价(src/server/views/composite.ts),纯 SVG 无外部依赖。
  */

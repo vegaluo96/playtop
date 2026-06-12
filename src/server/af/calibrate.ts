@@ -1,6 +1,6 @@
 /**
  * 外部盘口校准:把百度/足球财富/其它公开源样本导入本地,按时间对齐我方快照后比较。
- * 样本值使用 PlayTop 统一口径:ah/ou 为净水(0.90),eu 为十进制赔率(2.35)。
+ * 样本值使用 ZSKY 统一口径:ah/ou 为净水(0.90),eu 为十进制赔率(2.35)。
  */
 import { db, tx } from "../db";
 import { PRIMARY_BOOKMAKERS, type SnapRow } from "./store";
@@ -192,7 +192,7 @@ export function formatCalibrationReport(rows: CalibrationRow[]): string {
     const local = r.local;
     const ext = s.market === "eu" ? `${s.h}/${s.d ?? "—"}/${s.a}` : `${s.line ?? "—"} ${s.h}/${s.a}`;
     const mine = !local ? "本地无" : s.market === "eu" ? `${local.h}/${local.d ?? "—"}/${local.a}` : `${local.line ?? "—"} ${local.h}/${local.a}`;
-    lines.push(`  ${icon[r.status]} fixture=${s.fixtureId} ${s.market} · ${s.source} ${ext} ｜ PlayTop ${mine} · ${r.note}`);
+    lines.push(`  ${icon[r.status]} fixture=${s.fixtureId} ${s.market} · ${s.source} ${ext} ｜ ZSKY ${mine} · ${r.note}`);
   }
   return lines.join("\n");
 }

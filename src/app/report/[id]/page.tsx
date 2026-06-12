@@ -1,6 +1,6 @@
 "use client";
 
-/** AI 分析报告(二级页):头卡 + 七维对比 + 五分区正文;锁定时显示解锁卡 */
+/** AI 深度报告(二级页):头卡 + 七维对比 + 五分区正文;锁定时显示解锁卡 */
 import { use, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
@@ -55,7 +55,7 @@ function MobileReportPage({ id }: { id: string }) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <SubpageHeader
-        title="AI 分析报告"
+        title="AI 深度报告"
         right={
           <div
             onClick={() =>
@@ -113,14 +113,14 @@ function MobileReportPage({ id }: { id: string }) {
         {v.locked && (
           <div style={{ background: "linear-gradient(180deg,#1a1e29,#12141a)", border: "1px solid rgba(233,185,73,.35)", borderRadius: 14, padding: 16, marginTop: 10, textAlign: "center" }}>
             <LockIcon size={22} />
-            <div style={{ fontSize: 14, fontWeight: 800, margin: "8px 0 5px" }}>完整报告已锁定</div>
+            <div style={{ fontSize: 14, fontWeight: 800, margin: "8px 0 5px" }}>AI 深度报告已锁定</div>
             <div style={{ fontSize: 11, color: "var(--fg-2)", lineHeight: 1.7, marginBottom: 12 }}>
-              包含盘口解读、状态盘路、进球模型、人员情报与结论
+              包含盘口解读、状态盘路、进球模型、人员情报与风险提示
               <br />
               解锁本场后即可阅读全文
             </div>
             <GoldBtn
-              label={v.loggedIn ? `${v.price} 积分 · 解锁本场查看报告` : "登录领 58 积分 · 免费解锁本场"}
+              label={v.loggedIn ? `${v.price} 积分 · 解锁本场报告` : "登录领 58 积分 · 解锁本场报告"}
               onClick={() => (v.loggedIn ? flow.open({ id: v.id, match: v.match, price: v.price }) : router.push("/login"))}
             />
           </div>
@@ -179,7 +179,7 @@ function MobileReportPage({ id }: { id: string }) {
           </div>
         )}
         <div style={{ textAlign: "center", fontSize: 10, color: "var(--fg-4)", padding: "12px 16px 0", lineHeight: 1.6 }}>
-          报告由 AI 基于本场赛前数据自动生成 · 生成于 {nowStr()} · 仅供参考
+          报告由 AI 基于本场赛前数据自动生成 · 生成于 {nowStr()} · 仅供参考,不构成投注建议
         </div>
       </div>
       <ShareSheet open={!!share} onClose={() => setShare(null)} data={share} />

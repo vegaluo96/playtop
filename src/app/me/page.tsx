@@ -14,6 +14,7 @@ import { LEAGUES } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 import { APP_VERSION } from "@/lib/version";
+import { SITE_CN_NAME } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -150,9 +151,9 @@ function MobileMePage() {
         ) : (
           <div style={{ background: "linear-gradient(135deg,#2a2410,#12141a)", border: "1px solid rgba(233,185,73,.4)", borderRadius: 14, padding: 16, marginBottom: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
-              注册免费看全站 · 再领 <span style={{ color: "var(--gold)" }}>58 积分</span>
+              注册完整查看数据 · 再领 <span style={{ color: "var(--gold)" }}>58 积分</span>
             </div>
-            <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 10, lineHeight: 1.6 }}>注册后全部盘口与异动免费查看;58 积分可解锁 1 场官方预测</div>
+            <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 10, lineHeight: 1.6 }}>注册后完整查看盘口、异动与数据细节;58 积分可解锁 1 场深度分析</div>
             <GoldBtn label="邮箱登录 / 注册" onClick={() => router.push("/login")} style={{ padding: "10px 0", fontSize: 13 }} />
           </div>
         )}
@@ -220,7 +221,7 @@ function MobileMePage() {
           </div>
         )}
         <div className="mono" style={{ textAlign: "center", fontSize: 9, color: "var(--fg-4)", padding: "14px 0 0" }}>
-          足球终端 v{APP_VERSION} · <span onClick={() => router.push("/about")} style={{ cursor: "pointer", color: "var(--fg-3)" }}>关于与免责声明 ›</span>
+          {SITE_CN_NAME} v{APP_VERSION} · <span onClick={() => router.push("/about")} style={{ cursor: "pointer", color: "var(--fg-3)" }}>关于与免责声明 ›</span>
         </div>
         <RiskFooter />
       </div>
@@ -234,7 +235,7 @@ function MobileMePage() {
             <div style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.7, marginBottom: 16 }}>
               <span className="mono" style={{ color: "var(--gold)", fontWeight: 800, fontSize: 18 }}>58</span> 积分已备好
               <br />
-              可解锁今日任意 1 场官方预测
+              可解锁今日任意 1 场深度分析
             </div>
             <GoldBtn label="立即领取" onClick={claimGift} />
           </div>
@@ -345,7 +346,7 @@ function MobileMePage() {
 
       {/* 语言 */}
       <Sheet open={sheet === "lang"} onClose={() => setSheet(null)}>
-        <SheetTitle title="界面语言" hint="更多语言持续添加中" />
+        <SheetTitle title="界面语言" hint="当前完整支持简体中文" />
         <div style={{ maxHeight: "46vh", overflowY: "auto" }}>
           {LANGS.map((l) => (
             <div key={l} onClick={() => { setPrefs({ lang: l as Lang }); setSheet(null); }} style={{ display: "flex", alignItems: "center", padding: "13px 4px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }}>

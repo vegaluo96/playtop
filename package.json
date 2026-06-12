@@ -2,7 +2,7 @@
   "name": "playtop",
   "version": "0.4.0",
   "private": true,
-  "description": "足球终端（www.play.top）— 亚盘/大小球/胜平负 盘口数据终端",
+  "description": "ZSKY.COM 足球天空 — 亚盘/大小球/胜平负足球数据分析平台",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

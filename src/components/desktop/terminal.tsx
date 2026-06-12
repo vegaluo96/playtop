@@ -19,6 +19,7 @@ import { AnnouncementBar } from "@/components/announcement-bar";
 import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
 import { useWatchlist, WatchStar } from "@/components/watch";
+import { SITE_CN_NAME, SITE_SLOGAN } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -215,9 +216,9 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
       <div style={{ flexShrink: 0, height: 52, display: "flex", alignItems: "center", gap: 18, padding: "0 20px", borderBottom: "1px solid var(--line)", background: "#0e1015" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
           <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: 0.5 }}>
-            足球<span style={{ color: "var(--gold)" }}>终端</span>
+            {SITE_CN_NAME.slice(0, 2)}<span style={{ color: "var(--gold)" }}>{SITE_CN_NAME.slice(2)}</span>
           </span>
-          <span style={{ fontSize: 10, color: "var(--fg-3)" }}>亚盘 · 大小球 · 胜平负</span>
+          <span style={{ fontSize: 10, color: "var(--fg-3)" }}>{SITE_SLOGAN}</span>
         </div>
         <span style={{ width: 1, height: 20, background: "var(--line)" }} />
         <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>
@@ -323,7 +324,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                       {m.live && (
                         <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 9, color: "var(--red)", fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap" }}>
                           <span className="livepulse" style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--red)" }} />
-                          {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
+                          {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "直播"}
                         </span>
                       )}
                       {m.ex && (
@@ -389,7 +390,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                     onClick={() => (r.masked ? router.push("/login") : gotoMatchOdds(r.id))}
                     style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 8px", borderRadius: 7, cursor: "pointer", background: sel === r.id ? "rgba(233,185,73,.08)" : "transparent" }}
                   >
-                    <span className="mono" style={{ flexShrink: 0, width: 26, fontSize: 9.5, color: "var(--red)", fontWeight: 700 }}>{r.ht ? "中场" : r.elapsed != null ? `${r.elapsed}'` : "LIVE"}</span>
+                    <span style={{ flexShrink: 0, width: 26, fontSize: 9.5, color: "var(--red)", fontWeight: 800 }}>{r.ht ? "中场" : r.elapsed != null ? `${r.elapsed}'` : "直播"}</span>
                     <span style={{ flex: 1, minWidth: 0, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {r.home} <span className="mono" style={{ color: "var(--gold)" }}><Flash v={r.score ?? "0-0"} /></span> {r.away}
                     </span>
@@ -443,8 +444,8 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
               ))}
               {!movesLoggedIn && moves.length > 0 && (
                 <div onClick={() => router.push("/login")} style={{ background: "linear-gradient(180deg,#1a1e29,#12141a)", border: "1px solid rgba(233,185,73,.4)", borderRadius: 8, padding: 12, textAlign: "center", cursor: "pointer" }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 800, marginBottom: 2 }}>注册后免费查看全部异动</div>
-                  <div style={{ fontSize: 9, color: "var(--fg-2)" }}>完全免费 · 注册再送 58 积分</div>
+                  <div style={{ fontSize: 11.5, fontWeight: 800, marginBottom: 2 }}>注册后查看完整异动</div>
+                  <div style={{ fontSize: 9, color: "var(--fg-2)" }}>同步领取 58 积分,可解锁深度分析</div>
                 </div>
               )}
             </div>
@@ -452,7 +453,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
 
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
             <div style={{ flexShrink: 0, display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "12px 14px 8px" }}>
-              <span style={{ fontSize: 13, fontWeight: 800 }}>官方预测 · 本场</span>
+              <span style={{ fontSize: 13, fontWeight: 800 }}>模型预测 · 本场</span>
               <span style={{ fontSize: 9, color: "var(--fg-3)" }}>唯一付费项</span>
             </div>
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0, padding: "0 14px 14px" }}>
@@ -473,7 +474,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
                     <span style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-2)", background: "var(--line)", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>建议</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: pred.locked ? "var(--fg-3)" : "var(--gold)" }}>{pred.locked ? "解锁后查看官方建议与方向" : pred.advice}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: pred.locked ? "var(--fg-3)" : "var(--gold)" }}>{pred.locked ? "解锁后查看模型建议与方向" : pred.advice}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 9.5, color: "var(--home)", fontWeight: 700 }}>主胜 <span className="mono">{pred.pH}%</span></span>
@@ -501,12 +502,12 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                       >
                         {pred.lockText}
                       </div>
-                      <div style={{ textAlign: "center", fontSize: 9, color: "var(--fg-3)", marginTop: 6 }}>解锁后含 AI 分析报告 · 永久可见</div>
+                      <div style={{ textAlign: "center", fontSize: 9, color: "var(--fg-3)", marginTop: 6 }}>解锁后含 AI 深度报告 · 永久可见</div>
                     </>
                   ) : (
                     <>
                       <div onClick={() => setTab("report")} style={{ border: "1px solid rgba(233,185,73,.5)", color: "var(--gold)", borderRadius: 8, textAlign: "center", padding: "9px 0", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
-                        查看 AI 分析报告 ›
+                        查看 AI 深度报告 ›
                       </div>
                       <div style={{ textAlign: "center", fontSize: 9, color: "var(--fg-3)", marginTop: 6 }}>已解锁 · 永久可见</div>
                     </>
@@ -547,7 +548,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   ))}
                 </div>
               </div>
-              <div style={{ textAlign: "center", fontSize: 9, color: "var(--fg-4)", padding: "10px 8px 0", lineHeight: 1.6 }}>预测由官方模型生成,仅供参考,不构成投注建议。</div>
+              <div style={{ textAlign: "center", fontSize: 9, color: "var(--fg-4)", padding: "10px 8px 0", lineHeight: 1.6 }}>预测由平台模型生成,仅供参考,不构成投注建议。</div>
             </div>
           </div>
         </div>
@@ -562,7 +563,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
             <div style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.7, marginBottom: 16 }}>
               <span className="mono" style={{ color: "var(--gold)", fontWeight: 800, fontSize: 18 }}>58</span> 积分已备好
               <br />
-              可解锁今日任意 1 场官方预测
+              可解锁今日任意 1 场深度分析
             </div>
             <div
               onClick={async () => {
@@ -584,7 +585,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
         {modal?.kind === "unlock" && (
           <>
             <ModalTitle title={`解锁预测 · ${modal.data.match}`} />
-            <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 14, lineHeight: 1.6 }}>官方模型预测(建议 / 胜者 / 大小球方向)+ AI 分析报告,解锁后永久可见</div>
+            <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 14, lineHeight: 1.6 }}>模型预测(建议 / 胜者 / 大小球方向)+ AI 深度报告,解锁后永久可见</div>
             <div style={{ display: "flex", background: "var(--inset)", borderRadius: 10, padding: "11px 14px", marginBottom: 14, justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 12, color: "var(--fg-2)" }}>
                 价格 <span className="mono" style={{ fontSize: 16, fontWeight: 800, color: "var(--gold)" }}>{modal.data.price}</span> 积分

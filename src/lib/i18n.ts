@@ -1,17 +1,17 @@
 /**
- * 语言包(HANDOFF §4:文案走语言包,简中起步,7 语言占位)。
- * 简中为基准字典;其余语言未翻译的键自动回落简中。
+ * 语言包:当前仅开放简体中文,避免未完成语言包造成半汉化体验。
+ * 后续完成英文包后再恢复多语言选项。
  */
 
-export const LANGS = ["简体中文", "繁體中文", "English", "한국어", "日本語", "Tiếng Việt", "ไทย"] as const;
+export const LANGS = ["简体中文"] as const;
 export type Lang = (typeof LANGS)[number];
 export const DEFAULT_LANG: Lang = "简体中文";
 
 const zh = {
   brandA: "足球",
-  brandB: "终端",
+  brandB: "天空",
   slogan: "亚盘 · 大小球 · 胜平负",
-  sloganLong: "亚盘 · 大小球 · 胜平负 · 专业数据",
+  sloganLong: "亚盘 · 大小球 · 胜平负 · 足球数据分析",
   navMatches: "赛事",
   navMoves: "异动",
   navPred: "预测",
@@ -32,8 +32,8 @@ const zh = {
   awaySide: "客场",
   moved: "异动",
   maskedTag: "注册可见",
-  freeTag: "免费预测",
-  unlockedTag: "预测已解锁",
+  freeTag: "免费分析",
+  unlockedTag: "已解锁",
   loginTitle: "邮箱登录 / 注册",
   loginNote: "未注册的邮箱将自动创建账户,无需邮箱验证",
   loginBtn: "登录 / 注册",
@@ -51,15 +51,7 @@ const zh = {
 
 export type DictKey = keyof typeof zh;
 
-/** 其余 6 语言:占位(键不全时回落简中) */
-const packs: Partial<Record<Lang, Partial<Record<DictKey, string>>>> = {
-  English: {
-    navMatches: "Matches",
-    navMoves: "Moves",
-    navPred: "Predict",
-    navMine: "Me",
-  },
-};
+const packs: Partial<Record<Lang, Partial<Record<DictKey, string>>>> = {};
 
 export function t(key: DictKey, lang: Lang = DEFAULT_LANG): string {
   return packs[lang]?.[key] ?? zh[key];

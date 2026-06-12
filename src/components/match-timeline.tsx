@@ -54,13 +54,13 @@ export function MatchTimeline({ tl, home, away, live }: { tl: TLData; home: stri
 
   return (
     <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }}>
-      {/* 头部:标题 + LIVE + 角球数 + 视图切换 */}
+      {/* 头部:标题 + 直播 + 角球数 + 视图切换 */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>
         <span style={{ fontSize: 12.5, fontWeight: 800 }}>比赛直播</span>
         {live && (
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-            <span className="mono" style={{ fontSize: 9, color: "var(--red)", fontWeight: 700 }}>LIVE</span>
+            <span style={{ fontSize: 9, color: "var(--red)", fontWeight: 800 }}>直播</span>
           </span>
         )}
         {tl.corners && (

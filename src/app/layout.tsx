@@ -2,12 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppProvider } from "@/components/app-context";
 import { AppShell } from "@/components/app-shell";
-import { SITE_HOST } from "@/lib/site";
+import { SITE_HOST, SITE_SLOGAN, SITE_TITLE } from "@/lib/site";
 
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${SITE_HOST}`),
-  title: "足球终端 · play.top",
-  description: "亚盘 · 大小球 · 胜平负 · 专业盘口数据终端",
+  title: SITE_TITLE,
+  description: SITE_SLOGAN,
 };
 
 export const viewport: Viewport = {

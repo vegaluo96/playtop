@@ -1,4 +1,4 @@
-/** AI 分析报告:GET /api/report/<fixtureId>?tz=(锁定时只回概率与七维) */
+/** AI 深度报告:GET /api/report/<fixtureId>?tz=(锁定时只回概率与七维) */
 import { NextRequest, NextResponse } from "next/server";
 import { hhmm } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";

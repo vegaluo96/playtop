@@ -1,4 +1,4 @@
-# 足球终端(www.play.top)—— Web + worker 双进程,同库同卷
+# ZSKY.COM 足球天空 —— Web + worker 双进程,同库同卷
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./

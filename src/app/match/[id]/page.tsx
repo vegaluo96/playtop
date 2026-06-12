@@ -329,7 +329,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                   <div style={{ fontSize: 13, fontWeight: 700 }}>滚球实时盘</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-                    <span className="mono" style={{ fontSize: 9, color: "var(--red)", fontWeight: 700, whiteSpace: "nowrap" }}>LIVE · {h.fresh.freq}刷新</span>
+                    <span style={{ fontSize: 9, color: "var(--red)", fontWeight: 800, whiteSpace: "nowrap" }}>直播 · {h.fresh.freq}刷新</span>
                   </div>
                 </div>
                 <div style={{ background: "var(--card)", border: "1px solid rgba(240,67,79,.3)", borderRadius: 12, padding: "4px 14px", marginBottom: 14 }}>
@@ -597,7 +597,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             style={{ padding: "12px 14px", marginBottom: 8, borderRadius: 12, border: "1px solid rgba(233,185,73,.4)", background: "linear-gradient(135deg,#1d1a10,#12141a)", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
           >
             <span style={{ flex: 1 }}>
-              <span style={{ display: "block", fontSize: 13, fontWeight: 800 }}>AI 分析报告</span>
+              <span style={{ display: "block", fontSize: 13, fontWeight: 800 }}>AI 深度报告</span>
               <span style={{ fontSize: 10, color: "var(--fg-2)" }}>盘口解读 · 状态盘路 · 进球模型 · 随盘口变化更新版本</span>
             </span>
             <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: "var(--gold)" }}>查看 ›</span>
