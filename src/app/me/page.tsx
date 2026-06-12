@@ -121,7 +121,7 @@ function MobileMePage() {
       : "未关注";
 
   const MenuRow = ({ label, sum, ch, onClick, border = true, sumColor }: { label: string; sum: string; ch?: string; onClick: () => void; border?: boolean; sumColor?: string }) => (
-    <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 8, padding: 14, cursor: "pointer", borderTop: border ? "1px solid #1d212a" : undefined }}>
+    <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 8, padding: 14, cursor: "pointer", borderTop: border ? "1px solid var(--line-soft)" : undefined }}>
       <span style={{ fontSize: 13, fontWeight: 700, flex: 1 }}>{label}</span>
       <span style={{ fontSize: 11, color: sumColor ?? "var(--fg-2)", fontWeight: sumColor ? 700 : undefined, maxWidth: 170, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sum}</span>
       <span style={{ fontSize: 12, color: "var(--fg-3)", width: 12, textAlign: "center" }}>{ch ?? "›"}</span>
@@ -283,10 +283,10 @@ function MobileMePage() {
             累计 <span className="mono" style={{ color: "var(--gold)", fontWeight: 700 }}>+{invite?.totalPts ?? 0}</span> 额度
           </span>
         </div>
-        <div style={{ fontSize: 11, color: "var(--fg-3)", lineHeight: 1.9, borderTop: "1px solid #1d212a", paddingTop: 10 }}>
+        <div style={{ fontSize: 11, color: "var(--fg-3)", lineHeight: 1.9, borderTop: "1px solid var(--line-soft)", paddingTop: 10 }}>
           好友通过你的链接注册即计 1 次<br />超出每日 10 / 每周 30 / 每月 100 上限的部分不计入
         </div>
-        <div onClick={() => setSheet("invlog")} style={{ textAlign: "center", padding: "9px 0 0", fontSize: 11, fontWeight: 700, color: "var(--gold)", cursor: "pointer", borderTop: "1px solid #1d212a", marginTop: 10 }}>
+        <div onClick={() => setSheet("invlog")} style={{ textAlign: "center", padding: "9px 0 0", fontSize: 11, fontWeight: 700, color: "var(--gold)", cursor: "pointer", borderTop: "1px solid var(--line-soft)", marginTop: 10 }}>
           查看邀请记录 ›
         </div>
       </Sheet>
