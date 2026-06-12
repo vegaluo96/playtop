@@ -285,7 +285,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           <div style={{ flexShrink: 0, padding: "12px 14px 8px" }}>
             <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto", paddingBottom: 2 }}>
               {[
-                ["live", `直播 ${liveCount}`], ["soon", "即将"], ["today", "今日"], ["tmr", "明日"],
+                ["live", `直播 ${liveCount}`], ["soon", "即将"], ["today", "今日"], ["results", "赛果"], ["tmr", "明日"], ["p1", "昨日"], ["p2", "前日"],
                 ...Array.from({ length: 12 }, (_, i) => {
                   const n = i + 2;
                   const d = new Date(Date.now() + parseTzOffset(prefs.tz) * 3_600_000 + n * 86_400_000);
@@ -331,7 +331,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 <>
                   {shown.length === 0 && (
                     <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 11, padding: "40px 12px" }}>
-                      {kw ? "没有匹配的球队" : "该时段暂无已开盘赛事"}
+                      {kw ? "没有匹配的球队" : day === "results" || day.startsWith("p") ? "该时段暂无已完场赛果" : "该时段暂无已开盘赛事"}
                     </div>
                   )}
                   {shown.map((m) => {
@@ -385,7 +385,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                     ))}
                   </div>
                   <div style={{ flexShrink: 0, width: 38, textAlign: "right" }}>
-                    <div className="mono" style={{ fontSize: 12, fontWeight: 800, color: m.live ? "var(--gold)" : "var(--fg-4)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} /></div>
+                    <div className="mono" style={{ fontSize: 12, fontWeight: 800, color: m.live ? "var(--gold)" : m.finished ? "var(--fg)" : "var(--fg-4)", display: "flex", justifyContent: "flex-end" }}><Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} /></div>
                   </div>
                 </div>
               );

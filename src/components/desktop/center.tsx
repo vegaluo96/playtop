@@ -8,7 +8,7 @@ import { IndexChart } from "@/components/index-chart";
 import { PlayerAvatar, TeamLogo } from "@/components/img";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
-import { CompMetaBar, CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
+import { CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
 import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
 import { useWatchlist, WatchStar } from "@/components/watch";
 import { Flash } from "@/components/live";
@@ -360,7 +360,6 @@ export function CenterPane({
 
         {tab === "odds" && oddsSub === "comp" && (
           <>
-            <CompMetaBar comp={v.comp} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 }}>
               {compCol("让球指数 · 对比", v.comp.ah, "ah")}
               {compCol("大小指数 · 对比", v.comp.ou, "ou")}

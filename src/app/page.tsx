@@ -46,6 +46,19 @@ interface Row {
   ex: { ht: string | null; cor: string | null; red: string | null } | null;
 }
 
+interface DateOpt {
+  k: string;
+  label: string;
+}
+
+const WEEK = "日一二三四五六";
+
+function shiftedDateLabel(offsetDays: number, tz: string): string {
+  const off = parseTzOffset(tz);
+  const d = new Date(Date.now() + off * 3_600_000 + offsetDays * 86_400_000);
+  return `${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")} 周${WEEK[d.getUTCDay()]}`;
+}
+
 export default function MatchesRoute() {
   const isDesktop = useIsDesktop();
   if (isDesktop == null) return null;
@@ -87,20 +100,28 @@ function MobileMatchesPage() {
   // 四菜单统一节奏:平台有滚球 3s(交易所级跳动,只渲染真实变化),否则 10s;后台 tab 暂停
   const beat = useUnifiedPoll(load);
 
-  // 日期带精简:直播/即将/今日/明日 四个常用 + 「更多日期」弹层收纳未来 12 天
-  const off = parseTzOffset(prefs.tz);
+  // 时间导航:常用状态直接露出;过去/未来日期收进弹层。
+  const pastDays = Array.from({ length: 7 }, (_, i) => {
+    const n = i + 1;
+    return { k: `p${n}`, label: shiftedDateLabel(-n, prefs.tz) };
+  });
   const futureDays = Array.from({ length: 12 }, (_, i) => {
     const n = i + 2;
-    const d = new Date(Date.now() + off * 3_600_000 + n * 86_400_000);
-    return { k: `d${n}`, label: `${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")} 周${"日一二三四五六"[d.getUTCDay()]}` };
+    return { k: `d${n}`, label: shiftedDateLabel(n, prefs.tz) };
   });
-  const pickedDate = futureDays.find((d) => d.k === day);
+  const pickedDate = [...pastDays, ...futureDays].find((d) => d.k === day);
   const dateChips = [
     { k: "live", label: `直播 ${liveCount}` },
     { k: "soon", label: "即将" },
     { k: "today", label: "今日" },
+    { k: "results", label: "赛果" },
     { k: "tmr", label: "明日" },
   ];
+  const emptyText = day === "soon"
+    ? "未来 24 小时暂无即将开赛的场次"
+    : day === "results" || day.startsWith("p")
+      ? "该时段暂无已完场赛果"
+      : "该时段暂无已开盘赛事";
 
   const renderRow = (m: Row) => {
     const tag = m.masked ? "注册可见" : m.free ? "免费报告" : m.unlocked ? "报告已解锁" : "";
@@ -147,7 +168,7 @@ function MobileMatchesPage() {
               <TeamLogo id={m.homeId} name={m.home} src={m.homeLogo} size={16} />
               <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
             </div>
-            <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", fontSize: 11, color: m.live ? "var(--gold)" : "var(--fg-4)", paddingLeft: 1, whiteSpace: "nowrap" }}>
+            <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", fontSize: 11, color: m.live ? "var(--gold)" : m.finished ? "var(--fg)" : "var(--fg-4)", fontWeight: m.finished ? 800 : undefined, paddingLeft: 1, whiteSpace: "nowrap" }}>
               <Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} />
             </div>
             <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
@@ -197,11 +218,29 @@ function MobileMatchesPage() {
         right={<SearchAction title="搜索赛事" placeholder="球队 / 联赛 / 比赛 ID" hint={`${rows.length} 场当前列表`} items={searchItems} />}
       />
 
-      <div style={{ display: "flex", gap: 8, padding: "6px 16px 8px", overflowX: "auto", flexShrink: 0 }}>
-        {dateChips.map((c) => (
-          <Chip key={c.k} label={c.label} active={day === c.k} onClick={() => setDay(c.k)} />
-        ))}
-        <Chip label={pickedDate ? `${pickedDate.label} ▾` : "更多日期 ▾"} active={!!pickedDate} onClick={() => setDateOpen(true)} />
+      <div style={{ display: "flex", gap: 8, padding: "6px 16px 8px", flexShrink: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 4, overflowX: "auto", background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 12, padding: 3 }}>
+          {dateChips.map((c) => {
+            const active = day === c.k;
+            return (
+              <button
+                key={c.k}
+                type="button"
+                onClick={() => setDay(c.k)}
+                style={{ flexShrink: 0, height: 30, border: `1px solid ${active ? "var(--selected-border)" : "transparent"}`, borderRadius: 9, padding: "0 11px", background: active ? "var(--card)" : "transparent", color: active ? "var(--fg)" : "var(--fg-2)", fontSize: 12, fontWeight: active ? 800 : 650, cursor: "pointer", whiteSpace: "nowrap" }}
+              >
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={() => setDateOpen(true)}
+          style={{ flexShrink: 0, height: 38, border: `1px solid ${pickedDate ? "var(--selected-border)" : "var(--line)"}`, borderRadius: 12, padding: "0 12px", background: pickedDate ? "var(--selected-bg)" : "var(--card)", color: pickedDate ? "var(--fg)" : "var(--fg-2)", fontSize: 12, fontWeight: 750, cursor: "pointer", whiteSpace: "nowrap" }}
+        >
+          {pickedDate ? `${pickedDate.label} ▾` : "日期 ▾"}
+        </button>
       </div>
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
         <Chip label="全部" active={league === "all"} onClick={() => setLeague("all")} style={{ padding: "5px 12px", fontSize: 11 }} />
@@ -238,7 +277,7 @@ function MobileMatchesPage() {
 
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 12px", minHeight: 0 }}>
         {loaded && rows.length === 0 && (
-          <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>{day === "soon" ? "未来 24 小时暂无即将开赛的场次" : "该时段暂无已开盘赛事"}</div>
+          <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>{emptyText}</div>
         )}
         {(() => {
           const watched = rows.filter((r) => watch.ids.has(r.id));
@@ -263,22 +302,30 @@ function MobileMatchesPage() {
       <Sheet open={dateOpen} onClose={() => setDateOpen(false)}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
           <span style={{ fontSize: 15, fontWeight: 800 }}>选择日期</span>
-          <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>赛程与指数提前 14 天归档</span>
+          <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>赛果与未来赛程</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          {futureDays.map((d) => (
-            <div
-              key={d.k}
-              onClick={() => {
-                setDay(d.k);
-                setDateOpen(false);
-              }}
-              style={{ textAlign: "center", padding: "10px 0", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", background: day === d.k ? "var(--selected-bg)" : "var(--inset)", color: day === d.k ? "var(--gold)" : "var(--fg-mid)" }}
-            >
-              {d.label}
+        {([
+          ["过去 7 天", pastDays],
+          ["未来 12 天", futureDays],
+        ] as [string, DateOpt[]][]).map(([title, items]) => (
+          <div key={title} style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 800, margin: "0 0 7px 2px" }}>{title}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              {items.map((d) => (
+                <div
+                  key={d.k}
+                  onClick={() => {
+                    setDay(d.k);
+                    setDateOpen(false);
+                  }}
+                  style={{ textAlign: "center", padding: "10px 0", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", background: day === d.k ? "var(--selected-bg)" : "var(--inset)", color: day === d.k ? "var(--fg)" : "var(--fg-mid)", border: `1px solid ${day === d.k ? "var(--selected-border)" : "transparent"}` }}
+                >
+                  {d.label}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </Sheet>
     </div>
   );

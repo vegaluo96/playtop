@@ -168,31 +168,6 @@ export function FatigueCard({ fa, home, away, style }: { fa: V; home: string; aw
   );
 }
 
-/** ④ 升降盘 + 返还率 + ② 离散度 汇总条(对比页顶部) */
-export function CompMetaBar({ comp }: { comp: V }) {
-  const t = comp?.trend;
-  const m = comp?.euMeta;
-  if (!t?.ah?.dir && !t?.ou?.dir && !m) return null;
-  const dirText = (d: V) => d && `${d.up} 升 · ${d.down} 降 · ${d.flat} 持平`;
-  const retText = (x: V) => (x?.ret0 != null && x?.ret1 != null ? `返还率 ${x.ret0}%→${x.ret1}%` : null);
-  const items: [string, string | null][] = [
-    ["让球", [dirText(t?.ah?.dir), retText(t?.ah)].filter(Boolean).join(" · ") || null],
-    ["大小", [dirText(t?.ou?.dir), retText(t?.ou)].filter(Boolean).join(" · ") || null],
-    ["离散度", m ? `主 ${m.disp.h} / 平 ${m.disp.d} / 客 ${m.disp.a}(${m.books} 家)` : null],
-  ];
-  return (
-    <div style={{ ...box, padding: "9px 14px", marginBottom: 12 }}>
-      {items.filter(([, v]) => v).map(([k, v]) => (
-        <div key={k} style={{ display: "flex", gap: 10, alignItems: "baseline", padding: "3px 0" }}>
-          <span style={{ flexShrink: 0, width: 44, fontSize: 11, fontWeight: 800, color: "var(--fg-2)" }}>{k}</span>
-          <MarketValue v={v} className="mono" small style={{ justifyContent: "flex-start", color: "var(--fg-mid)" }} />
-        </div>
-      ))}
-      {m && <div style={{ fontSize: 11.5, color: "var(--fg-3)", paddingTop: 5, lineHeight: 1.6 }}>{m.method}</div>}
-    </div>
-  );
-}
-
 /** ⑥ 角球参考(更多玩法页脚注) */
 export function CornersRefNote({ cr, home, away }: { cr: V; home: string; away: string }) {
   if (!cr) return null;

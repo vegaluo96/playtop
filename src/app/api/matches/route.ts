@@ -1,5 +1,5 @@
 /**
- * 赛事列表:GET /api/matches?day=live|today|tmr|sat&league=all|<id>&tz=UTC+8
+ * 赛事列表:GET /api/matches?day=live|soon|today|results|tmr|pN|dN|sat&league=all|<id>&tz=UTC+8
  * 免注册边界(服务端打码):直播行完整;非直播行前 3 条完整,其余打码。
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -32,9 +32,18 @@ export async function GET(req: NextRequest) {
   let from = dayStart;
   let to = dayStart + 86_400_000;
   const dn = /^d(\d{1,2})$/.exec(day); // d0..d13:今日起第 N 天(worker 已缓存 14 天日表)
+  const pn = /^p(\d{1,2})$/.exec(day); // p1..p14:过去第 N 天,仅展示已完场赛果
+  const resultsMode = day === "results" || !!pn;
   if (day === "tmr") {
     from += 86_400_000;
     to += 86_400_000;
+  } else if (day === "yday") {
+    from -= 86_400_000;
+    to -= 86_400_000;
+  } else if (pn) {
+    const n = Math.min(14, Math.max(1, Number(pn[1])));
+    from = dayStart - n * 86_400_000;
+    to = from + 86_400_000;
   } else if (dn) {
     const n = Math.min(13, Math.max(0, Number(dn[1])));
     from = dayStart + n * 86_400_000;
@@ -52,14 +61,19 @@ export async function GET(req: NextRequest) {
     // 即将(默认视图):滚球在最上 + 未来 24h 即将开赛,跨自然日连续,对齐球盘站习惯
     from = now - 4 * 3_600_000;
     to = now + 24 * 3_600_000;
+  } else if (day === "results") {
+    // 赛果:最近 72 小时已完场,作为首页历史入口;更早按 pN 精确日期查询。
+    from = dayStart - 2 * 86_400_000;
+    to = now;
   }
 
   const hidden = hiddenFixtureIds();
   let fixtures = fixturesBetween(from, to).filter((f) => !hidden.has(f.fixture_id));
   if (day === "live") fixtures = fixtures.filter((f) => isLive(f.status));
   if (day === "soon") fixtures = fixtures.filter((f) => isLive(f.status) || (!isFinished(f.status) && f.kickoff_utc >= now - 10 * 60_000));
+  if (resultsMode) fixtures = fixtures.filter((f) => isFinished(f.status));
   if (league !== "all") fixtures = fixtures.filter((f) => f.league_id === Number(league));
-  fixtures.sort((a, b) => a.kickoff_utc - b.kickoff_utc);
+  fixtures.sort((a, b) => (resultsMode ? b.kickoff_utc - a.kickoff_utc : a.kickoff_utc - b.kickoff_utc));
 
   const user = await userPromise;
   const freeSet = dailyFreeSetToday();

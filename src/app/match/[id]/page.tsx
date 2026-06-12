@@ -18,7 +18,7 @@ import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { PlayerAvatar, TeamLogo } from "@/components/img";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
-import { CompMetaBar, CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
+import { CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
 import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
 import { useWatchlist, WatchStar } from "@/components/watch";
 import { SITE_HOST } from "@/lib/site";
@@ -378,8 +378,6 @@ function MobileMatchDetail({ id }: { id: string }) {
 
         {tab === "odds" && oddsSub === "comp" && (
           <>
-            <div style={{ height: 6 }} />
-            <CompMetaBar comp={v.comp} />
             {compTable("让球指数 · 对比", v.comp.ah, "ah")}
             {compTable("大小指数 · 对比", v.comp.ou, "ou")}
             {compTable("胜平负指数 · 对比", v.comp.eu, "eu")}
