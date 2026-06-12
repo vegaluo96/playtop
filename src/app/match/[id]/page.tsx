@@ -19,6 +19,7 @@ import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
 import { CompMetaBar, CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
 import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
+import { useWatchlist, WatchStar } from "@/components/watch";
 import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -57,6 +58,7 @@ function MobileMatchDetail({ id }: { id: string }) {
   const [history, setHistory] = useState<HistoryTarget | null>(null);
   const workerAt = useWorkerBeat();
   const { prefs, me } = useApp();
+  const watch = useWatchlist(me.loggedIn);
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -93,9 +95,20 @@ function MobileMatchDetail({ id }: { id: string }) {
   }, [tab, deepV, id, prefs.tz]);
 
   if (!v)
-    return (
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-3)", fontSize: 12 }}>
-        {err || "加载中…"}
+    return err ? (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-3)", fontSize: 12 }}>{err}</div>
+    ) : (
+      <div style={{ flex: 1, padding: "14px 14px 0", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="skel" style={{ height: 16, width: 180, margin: "0 auto" }} />
+        <div className="skel" style={{ height: 52 }} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+          {[0, 1, 2].map((i) => <div key={i} className="skel" style={{ height: 46 }} />)}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+          {[0, 1, 2, 3].map((i) => <div key={i} className="skel" style={{ height: 32 }} />)}
+        </div>
+        <div className="skel" style={{ height: 200 }} />
+        <div className="skel" style={{ height: 140 }} />
       </div>
     );
 
@@ -236,6 +249,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 600, whiteSpace: "nowrap" }}>{h.league} · {h.round}</span>
           </div>
         </div>
+        <WatchStar on={watch.ids.has(h.id)} onToggle={() => watch.toggle(h.id)} size={16} style={{ width: 30, height: 34 }} />
         <div onClick={openShare} style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--fg-2)" }}>
           <ShareIcon />
         </div>
@@ -290,7 +304,10 @@ function MobileMatchDetail({ id }: { id: string }) {
 
       <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", overflowX: "auto", flexShrink: 0 }}>
         {TABS.map(([k, label]) => (
-          <Chip key={k} label={label} active={tab === k} onClick={() => { setTab(k); setOddsSub("trend"); }} style={{ borderRadius: 8, fontWeight: 700, flex: 1, textAlign: "center" }} />
+          <div key={k} style={{ position: "relative", flex: 1, display: "flex" }}>
+            <Chip label={label} active={tab === k} onClick={() => setTab(k)} style={{ borderRadius: 8, fontWeight: 700, flex: 1, textAlign: "center" }} />
+            {k === "match" && h.live && <span className="livepulse" style={{ position: "absolute", top: 5, right: 9, width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />}
+          </div>
         ))}
       </div>
       {tab === "odds" && (

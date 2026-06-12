@@ -178,3 +178,15 @@ textarea {
 .wcsweep {
   animation: wcsweep 2.4s linear infinite;
 }
+
+/* 骨架屏(详情页首屏) */
+.skel {
+  background: linear-gradient(90deg, var(--card) 25%, var(--inset) 50%, var(--card) 75%);
+  background-size: 200% 100%;
+  animation: skel 1.4s infinite;
+  border-radius: 8px;
+}
+@keyframes skel {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

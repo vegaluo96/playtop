@@ -206,6 +206,12 @@ CREATE TABLE IF NOT EXISTS announcements (
 CREATE TABLE IF NOT EXISTS hidden_fixtures (
   fixture_id INTEGER PRIMARY KEY
 );
+CREATE TABLE IF NOT EXISTS watchlist (             -- 自选关注(登录用户;游客走 localStorage)
+  user_id INTEGER NOT NULL,
+  fixture_id INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, fixture_id)
+);
 CREATE TABLE IF NOT EXISTS metrics_daily (
   date TEXT NOT NULL,
   k TEXT NOT NULL,

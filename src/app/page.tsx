@@ -13,6 +13,7 @@ import { Chip } from "@/components/ui";
 import { f2, hhmm, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
 import { Flash, useUnifiedPoll } from "@/components/live";
+import { useWatchlist, WatchStar } from "@/components/watch";
 import { useIsDesktop } from "@/components/use-viewport";
 import { Terminal } from "@/components/desktop/terminal";
 
@@ -47,6 +48,7 @@ interface Row {
   ah: Cell | null;
   ou: Cell | null;
   eu: Cell | null;
+  ex: { ht: string | null; cor: string | null; red: string | null } | null;
 }
 
 const X = "-.--";
@@ -73,7 +75,8 @@ function MobileMatchesPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [liveCount, setLiveCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
-  const { prefs } = useApp();
+  const { prefs, me } = useApp();
+  const watch = useWatchlist(me.loggedIn);
   const router = useRouter();
   // 联赛 chips:后台配置(含顺序)优先,静态表兜底
   const siteCfg = useSiteConfig();
@@ -112,6 +115,86 @@ function MobileMatchesPage() {
       return { k: `d${n}`, label: `周${"日一二三四五六"[d.getUTCDay()]} ${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}` };
     }),
   ];
+
+  const renderRow = (m: Row) => {
+    const tag = m.masked ? "注册可见" : m.free ? "免费预测" : m.unlocked ? "预测已解锁" : "";
+    const exLine = m.ex ? [m.ex.ht ? `半场 ${m.ex.ht}` : null, m.ex.cor ? `角 ${m.ex.cor}` : null, m.ex.red ? `红 ${m.ex.red}` : null].filter(Boolean).join(" · ") : "";
+    return (
+      <div
+        key={m.id}
+        onClick={() => (m.masked ? router.push("/login") : router.push(`/match/${m.id}`))}
+        style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, marginBottom: 8, padding: "9px 12px 10px", cursor: "pointer" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(m.leagueId) }} />
+          <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}>{leagueZh(m.leagueId, m.leagueName)}</span>
+          <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{hhmm(m.kickoff, prefs.tz)}</span>
+          {m.live && (
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--red)", fontWeight: 700 }}>
+              <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
+              {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
+            </span>
+          )}
+          {exLine && <span className="mono" style={{ fontSize: 9, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{exLine}</span>}
+          <span style={{ flex: 1 }} />
+          {m.moved && (
+            <span style={{ fontSize: 9, fontWeight: 700, color: "var(--gold)", border: "1px solid rgba(233,185,73,.45)", borderRadius: 4, padding: "1px 5px" }}>异动</span>
+          )}
+          {tag && (
+            <span
+              style={{
+                fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "1px 6px",
+                background: m.masked ? "rgba(233,185,73,.12)" : m.free ? "rgba(46,204,138,.12)" : "var(--inset)",
+                color: m.masked ? "var(--gold)" : m.free ? "var(--green)" : "var(--fg-2)",
+                border: `1px solid ${m.masked ? "rgba(233,185,73,.4)" : m.free ? "rgba(46,204,138,.4)" : "var(--line)"}`,
+              }}
+            >
+              {tag}
+            </span>
+          )}
+          {!m.masked && <WatchStar on={watch.ids.has(m.id)} onToggle={() => watch.toggle(m.id)} size={13} style={{ marginRight: -6 }} />}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 64px 64px 64px", gap: 8, alignItems: "center" }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--home)", background: "rgba(91,157,255,.12)", borderRadius: 3, padding: "1px 4px" }}>主</span>
+              <TeamLogo id={m.homeId} name={m.home} size={16} />
+              <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
+            </div>
+            <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", fontSize: 11, color: m.live ? "var(--gold)" : "var(--fg-4)", paddingLeft: 1, whiteSpace: "nowrap" }}>
+              <Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} />
+            </div>
+            <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--gold)", background: "rgba(233,185,73,.12)", borderRadius: 3, padding: "1px 4px" }}>客</span>
+              <TeamLogo id={m.awayId} name={m.away} size={16} />
+              <span style={{ fontSize: 15, fontWeight: 600, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.away}</span>
+            </div>
+          </div>
+          <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
+            <ArrowVal v={m.ah?.h} d={m.ah?.hd} masked={m.masked} chgAt={m.ah?.chgAt} />
+            <div style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700, color: "var(--gold)" }}>
+              <Flash v={m.masked ? "●●" : (m.ah?.text ?? "—")} />
+            </div>
+            <ArrowVal v={m.ah?.a} d={m.ah?.ad} masked={m.masked} chgAt={m.ah?.chgAt} />
+          </div>
+          <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
+            <ArrowVal v={m.ou?.h} d={m.ou?.hd} masked={m.masked} chgAt={m.ou?.chgAt} />
+            <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>
+              <Flash v={m.masked ? "●●" : (m.ou?.text || "—")} />
+            </div>
+            <ArrowVal v={m.ou?.a} d={m.ou?.ad} masked={m.masked} chgAt={m.ou?.chgAt} />
+          </div>
+          <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
+            {[m.eu?.h, m.eu?.d, m.eu?.a].map((v, i) => (
+              <div key={i} className="mono" style={{ height: i === 1 ? 16 : 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: i === 1 ? 11 : 12.5, fontWeight: i === 1 ? 700 : 600, color: i === 1 ? "var(--gold)" : undefined }}>
+                <Flash v={m.masked || v == null ? X : f2(v)} pulse={m.masked ? null : m.eu?.chgAt} pulseDir={i === 0 ? m.eu?.hd : i === 2 ? m.eu?.ad : 0} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
@@ -160,82 +243,24 @@ function MobileMatchesPage() {
         {loaded && rows.length === 0 && (
           <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>该时段暂无已开盘赛事</div>
         )}
-        {rows.map((m) => {
-          const tag = m.masked ? "注册可见" : m.free ? "免费预测" : m.unlocked ? "预测已解锁" : "";
-          return (
-            <div
-              key={m.id}
-              onClick={() => (m.masked ? router.push("/login") : router.push(`/match/${m.id}`))}
-              style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, marginBottom: 8, padding: "9px 12px 10px", cursor: "pointer" }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(m.leagueId) }} />
-                <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}>{leagueZh(m.leagueId, m.leagueName)}</span>
-                <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>{hhmm(m.kickoff, prefs.tz)}</span>
-                {m.live && (
-                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--red)", fontWeight: 700 }}>
-                    <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-                    {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
-                  </span>
-                )}
-                <span style={{ flex: 1 }} />
-                {m.moved && (
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "var(--gold)", border: "1px solid rgba(233,185,73,.45)", borderRadius: 4, padding: "1px 5px" }}>异动</span>
-                )}
-                {tag && (
-                  <span
-                    style={{
-                      fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "1px 6px",
-                      background: m.masked ? "rgba(233,185,73,.12)" : m.free ? "rgba(46,204,138,.12)" : "var(--inset)",
-                      color: m.masked ? "var(--gold)" : m.free ? "var(--green)" : "var(--fg-2)",
-                      border: `1px solid ${m.masked ? "rgba(233,185,73,.4)" : m.free ? "rgba(46,204,138,.4)" : "var(--line)"}`,
-                    }}
-                  >
-                    {tag}
-                  </span>
-                )}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 64px 64px 64px", gap: 8, alignItems: "center" }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--home)", background: "rgba(91,157,255,.12)", borderRadius: 3, padding: "1px 4px" }}>主</span>
-                    <TeamLogo id={m.homeId} name={m.home} size={16} />
-                    <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
-                  </div>
-                  <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", fontSize: 11, color: m.live ? "var(--gold)" : "var(--fg-4)", paddingLeft: 1, whiteSpace: "nowrap" }}>
-                    <Flash v={m.live || m.finished ? (m.score ?? "vs") : "vs"} />
-                  </div>
-                  <div style={{ height: 21, display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 800, color: "var(--gold)", background: "rgba(233,185,73,.12)", borderRadius: 3, padding: "1px 4px" }}>客</span>
-                    <TeamLogo id={m.awayId} name={m.away} size={16} />
-                    <span style={{ fontSize: 15, fontWeight: 600, color: "var(--fg-mid)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.away}</span>
-                  </div>
-                </div>
-                <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
-                  <ArrowVal v={m.ah?.h} d={m.ah?.hd} masked={m.masked} chgAt={m.ah?.chgAt} />
-                  <div style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700, color: "var(--gold)" }}>
-                    <Flash v={m.masked ? "●●" : (m.ah?.text ?? "—")} />
-                  </div>
-                  <ArrowVal v={m.ah?.a} d={m.ah?.ad} masked={m.masked} chgAt={m.ah?.chgAt} />
-                </div>
-                <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
-                  <ArrowVal v={m.ou?.h} d={m.ou?.hd} masked={m.masked} chgAt={m.ou?.chgAt} />
-                  <div className="mono" style={{ height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>
-                    <Flash v={m.masked ? "●●" : (m.ou?.text || "—")} />
-                  </div>
-                  <ArrowVal v={m.ou?.a} d={m.ou?.ad} masked={m.masked} chgAt={m.ou?.chgAt} />
-                </div>
-                <div style={{ background: "var(--inset)", borderRadius: 8, padding: "3px 0" }}>
-                  {[m.eu?.h, m.eu?.d, m.eu?.a].map((v, i) => (
-                    <div key={i} className="mono" style={{ height: i === 1 ? 16 : 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: i === 1 ? 11 : 12.5, fontWeight: i === 1 ? 700 : 600, color: i === 1 ? "var(--gold)" : undefined }}>
-                      <Flash v={m.masked || v == null ? X : f2(v)} pulse={m.masked ? null : m.eu?.chgAt} pulseDir={i === 0 ? m.eu?.hd : i === 2 ? m.eu?.ad : 0} />
-                    </div>
-                  ))}
-                </div>
-              </div>
+        {(() => {
+          const watched = rows.filter((r) => watch.ids.has(r.id));
+          const others = rows.filter((r) => !watch.ids.has(r.id));
+          const section = (label: string) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px 6px" }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: "var(--gold)" }}>{label}</span>
+              <span style={{ flex: 1, height: 1, background: "var(--line-soft)" }} />
             </div>
           );
-        })}
+          const blocks: React.ReactNode[] = [];
+          if (watched.length > 0) {
+            blocks.push(section(`★ 关注 ${watched.length}`));
+            blocks.push(...watched.map(renderRow));
+            if (others.length > 0) blocks.push(section("全部"));
+          }
+          blocks.push(...others.map(renderRow));
+          return blocks;
+        })()}
         {loaded && <RiskFooter />}
       </div>
     </div>

@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { parseTzOffset } from "@/lib/format";
-import { fixturesBetween, dailyFreeSetToday, liveAwareSeries, movedRecently, hiddenFixtureIds } from "@/server/views/list-helpers";
+import { fixturesBetween, dailyFreeSetToday, liveAwareSeries, liveExtras, movedRecently, hiddenFixtureIds } from "@/server/views/list-helpers";
 import { marketCell } from "@/server/views/common";
 import { isLive, isFinished } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
@@ -75,6 +75,7 @@ export async function GET(req: NextRequest) {
       homeId: f.home_id,
       awayId: f.away_id,
       moved: !masked && movedRecently(f.fixture_id),
+      ex: live && !masked ? liveExtras(f.payload) : null,
       masked,
       free: freeSet.has(f.fixture_id),
       unlocked,

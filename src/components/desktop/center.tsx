@@ -10,6 +10,7 @@ import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
 import { CompMetaBar, CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
 import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
+import { useWatchlist, WatchStar } from "@/components/watch";
 import { Flash } from "@/components/live";
 import { ahText, dayLabel, hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
@@ -47,6 +48,7 @@ export function CenterPane({
   const [player, setPlayer] = useState<PlayerTarget | null>(null);
   const [history, setHistory] = useState<HistoryTarget | null>(null);
   const [oddsSub, setOddsSub] = useState("trend");
+  const watch = useWatchlist(loggedIn);
   const router = useRouter();
   const fid = v?.header?.id ?? null;
 
@@ -233,6 +235,7 @@ export function CenterPane({
           </span>
           <span style={{ flex: 1 }} />
           <span style={{ fontSize: 10, color: "var(--fg-3)", whiteSpace: "nowrap" }}>⟳ {h.fresh.line}{v.summary.oddsAt ? ` · 盘口 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}</span>
+          <WatchStar on={watch.ids.has(h.id)} onToggle={() => watch.toggle(h.id)} size={14} />
           {copied && <span style={{ fontSize: 9, color: "var(--up)", fontWeight: 700, whiteSpace: "nowrap" }}>链接已复制</span>}
           <span onClick={copyLink} style={{ cursor: "pointer", color: "var(--fg-2)", display: "flex", alignItems: "center", flexShrink: 0 }}>
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -273,8 +276,9 @@ export function CenterPane({
         </div>
         <div className="hidescroll" style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--line)", overflowX: "auto" }}>
           {TAB_DEFS.map(([k, label]) => (
-            <div key={k} onClick={() => { setTab(k); setOddsSub("trend"); }} style={{ padding: "8px 13px 9px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, color: tab === k ? "var(--gold)" : "var(--fg-2)", borderBottom: `2px solid ${tab === k ? "var(--gold)" : "transparent"}`, marginBottom: -1 }}>
+            <div key={k} onClick={() => setTab(k)} style={{ position: "relative", padding: "8px 13px 9px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, color: tab === k ? "var(--gold)" : "var(--fg-2)", borderBottom: `2px solid ${tab === k ? "var(--gold)" : "transparent"}`, marginBottom: -1 }}>
               {label}
+              {k === "match" && h.live && <span className="livepulse" style={{ position: "absolute", top: 7, right: 4, width: 4, height: 4, borderRadius: "50%", background: "var(--red)" }} />}
             </div>
           ))}
           {tab === "odds" && (
