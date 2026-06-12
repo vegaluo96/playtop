@@ -241,28 +241,36 @@ interface LineupPlayer {
   pos: string;
   id: number | null;
 }
-/** mirror=true(客队)列序反转:两卡上下排布时同一行左右对应同一路,贴近观赛习惯 */
-function lineupSide(lu: unknown, mirror = false) {
+/**
+ * AF lineup.grid = "行:列":行 1 = 门将,行号沿进攻方向递增;列在行内从 1 递增。
+ * 单队球场图标准画法:门将在底、前锋在顶(与 Sofascore/FotMob 一致)→ 行号降序渲染。
+ * 主客两卡均为独立单队视图,朝向一致(不做镜像)。无 grid 的球员不丢弃,落入末行兜底。
+ */
+function lineupSide(lu: unknown) {
   const rowsMap = new Map<number, { col: number; p: LineupPlayer }[]>();
-  for (const p of arr(dig(lu, "startXI"))) {
+  const noGrid: { col: number; p: LineupPlayer }[] = [];
+  arr(dig(lu, "startXI")).forEach((p, idx) => {
     const grid = String(dig(p, "player", "grid") ?? "");
     const [row, col] = grid.split(":").map(Number);
-    const name = String(dig(p, "player", "name") ?? "");
-    if (!Number.isFinite(row)) continue;
+    const player: LineupPlayer = {
+      n: nameZh(String(dig(p, "player", "name") ?? ""), "player"),
+      num: (Number(dig(p, "player", "number")) || null) as number | null,
+      pos: String(dig(p, "player", "pos") ?? ""),
+      id: (Number(dig(p, "player", "id")) || null) as number | null,
+    };
+    if (!Number.isFinite(row)) {
+      noGrid.push({ col: idx, p: player }); // 无 grid:保留,按出场序排末行,不让阵型缺人
+      return;
+    }
     if (!rowsMap.has(row)) rowsMap.set(row, []);
-    rowsMap.get(row)!.push({
-      col: col || 0,
-      p: {
-        n: nameZh(name, "player"),
-        num: (Number(dig(p, "player", "number")) || null) as number | null,
-        pos: String(dig(p, "player", "pos") ?? ""),
-        id: (Number(dig(p, "player", "id")) || null) as number | null,
-      },
-    });
-  }
+    rowsMap.get(row)!.push({ col: col || 0, p: player });
+  });
+  // 行号降序:前锋在顶、门将在底;列号降序:AF 列 1 = 球员右侧,降序后观众视角左→右正确
+  // (实测 grid:Walker 2:1=右后卫 → 须排到最右,Gvardiol 2:4=左后卫 → 最左)
   const rows = [...rowsMap.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([, ps]) => ps.sort((x, y) => (mirror ? y.col - x.col : x.col - y.col)).map((c) => c.p));
+    .sort((a, b) => b[0] - a[0])
+    .map(([, ps]) => ps.sort((x, y) => y.col - x.col).map((c) => c.p));
+  if (noGrid.length > 0) rows.push(noGrid.sort((x, y) => x.col - y.col).map((c) => c.p));
   const subs: LineupPlayer[] = arr(dig(lu, "substitutes")).map((p) => ({
     n: nameZh(String(dig(p, "player", "name") ?? ""), "player"),
     num: (Number(dig(p, "player", "number")) || null) as number | null,
@@ -290,7 +298,7 @@ function lineupsView(bundle: Record<string, unknown>, homeId: number | null, hom
   const awayOk = Number(dig(away, "team", "id")) !== homeId && String(dig(away, "team", "name") ?? "") !== homeName;
   if (!awayOk) return { ready: false as const };
   void awayName;
-  return { ready: true as const, home: lineupSide(home), away: lineupSide(away, true) };
+  return { ready: true as const, home: lineupSide(home), away: lineupSide(away) };
 }
 
 /* ── 情报 ── */
