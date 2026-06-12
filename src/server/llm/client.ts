@@ -47,9 +47,14 @@ export interface LlmBalanceSnapshot {
   usd: number | null;
   limit?: number;
   used?: number;
+  quota?: number;
+  usedQuota?: number;
+  requestCount?: number;
   at: number;
   error?: string;
 }
+
+const APIYI_QUOTA_PER_USD = 500_000;
 
 function dig(obj: unknown, ...path: string[]): unknown {
   let cur = obj;
@@ -93,6 +98,18 @@ export function parseBillingUsage(input: unknown): number | null {
   );
 }
 
+export function parseApiyiUserSelf(input: unknown, at = Date.now()): LlmBalanceSnapshot | null {
+  if (dig(input, "success") !== true) return null;
+  const quota = firstFinite(dig(input, "data", "quota"));
+  const usedQuota = firstFinite(dig(input, "data", "used_quota"));
+  const requestCount = firstFinite(dig(input, "data", "request_count")) ?? undefined;
+  if (quota == null || quota < 0) return null;
+  const used = usedQuota != null && usedQuota >= 0 ? Math.round((usedQuota / APIYI_QUOTA_PER_USD) * 100) / 100 : undefined;
+  const usd = Math.round((quota / APIYI_QUOTA_PER_USD) * 100) / 100;
+  const limit = used != null ? Math.round((usd + used) * 100) / 100 : undefined;
+  return { usd, limit, used, quota, usedQuota: usedQuota ?? undefined, requestCount, at };
+}
+
 export function readLlmBalance(): LlmBalanceSnapshot | null {
   const raw = kvGet("llm_balance");
   if (!raw) return null;
@@ -101,41 +118,72 @@ export function readLlmBalance(): LlmBalanceSnapshot | null {
     const usd = parsed.usd == null ? null : Number(parsed.usd);
     const limit = parsed.limit == null ? undefined : Number(parsed.limit);
     const used = parsed.used == null ? undefined : Number(parsed.used);
+    const quota = parsed.quota == null ? undefined : Number(parsed.quota);
+    const usedQuota = parsed.usedQuota == null ? undefined : Number(parsed.usedQuota);
+    const requestCount = parsed.requestCount == null ? undefined : Number(parsed.requestCount);
     const error = typeof parsed.error === "string" ? parsed.error : undefined;
-    if (error) return { usd: null, limit, used, at: Number(parsed.at) || Date.now(), error };
+    if (error) return { usd: null, limit, used, quota, usedQuota, requestCount, at: Number(parsed.at) || Date.now(), error };
     if (!Number.isFinite(usd)) return null;
     if ((limit == null || !Number.isFinite(limit) || limit <= 0) && usd === 0 && (used == null || used === 0)) return null;
-    return { usd, limit, used, at: Number(parsed.at) || Date.now() };
+    return { usd, limit, used, quota, usedQuota, requestCount, at: Number(parsed.at) || Date.now() };
   } catch {
     return null;
   }
 }
 
-async function fetchJson(url: string, key: string): Promise<unknown> {
-  const res = await fetch(url, { headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(15_000) });
+function apiyiAccountBase(): string {
+  try {
+    const url = new URL(cfgLlmBase());
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return "https://api.apiyi.com";
+  }
+}
+
+async function fetchJson(url: string, key: string, bearer = true): Promise<unknown> {
+  const res = await fetch(url, {
+    headers: {
+      accept: "application/json",
+      authorization: bearer ? `Bearer ${key}` : key,
+      "content-type": "application/json",
+    },
+    signal: AbortSignal.timeout(15_000),
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+async function fetchApiyiBalance(key: string): Promise<LlmBalanceSnapshot> {
+  const json = await fetchJson(`${apiyiAccountBase()}/api/user/self`, key, false);
+  const parsed = parseApiyiUserSelf(json);
+  if (!parsed) throw new Error("API易余额字段缺失");
+  return parsed;
+}
+
+async function fetchOpenAiStyleBalance(key: string): Promise<LlmBalanceSnapshot> {
+  const base = cfgLlmBase();
+  const sub = await fetchJson(`${base}/dashboard/billing/subscription`, key);
+  const limit = parseBillingSubscription(sub);
+  if (limit == null) throw new Error("余额额度字段缺失");
+  const { start, end } = llmUsageWindow();
+  const usage = await fetchJson(`${base}/dashboard/billing/usage?start_date=${start}&end_date=${end}`, key);
+  const usedRaw = parseBillingUsage(usage);
+  if (usedRaw == null) throw new Error("用量字段缺失");
+  const used = Math.round(usedRaw * 100) / 100;
+  const balance = Math.max(0, Math.round((limit - used) * 100) / 100);
+  return { usd: balance, limit, used, at: Date.now() };
 }
 
 export async function fetchLlmBalance(): Promise<number | null> {
   const keys = [...new Set([cfgLlmBalanceKey(), cfgLlmKey()].filter(Boolean) as string[])];
   if (keys.length === 0) return null;
-  const base = cfgLlmBase();
   let lastError = "";
   try {
     for (const key of keys) {
       try {
-        const sub = await fetchJson(`${base}/dashboard/billing/subscription`, key);
-        const limit = parseBillingSubscription(sub);
-        if (limit == null) throw new Error("余额额度字段缺失");
-        const { start, end } = llmUsageWindow();
-        const usage = await fetchJson(`${base}/dashboard/billing/usage?start_date=${start}&end_date=${end}`, key);
-        const usedRaw = parseBillingUsage(usage);
-        if (usedRaw == null) throw new Error("用量字段缺失");
-        const used = Math.round(usedRaw * 100) / 100;
-        const balance = Math.max(0, Math.round((limit - used) * 100) / 100);
-        kvSet("llm_balance", JSON.stringify({ usd: balance, limit, used, at: Date.now() }));
-        return balance;
+        const snapshot = await fetchApiyiBalance(key).catch(() => fetchOpenAiStyleBalance(key));
+        kvSet("llm_balance", JSON.stringify(snapshot));
+        return snapshot.usd;
       } catch (e) {
         lastError = e instanceof Error ? e.message : String(e);
       }

@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { maskBookmaker } from "../../src/lib/format";
 import { predSummary } from "../../src/server/views/common";
-import { llmUsageWindow, parseBillingSubscription, parseBillingUsage } from "../../src/server/llm/client";
+import { llmUsageWindow, parseApiyiUserSelf, parseBillingSubscription, parseBillingUsage } from "../../src/server/llm/client";
 import { endpointHealthStatus } from "../../src/server/admin/monitoring";
 
 describe("maskBookmaker(前台不显示全称但保留辨识度)", () => {
@@ -74,7 +74,25 @@ describe("llmUsageWindow(usage 接口必须带日期窗口,缺参网关返回 0)
 });
 
 describe("LLM 余额解析", () => {
+  it("按 API易 /api/user/self 的 quota 字段换算余额", () => {
+    const parsed = parseApiyiUserSelf({
+      success: true,
+      data: { quota: 24_997_909, used_quota: 10_027_091, request_count: 339 },
+    }, 123);
+
+    expect(parsed).toMatchObject({
+      usd: 50,
+      used: 20.05,
+      limit: 70.05,
+      quota: 24_997_909,
+      usedQuota: 10_027_091,
+      requestCount: 339,
+      at: 123,
+    });
+  });
+
   it("无法识别额度时返回 null,不能把查询失败写成 $0", () => {
+    expect(parseApiyiUserSelf({ success: false, message: "Unauthorized" })).toBeNull();
     expect(parseBillingSubscription({ error: { message: "invalid token" } })).toBeNull();
     expect(parseBillingSubscription({ hard_limit_usd: 0 })).toBeNull();
   });
