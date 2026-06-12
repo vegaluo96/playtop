@@ -549,7 +549,9 @@ export function CenterPane({
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color: "var(--fg-2)", background: "var(--line)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>摘要</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: "var(--gold)" }}>{report.advice}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: report.summaryReady ? "var(--gold)" : "var(--fg-3)" }}>
+                    {report.advice ?? "概率快照积累中,方向待真实信号补齐"}
+                  </span>
                   <span style={{ flex: 1 }} />
                   {(report.versions ?? []).length > 0 && (
                     <span style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>

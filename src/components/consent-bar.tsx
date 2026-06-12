@@ -21,11 +21,13 @@ export function ConsentBar() {
     <div
       style={{
         position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90,
-        display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+        minHeight: "calc(52px + max(6px, env(safe-area-inset-bottom)))",
+        boxSizing: "border-box",
+        display: "flex", alignItems: "center", gap: 12, padding: "8px 14px max(8px, env(safe-area-inset-bottom))",
         background: "var(--card)", borderTop: "1px solid var(--line)", backdropFilter: "blur(8px)",
       }}
     >
-      <span style={{ flex: 1, fontSize: 11.5, color: "var(--fg-2)", lineHeight: 1.6 }}>
+      <span style={{ flex: 1, fontSize: 12, color: "var(--fg-2)", lineHeight: 1.55 }}>
         本站仅使用必要的会话 Cookie 维持登录,并以本地存储记忆界面偏好;继续使用即表示同意。
         <span onClick={() => router.push("/about")} style={{ color: "var(--gold)", cursor: "pointer", marginLeft: 4 }}>了解详情 ›</span>
       </span>
@@ -34,7 +36,7 @@ export function ConsentBar() {
           localStorage.setItem(KEY, String(Date.now()));
           setShow(false);
         }}
-        style={{ flexShrink: 0, background: "var(--cta)", color: "var(--on-cta)", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+        style={{ flexShrink: 0, minHeight: 38, display: "inline-flex", alignItems: "center", justifyContent: "center", background: "var(--cta)", color: "var(--on-cta)", borderRadius: 9, padding: "0 18px", fontSize: 12.5, fontWeight: 850, cursor: "pointer" }}
       >
         同意
       </span>

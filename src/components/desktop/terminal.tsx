@@ -20,6 +20,7 @@ import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
 import { useWatchlist, WatchStar } from "@/components/watch";
 import { MarketValue } from "@/components/market-cell";
+import { ProbBar } from "@/components/charts";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -489,23 +490,16 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                 <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
                     <span style={{ fontSize: 11, fontWeight: 800, color: "var(--fg-2)", background: "var(--line)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>摘要</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: pred.locked ? "var(--fg-3)" : "var(--gold)" }}>{pred.locked ? "解锁后查看完整摘要" : pred.advice}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: pred.locked || !pred.summaryReady ? "var(--fg-3)" : "var(--gold)" }}>
+                      {pred.locked ? "解锁后查看完整摘要" : pred.advice ?? "概率快照积累中,方向待真实信号补齐"}
+                    </span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: "var(--home)", fontWeight: 750 }}>主胜 <span className="mono">{pred.pH}%</span></span>
-                    <span style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 750 }}>平 <span className="mono">{pred.pD}%</span></span>
-                    <span style={{ fontSize: 11, color: "var(--team-away)", fontWeight: 750 }}>客胜 <span className="mono">{pred.pA}%</span></span>
-                  </div>
-                  <div style={{ display: "flex", height: 5, borderRadius: 3, overflow: "hidden", gap: 2, marginBottom: 10 }}>
-                    <div style={{ background: "var(--home)", width: `${pred.pH}%` }} />
-                    <div style={{ background: "var(--line)", width: `${pred.pD}%` }} />
-                    <div style={{ background: "var(--team-away)", width: `${pred.pA}%` }} />
-                  </div>
+                  <ProbBar pH={pred.pH} pD={pred.pD} pA={pred.pA} empty={!pred.probReady} />
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
                     {[["胜平负方向", pred.winnerText], ["大小方向", pred.uoText], ["进球上限", pred.goalsText]].map(([label, v]) => (
                       <div key={label as string} style={{ background: "var(--inset)", borderRadius: 6, padding: "7px 4px", textAlign: "center" }}>
                         <div style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 2 }}>{label as string}</div>
-                        <div style={{ fontSize: 12, fontWeight: 800 }}>{(v as string) ?? "●●●"}</div>
+                        <div style={{ fontSize: 12, fontWeight: 800 }}>{(v as string) ?? (pred.locked ? "●●●" : "积累中")}</div>
                       </div>
                     ))}
                   </div>

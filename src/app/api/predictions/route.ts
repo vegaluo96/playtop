@@ -11,7 +11,7 @@ import { currentUser } from "@/server/platform/session";
 import { cfgUnlockPrice } from "@/server/platform/config";
 import { dailyFreeFixtureIds, unlockedIds } from "@/server/platform/wallet";
 import { predSummary } from "@/server/views/common";
-import { buildReportSignals, publicProbability } from "@/server/views/report-signals";
+import { buildReportSignals, publicComparison, publicProbability, publicReportAdvice } from "@/server/views/report-signals";
 import { nameZh } from "@/server/views/names";
 
 export async function GET(req: NextRequest) {
@@ -53,6 +53,9 @@ export async function GET(req: NextRequest) {
         ou: ouSeries.get(f.fixture_id) ?? [],
       });
       const prob = publicProbability(ps);
+      const comp = publicComparison(ps);
+      const advice = publicReportAdvice(ps, signals);
+      const winnerText = ps.winnerName ? ps.winnerName + (ps.winDraw ? " / 平" : "") : null;
       const unlocked = !!user && (freeSet.has(f.fixture_id) || unlockedSet.has(f.fixture_id));
       const price = cfgUnlockPrice(f.kickoff_utc, now);
       return {
@@ -65,11 +68,13 @@ export async function GET(req: NextRequest) {
         free: freeSet.has(f.fixture_id),
         pH: prob.pH, pD: prob.pD, pA: prob.pA,
         probReady: prob.probReady,
+        comparisonReady: comp.comparisonReady,
         locked: !unlocked,
         price,
         lockText: !user ? "登录查看报告额度说明" : `解锁本场报告 · ${price} 额度`,
-        advice: unlocked ? signals.summary : null,
-        winnerText: unlocked ? ps.winnerName + (ps.winDraw ? " / 平" : "") : null,
+        advice: unlocked ? advice.advice : null,
+        summaryReady: unlocked ? advice.summaryReady : false,
+        winnerText: unlocked ? winnerText : null,
         ahText: unlocked ? signals.ah.text : null,
         uoText: unlocked ? signals.ou.text : null,
         goalsText: unlocked ? `覆盖 ${signals.model.coverage}%` : null,

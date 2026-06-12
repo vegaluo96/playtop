@@ -50,7 +50,8 @@ function MobileReportPage({ id }: { id: string }) {
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-3)", fontSize: 12 }}>加载中…</div>
     );
 
-  const compRows = Object.entries(v.comparison as Record<string, { home: number; away: number }>).filter(([, c]) => c.home > 0 || c.away > 0);
+  const compRows = Object.entries((v.comparison ?? {}) as Record<string, { home: number; away: number }>);
+  const summaryText = v.locked ? "解锁后查看完整摘要" : v.advice ?? "概率快照积累中,方向待真实信号补齐";
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
@@ -61,7 +62,9 @@ function MobileReportPage({ id }: { id: string }) {
             onClick={() =>
               setShare({
                 title: v.match, sub: `${v.league} · ${v.time}`,
-                v1: `主胜 ${v.pH}%`, v2: `平 ${v.pD}%`, v3: `客胜 ${v.pA}%`,
+                v1: v.probReady ? `主胜 ${v.pH}%` : "主胜 —",
+                v2: v.probReady ? `平 ${v.pD}%` : "平 —",
+                v3: v.probReady ? `客胜 ${v.pA}%` : "客胜 —",
                 url: `${SITE_HOST}/report/${v.id}`, inviteCode: me.inviteCode,
               })
             }
@@ -82,8 +85,8 @@ function MobileReportPage({ id }: { id: string }) {
           <ProbBar pH={v.pH} pD={v.pD} pA={v.pA} empty={!v.probReady} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", borderRadius: 8, padding: "8px 10px" }}>
             <span style={{ fontSize: 11, fontWeight: 800, color: "var(--fg-2)", background: "var(--line)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>摘要</span>
-            <span style={{ fontSize: 12.5, fontWeight: 800, color: v.locked ? "var(--fg-3)" : "var(--fg-1)" }}>
-              {v.locked ? "解锁后查看完整摘要" : v.advice}
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: v.locked || !v.summaryReady ? "var(--fg-3)" : "var(--fg-1)" }}>
+              {summaryText}
             </span>
           </div>
           {!v.locked && v.directions && (
@@ -109,7 +112,7 @@ function MobileReportPage({ id }: { id: string }) {
           </div>
           <div style={{ background: "var(--inset)", borderRadius: 8, padding: "8px 10px 4px" }}>
             {compRows.length === 0 && (
-              <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "10px 0" }}>AF 暂无七维对比数据</div>
+              <div style={{ fontSize: 12.5, color: "var(--fg-3)", padding: "10px 0" }}>七维对比积累中</div>
             )}
             {compRows.map(([label, c]) => (
               <div key={label} style={{ display: "grid", gridTemplateColumns: "30px 1fr 74px 1fr 30px", gap: 6, alignItems: "center", marginBottom: 5 }}>

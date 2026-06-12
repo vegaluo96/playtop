@@ -5,7 +5,7 @@ import { leagueZh } from "@/lib/leagues";
 import { matchPanorama } from "@/server/af/panorama";
 import { isLive } from "@/server/af/schedule";
 import { buildReport, buildReportSummary } from "@/server/views/report";
-import { buildReportSignals, publicProbability } from "@/server/views/report-signals";
+import { buildReportSignals, publicComparison, publicProbability, publicReportAdvice } from "@/server/views/report-signals";
 import { findPolymarketSignal } from "@/server/external/polymarket";
 import { getLlmReport, getReportVersion, listReportVersions, reportLocked } from "@/server/llm/report";
 import { currentUser } from "@/server/platform/session";
@@ -58,6 +58,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const fx = p.fixture;
   const lockedFinal = reportLocked(fx.status);
   const prob = publicProbability(ps);
+  const comp = publicComparison(ps);
+  const advice = publicReportAdvice(ps, signals);
   return NextResponse.json({
     ok: true,
     id: fid,
@@ -67,10 +69,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     time: isLive(fx.status) ? `${fx.elapsed ?? ""}' 进行中` : `${hhmm(fx.kickoff_utc, tz)}`,
     pH: prob.pH, pD: prob.pD, pA: prob.pA,
     probReady: prob.probReady,
-    comparison: ps?.comparison ?? {},
+    comparison: comp.comparison,
+    comparisonReady: comp.comparisonReady,
     homeName: fx.home_name,
     awayName: fx.away_name,
-    advice: unlocked ? signals.summary : null,
+    advice: unlocked ? advice.advice : null,
+    summaryReady: unlocked ? advice.summaryReady : false,
     directions: unlocked ? { ah: signals.ah, ou: signals.ou } : null,
     model: unlocked ? signals.model : null,
     market: unlocked ? signals.market : null,

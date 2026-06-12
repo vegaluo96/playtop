@@ -117,8 +117,8 @@ function MobilePredictionsPage() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 800, color: "var(--fg-2)", background: "var(--line)", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>摘要</span>
-              <span style={{ fontSize: 12.5, fontWeight: 800, flex: 1, color: p.locked ? "var(--fg-3)" : "var(--fg-1)" }}>
-                {p.locked ? "解锁后查看完整摘要" : p.advice}
+              <span style={{ fontSize: 12.5, fontWeight: 800, flex: 1, color: p.locked || !p.summaryReady ? "var(--fg-3)" : "var(--fg-1)" }}>
+                {p.locked ? "解锁后查看完整摘要" : p.advice ?? "概率快照积累中,方向待真实信号补齐"}
               </span>
             </div>
             <ProbBar pH={p.pH} pD={p.pD} pA={p.pA} empty={!p.probReady} />
@@ -126,11 +126,13 @@ function MobilePredictionsPage() {
               {[["亚盘方向", p.ahText], ["大小方向", p.uoText], ["模型覆盖", p.goalsText]].map(([label, val]) => (
                 <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "7px 6px", textAlign: "center" }}>
                   <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginBottom: 2 }}>{label as string}</div>
-                  <div style={{ fontSize: 12, fontWeight: 800 }}>{(val as string) ?? "登录查看"}</div>
+                  <div style={{ fontSize: 12, fontWeight: 800 }}>{(val as string) ?? (p.locked ? "登录查看" : "积累中")}</div>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>七维对比 · 近 5 场 · 查看完整报告 ›</div>
+            <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>
+              {p.comparisonReady ? "七维对比 · 近 5 场 · 查看完整报告 ›" : "七维对比积累中 · 查看完整报告 ›"}
+            </div>
             {p.locked && (
               <div
                 onClick={(e) => {

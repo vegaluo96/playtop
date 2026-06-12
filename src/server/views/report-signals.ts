@@ -40,6 +40,11 @@ export interface ReportSignals {
   summary: string;
 }
 
+export interface PublicComparison {
+  comparison: Record<string, { home: number; away: number }>;
+  comparisonReady: boolean;
+}
+
 function last(s: SnapRow[]): SnapRow | null {
   return s.length > 0 ? s[s.length - 1] : null;
 }
@@ -72,7 +77,10 @@ function ahDirectionText(side: AhSide, line: number | null): string {
 }
 
 function ouDirectionText(side: OuSide, line: number | null): string {
-  return line == null ? `${side === "over" ? "大球" : "小球"}方向 · 大小主线积累中` : `${side === "over" ? "大于" : "小于"} ${ouText(line)} 球`;
+  if (line == null) return `${side === "over" ? "大球" : "小球"}方向 · 大小主线积累中`;
+  const label = ouText(line);
+  const unit = /[一二两三四五六七八九十半球/]/.test(label) ? "" : " 球";
+  return `${side === "over" ? "大于" : "小于"} ${label}${unit}`;
 }
 
 function chooseSide<T extends string>(votes: { side: T; weight: number; source: string }[]): { side: T; sources: string[] } | null {
@@ -105,7 +113,7 @@ function clamp(n: number, min: number, max: number): number {
 
 function comparisonEdge(ps: PredSummary | null): number | null {
   if (!ps) return null;
-  const rows = Object.values(ps.comparison).filter((r) => r.home > 0 || r.away > 0);
+  const rows = Object.values(publicComparison(ps).comparison);
   if (rows.length === 0) return null;
   const avg = rows.reduce((n, r) => n + (r.home - r.away), 0) / rows.length;
   return clamp(avg / 100, -1, 1);
@@ -250,13 +258,13 @@ function ahModelScore(ps: PredSummary | null, ah: SnapRow | null, eu: SnapRow | 
         );
   const poly = market.status === "ok" && market.side ? (market.side === "home" ? 0.45 : -0.45) : null;
   return weightedScore([
-    { label: "AF 预测概率", baseWeight: 0.25, value: prob, note: "使用胜平负概率差与平局风险折减" },
+    { label: "预测概率", baseWeight: 0.25, value: prob, note: "使用胜平负概率差与平局风险折减" },
     { label: "赛前亚盘指数", baseWeight: 0.18, value: odds, note: "使用开赛前主线与双侧水位" },
     { label: "赛前胜平负欧赔", baseWeight: 0.12, value: euEdge(eu), note: "使用欧赔隐含主客强弱差" },
-    { label: "AF 七维综合", baseWeight: 0.13, value: comp, note: "使用官方 comparison 七维主客差" },
+    { label: "七维综合", baseWeight: 0.13, value: comp, note: "使用七维主客差" },
     { label: "球队赛季统计", baseWeight: 0.12, value: season, note: "使用赛季积分效率与场均净胜球" },
-    { label: "近期状态", baseWeight: 0.07, value: form, note: "使用 AF form 最近比赛结果" },
-    { label: "历史交锋", baseWeight: 0.03, value: h2h, note: "使用 AF h2h 近场胜负差" },
+    { label: "近期状态", baseWeight: 0.07, value: form, note: "使用最近比赛结果" },
+    { label: "历史交锋", baseWeight: 0.03, value: h2h, note: "使用近场胜负差" },
     { label: "伤停情报", baseWeight: 0.05, value: injuries, note: "使用官方伤停数量差,不估算球员权重" },
     { label: "Polymarket 预测市场", baseWeight: 0.05, value: poly, note: "使用公开市场 outcome 价格方向" },
   ]);
@@ -277,11 +285,11 @@ function ouModelScore(ps: PredSummary | null, ou: SnapRow | null, p?: Panorama |
       ? null
       : clamp(ou.h === ou.a ? 0 : ou.h < ou.a ? 0.45 : -0.45, -1, 1);
   return weightedScore([
-    { label: "AF 进球预测", baseWeight: 0.25, value: af, note: "使用 under_over 与进球模型" },
+    { label: "进球预测", baseWeight: 0.25, value: af, note: "使用 under_over 与进球模型" },
     { label: "赛前大小球指数", baseWeight: 0.25, value: odds, note: "使用开赛前大小球主线水位" },
     { label: "球队赛季进失球", baseWeight: 0.2, value: season.total, note: "使用两队赛季场均进失球估计总量" },
-    { label: "历史交锋进球", baseWeight: 0.1, value: h2h.total != null && ou?.line != null ? clamp((h2h.total - ou.line) / 3, -1, 1) : null, note: "使用 AF h2h 场均总进球" },
-    { label: "AF 进球七维", baseWeight: 0.1, value: goalsComparisonEdge(ps), note: "使用官方 comparison.goals 主客差" },
+    { label: "历史交锋进球", baseWeight: 0.1, value: h2h.total != null && ou?.line != null ? clamp((h2h.total - ou.line) / 3, -1, 1) : null, note: "使用交锋场均总进球" },
+    { label: "进球七维", baseWeight: 0.1, value: goalsComparisonEdge(ps), note: "使用进球维度主客差" },
     { label: "伤停对进球", baseWeight: 0.05, value: injuries.total, note: "仅按伤停数量轻量降权" },
     { label: "综合进球信号", baseWeight: 0.05, value: goalSum != null && ou?.line != null ? clamp((goalSum - ou.line) / 3, -1, 1) : null, note: "使用模型总进球与主线差" },
   ]);
@@ -289,11 +297,13 @@ function ouModelScore(ps: PredSummary | null, ou: SnapRow | null, p?: Panorama |
 
 export function hasUsableProbability(ps: PredSummary | null): boolean {
   if (!ps) return false;
-  const sum = ps.pH + ps.pD + ps.pA;
-  if (sum <= 0) return false;
-  const flat = Math.max(ps.pH, ps.pD, ps.pA) - Math.min(ps.pH, ps.pD, ps.pA) <= 1;
-  const comparisonReady = Object.values(ps.comparison).some((r) => r.home > 0 || r.away > 0);
-  return !(flat && !ps.winnerName && !ps.uoText && !comparisonReady);
+  const probs = [ps.pH, ps.pD, ps.pA];
+  if (probs.some((n) => n <= 0)) return false;
+  const sum = probs.reduce((n, x) => n + x, 0);
+  if (sum < 95 || sum > 105) return false;
+  const spread = Math.max(...probs) - Math.min(...probs);
+  if (spread <= 1) return false;
+  return true;
 }
 
 export function publicProbability(ps: PredSummary | null): { pH: number; pD: number; pA: number; probReady: boolean } {
@@ -304,6 +314,28 @@ export function publicProbability(ps: PredSummary | null): { pH: number; pD: num
     pA: probReady && ps ? ps.pA : 0,
     probReady,
   };
+}
+
+export function publicComparison(ps: PredSummary | null): PublicComparison {
+  const comparison: PublicComparison["comparison"] = {};
+  if (!ps) return { comparison, comparisonReady: false };
+  for (const [label, c] of Object.entries(ps.comparison)) {
+    const home = Number(c.home) || 0;
+    const away = Number(c.away) || 0;
+    if (home > 0 || away > 0) comparison[label] = { home, away };
+  }
+  return { comparison, comparisonReady: Object.keys(comparison).length > 0 };
+}
+
+export function publicReportAdvice(ps: PredSummary | null, signals: ReportSignals): { advice: string | null; summaryReady: boolean } {
+  if (!ps) return { advice: null, summaryReady: false };
+  if (signals.ah.status === "open" && signals.ou.status === "open") return { advice: null, summaryReady: false };
+  const parts = [
+    signals.ah.status === "ok" ? `亚盘:${signals.ah.text}` : null,
+    signals.ou.status === "ok" ? `大小:${signals.ou.text}` : null,
+  ].filter(Boolean);
+  const prefix = hasUsableProbability(ps) ? "综合方向" : "赛前指数方向";
+  return { advice: `${prefix}:${parts.join(";")}`, summaryReady: true };
 }
 
 export function buildReportSignals(
@@ -317,9 +349,9 @@ export function buildReportSignals(
   const eu = last(odds.eu ?? []);
   const ahVotes: { side: AhSide; weight: number; source: string }[] = [];
   const winnerSide = voteWinner(ps);
-  if (winnerSide) ahVotes.push({ side: winnerSide, weight: ps?.derived ? 1 : 2, source: ps?.derived ? "指数派生胜平负方向" : "AF 预测接口" });
+  if (winnerSide) ahVotes.push({ side: winnerSide, weight: ps?.derived ? 1 : 2, source: ps?.derived ? "指数派生胜平负方向" : "预测模型方向" });
   if (hasUsableProbability(ps) && ps) {
-    if (Math.abs(ps.pH - ps.pA) >= 6) ahVotes.push({ side: ps.pH > ps.pA ? "home" : "away", weight: 1, source: "AF 胜平负概率差" });
+    if (Math.abs(ps.pH - ps.pA) >= 6) ahVotes.push({ side: ps.pH > ps.pA ? "home" : "away", weight: 1, source: "胜平负概率差" });
   }
   const lineSide = ahSideFromLine(ah?.line ?? null);
   if (lineSide) ahVotes.push({ side: lineSide, weight: 0.75, source: "赛前亚盘主线" });
@@ -330,11 +362,11 @@ export function buildReportSignals(
 
   const ouVotes: { side: OuSide; weight: number; source: string }[] = [];
   const uoSide = parseUo(ps);
-  if (uoSide) ouVotes.push({ side: uoSide, weight: ps?.derived ? 1 : 2, source: ps?.derived ? "指数派生大小方向" : "AF 预测接口" });
+  if (uoSide) ouVotes.push({ side: uoSide, weight: ps?.derived ? 1 : 2, source: ps?.derived ? "指数派生大小方向" : "预测模型方向" });
   if (ou && ou.h !== ou.a) ouVotes.push({ side: ou.h < ou.a ? "over" : "under", weight: 0.75, source: "赛前大小球水位" });
   const goalSum = goalsTotal(ps);
   if (goalSum != null && ou?.line != null && Math.abs(goalSum - ou.line) >= 0.25) {
-    ouVotes.push({ side: goalSum > ou.line ? "over" : "under", weight: 1, source: "AF 进球模型" });
+    ouVotes.push({ side: goalSum > ou.line ? "over" : "under", weight: 1, source: "进球模型" });
   }
   const ouPick = chooseSide(ouVotes);
   const ouScore = ouModelScore(ps, ou, panorama);

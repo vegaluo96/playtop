@@ -6,7 +6,7 @@ import { ahText, f2, ouText } from "@/lib/format";
 import type { Panorama } from "../af/panorama";
 import { formZh, predSummary, type PredSummary } from "./common";
 import { nameZh } from "./names";
-import { buildReportSignals, type ReportSignals } from "./report-signals";
+import { buildReportSignals, publicProbability, publicReportAdvice, type ReportSignals } from "./report-signals";
 
 export interface ReportSection {
   h: string;
@@ -40,6 +40,8 @@ export function buildReport(p: Panorama, signals?: ReportSignals): { ps: PredSum
   const fx = p.fixture;
   const ps = buildReportSummary(p);
   const sig = signals ?? buildReportSignals(ps, p.odds);
+  const prob = publicProbability(ps);
+  const publicAdvice = publicReportAdvice(ps, sig);
   const secs: ReportSection[] = [];
 
   // ── 指数解读 ──
@@ -124,11 +126,15 @@ export function buildReport(p: Panorama, signals?: ReportSignals): { ps: PredSum
 
   // ── 概率摘要与风险 ──
   const ps5: string[] = [];
-  if (ps) {
+  if (ps && prob.probReady) {
     ps5.push(
-      `综合指数、状态与概率模型,本场概率摘要:${ps.advice}。胜平负概率 主 ${ps.pH}% / 平 ${ps.pD}% / 客 ${ps.pA}%` +
+      `综合指数、状态与概率模型,本场概率摘要:${publicAdvice.advice ?? ps.advice}。胜平负概率 主 ${prob.pH}% / 平 ${prob.pD}% / 客 ${prob.pA}%` +
         (ps.winDraw ? ",领先方优势未过半,平局风险需要单独评估。" : "。"),
     );
+    ps5.push(`亚盘方向:${sig.ah.text}${sig.ah.sources.length > 0 ? `;来源:${sig.ah.sources.join("、")}` : "。"}`);
+    ps5.push(`预测市场:${sig.market.note}${sig.market.url ? `(${sig.market.url})` : ""}。`);
+  } else if (ps && publicAdvice.advice) {
+    ps5.push(`概率快照仍在积累,胜平负百分比暂不展示;当前仅按已归档指数、球队数据与可用模型信号输出:${publicAdvice.advice}。`);
     ps5.push(`亚盘方向:${sig.ah.text}${sig.ah.sources.length > 0 ? `;来源:${sig.ah.sources.join("、")}` : "。"}`);
     ps5.push(`预测市场:${sig.market.note}${sig.market.url ? `(${sig.market.url})` : ""}。`);
   } else {

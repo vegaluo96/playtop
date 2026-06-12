@@ -94,7 +94,7 @@ export function ProbBar({ pH, pD, pA, empty = false }: { pH: number; pD: number;
           ))}
         </div>
         <div style={{ height: 6, borderRadius: 3, overflow: "hidden", background: "var(--line)" }} />
-        <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 6 }}>AF 概率快照积累中</div>
+        <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 6 }}>概率快照积累中</div>
       </div>
     );
   }
