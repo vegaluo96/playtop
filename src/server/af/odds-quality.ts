@@ -39,6 +39,31 @@ export function isValidEuTriplet(h: number, d: number | null | undefined, a: num
   return margin >= 1.0 && margin <= 1.25;
 }
 
+function twoWayMarginFromNet(h: number, a: number): number {
+  return 1 / (h + 1) + 1 / (a + 1);
+}
+
+function isValidNetWater(w: number): boolean {
+  return Number.isFinite(w) && isValidDecimalOdd(w + 1);
+}
+
+export function isDisplayableTwoWaySnapshot(market: "ah" | "ou", line: number | null | undefined, h: number, a: number): boolean {
+  if (line == null) return false;
+  if (market === "ah" && !isValidAhLine(line)) return false;
+  if (market === "ou" && !isValidOuLine(line)) return false;
+  if (!isValidNetWater(h) || !isValidNetWater(a)) return false;
+  const margin = twoWayMarginFromNet(h, a);
+  return margin >= 1.0 && margin <= 1.25;
+}
+
+export function isDisplayableSnapshot(
+  market: "ah" | "ou" | "eu",
+  row: { line: number | null; h: number; a: number; d: number | null | undefined },
+): boolean {
+  if (market === "eu") return isValidEuTriplet(row.h, row.d, row.a);
+  return isDisplayableTwoWaySnapshot(market, row.line, row.h, row.a);
+}
+
 /**
  * User-facing live 1X2 gate.
  * AF can expose minute-scoped 1X2 ladders or transient extreme frames while live
@@ -47,6 +72,15 @@ export function isValidEuTriplet(h: number, d: number | null | undefined, a: num
  */
 export function isDisplayableLiveEuTriplet(h: number, d: number | null | undefined, a: number): boolean {
   return isValidEuTriplet(h, d, a) && Math.max(h, d ?? 0, a) <= LIVE_EU_DISPLAY_MAX_ODD;
+}
+
+export function isDisplayableLiveSnapshot(
+  market: "ah" | "ou" | "eu",
+  row: { line: number | null; h: number; a: number; d: number | null | undefined; suspended?: number | boolean },
+): boolean {
+  if (row.suspended) return false;
+  if (market === "eu") return isDisplayableLiveEuTriplet(row.h, row.d, row.a);
+  return isDisplayableTwoWaySnapshot(market, row.line, row.h, row.a);
 }
 
 export function isDisplayableLiveEuMovement(fromH: number, toH: number, fromA: number, toA: number): boolean {

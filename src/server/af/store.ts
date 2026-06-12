@@ -4,8 +4,8 @@
  */
 import { db, tx } from "../db";
 import { detectMovement, normalizeOddsItem } from "./normalize";
-import { LIVE_EU_DISPLAY_MAX_ODD } from "./odds-quality";
-import { recordDiagnosticIssue } from "./diagnostics";
+import { isDisplayableSnapshot, LIVE_EU_DISPLAY_MAX_ODD } from "./odds-quality";
+import { ODDS_PARSER_VERSION, recordDiagnosticIssue } from "./diagnostics";
 import { isFinished } from "./schedule";
 import { ahText, ouText } from "@/lib/format";
 
@@ -184,6 +184,17 @@ export interface MainOddsDecision {
   warnings: string[];
 }
 
+export interface AfRawPayloadInput {
+  endpoint: "odds" | "odds.live" | "fixtures" | "predictions" | "fixtures.statistics" | "fixtures.events" | "fixtures.lineups" | "fixtures.players";
+  fixtureId?: number | null;
+  requestParams?: Record<string, unknown> | null;
+  payload: unknown;
+  responseStatus?: number | null;
+  bookmakerId?: number | null;
+  betId?: number | null;
+  fetchedAt?: number;
+}
+
 function bookmakerRank(name: string): number {
   const i = PRIMARY_BOOKMAKERS.indexOf(name);
   return i < 0 ? 99 : i;
@@ -201,6 +212,30 @@ function placeholders(n: number): string {
   return Array.from({ length: n }, () => "?").join(",");
 }
 
+function insertAfRawPayload(d: ReturnType<typeof db>, input: AfRawPayloadInput): void {
+  d.prepare(
+    `INSERT INTO af_raw_payloads
+      (source, endpoint, request_params, response_status, fixture_id, bookmaker_id, bet_id, parser_version, payload, fetched_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+  ).run(
+    "API_FOOTBALL",
+    input.endpoint,
+    JSON.stringify(input.requestParams ?? {}),
+    input.responseStatus ?? null,
+    input.fixtureId ?? null,
+    input.bookmakerId ?? null,
+    input.betId ?? null,
+    ODDS_PARSER_VERSION,
+    JSON.stringify(input.payload),
+    input.fetchedAt ?? Date.now(),
+  );
+}
+
+/** 可追溯 raw 信封:记录 endpoint/请求参数/解析版本,用于线上错盘回放。 */
+export function archiveAfRawPayload(input: AfRawPayloadInput): void {
+  insertAfRawPayload(db(), input);
+}
+
 function rowsByBookmaker(rows: SnapRow[]): Map<string, SnapRow[]> {
   const byBook = new Map<string, SnapRow[]>();
   for (const row of rows) {
@@ -213,9 +248,9 @@ function rowsByBookmaker(rows: SnapRow[]): Map<string, SnapRow[]> {
 
 function qualityScore(args: { books: number; selectedBooks: number; primaryBooks: number; latestAt: number | null }): number {
   if (args.selectedBooks === 0) return 0;
-  let score = 58;
-  score += Math.min(24, args.selectedBooks * 4);
-  score += Math.min(10, args.primaryBooks * 4);
+  let score = 62;
+  score += Math.min(24, args.selectedBooks * 5);
+  score += Math.min(10, args.primaryBooks * 5);
   score += Math.min(8, Math.max(0, args.books - args.selectedBooks));
   if (args.latestAt) {
     const age = Date.now() - args.latestAt;
@@ -239,7 +274,9 @@ export function mainOddsDecisionFromRows(rows: SnapRow[], market: OddsMarket): M
     warnings: [reason],
   });
   if (rows.length === 0) return empty();
-  const byBook = rowsByBookmaker(rows);
+  const validRows = rows.filter((row) => isDisplayableSnapshot(market, row));
+  if (validRows.length === 0) return empty("没有通过质量门禁的完整盘口");
+  const byBook = rowsByBookmaker(validRows);
   const latestRows = [...byBook.values()].map((list) => list[list.length - 1]).filter(Boolean);
   if (latestRows.length === 0) return empty();
   if (market === "eu") {
@@ -310,12 +347,14 @@ export function mainOddsDecisionFromRows(rows: SnapRow[], market: OddsMarket): M
 
 /** 从某场某市场全量快照内选出列表/走势主盘序列;供批量视图复用同一口径。 */
 export function mainOddsSeriesFromRows(rows: SnapRow[], market: OddsMarket): SnapRow[] {
-  return mainOddsDecisionFromRows(rows, market).rows;
+  const decision = mainOddsDecisionFromRows(rows, market);
+  return decision.qualityScore >= 70 ? decision.rows : [];
 }
 
 /** 从某场某市场全量快照生成百家对比首帧/即时盘。 */
-export function oddsCompareFromRows(rows: SnapRow[]): OddsCompareRow[] {
-  return [...rowsByBookmaker(rows).entries()]
+export function oddsCompareFromRows(rows: SnapRow[], market?: OddsMarket): OddsCompareRow[] {
+  const validRows = rows.filter((row) => isDisplayableSnapshot(market ?? (row.market as OddsMarket), row));
+  return [...rowsByBookmaker(validRows).entries()]
     .sort((x, y) => bookmakerRank(x[0]) - bookmakerRank(y[0]))
     .map(([bookmaker, list]) => ({ bookmaker, first: list[0], last: list[list.length - 1] }));
 }
@@ -325,11 +364,30 @@ export function oddsCompareFromRows(rows: SnapRow[]): OddsCompareRow[] {
  * 与同书商同市场上一帧 diff → movements。返回新增异动数。
  */
 export function archiveOdds(fixtureId: number, oddsItem: unknown, capturedAt = Date.now(), opts: { persistRaw?: boolean } = {}): number {
-  const books = normalizeOddsItem(oddsItem, { fixtureId, onIssue: recordDiagnosticIssue });
+  const sourceFixtureId = Number(dig(oddsItem, "fixture", "id")) || null;
+  const fixtureMismatch = sourceFixtureId != null && sourceFixtureId !== fixtureId;
+  if (fixtureMismatch) {
+    recordDiagnosticIssue({
+      endpoint: "odds",
+      fixtureId,
+      rawValue: { sourceFixtureId, targetFixtureId: fixtureId },
+      errorType: "FIXTURE_MISMATCH",
+      errorReason: "AF odds fixture_id 与目标 fixture 不一致,拒绝进入标准盘口",
+      severity: "error",
+    });
+  }
+  const books = fixtureMismatch ? [] : normalizeOddsItem(oddsItem, { fixtureId, onIssue: recordDiagnosticIssue });
   return tx(() => {
     const d = db();
     // 原始 AF 包先落库:即使当前归一化没有吃到市场,后续也能重放排查解析/玩法口径问题。
     if (opts.persistRaw !== false) {
+      insertAfRawPayload(d, {
+        endpoint: "odds",
+        fixtureId,
+        requestParams: { fixture: fixtureId },
+        payload: oddsItem,
+        fetchedAt: capturedAt,
+      });
       d.prepare("INSERT INTO odds_raw (fixture_id, payload, captured_at) VALUES (?,?,?)").run(
         fixtureId, JSON.stringify(oddsItem), capturedAt,
       );
@@ -382,6 +440,14 @@ export function mainOddsDecision(fixtureId: number, market: OddsMarket): MainOdd
   const rows = db()
     .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND market = ? ORDER BY bookmaker, captured_at")
     .all(fixtureId, market) as unknown as SnapRow[];
+  return mainOddsDecisionFromRows(rows, market);
+}
+
+/** 某场某市场截止时刻前的主盘口决策:报告/回测锁定开赛前最后一版。 */
+export function mainOddsDecisionBefore(fixtureId: number, market: OddsMarket, cutoffAt: number): MainOddsDecision {
+  const rows = db()
+    .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND market = ? AND captured_at <= ? ORDER BY bookmaker, captured_at")
+    .all(fixtureId, market, cutoffAt) as unknown as SnapRow[];
   return mainOddsDecisionFromRows(rows, market);
 }
 
@@ -444,9 +510,9 @@ function oddsBundleFromRows(rows: Record<OddsMarket, SnapRow[]>): OddsBundle {
     ah: mainOddsSeriesFromRows(rows.ah, "ah"),
     ou: mainOddsSeriesFromRows(rows.ou, "ou"),
     eu: mainOddsSeriesFromRows(rows.eu, "eu"),
-    compareAh: oddsCompareFromRows(rows.ah),
-    compareOu: oddsCompareFromRows(rows.ou),
-    compareEu: oddsCompareFromRows(rows.eu),
+    compareAh: oddsCompareFromRows(rows.ah, "ah"),
+    compareOu: oddsCompareFromRows(rows.ou, "ou"),
+    compareEu: oddsCompareFromRows(rows.eu, "eu"),
   };
 }
 
@@ -475,7 +541,7 @@ export function oddsCompare(fixtureId: number, market: OddsMarket): OddsCompareR
   const rows = db()
     .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND market = ? ORDER BY captured_at")
     .all(fixtureId, market) as unknown as SnapRow[];
-  return oddsCompareFromRows(rows);
+  return oddsCompareFromRows(rows, market);
 }
 
 export interface MovementRow {

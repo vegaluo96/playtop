@@ -33,10 +33,10 @@
 | players.topscorers / topassists / topyellowcards / topredcards | ✅ | 详情·深挖「联赛榜单」**各榜前 5**(点击进球员卡) | — |
 | transfers | ✅ | 详情·深挖「转会动态」 | — |
 | trophies | ◐ | 深挖「战意/教练」显示现任教练冠军数 | 仅用 `trophies?coach=`,球员荣誉暂不展示 |
-| odds | ✅ | 全部书商分页拉满落 `odds_raw`;主盘归一化展示 1X2/亚盘/大小;百家对比/综合指数/列表三列 + **「玩法」tab**精选 10 类玩法 | “全量落库”不等于“全部 bet 全展示”;玩法 tab 为精选解析 |
+| odds | ✅ | 全部书商分页拉满落 `af_raw_payloads` + 兼容 `odds_raw`;主盘经质量门禁与 `MarketOverview` 归一化展示 1X2/亚盘/大小;百家对比/综合指数/列表三列 + **「玩法」tab**精选 10 类玩法 | “全量落库”不等于“全部 bet 全展示”;玩法 tab 为精选解析;低质量或串场 payload 只进 raw/DiagnosticIssue,不进主盘 |
 | odds.mapping | ⚙ | catalog/selftest/af-probe 可测 | worker 不依赖本端点判定可用 fixture |
 | odds.bookmakers / odds.bets | ⚙ | catalog/selftest/af-probe 可测 | 生产归一化按 id/name 双保险,未动态拉取玩法字典 |
-| odds.live | ✅ | 滚球实时盘卡 + 变化帧归档(live_odds_snapshots)→ 滚球走势/滚球异动/列表实时跳动 | — |
+| odds.live | ✅ | 滚球 raw 信封 + 实时盘卡 + 变化帧归档(live_odds_snapshots)→ 滚球走势/滚球异动/列表实时跳动 | 最新 live 帧不可信时不回退赛前盘或旧 live 帧,直接显示数据不足 |
 | odds.live.bets | ⚙ | catalog/selftest/af-probe 可测 | 滚球生产解析当前只取 1X2/亚盘/大小主盘 |
 
 ## 已确认不存在的端点(不得伪造)

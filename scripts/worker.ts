@@ -15,6 +15,7 @@ loadEnvFile();
 import { afGet, afGetAllPages } from "../src/server/af/client";
 import { isFinished, isLive, LIVE_TIER, tierFor } from "../src/server/af/schedule";
 import {
+  archiveAfRawPayload,
   archiveOdds,
   archivePrediction,
   fixtureById,
@@ -207,6 +208,12 @@ async function tickLive(now: number): Promise<void> {
       const env = await paced(() => tracked("odds.live", "滚球快循环", () => afGet(`/odds/live?fixture=${f.fixture_id}`, { force: true })));
       const raw = Array.isArray(env.response) ? env.response[0] : null;
       const item = raw && Number((raw as { fixture?: { id?: number } }).fixture?.id) === f.fixture_id ? raw : null;
+      archiveAfRawPayload({
+        endpoint: "odds.live",
+        fixtureId: f.fixture_id,
+        requestParams: { fixture: f.fixture_id },
+        payload: env.response,
+      });
       kvSet(`fx:${f.fixture_id}:liveodds`, JSON.stringify({ at: Date.now(), data: item ?? null }));
       if (item) {
         const frames = normalizeLiveOddsItem(item, { fixtureId: f.fixture_id, onIssue: recordDiagnosticIssue });

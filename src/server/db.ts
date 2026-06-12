@@ -95,6 +95,21 @@ CREATE TABLE IF NOT EXISTS odds_raw (
   captured_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_odds_raw_fixture ON odds_raw(fixture_id, captured_at);
+CREATE TABLE IF NOT EXISTS af_raw_payloads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT NOT NULL DEFAULT 'API_FOOTBALL',
+  endpoint TEXT NOT NULL,
+  request_params TEXT NOT NULL DEFAULT '{}',
+  response_status INTEGER,
+  fixture_id INTEGER,
+  bookmaker_id INTEGER,
+  bet_id INTEGER,
+  parser_version TEXT NOT NULL DEFAULT '',
+  payload TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_af_raw_fixture ON af_raw_payloads(fixture_id, endpoint, fetched_at);
+CREATE INDEX IF NOT EXISTS idx_af_raw_endpoint ON af_raw_payloads(endpoint, fetched_at DESC);
 CREATE TABLE IF NOT EXISTS odds_snapshots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   fixture_id INTEGER NOT NULL,

@@ -73,6 +73,30 @@ describe("list helpers", () => {
     expect(series).toEqual([]);
   });
 
+  it("滚球亚盘最新帧不可信时不回退展示赛前亚盘", () => {
+    insertOdds(13, 8, "Bet365", "ah", 0.5, 0.9, 0.96, null, 1000);
+    const ins = db().prepare(
+      "INSERT INTO live_odds_snapshots (fixture_id, market, line, h, a, d, suspended, captured_at) VALUES (?,?,?,?,?,?,?,?)",
+    );
+    ins.run(13, "ah", 12, 0.68, 1.15, null, 0, 2000);
+
+    const series = liveAwareSeriesBatch([13], "ah", new Set([13])).get(13);
+
+    expect(series).toEqual([]);
+  });
+
+  it("滚球大小最新帧不可信时不回退展示赛前大小", () => {
+    insertOdds(14, 8, "Bet365", "ou", 2.5, 0.9, 0.96, null, 1000);
+    const ins = db().prepare(
+      "INSERT INTO live_odds_snapshots (fixture_id, market, line, h, a, d, suspended, captured_at) VALUES (?,?,?,?,?,?,?,?)",
+    );
+    ins.run(14, "ou", 2.5, 40, 0.96, null, 0, 2000);
+
+    const series = liveAwareSeriesBatch([14], "ou", new Set([14])).get(14);
+
+    expect(series).toEqual([]);
+  });
+
   it("滚球胜平负最新帧可信时只追加可信实时帧", () => {
     insertOdds(12, 8, "Bet365", "eu", null, 1.8, 4.5, 3.6, 1000);
     const ins = db().prepare(

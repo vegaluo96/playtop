@@ -5,7 +5,7 @@
 import { ahText, dateStr, f2, hhmm, maskBookmaker, ouText } from "@/lib/format";
 import { isFinished, isLive } from "../af/schedule";
 import { liveOddsSeries } from "../af/live-store";
-import { isDisplayableLiveEuTriplet } from "../af/odds-quality";
+import { isDisplayableLiveSnapshot, isDisplayableSnapshot } from "../af/odds-quality";
 import { db } from "../db";
 import { fixtureById, oddsSeries, type SnapRow } from "../af/store";
 
@@ -28,12 +28,14 @@ export function quoteHistory(fixtureId: number, market: "ah" | "ou" | "eu", tz: 
   const pre = bookmakerId
     ? (db()
         .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND market = ? AND bookmaker_id = ? ORDER BY captured_at")
-        .all(fixtureId, market, bookmakerId) as unknown as SnapRow[])
+        .all(fixtureId, market, bookmakerId) as unknown as SnapRow[]).filter((r) => isDisplayableSnapshot(market, r))
     : oddsSeries(fixtureId, market);
   const started = !bookmakerId && (isLive(fx.status) || isFinished(fx.status));
+  const rawLive = started ? liveOddsSeries(fixtureId, market).filter((r) => !r.suspended) : [];
+  const liveOk = rawLive.length === 0 || isDisplayableLiveSnapshot(market, rawLive[rawLive.length - 1]);
   const live: SnapRow[] = started
-    ? liveOddsSeries(fixtureId, market)
-        .filter((r) => !r.suspended && (market !== "eu" || isDisplayableLiveEuTriplet(r.h, r.d, r.a)))
+    ? (liveOk ? rawLive : [])
+        .filter((r) => isDisplayableLiveSnapshot(market, r))
         .map((r) => ({
           fixture_id: fixtureId, bookmaker_id: 0, bookmaker: "实时盘", market,
           line: r.line, h: r.h, a: r.a, d: r.d, captured_at: r.captured_at,

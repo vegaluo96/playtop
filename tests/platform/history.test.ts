@@ -59,7 +59,7 @@ describe("quoteHistory", () => {
     expect(quoteHistory(404, "ah", "UTC+8")).toBeNull();
   });
 
-  it("胜平负历史过滤极端滚球帧", () => {
+  it("胜平负最新滚球脏帧时隐藏滚球段,不回退展示上一条实时盘", () => {
     seedFx();
     db().prepare(
       "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (9,8,'Bet365','eu',NULL,?,?,?,?)",
@@ -70,6 +70,8 @@ describe("quoteHistory", () => {
     const v = quoteHistory(9, "eu", "UTC+8")!;
 
     expect(v.rows.some((r) => r.h === "251.00")).toBe(false);
-    expect(v.rows[0].h).toBe("6.50");
+    expect(v.rows.some((r) => r.h === "6.50")).toBe(false);
+    expect(v.rows[0].h).toBe("1.80");
+    expect(v.rows[0].live).toBe(false);
   });
 });

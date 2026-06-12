@@ -17,13 +17,13 @@ import {
   latestPrediction,
   latestPredictionBefore,
   movementsOf,
-  oddsBundle,
-  oddsBundleBefore,
   upsertFixture,
   type FixtureRow,
   type MovementRow,
+  type OddsBundle,
   type SnapRow,
 } from "./store";
+import { marketOverview, type MarketOverview } from "../markets/overview";
 
 const H = 3_600_000;
 const DETAIL_PROBE_TTL_MS = 5 * 60_000;
@@ -46,10 +46,11 @@ export interface Panorama {
     ah: SnapRow[];
     ou: SnapRow[];
     eu: SnapRow[];
-    compareAh: ReturnType<typeof oddsBundle>["compareAh"];
-    compareOu: ReturnType<typeof oddsBundle>["compareOu"];
-    compareEu: ReturnType<typeof oddsBundle>["compareEu"];
+    compareAh: OddsBundle["compareAh"];
+    compareOu: OddsBundle["compareOu"];
+    compareEu: OddsBundle["compareEu"];
   };
+  marketOverview?: MarketOverview;
   movements: MovementRow[];
   prediction: Record<string, unknown> | null;
   injuries: unknown[];
@@ -197,7 +198,8 @@ export async function matchPanorama(fixtureId: number, opts: { deep?: boolean; i
         }, { emptyTtlMs: EMPTY_AF_TTL_MS }).catch(() => [] as unknown[]);
   const deepPromise = opts.deep ? loadDeep(fx) : Promise.resolve(null);
   const cutoffAt = opts.preKickoffOnly ? preKickoffCutoff(fx) : null;
-  const odds = cutoffAt == null ? oddsBundle(fixtureId) : oddsBundleBefore(fixtureId, cutoffAt);
+  const overview = marketOverview(fixtureId, { cutoffAt });
+  const odds = overview.odds;
   const movements = movementsOf(fixtureId);
   const prediction = ((cutoffAt == null ? latestPrediction(fixtureId) : latestPredictionBefore(fixtureId, cutoffAt)) as Record<string, unknown> | null) ?? null;
   const [injuries, deep] = await Promise.all([injuriesPromise, deepPromise]);
@@ -206,6 +208,7 @@ export async function matchPanorama(fixtureId: number, opts: { deep?: boolean; i
     fixture: fx,
     bundle,
     odds,
+    marketOverview: overview,
     movements,
     prediction,
     injuries,

@@ -97,7 +97,7 @@ export function liveOddsSeriesByMarket(fixtureId: number): Record<LiveOddsMarket
   };
 }
 
-/** 数据保鲜:完场 >7 天的滚球帧、>30 天的 odds_raw 原始包(每日一次,worker 调) */
+/** 数据保鲜:完场 >7 天的滚球帧、>30 天的 raw 原始包(每日一次,worker 调) */
 export function pruneLiveData(now = Date.now()): { liveRows: number; rawRows: number } {
   const d = db();
   const r1 = d
@@ -106,5 +106,6 @@ export function pruneLiveData(now = Date.now()): { liveRows: number; rawRows: nu
     )
     .run(now - 7 * 86_400_000);
   const r2 = d.prepare("DELETE FROM odds_raw WHERE captured_at < ?").run(now - 30 * 86_400_000);
-  return { liveRows: Number(r1.changes), rawRows: Number(r2.changes) };
+  const r3 = d.prepare("DELETE FROM af_raw_payloads WHERE fetched_at < ?").run(now - 30 * 86_400_000);
+  return { liveRows: Number(r1.changes), rawRows: Number(r2.changes) + Number(r3.changes) };
 }

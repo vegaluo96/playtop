@@ -152,6 +152,30 @@ describe("odds 归档与异动", () => {
     expect(raw).toMatchObject({ fixture_id: 203, captured_at: 3000 });
     expect(JSON.parse(raw!.payload)).toMatchObject({ bookmakers: [{ id: 8, name: "Bet365" }] });
     expect(oddsSeries(203, "ah")).toEqual([]);
+    const envelope = db().prepare("SELECT endpoint, request_params, fixture_id, parser_version, payload FROM af_raw_payloads WHERE fixture_id=?").get(203) as
+      | { endpoint: string; request_params: string; fixture_id: number; parser_version: string; payload: string }
+      | undefined;
+    expect(envelope).toMatchObject({ endpoint: "odds", fixture_id: 203 });
+    expect(JSON.parse(envelope!.request_params)).toEqual({ fixture: 203 });
+    expect(envelope!.parser_version).toContain("odds-adapter");
+    expect(JSON.parse(envelope!.payload)).toMatchObject({ fixture: { id: 203 } });
+  });
+
+  it("odds fixture_id 串场时只保留 raw 和诊断,不进入标准盘口", () => {
+    upsertFixture(afFixture(211));
+    expect(archiveOdds(211, { fixture: { id: 999 }, bookmakers: [{ id: 8, name: "Bet365", bets: [
+      { id: 5, name: "Goals Over/Under", values: [
+        { value: "Over 2.5", odd: "1.90" }, { value: "Under 2.5", odd: "1.96" },
+      ] },
+    ] }] }, 4000)).toBe(0);
+
+    expect(oddsSeries(211, "ou")).toEqual([]);
+    const issue = db().prepare("SELECT error_type, severity FROM diagnostic_issues WHERE fixture_id=?").get(211) as
+      | { error_type: string; severity: string }
+      | undefined;
+    expect(issue).toMatchObject({ error_type: "FIXTURE_MISMATCH", severity: "error" });
+    const raw = db().prepare("SELECT endpoint FROM af_raw_payloads WHERE fixture_id=?").get(211) as { endpoint: string } | undefined;
+    expect(raw?.endpoint).toBe("odds");
   });
 
   it("归一化拒收的盘口写入 DiagnosticIssue", () => {
@@ -214,6 +238,16 @@ describe("odds 归档与异动", () => {
     });
 
     expect(mainOddsSnapshot(210, "ou")).toMatchObject({ bookmaker: "Bet365", line: 2.5 });
+  });
+
+  it("低质量非主流单源盘口不进入用户端主盘序列", () => {
+    upsertFixture(afFixture(212));
+    const ins = db().prepare(
+      "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)",
+    );
+    ins.run(212, 99, "SmallBook", "ah", 0.5, 0.9, 0.96, null, 1000);
+
+    expect(oddsSeries(212, "ah")).toEqual([]);
   });
 
   it("oddsBundle 与单市场走势/百家对比口径一致", () => {

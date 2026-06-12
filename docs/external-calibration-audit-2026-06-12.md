@@ -4,6 +4,7 @@
 > Capture time: 2026-06-12T14:47:48Z / 2026-06-12 22:47 CST.
 > Continuation update: 2026-06-12T16:37:29Z / 2026-06-13 00:37 CST.
 > Stats calibration update: 2026-06-12T16:57:09Z / 2026-06-13 00:57 CST.
+> Data-governance update: 2026-06-13T22:15:00+08:00.
 > Target repo: `/Users/vega/Documents/Codex/playtop-zsky-copy`, branch `main`.
 
 ## Scope And Rules
@@ -27,6 +28,20 @@ Current status: this is a continuation slice, not a whole-site completion claim.
 - Applied code corrections in this continuation: terminal detail refresh after FT now retries AF `events/statistics/lineups/players` three times over the post-match window; AF empty-result caches for injuries, standings, rankings, ratings, formations, squads, coaches, transfers, and H2H now use a shorter negative TTL; list odds reads only the last two unsuspended live frames per fixture/market instead of scanning all historical live frames.
 - Fake-function correction: user recharge dialogs no longer say "演示环境:点击档位即模拟支付到账" while the channel is under maintenance, and the admin overview no longer labels disabled production purchase flow as "演示支付". Real payment integration is still a product-policy OPEN item.
 - Selfcheck correction: production L4 selfcheck now skips the demo first-purchase assertion when the purchase channel is maintenance-gated, while still checking gift, unlock, ledger, invite, redemption, and cleanup flows.
+
+## 2026-06-13 Data-Governance Continuation
+
+Current status: code-level data fitting/stop-loss patch completed locally. This does not close external same-line/same-time odds calibration.
+
+- Added `af_raw_payloads` raw envelope storage for API-Football payload replay: endpoint, request params, response status, fixture id, bookmaker id, bet id, parser version, payload, and fetched time. Prematch `/odds` and live `/odds/live` now write replayable raw envelopes.
+- Added fixture mismatch rejection for `/odds`: if AF returns a different `fixture.id`, the payload is retained as raw and a DiagnosticIssue is recorded, but no normalized odds snapshot is inserted.
+- Tightened shared display gates for prematch and live AH/OU/EU: invalid line, invalid odds range, bad full-return/margin, incomplete two-way/three-way structure, and low `qualityScore` are blocked from public main-market output.
+- Live AH/OU/EU display now follows the same rule: if the newest live frame for that market is not displayable, the UI does not fall back to a stale prematch value or an older live value.
+- `MarketOverview` service layer now exists at `src/server/markets/overview.ts`; `matchPanorama` reads the core prematch three markets from it, so detail/report share the same market result.
+- Admin monitor API now returns `rawAudit` endpoint counts for the raw envelope layer.
+- Tests added or updated for raw retention, fixture mismatch diagnostics, low-quality main-market rejection, live dirty-frame no-fallback behavior, MarketOverview cutoff behavior, and compare-table filtering.
+- Local gates passed: `npm run typecheck`, `npm test` (28 files / 187 tests), `npm run build`.
+- Local `npm run selfcheck` could not pass in this workstation environment because AF key/admin env/worker/local web server are not configured; this is an environment OPEN, not a code-test failure.
 
 ## Production Public Fixtures Checked
 

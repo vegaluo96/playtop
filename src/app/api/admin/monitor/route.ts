@@ -21,10 +21,20 @@ export async function GET() {
   const eps = d.prepare("SELECT k, tier, last_at, ms, status FROM endpoint_metrics ORDER BY last_at DESC").all();
   const cnt = (sql: string) => (d.prepare(sql).get(t0) as { n: number }).n;
   const snaps = [
+    { k: "AF raw 信封", n: cnt("SELECT COUNT(*) n FROM af_raw_payloads WHERE fetched_at>=?") },
     { k: "odds 快照", n: cnt("SELECT COUNT(*) n FROM odds_snapshots WHERE captured_at>=?") },
     { k: "predictions 快照", n: cnt("SELECT COUNT(*) n FROM predictions_snapshots WHERE captured_at>=?") },
     { k: "异动事件", n: cnt("SELECT COUNT(*) n FROM movements WHERE t1>=?") },
   ];
+  const rawAudit = d
+    .prepare(
+      `SELECT endpoint, COUNT(*) n, MAX(fetched_at) lastAt
+       FROM af_raw_payloads
+       WHERE fetched_at >= ?
+       GROUP BY endpoint
+       ORDER BY lastAt DESC`,
+    )
+    .all(t0) as { endpoint: string; n: number; lastAt: number }[];
   const lastSnap = (d.prepare("SELECT MAX(captured_at) m FROM odds_snapshots").get() as { m: number | null }).m;
   const gap = lastSnap != null && Date.now() - lastSnap > 30 * 60_000;
   const alerts = recentMovements(10).filter((m) => m.sev && m.t1 >= Date.now() - 3_600_000).map((m) => ({
@@ -66,7 +76,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    ok: true, eps, snaps, snapGap: gap, extraMarkets, marketDecision,
+    ok: true, eps, snaps, rawAudit, snapGap: gap, extraMarkets, marketDecision,
     intervals: TIERS.map((t, i) => ({ label: t.label, ms: cfgTierIntervals()[i] })),
     emergency: cfgEmergencyThrottle(),
     af: JSON.parse(kvGet("af_status") || "null"),
