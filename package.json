@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "af": "tsx scripts/af-probe.ts",
     "calibrate": "tsx scripts/odds-calibrate.ts",
     "calibrate:af-detail": "tsx scripts/af-detail-public-calibrate.ts",
