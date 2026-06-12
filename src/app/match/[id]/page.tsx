@@ -17,6 +17,7 @@ import { Terminal } from "@/components/desktop/terminal";
 import { PlayerAvatar, TeamLogo } from "@/components/img";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
+import { CompMetaBar, CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
 import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -26,7 +27,7 @@ type V = any; // 视图模型由 /api/match/[id] 输出,字段见 src/server/vie
 const TABS: [string, string][] = [
   ["odds", "盘口"], ["match", "赛况"], ["squad", "人员"], ["deep", "深度"],
 ];
-const ODDS_SUBS: [string, string][] = [["trend", "走势"], ["comp", "百家对比"], ["markets", "更多玩法"]];
+const ODDS_SUBS: [string, string][] = [["trend", "走势"], ["comp", "百家对比"], ["road", "盘路"], ["markets", "更多玩法"]];
 
 const FORM_STYLE: Record<string, { bg: string; c: string }> = {
   胜: { bg: "rgba(46,204,138,.16)", c: "var(--green)" },
@@ -167,6 +168,15 @@ function MobileMatchDetail({ id }: { id: string }) {
             <span>
               {!headEu && <span style={{ display: "block", fontSize: 11, fontWeight: 700, color: c.changed ? "var(--gold)" : "var(--fg-mid)" }}>{c.nText}</span>}
               <span className="mono" style={{ fontSize: headEu ? 10.5 : 11, color: "var(--fg-mid)" }}>{c.nW}</span>
+              {c.k && (
+                <span className="mono" style={{ display: "block", fontSize: 9.5, color: "var(--fg-3)" }}>
+                  凯利 {c.k.map((kv: number | null, j: number) => (
+                    <span key={j} style={{ color: kv != null && kv > 1 ? "var(--gold)" : undefined, fontWeight: kv != null && kv > 1 ? 800 : 400 }}>
+                      {kv != null ? kv.toFixed(2) : "—"}{j < 2 ? " / " : ""}
+                    </span>
+                  ))}
+                </span>
+              )}
             </span>
           </div>
         ))}
@@ -332,10 +342,20 @@ function MobileMatchDetail({ id }: { id: string }) {
 
         {tab === "odds" && oddsSub === "comp" && (
           <>
+            <div style={{ height: 6 }} />
+            <CompMetaBar comp={v.comp} />
             {compTable("亚盘 · 多公司对比", v.comp.ah)}
             {compTable("大小球 · 多公司对比", v.comp.ou)}
             {compTable("胜平负 · 多公司对比", v.comp.eu, true)}
             <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>各公司变盘时间与幅度可横向比对。</div>
+          </>
+        )}
+
+        {tab === "odds" && oddsSub === "road" && (
+          <>
+            <RoadSection ins={v.insights} home={h.home} away={h.away} />
+            <SameOddsCard so={v.insights?.sameOdds} />
+            <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>{v.insights?.note}</div>
           </>
         )}
 
@@ -359,6 +379,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                 </div>
               </Card>
             ))}
+            <CornersRefNote cr={v.insights?.cornersRef} home={h.home} away={h.away} />
             <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "6px 4px 0", lineHeight: 1.6 }}>玩法赔率为欧赔原值,来自单一公司当帧报价;仅供数据参考。</div>
           </>
         )}
@@ -372,6 +393,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             )}
             {/* 赛前置顶(影响盘口的赛前因素),开赛后跟在直播时间轴后 */}
             <WeatherCard w={v.weather} style={{ marginTop: 8 }} />
+            <FatigueCard fa={v.insights?.fatigue} home={h.home} away={h.away} style={{ marginTop: 8 }} />
             {h.live && (
               <>
                 <SectionTitle title="实时技术统计" />

@@ -13,6 +13,7 @@ import { kvCached, kvGet, latestOddsRaw } from "../af/store";
 import { parseExtraMarkets } from "../af/markets";
 import { synthEventsOf, type SynthEvent } from "../af/events-synth";
 import { matchWeather } from "../platform/weather";
+import { euKelly, insightsView, kellyOf, lineTrend, payoutRate } from "./insights";
 import { runAfEndpoint } from "../af/catalog";
 import type { Panorama } from "../af/panorama";
 import { formZh, predSummary } from "./common";
@@ -714,11 +715,21 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       nW: `${f2(c.last.h)} / ${f2(c.last.a)}`,
       changed: c.first.line !== c.last.line,
     }));
+  // ② 凯利指数 + 离散度(≥3 家才有共识意义);④ 升降盘方向 + 返还率首末对照
+  const euMeta = euKelly(p.odds.compareEu.map((c) => c.last));
   const compEu = p.odds.compareEu.map((c) => ({
     co: maskBookmaker(c.bookmaker),
     iW: `${f2(c.first.h)} / ${f2(c.first.d ?? 0)} / ${f2(c.first.a)}`,
     nW: `${f2(c.last.h)} / ${f2(c.last.d ?? 0)} / ${f2(c.last.a)}`,
+    k: euMeta ? [kellyOf(c.last.h, euMeta.prob.h), kellyOf(c.last.d ?? null, euMeta.prob.d), kellyOf(c.last.a, euMeta.prob.a)] : null,
   }));
+  // ah/ou 快照存净水,返还率按欧赔小数(净水+1)计算
+  const dec = (s: SnapRow | null) => (s ? { h: s.h + 1, a: s.a + 1 } : null);
+  const trendOf = (cmp: Panorama["odds"]["compareAh"], all: SnapRow[]) => ({
+    dir: lineTrend(cmp),
+    ret0: payoutRate(dec(all[0] ?? null)),
+    ret1: payoutRate(dec(lastOf(all))),
+  });
 
   return {
     header: {
@@ -751,7 +762,13 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       euChart: euAll.slice(-40).map((s) => ({ t: hhmm(s.captured_at, tz), h: s.h, a: s.a, d: s.d ?? 0 })),
       index: { ah: await cidx("ah"), ou: await cidx("ou"), eu: await cidx("eu") },
     },
-    comp: { ah: compMap(p.odds.compareAh, "ah"), ou: compMap(p.odds.compareOu, "ou"), eu: compEu },
+    comp: {
+      ah: compMap(p.odds.compareAh, "ah"),
+      ou: compMap(p.odds.compareOu, "ou"),
+      eu: compEu,
+      euMeta: euMeta ? { books: euMeta.books, disp: euMeta.disp, method: euMeta.method } : null,
+      trend: { ah: trendOf(p.odds.compareAh, ahAll), ou: trendOf(p.odds.compareOu, ouAll) },
+    },
     tech: {
       timeline: live || isFinished(fx.status) ? timelineView(p.bundle, fx, synthEventsOf(fx.fixture_id)) : null,
       stats: liveStats(p.bundle, fx.home_id),
@@ -768,6 +785,8 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     })(),
     // 开球时刻球场天气(MET Norway,免费官方源;拿不到即 null,前端隐藏,绝不伪造)
     weather: await matchWeather(String(dig(p.bundle, "fixture", "venue", "city") ?? ""), fx.kickoff_utc),
+    // 盘路/同赔/疲劳/角球参考(全部由归档数据推导,kv 缓存 10min)
+    insights: await insightsView(fx),
     lineups: lineupsView(p.bundle, fx.home_id, fx.home_name, fx.away_name),
     intel: intelView(p.injuries, fx.home_id),
     deep: opts.deep ? await deepView(p) : null,

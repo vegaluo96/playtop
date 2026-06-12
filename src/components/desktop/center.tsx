@@ -8,6 +8,7 @@ import { IndexChart } from "@/components/index-chart";
 import { PlayerAvatar, TeamLogo } from "@/components/img";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
+import { CompMetaBar, CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
 import { Flash } from "@/components/live";
 import { ahText, dayLabel, hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
@@ -20,7 +21,7 @@ type V = any;
 const TAB_DEFS: [DTab, string][] = [
   ["odds", "盘口"], ["match", "赛况"], ["squad", "人员"], ["deep", "深度"], ["report", "AI 报告"],
 ];
-const ODDS_SUBS: [string, string][] = [["trend", "走势"], ["comp", "百家对比"], ["markets", "更多玩法"]];
+const ODDS_SUBS: [string, string][] = [["trend", "走势"], ["comp", "百家对比"], ["road", "盘路"], ["markets", "更多玩法"]];
 
 const FORM_STYLE: Record<string, { bg: string; c: string }> = {
   胜: { bg: "rgba(46,204,138,.16)", c: "var(--green)" },
@@ -138,6 +139,15 @@ export function CenterPane({
               <span>
                 <span className="mono" style={{ display: "block", fontSize: 10, color: "var(--fg-3)" }}>{c.iW}</span>
                 <span className="mono" style={{ fontSize: 10, color: "var(--fg-mid)" }}>{c.nW}</span>
+                {c.k && (
+                  <span className="mono" style={{ display: "block", fontSize: 9, color: "var(--fg-3)" }}>
+                    凯利 {c.k.map((kv: number | null, j: number) => (
+                      <span key={j} style={{ color: kv != null && kv > 1 ? "var(--gold)" : undefined, fontWeight: kv != null && kv > 1 ? 800 : 400 }}>
+                        {kv != null ? kv.toFixed(2) : "—"}{j < 2 ? " / " : ""}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </span>
             ) : (
               <>
@@ -324,12 +334,21 @@ export function CenterPane({
 
         {tab === "odds" && oddsSub === "comp" && (
           <>
+            <CompMetaBar comp={v.comp} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 }}>
               {compCol("亚盘 · 多公司", v.comp.ah)}
               {compCol("大小球 · 多公司", v.comp.ou)}
               {compCol("胜平负 · 多公司", v.comp.eu, true)}
             </div>
             <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 2px 0" }}>上行为初盘(开赛前 14 天起本站持续归档的最早盘口),下行为即时盘;各公司变盘时间与幅度可横向比对。</div>
+          </>
+        )}
+
+        {tab === "odds" && oddsSub === "road" && (
+          <>
+            <RoadSection ins={v.insights} home={h.home} away={h.away} />
+            <SameOddsCard so={v.insights?.sameOdds} />
+            <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 2px 0" }}>{v.insights?.note}</div>
           </>
         )}
 
@@ -354,6 +373,9 @@ export function CenterPane({
                 </Card>
               ))}
             </div>
+            <div style={{ marginTop: 10 }}>
+              <CornersRefNote cr={v.insights?.cornersRef} home={h.home} away={h.away} />
+            </div>
             {(v.markets ?? []).length > 0 && <div style={{ fontSize: 10, color: "var(--fg-3)", padding: "10px 2px 0" }}>玩法赔率为欧赔原值,来自单一公司当帧报价;仅供数据参考。</div>}
           </>
         )}
@@ -364,9 +386,13 @@ export function CenterPane({
               <div style={{ display: "flex", flexDirection: "column", gap: 14, alignSelf: "start" }}>
                 <MatchTimeline tl={v.tech.timeline} home={h.home} away={h.away} live={h.live} />
                 <WeatherCard w={v.weather} />
+                <FatigueCard fa={v.insights?.fatigue} home={h.home} away={h.away} />
               </div>
             ) : (
-              <WeatherCard w={v.weather} style={{ alignSelf: "start" }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, alignSelf: "start" }}>
+                <WeatherCard w={v.weather} />
+                <FatigueCard fa={v.insights?.fatigue} home={h.home} away={h.away} />
+              </div>
             )}
             <Card style={{ padding: "12px 14px" }}>
               <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10 }}>近况 · 最近 6 场</div>
