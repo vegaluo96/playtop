@@ -8,9 +8,10 @@ import { afGet } from "./af/client";
 import { archiveOdds, fixturesBetween, hasPrediction, kvGet, kvSet, latestPrediction, mainOddsSnapshot } from "./af/store";
 import { normalizeOddsItem, pairMargin } from "./af/normalize";
 import { tierFor } from "./af/schedule";
-import { cfgAfKey, cfgFirstBonusOn, cfgLlmKey, cfgRechargeTiers, cfgTierIntervals, cfgUnlockPrice } from "./platform/config";
+import { cfgAfKey, cfgFirstBonusOn, cfgLlmKey, cfgRechargeMaintenance, cfgRechargeTiers, cfgTierIntervals, cfgUnlockPrice } from "./platform/config";
 import { audit, ensureAdminSeed, listAudit } from "./admin/auth";
 import { chatComplete } from "./llm/client";
+import { demoRechargeEnabled } from "./platform/wallet";
 
 export interface CheckRow {
   layer: string;
@@ -266,10 +267,14 @@ export async function checkBusiness(base: string): Promise<CheckRow[]> {
     rows.push(row("L4 闭环", "新人礼包待领", me1.json?.giftPending === true ? "ok" : "fail"));
     const gift = await call("/api/wallet", { method: "POST", body: JSON.stringify({ action: "gift" }) });
     rows.push(row("L4 闭环", "礼包到账", gift.json?.pts === 58 ? "ok" : "fail", `pts=${gift.json?.pts}`));
-    const tier0 = cfgRechargeTiers()[0];
-    const expCredit = cfgFirstBonusOn() ? tier0.pts + Math.floor(tier0.pts * 0.5) : tier0.pts;
-    const re = await call("/api/wallet", { method: "POST", body: JSON.stringify({ action: "recharge", tier: 0 }) });
-    rows.push(row("L4 闭环", "首购加赠", re.json?.pts === 58 + expCredit ? "ok" : "fail", `期望 ${58 + expCredit},实际 ${re.json?.pts}`));
+    if (cfgRechargeMaintenance() || !demoRechargeEnabled()) {
+      rows.push(row("L4 闭环", "首购加赠", "skip", "购买通道维护中;不执行演示充值断言"));
+    } else {
+      const tier0 = cfgRechargeTiers()[0];
+      const expCredit = cfgFirstBonusOn() ? tier0.pts + Math.floor(tier0.pts * 0.5) : tier0.pts;
+      const re = await call("/api/wallet", { method: "POST", body: JSON.stringify({ action: "recharge", tier: 0 }) });
+      rows.push(row("L4 闭环", "首购加赠", re.json?.pts === 58 + expCredit ? "ok" : "fail", `期望 ${58 + expCredit},实际 ${re.json?.pts}`));
+    }
 
     // 解锁(选今日非免费场)
     const t0 = todayStartMs();

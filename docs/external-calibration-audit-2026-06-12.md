@@ -24,6 +24,7 @@ Current status: this is a continuation slice, not a whole-site completion claim.
 - Public external odds calibration was rerun from `docs/external-odds-samples-2026-06-12.json`: `✓0 △10 ✗0 ⊘0`. This remains WARN because the samples are not same-line/same-time and several are partial tip markets.
 - Applied code corrections in this continuation: terminal detail refresh after FT now retries AF `events/statistics/lineups/players` three times over the post-match window; AF empty-result caches for injuries, standings, rankings, ratings, formations, squads, coaches, transfers, and H2H now use a shorter negative TTL; list odds reads only the last two unsuspended live frames per fixture/market instead of scanning all historical live frames.
 - Fake-function correction: user recharge dialogs no longer say "演示环境:点击档位即模拟支付到账" while the channel is under maintenance, and the admin overview no longer labels disabled production purchase flow as "演示支付". Real payment integration is still a product-policy OPEN item.
+- Selfcheck correction: production L4 selfcheck now skips the demo first-purchase assertion when the purchase channel is maintenance-gated, while still checking gift, unlock, ledger, invite, redemption, and cleanup flows.
 
 ## Production Public Fixtures Checked
 
