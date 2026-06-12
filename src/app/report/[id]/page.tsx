@@ -11,7 +11,7 @@ import { Card, GoldBtn, LockIcon, SubpageHeader, ShareIcon } from "@/components/
 import { nowStr } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
-import { Terminal } from "@/components/desktop/terminal";
+import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -21,7 +21,7 @@ export default function ReportRoute({ params }: { params: Promise<{ id: string }
   const { id } = use(params);
   const isDesktop = useIsDesktop();
   if (isDesktop == null) return null;
-  return isDesktop ? <Terminal initialMatchId={Number(id)} initialTab="report" /> : <MobileReportPage id={id} />;
+  return isDesktop ? <LazyTerminal initialMatchId={Number(id)} initialTab="report" /> : <MobileReportPage id={id} />;
 }
 
 function MobileReportPage({ id }: { id: string }) {

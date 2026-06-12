@@ -11,7 +11,7 @@ import { Chip, EmptyBox, LockIcon, Sheet } from "@/components/ui";
 import { useUnifiedPoll } from "@/components/live";
 import { leagueColor } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
-import { Terminal } from "@/components/desktop/terminal";
+import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -19,7 +19,7 @@ type V = any;
 export default function PredictionsRoute() {
   const isDesktop = useIsDesktop();
   if (isDesktop == null) return null;
-  return isDesktop ? <Terminal /> : <MobilePredictionsPage />;
+  return isDesktop ? <LazyTerminal /> : <MobilePredictionsPage />;
 }
 
 function MobilePredictionsPage() {

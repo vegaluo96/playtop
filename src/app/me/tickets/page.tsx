@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/app-context";
 import { useIsDesktop } from "@/components/use-viewport";
-import { Terminal } from "@/components/desktop/terminal";
+import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { Chip, EmptyBox, GoldBtn, SubpageHeader } from "@/components/ui";
 
 interface Ticket {
@@ -21,7 +21,7 @@ const TYPES = ["数据问题", "购买额度问题", "功能建议", "其他"];
 export default function TicketsPageRoute() {
   const isDesktop = useIsDesktop();
   if (isDesktop == null) return null;
-  return isDesktop ? <Terminal initialDrawer /> : <MobileTicketsPage />;
+  return isDesktop ? <LazyTerminal initialDrawer /> : <MobileTicketsPage />;
 }
 
 function MobileTicketsPage() {

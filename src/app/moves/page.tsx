@@ -9,7 +9,7 @@ import { leagueColor } from "@/lib/leagues";
 import { useNewIds, useUnifiedPoll } from "@/components/live";
 import { PageHeader } from "@/components/page-header";
 import { useIsDesktop } from "@/components/use-viewport";
-import { Terminal } from "@/components/desktop/terminal";
+import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { MarketValue } from "@/components/market-cell";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -18,7 +18,7 @@ type Move = any;
 export default function MovesRoute() {
   const isDesktop = useIsDesktop();
   if (isDesktop == null) return null;
-  return isDesktop ? <Terminal /> : <MobileMovesPage />;
+  return isDesktop ? <LazyTerminal /> : <MobileMovesPage />;
 }
 
 function MobileMovesPage() {

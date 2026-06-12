@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useApp } from "@/components/app-context";
 import { useIsDesktop } from "@/components/use-viewport";
-import { Terminal } from "@/components/desktop/terminal";
+import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { useUnlockFlow } from "@/components/unlock-flow";
 import { SubpageHeader } from "@/components/ui";
 import { nowStr } from "@/lib/format";
@@ -19,7 +19,7 @@ interface Row {
 export default function LedgerPageRoute() {
   const isDesktop = useIsDesktop();
   if (isDesktop == null) return null;
-  return isDesktop ? <Terminal initialDrawer /> : <MobileLedgerPage />;
+  return isDesktop ? <LazyTerminal initialDrawer /> : <MobileLedgerPage />;
 }
 
 function MobileLedgerPage() {

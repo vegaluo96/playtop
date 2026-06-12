@@ -12,7 +12,7 @@ import { GoldBtn, Sheet, SheetTitle } from "@/components/ui";
 import { LANGS, type Lang } from "@/lib/i18n";
 import { LEAGUES } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
-import { Terminal } from "@/components/desktop/terminal";
+import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { APP_VERSION } from "@/lib/version";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -26,7 +26,7 @@ const TZS: [string, string][] = [
 export default function MeRoute() {
   const isDesktop = useIsDesktop();
   if (isDesktop == null) return null;
-  return isDesktop ? <Terminal initialDrawer /> : <MobileMePage />;
+  return isDesktop ? <LazyTerminal initialDrawer /> : <MobileMePage />;
 }
 
 function MobileMePage() {

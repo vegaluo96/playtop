@@ -14,7 +14,7 @@ import { ahText, dayLabel, hhmm } from "@/lib/format";
 import { Flash, HeartBeat, usePoll, useWorkerBeat } from "@/components/live";
 import { MarketCell, MarketValue, type MarketCellData } from "@/components/market-cell";
 import { useIsDesktop } from "@/components/use-viewport";
-import { Terminal } from "@/components/desktop/terminal";
+import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { PlayerAvatar, TeamLogo } from "@/components/img";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
@@ -54,7 +54,7 @@ export default function MatchRoute({ params }: { params: Promise<{ id: string }>
   const { id } = use(params);
   const isDesktop = useIsDesktop();
   if (isDesktop == null) return null;
-  return isDesktop ? <Terminal initialMatchId={Number(id)} /> : <MobileMatchDetail id={id} />;
+  return isDesktop ? <LazyTerminal initialMatchId={Number(id)} /> : <MobileMatchDetail id={id} />;
 }
 
 function MobileMatchDetail({ id }: { id: string }) {

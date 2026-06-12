@@ -16,7 +16,7 @@ import { Flash, useUnifiedPoll } from "@/components/live";
 import { MarketCell, type MarketCellData } from "@/components/market-cell";
 import { useWatchlist, WatchStar } from "@/components/watch";
 import { useIsDesktop } from "@/components/use-viewport";
-import { Terminal } from "@/components/desktop/terminal";
+import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 
 type Cell = MarketCellData;
 interface Row {
@@ -46,7 +46,7 @@ interface Row {
 export default function MatchesRoute() {
   const isDesktop = useIsDesktop();
   if (isDesktop == null) return null;
-  return isDesktop ? <Terminal /> : <MobileMatchesPage />;
+  return isDesktop ? <LazyTerminal /> : <MobileMatchesPage />;
 }
 
 function MobileMatchesPage() {
