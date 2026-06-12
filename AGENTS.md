@@ -25,5 +25,9 @@ npm run build
 
 - 写库一律走 `tx()`(web/worker 双进程共写 SQLite);worker 新增出网调用必须包 `paced()+tracked()`(配额保护)。
 - 用户展示时间一律走 `prefs.tz`;ah/ou 快照存净水、eu 存欧赔小数;`line 正 = 主让`。
-- 提交信息用中文,说明动机与影响面;**默认在工作分支提交,合入 main 前需人工确认**(main 即生产)。
+- 提交信息用中文,说明动机与影响面;**允许直推 main**,但有硬性门槛:
+  - 推 main 前 `npx tsc --noEmit && npx vitest run && npm run build` 必须三绿,结果贴在回复里;
+  - 涉及盘口数值命脉文件(normalize/composite/insights/events-synth)必须附带回归测试;
+  - 禁止 force-push / 改写 main 历史;大型重构先开分支、跑通后再合;
+  - main ≠ 立即上线:生产由人工在服务器 `git pull` 部署,推完 main 在回复里说清改了什么、部署后该验证什么。
 - html/body 已锁滚动(移动端视口 bug 修复),滚动只允许发生在内部容器,勿回退。
