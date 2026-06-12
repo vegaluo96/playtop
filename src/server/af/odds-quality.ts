@@ -10,7 +10,7 @@ export function isFulltimeResultMarketName(name: string): boolean {
 }
 
 export function isHalfPeriodMarketName(name: string): boolean {
-  return /first half|1st half|half time|halftime|\bht\b/i.test(name);
+  return /first half|1st half|second half|2nd half|half time|halftime|\bht\b/i.test(name);
 }
 
 export function euMargin(h: number, d: number, a: number): number {

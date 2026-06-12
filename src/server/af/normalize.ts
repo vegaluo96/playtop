@@ -74,12 +74,16 @@ function isPrematchEuBet(bet: AfBet): boolean {
 
 function isPrematchAhBet(bet: AfBet): boolean {
   const name = bet.name ?? "";
-  return bet.id === 4 || /asian handicap|goal handicap|^handicap$|spread/i.test(name);
+  if (isHalfPeriodMarketName(name) || /corner|card|yellow|shot|foul|offside|player/i.test(name)) return false;
+  return bet.id === 4 || /^asian handicap$/i.test(name) || /^goal handicap$/i.test(name) || /^handicap$/i.test(name) || /^spread$/i.test(name);
 }
 
 function isPrematchOuBet(bet: AfBet): boolean {
   const name = bet.name ?? "";
-  return bet.id === 5 || /goals over\/under|over\/under|total goals|match goals|^totals$/i.test(name);
+  if (isHalfPeriodMarketName(name) || /corner|card|yellow|shot|foul|offside|player|team total|home team|away team|total - home|total - away|between|range/i.test(name)) {
+    return false;
+  }
+  return bet.id === 5 || /^goals over\/under$/i.test(name) || /^over\/under$/i.test(name) || /^total goals$/i.test(name) || /^match goals$/i.test(name) || /^totals$/i.test(name);
 }
 
 function pickBalanced(pairs: { line: number; h: number; a: number }[]): { line: number; h: number; a: number } | null {

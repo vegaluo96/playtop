@@ -133,6 +133,37 @@ describe("normalizeOddsItem", () => {
     expect(books[0].markets.find((m) => m.market === "ah")).toMatchObject({ line: 0.25 });
     expect(books[0].markets.find((m) => m.market === "ou")).toMatchObject({ line: 2.25 });
   });
+
+  it("赛前核心盘口不吞角球/罚牌/半场等衍生 over-under 与 handicap", () => {
+    const books = normalizeOddsItem({
+      bookmakers: [{
+        id: 8,
+        name: "Bet365",
+        bets: [
+          { id: 4, name: "Asian Handicap", values: [
+            { value: "Home -0.5", odd: "1.90" }, { value: "Away +0.5", odd: "1.96" },
+          ] },
+          { id: 56, name: "Corners Asian Handicap", values: [
+            { value: "Home -1", odd: "1.90" }, { value: "Away +1", odd: "1.90" },
+          ] },
+          { id: 5, name: "Goals Over/Under", values: [
+            { value: "Over 2", odd: "1.85" }, { value: "Under 2", odd: "1.95" },
+          ] },
+          { id: 26, name: "Goals Over/Under - Second Half", values: [
+            { value: "Over 1.5", odd: "1.90" }, { value: "Under 1.5", odd: "1.90" },
+          ] },
+          { id: 80, name: "Cards Over/Under", values: [
+            { value: "Over 3.5", odd: "1.83" }, { value: "Under 3.5", odd: "1.83" },
+          ] },
+        ],
+      }],
+    });
+
+    expect(books[0].markets.filter((m) => m.market === "ah")).toHaveLength(1);
+    expect(books[0].markets.filter((m) => m.market === "ou")).toHaveLength(1);
+    expect(books[0].markets.find((m) => m.market === "ah")).toMatchObject({ line: 0.5 });
+    expect(books[0].markets.find((m) => m.market === "ou")).toMatchObject({ line: 2 });
+  });
 });
 
 describe("parseAh 腿标签格式无关(满水率自证)", () => {
