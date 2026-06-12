@@ -32,6 +32,7 @@ import { dailyReadonlyCheck } from "../src/server/selfcheck";
 import { fetchLlmBalance } from "../src/server/llm/client";
 import { archiveLiveOdds, pruneLiveData } from "../src/server/af/live-store";
 import { normalizeLiveOddsItem } from "../src/server/af/normalize";
+import { recordDiagnosticIssue } from "../src/server/af/diagnostics";
 import { synthFromFixture } from "../src/server/af/events-synth";
 import { refreshFixtureDetailsFromAf } from "../src/server/af/fixture-details";
 import { getLlmReport, shouldPregenReport } from "../src/server/llm/report";
@@ -208,7 +209,7 @@ async function tickLive(now: number): Promise<void> {
       const item = raw && Number((raw as { fixture?: { id?: number } }).fixture?.id) === f.fixture_id ? raw : null;
       kvSet(`fx:${f.fixture_id}:liveodds`, JSON.stringify({ at: Date.now(), data: item ?? null }));
       if (item) {
-        const frames = normalizeLiveOddsItem(item);
+        const frames = normalizeLiveOddsItem(item, { fixtureId: f.fixture_id, onIssue: recordDiagnosticIssue });
         if (frames.length > 0) tx(() => archiveLiveOdds(f.fixture_id, frames, Date.now()));
       }
     } catch {

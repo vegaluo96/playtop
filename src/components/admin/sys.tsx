@@ -244,6 +244,21 @@ export function DataMonView() {
               </div>
             ))}
           </ACard>
+          <ACard title="盘口适配诊断">
+            {(v.diagnostics ?? []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>暂无拦截记录</div>}
+            {(v.diagnostics ?? []).map((d: V) => (
+              <div key={d.issue_id} style={{ padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-3)" }}>{fmtT(d.created_at).slice(6)}</span>
+                  <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{d.endpoint}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, color: d.severity === "error" ? "var(--red)" : d.severity === "warn" ? "var(--gold)" : "var(--fg-3)" }}>{d.error_type}</span>
+                  <span className="mono" style={{ marginLeft: "auto", fontSize: 10.5, color: "var(--fg-3)" }}>{d.fixture_id ?? "—"}</span>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--fg-mid)", lineHeight: 1.45, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.error_reason}</div>
+                {d.raw_value && <div className="mono" style={{ fontSize: 10.5, color: "var(--fg-3)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.raw_value}</div>}
+              </div>
+            ))}
+          </ACard>
         </div>
       </div>
     </>

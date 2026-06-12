@@ -5,6 +5,7 @@
 import { db, tx } from "../db";
 import { detectMovement, normalizeOddsItem } from "./normalize";
 import { LIVE_EU_DISPLAY_MAX_ODD } from "./odds-quality";
+import { recordDiagnosticIssue } from "./diagnostics";
 import { isFinished } from "./schedule";
 import { ahText, ouText } from "@/lib/format";
 
@@ -222,7 +223,7 @@ export function oddsCompareFromRows(rows: SnapRow[]): OddsCompareRow[] {
  * 与同书商同市场上一帧 diff → movements。返回新增异动数。
  */
 export function archiveOdds(fixtureId: number, oddsItem: unknown, capturedAt = Date.now()): number {
-  const books = normalizeOddsItem(oddsItem);
+  const books = normalizeOddsItem(oddsItem, { fixtureId, onIssue: recordDiagnosticIssue });
   return tx(() => {
     const d = db();
     // 原始 AF 包先落库:即使当前归一化没有吃到市场,后续也能重放排查解析/玩法口径问题。

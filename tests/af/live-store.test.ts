@@ -159,13 +159,27 @@ describe("normalizeLiveOddsItem", () => {
     expect(ahF.a).toBeCloseTo(0.94, 2); // 两腿必须同线,不得错配 0.5/1.5
   });
 
-  it("有 main 标志时严格用 main 对,即便别的线更均衡", () => {
+  it("main 标志只是加分项:明显更均衡的非 main 主线可胜出", () => {
     const item = {
       odds: [{
         name: "Over/Under Line",
         values: [
           { value: "Over", handicap: "2.5", odd: "1.90", main: false }, { value: "Under", handicap: "2.5", odd: "1.92", main: false },
           { value: "Over", handicap: "3", odd: "2.05", main: true }, { value: "Under", handicap: "3", odd: "1.78", main: true },
+        ],
+      }],
+    };
+    const ouF = normalizeLiveOddsItem(item).find((f) => f.market === "ou")!;
+    expect(ouF.line).toBe(2.5);
+  });
+
+  it("main 标志在主线质量接近时作为加分项", () => {
+    const item = {
+      odds: [{
+        name: "Over/Under Line",
+        values: [
+          { value: "Over", handicap: "2.5", odd: "1.90", main: false }, { value: "Under", handicap: "2.5", odd: "1.98", main: false },
+          { value: "Over", handicap: "3", odd: "1.90", main: true }, { value: "Under", handicap: "3", odd: "2.00", main: true },
         ],
       }],
     };
@@ -213,6 +227,26 @@ describe("normalizeLiveOddsItem", () => {
         ] }],
       }).some((f) => f.market === "eu"),
     ).toBe(false);
+  });
+
+  it("滚球 parser 输出 DiagnosticIssue 草稿", () => {
+    const issues: unknown[] = [];
+    const frames = normalizeLiveOddsItem({
+      odds: [
+        { id: 99, name: "1x2 - 80 minutes", values: [
+          { value: "Home", odd: "41" }, { value: "Draw", odd: "4.33" }, { value: "Away", odd: "1.20" },
+        ] },
+        { id: 100, name: "Fulltime Result", values: [
+          { value: "Home", odd: "251" }, { value: "Draw", odd: "9.5" }, { value: "Away", odd: "1.05" },
+        ] },
+      ],
+    }, { fixtureId: 9, onIssue: (i) => issues.push(i) });
+
+    expect(frames.some((f) => f.market === "eu")).toBe(false);
+    expect(issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ endpoint: "odds.live", fixtureId: 9, betId: 99, errorType: "PERIOD_NOT_FT" }),
+      expect.objectContaining({ endpoint: "odds.live", fixtureId: 9, betId: 100, errorType: "ODDS_OUT_OF_RANGE" }),
+    ]));
   });
 
   it("坏数据安全返回空", () => {

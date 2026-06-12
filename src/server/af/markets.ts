@@ -3,6 +3,7 @@
  * 半场胜平负 / 半全场 / 双重机会 / 双方进球 / 单双 / 波胆 / 半场让球 / 半场大小 / 角球 / 罚牌。
  * 每个玩法独立挑书商:Bet365 → 平博/Pinnacle → 第一家提供该玩法的;不混合两家报价。
  */
+import { isValidDecimalOdd } from "./odds-quality";
 
 interface AfVal {
   value: string | number;
@@ -99,7 +100,7 @@ export function parseExtraMarkets(item: unknown): ExtraMarket[] {
       }
     }
     if (!found) continue;
-    let vals = [...(found.bet.values ?? [])].filter((v) => parseFloat(v.odd) > 1);
+    let vals = [...(found.bet.values ?? [])].filter((v) => isValidDecimalOdd(parseFloat(v.odd)));
     if (p.sortByOdd) vals.sort((a, b) => parseFloat(a.odd) - parseFloat(b.odd));
     if (p.max) vals = vals.slice(0, p.max);
     const rows: ExtraRow[] = vals.map((v) => {

@@ -173,6 +173,24 @@ CREATE TABLE IF NOT EXISTS odds_external_samples (
   UNIQUE (fixture_id, source, market, captured_at)
 );
 CREATE INDEX IF NOT EXISTS idx_external_odds ON odds_external_samples(fixture_id, market, captured_at);
+CREATE TABLE IF NOT EXISTS diagnostic_issues (
+  issue_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
+  fixture_id INTEGER,
+  bookmaker_id INTEGER,
+  bet_id INTEGER,
+  raw_value TEXT NOT NULL DEFAULT '',
+  parsed_value TEXT NOT NULL DEFAULT '',
+  error_type TEXT NOT NULL,
+  error_reason TEXT NOT NULL,
+  severity TEXT NOT NULL DEFAULT 'warn',
+  parser_version TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  dedup TEXT NOT NULL UNIQUE
+);
+CREATE INDEX IF NOT EXISTS idx_diag_created ON diagnostic_issues(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_diag_fixture ON diagnostic_issues(fixture_id, created_at DESC);
 -- AI 报告版本历史(report_cache 仍是「最新版」指针)
 CREATE TABLE IF NOT EXISTS report_versions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

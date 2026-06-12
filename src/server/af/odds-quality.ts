@@ -6,7 +6,11 @@ export const MAX_DECIMAL_ODD = 30;
 
 export function isFulltimeResultMarketName(name: string): boolean {
   const normalized = name.trim().toLowerCase();
-  return normalized === "fulltime result" || normalized === "match winner" || normalized === "1x2";
+  return normalized === "fulltime result" || normalized === "full time result" || normalized === "match winner" || normalized === "1x2";
+}
+
+export function isHalfPeriodMarketName(name: string): boolean {
+  return /first half|1st half|half time|halftime|\bht\b/i.test(name);
 }
 
 export function euMargin(h: number, d: number, a: number): number {

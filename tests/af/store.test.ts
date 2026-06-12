@@ -154,6 +154,26 @@ describe("odds 归档与异动", () => {
     expect(oddsSeries(203, "ah")).toEqual([]);
   });
 
+  it("归一化拒收的盘口写入 DiagnosticIssue", () => {
+    upsertFixture(afFixture(208));
+    archiveOdds(208, {
+      fixture: { id: 208 },
+      bookmakers: [{ id: 8, name: "Bet365", bets: [
+        { id: 1, name: "Match Winner", values: [
+          { value: "Home", odd: "51" }, { value: "Draw", odd: "5" }, { value: "Away", odd: "1.14" },
+        ] },
+        { id: 4, name: "Asian Handicap", values: [
+          { value: "Home -0.3", odd: "1.90" }, { value: "Away +0.3", odd: "1.96" },
+        ] },
+      ] }],
+    }, 3000);
+
+    const issues = db().prepare("SELECT endpoint, fixture_id, bookmaker_id, bet_id, error_type FROM diagnostic_issues WHERE fixture_id=? ORDER BY issue_id").all(208) as
+      { endpoint: string; fixture_id: number; bookmaker_id: number; bet_id: number; error_type: string }[];
+    expect(issues.some((i) => i.endpoint === "odds" && i.bet_id === 1 && i.error_type === "ODDS_OUT_OF_RANGE")).toBe(true);
+    expect(issues.some((i) => i.endpoint === "odds" && i.bet_id === 4 && i.error_type === "LINE_INVALID")).toBe(true);
+  });
+
   it("主盘按共识盘口+主流书商优先,不被最新离群书商带偏", () => {
     upsertFixture(afFixture(202));
     const ins = db().prepare(

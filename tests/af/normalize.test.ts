@@ -109,6 +109,30 @@ describe("normalizeOddsItem", () => {
 
     expect(books).toEqual([]);
   });
+
+  it("赛前 bet name 映射不依赖 live bet id,仍需经过 value/line 配对", () => {
+    const books = normalizeOddsItem({
+      bookmakers: [{
+        id: 8,
+        name: "Bet365",
+        bets: [
+          { name: "Full Time Result", values: [
+            { value: "1", odd: "2.20" }, { value: "X", odd: "3.30" }, { value: "2", odd: "3.40" },
+          ] },
+          { name: "Spread", values: [
+            { value: "Home -0.25", odd: "1.88" }, { value: "Away +0.25", odd: "1.98" },
+          ] },
+          { name: "Totals", values: [
+            { value: "Over 2.25", odd: "1.90" }, { value: "Under 2.25", odd: "1.96" },
+          ] },
+        ],
+      }],
+    });
+
+    expect(books[0].markets.find((m) => m.market === "eu")).toMatchObject({ h: 2.2, d: 3.3, a: 3.4 });
+    expect(books[0].markets.find((m) => m.market === "ah")).toMatchObject({ line: 0.25 });
+    expect(books[0].markets.find((m) => m.market === "ou")).toMatchObject({ line: 2.25 });
+  });
 });
 
 describe("parseAh 腿标签格式无关(满水率自证)", () => {

@@ -5,7 +5,7 @@
  * - 多 line 时取主盘:两侧净水最均衡(|h-a| 最小)且水位在合理区间
  */
 
-import { isFulltimeResultMarketName, isValidAhLine, isValidDecimalOdd, isValidEuTriplet, isValidOuLine } from "./odds-quality";
+import { isFulltimeResultMarketName, isHalfPeriodMarketName, isValidAhLine, isValidDecimalOdd, isValidEuTriplet, isValidOuLine } from "./odds-quality";
 
 export interface NormalizedMarket {
   market: "ah" | "ou" | "eu";
@@ -36,6 +36,27 @@ interface AfBookmaker {
   bets?: AfBet[];
 }
 
+export interface DiagnosticIssueDraft {
+  endpoint: "odds" | "odds.live" | "odds.extra";
+  fixtureId?: number | null;
+  bookmakerId?: number | null;
+  betId?: number | null;
+  rawValue?: unknown;
+  parsedValue?: unknown;
+  errorType: string;
+  errorReason: string;
+  severity?: "info" | "warn" | "error";
+}
+
+interface NormalizeOptions {
+  fixtureId?: number | null;
+  onIssue?: (issue: DiagnosticIssueDraft) => void;
+}
+
+function issue(opts: NormalizeOptions | undefined, issue: DiagnosticIssueDraft): void {
+  opts?.onIssue?.({ ...issue, fixtureId: issue.fixtureId ?? opts.fixtureId ?? null });
+}
+
 const net = (odd: string | number) => Math.round((Number(odd) - 1) * 100) / 100;
 
 function euSide(value: unknown): "h" | "d" | "a" | null {
@@ -44,6 +65,21 @@ function euSide(value: unknown): "h" | "d" | "a" | null {
   if (val === "draw" || val === "x") return "d";
   if (val === "away" || val === "2") return "a";
   return null;
+}
+
+function isPrematchEuBet(bet: AfBet): boolean {
+  const name = bet.name ?? "";
+  return bet.id === 1 || isFulltimeResultMarketName(name) || /^winner$/i.test(name) || /home\/draw\/away/i.test(name);
+}
+
+function isPrematchAhBet(bet: AfBet): boolean {
+  const name = bet.name ?? "";
+  return bet.id === 4 || /asian handicap|goal handicap|^handicap$|spread/i.test(name);
+}
+
+function isPrematchOuBet(bet: AfBet): boolean {
+  const name = bet.name ?? "";
+  return bet.id === 5 || /goals over\/under|over\/under|total goals|match goals|^totals$/i.test(name);
 }
 
 function pickBalanced(pairs: { line: number; h: number; a: number }[]): { line: number; h: number; a: number } | null {
@@ -73,17 +109,30 @@ interface AhPair {
  * 用满水率打分选出正确假设;同分歧义(对称梯子/单档)用同书商 1X2 强弱方向裁决。
  * line 口径:正 = 主让(与 ahText 一致)。
  */
-function parseAh(bet: AfBet, euHint: { h: number; a: number } | null): NormalizedMarket | null {
+function parseAh(bet: AfBet, euHint: { h: number; a: number } | null, bm: AfBookmaker, opts?: NormalizeOptions): NormalizedMarket | null {
+  if (isHalfPeriodMarketName(bet.name ?? "")) {
+    issue(opts, { endpoint: "odds", bookmakerId: bm.id, betId: bet.id, rawValue: bet.name, errorType: "PERIOD_NOT_FT", errorReason: "半场亚盘不能进入全场盘口总览", severity: "info" });
+    return null;
+  }
   const homes: { hcap: number; dec: number }[] = [];
   const aways: { hcap: number; dec: number }[] = [];
   for (const v of bet.values ?? []) {
     const m = /^(Home|Away)\s*([+-]?\d+(?:\.\d+)?)$/.exec(String(v.value).trim());
-    if (!m) continue;
+    if (!m) {
+      issue(opts, { endpoint: "odds", bookmakerId: bm.id, betId: bet.id, rawValue: v, errorType: "VALUE_PARSE_FAILED", errorReason: "亚盘 value 无法解析为 Home/Away + line" });
+      continue;
+    }
     const dec = parseFloat(v.odd);
-    if (!isValidDecimalOdd(dec)) continue;
+    if (!isValidDecimalOdd(dec)) {
+      issue(opts, { endpoint: "odds", bookmakerId: bm.id, betId: bet.id, rawValue: v, parsedValue: { odd: dec }, errorType: "ODDS_OUT_OF_RANGE", errorReason: "亚盘赔率不在 1.01..30 范围" });
+      continue;
+    }
     (m[1] === "Home" ? homes : aways).push({ hcap: parseFloat(m[2]), dec });
   }
-  if (homes.length === 0 || aways.length === 0) return null;
+  if (homes.length === 0 || aways.length === 0) {
+    issue(opts, { endpoint: "odds", bookmakerId: bm.id, betId: bet.id, rawValue: bet.values, errorType: "MISSING_SIDE", errorReason: "亚盘缺少 Home 或 Away 任意一边" });
+    return null;
+  }
 
   const build = (awayKey: (hcap: number) => number): AhPair[] => {
     const hMap = new Map<number, number>();
@@ -117,20 +166,36 @@ function parseAh(bet: AfBet, euHint: { h: number; a: number } | null): Normalize
     } else if (sameSign.dev < mirror.dev) chosen = sameSign;
   }
   const valid = chosen.sane.filter((p) => isValidAhLine(p.line));
-  if (valid.length === 0) return null;
+  if (valid.length === 0) {
+    issue(opts, { endpoint: "odds", bookmakerId: bm.id, betId: bet.id, rawValue: bet.values, parsedValue: chosen.sane, errorType: "LINE_INVALID", errorReason: "亚盘 line 不是 0.25 单位或超出 -4.5..4.5" });
+    return null;
+  }
   const main = pickBalanced(valid.map((p) => ({ line: p.line, h: net(p.decH), a: net(p.decA) })));
   return main ? { market: "ah", line: main.line, h: main.h, a: main.a, d: null } : null;
 }
 
-function parseOu(bet: AfBet): NormalizedMarket | null {
+function parseOu(bet: AfBet, bm: AfBookmaker, opts?: NormalizeOptions): NormalizedMarket | null {
+  if (isHalfPeriodMarketName(bet.name ?? "")) {
+    issue(opts, { endpoint: "odds", bookmakerId: bm.id, betId: bet.id, rawValue: bet.name, errorType: "PERIOD_NOT_FT", errorReason: "半场大小不能进入全场盘口总览", severity: "info" });
+    return null;
+  }
   const byLine = new Map<number, { h?: number; a?: number }>();
   for (const v of bet.values ?? []) {
     const m = /^(Over|Under)\s*(\d+(?:\.\d+)?)$/.exec(String(v.value).trim());
-    if (!m) continue;
+    if (!m) {
+      issue(opts, { endpoint: "odds", bookmakerId: bm.id, betId: bet.id, rawValue: v, errorType: "VALUE_PARSE_FAILED", errorReason: "大小球 value 无法解析为 Over/Under + line" });
+      continue;
+    }
     const dec = parseFloat(v.odd);
-    if (!isValidDecimalOdd(dec)) continue;
+    if (!isValidDecimalOdd(dec)) {
+      issue(opts, { endpoint: "odds", bookmakerId: bm.id, betId: bet.id, rawValue: v, parsedValue: { odd: dec }, errorType: "ODDS_OUT_OF_RANGE", errorReason: "大小球赔率不在 1.01..30 范围" });
+      continue;
+    }
     const line = parseFloat(m[2]);
-    if (!isValidOuLine(line)) continue;
+    if (!isValidOuLine(line)) {
+      issue(opts, { endpoint: "odds", bookmakerId: bm.id, betId: bet.id, rawValue: v, parsedValue: { line }, errorType: "LINE_INVALID", errorReason: "大小球 line 不是 0.25 单位或超出 0.5..8.5" });
+      continue;
+    }
     const slot = byLine.get(line) ?? {};
     if (m[1] === "Over") slot.h = net(dec);
     else slot.a = net(dec);
@@ -144,10 +209,15 @@ function parseOu(bet: AfBet): NormalizedMarket | null {
       return margin >= MARGIN_LO && margin <= MARGIN_HI;
     });
   const main = pickBalanced(pairs);
+  if (!main && byLine.size > 0) issue(opts, { endpoint: "odds", bookmakerId: bm.id, betId: bet.id, rawValue: bet.values, errorType: "PAIR_INCOMPLETE", errorReason: "大小球没有可通过满水率检查的 Over/Under 配对" });
   return main ? { market: "ou", line: main.line, h: main.h, a: main.a, d: null } : null;
 }
 
-function parseEu(bet: AfBet): NormalizedMarket | null {
+function parseEu(bet: AfBet, bm?: AfBookmaker, opts?: NormalizeOptions): NormalizedMarket | null {
+  if (isHalfPeriodMarketName(bet.name ?? "")) {
+    issue(opts, { endpoint: "odds", bookmakerId: bm?.id, betId: bet.id, rawValue: bet.name, errorType: "PERIOD_NOT_FT", errorReason: "半场胜平负不能进入全场盘口总览", severity: "info" });
+    return null;
+  }
   let h: number | undefined, d: number | undefined, a: number | undefined;
   for (const v of bet.values ?? []) {
     const side = euSide(v.value);
@@ -155,33 +225,39 @@ function parseEu(bet: AfBet): NormalizedMarket | null {
     else if (side === "d") d = parseFloat(v.odd);
     else if (side === "a") a = parseFloat(v.odd);
   }
-  return h != null && d != null && a != null && isValidEuTriplet(h, d, a) ? { market: "eu", line: null, h, a, d } : null;
+  if (h == null || d == null || a == null) {
+    issue(opts, { endpoint: "odds", bookmakerId: bm?.id, betId: bet.id, rawValue: bet.values, errorType: "MISSING_SIDE", errorReason: "胜平负缺少 HOME/DRAW/AWAY 任意一项" });
+    return null;
+  }
+  if (!isValidEuTriplet(h, d, a)) {
+    issue(opts, { endpoint: "odds", bookmakerId: bm?.id, betId: bet.id, rawValue: bet.values, parsedValue: { h, d, a }, errorType: "ODDS_OUT_OF_RANGE", errorReason: "胜平负赔率或满水率不在可信范围" });
+    return null;
+  }
+  return { market: "eu", line: null, h, a, d };
 }
 
 /** 一条 /odds response 项(单 fixture)→ 各书商归一化结果 */
-export function normalizeOddsItem(item: unknown): BookmakerOdds[] {
+export function normalizeOddsItem(item: unknown, opts: NormalizeOptions = {}): BookmakerOdds[] {
   const bms = ((item as { bookmakers?: AfBookmaker[] })?.bookmakers ?? []) as AfBookmaker[];
   const out: BookmakerOdds[] = [];
   for (const bm of bms) {
     const markets: NormalizedMarket[] = [];
     let euHint: { h: number; a: number } | null = null;
     for (const bet of bm.bets ?? []) {
-      const name = (bet.name ?? "").toLowerCase();
-      if (bet.id === 1 || name === "match winner") {
-        const m = parseEu(bet);
+      if (isPrematchEuBet(bet)) {
+        const m = parseEu(bet, bm, opts);
         if (m) euHint = { h: m.h, a: m.a };
       }
     }
     for (const bet of bm.bets ?? []) {
-      const name = (bet.name ?? "").toLowerCase();
-      if (bet.id === 4 || name === "asian handicap") {
-        const m = parseAh(bet, euHint);
+      if (isPrematchAhBet(bet)) {
+        const m = parseAh(bet, euHint, bm, opts);
         if (m) markets.push(m);
-      } else if (bet.id === 5 || name === "goals over/under") {
-        const m = parseOu(bet);
+      } else if (isPrematchOuBet(bet)) {
+        const m = parseOu(bet, bm, opts);
         if (m) markets.push(m);
-      } else if (bet.id === 1 || name === "match winner") {
-        const m = parseEu(bet);
+      } else if (isPrematchEuBet(bet)) {
+        const m = parseEu(bet, bm, opts);
         if (m) markets.push(m);
       }
     }
@@ -201,7 +277,7 @@ export interface LiveMarketFrame {
   suspended: boolean;
 }
 
-export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
+export function normalizeLiveOddsItem(item: unknown, opts: NormalizeOptions = {}): LiveMarketFrame[] {
   const dig = (o: unknown, ...p: (string | number)[]): unknown => {
     let cur = o;
     for (const k of p) {
@@ -212,21 +288,29 @@ export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
   };
   const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
   const odds = arr(dig(item, "odds"));
-  const find = (re: RegExp) => odds.find((o) => re.test(String(dig(o, "name") ?? "")));
+  const find = (re: RegExp) => odds.find((o) => re.test(String(dig(o, "name") ?? "")) && !isHalfPeriodMarketName(String(dig(o, "name") ?? "")));
   const num = (v: unknown) => parseFloat(String(v ?? ""));
   const out: LiveMarketFrame[] = [];
 
   /**
    * 两腿配对挑主盘:滚球一个玩法挂十几条线,绝不能取数组首条(那是边缘线)。
-   * 规则:按 |handicap| 分组配对(两腿必须同线)→ 有 main 标志的对优先 →
-   * 否则取「水位最均衡且满水率落在 1.00–1.25」的一对(与赛前 pickBalanced 同思想)。
+   * 规则:按 |handicap| 分组配对(两腿必须同线)→ main 标志只作小幅加分 →
+   * 综合水位均衡与满水率合理度选主线,避免把 API 第一条或 main 标记当最终答案。
    */
-  const pickMainPair = (vals: unknown[], sideARe: RegExp, sideBRe: RegExp) => {
+  const pickMainPair = (vals: unknown[], sideARe: RegExp, sideBRe: RegExp, bet: unknown, marketLabel: string) => {
     interface Leg { odd: number; suspended: boolean; main: boolean; hc: number }
-    const byLine = new Map<string, { a?: Leg; b?: Leg }>();
+    const byLine = new Map<string, { a?: Leg; b?: Leg; invalidOdd?: boolean }>();
     for (const v of vals) {
       const odd = num(dig(v, "odd"));
-      if (!isValidDecimalOdd(odd)) continue;
+      if (!isValidDecimalOdd(odd)) {
+        const hcForKey = num(dig(v, "handicap"));
+        const keyForInvalid = Number.isFinite(hcForKey) ? String(Math.abs(hcForKey)) : "";
+        const slotForInvalid = byLine.get(keyForInvalid) ?? {};
+        slotForInvalid.invalidOdd = true;
+        byLine.set(keyForInvalid, slotForInvalid);
+        issue(opts, { endpoint: "odds.live", betId: Number(dig(bet, "id")) || null, rawValue: v, parsedValue: { odd }, errorType: "ODDS_OUT_OF_RANGE", errorReason: `${marketLabel} 滚球赔率不在 1.01..30 范围` });
+        continue;
+      }
       const hc = num(dig(v, "handicap"));
       const key = Number.isFinite(hc) ? String(Math.abs(hc)) : "";
       const leg: Leg = { odd, suspended: Boolean(dig(v, "suspended")), main: dig(v, "main") === true, hc: Number.isFinite(hc) ? hc : 0 };
@@ -236,21 +320,22 @@ export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
       else if (sideBRe.test(val)) slot.b = slot.b ?? leg;
       byLine.set(key, slot);
     }
-    let best: { a: Leg; b: Leg; bal: number; main: boolean } | null = null;
+    let best: { a: Leg; b: Leg; bal: number; score: number; main: boolean } | null = null;
     for (const slot of byLine.values()) {
       if (!slot.a || !slot.b) continue;
       const margin = 1 / slot.a.odd + 1 / slot.b.odd;
       if (margin < 1.0 || margin > 1.25) continue; // 满水率自证:配错腿/坏数据直接拒收
       const isMain = slot.a.main || slot.b.main;
       const bal = Math.abs(slot.a.odd - slot.b.odd);
-      if (!best || (isMain && !best.main) || (isMain === best.main && bal < best.bal)) best = { a: slot.a, b: slot.b, bal, main: isMain };
+      const score = bal + Math.abs(margin - 1.06) * 2 - (isMain ? 0.08 : 0);
+      if (!best || score < best.score) best = { a: slot.a, b: slot.b, bal, score, main: isMain };
     }
     return best;
   };
 
   const ahO = find(/asian handicap/i);
   if (ahO) {
-    const pair = pickMainPair(arr(dig(ahO, "values")), /home/i, /away/i);
+    const pair = pickMainPair(arr(dig(ahO, "values")), /home/i, /away/i, ahO, "亚盘");
     const line = pair ? -pair.a.hc : null;
     if (pair && line != null && isValidAhLine(line))
       out.push({
@@ -261,10 +346,13 @@ export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
         d: null,
         suspended: pair.a.suspended || pair.b.suspended,
       });
+    else if (pair && line != null)
+      issue(opts, { endpoint: "odds.live", betId: Number(dig(ahO, "id")) || null, rawValue: dig(ahO, "values"), parsedValue: { line }, errorType: "LINE_INVALID", errorReason: "滚球亚盘 line 不是 0.25 单位或超出 -4.5..4.5" });
+    else issue(opts, { endpoint: "odds.live", betId: Number(dig(ahO, "id")) || null, rawValue: dig(ahO, "values"), errorType: "PAIR_INCOMPLETE", errorReason: "滚球亚盘没有可通过满水率检查的 Home/Away 配对" });
   }
   const ouO = find(/over\/under/i);
   if (ouO) {
-    const pair = pickMainPair(arr(dig(ouO, "values")), /over/i, /under/i);
+    const pair = pickMainPair(arr(dig(ouO, "values")), /over/i, /under/i, ouO, "大小球");
     const line = pair ? Math.abs(pair.a.hc) : null;
     if (pair && line != null && isValidOuLine(line))
       out.push({
@@ -275,6 +363,15 @@ export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
         d: null,
         suspended: pair.a.suspended || pair.b.suspended,
       });
+    else if (pair && line != null)
+      issue(opts, { endpoint: "odds.live", betId: Number(dig(ouO, "id")) || null, rawValue: dig(ouO, "values"), parsedValue: { line }, errorType: "LINE_INVALID", errorReason: "滚球大小球 line 不是 0.25 单位或超出 0.5..8.5" });
+    else issue(opts, { endpoint: "odds.live", betId: Number(dig(ouO, "id")) || null, rawValue: dig(ouO, "values"), errorType: "PAIR_INCOMPLETE", errorReason: "滚球大小球没有可通过满水率检查的 Over/Under 配对" });
+  }
+  for (const o of odds) {
+    const name = String(dig(o, "name") ?? "");
+    if (/1x2/i.test(name) && !isFulltimeResultMarketName(name)) {
+      issue(opts, { endpoint: "odds.live", betId: Number(dig(o, "id")) || null, rawValue: name, errorType: "PERIOD_NOT_FT", errorReason: "滚球分钟段 1x2 不能进入全场胜平负" });
+    }
   }
   const x12 = odds.find((o) => isFulltimeResultMarketName(String(dig(o, "name") ?? "")));
   if (x12) {
@@ -296,6 +393,10 @@ export function normalizeLiveOddsItem(item: unknown): LiveMarketFrame[] {
           d: dv,
           suspended: [h, dd, a].some((v) => Boolean(dig(v, "suspended"))),
         });
+      else
+        issue(opts, { endpoint: "odds.live", betId: Number(dig(x12, "id")) || null, rawValue: vals, parsedValue: { h: hv, d: dv, a: av }, errorType: "ODDS_OUT_OF_RANGE", errorReason: "滚球胜平负赔率或满水率不在可信范围" });
+    } else if (x12) {
+      issue(opts, { endpoint: "odds.live", betId: Number(dig(x12, "id")) || null, rawValue: vals, errorType: "MISSING_SIDE", errorReason: "滚球胜平负缺少 HOME/DRAW/AWAY 任意一项" });
     }
   }
   return out;
