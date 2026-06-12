@@ -57,6 +57,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
   const [drawer, setDrawer] = useState(!!initialDrawer);
   const [busy, setBusy] = useState(false);
   const [lastAt, setLastAt] = useState<number | null>(null);
+  const [rtt, setRtt] = useState<number | null>(null);
   const workerAt = useWorkerBeat();
   const tierIntervals = useTierIntervals(modal?.kind === "refresh");
   const { tiers: rechargeTiers, maintenance: rechargeMaintenance } = useRechargeTiers(modal?.kind === "recharge");
@@ -67,6 +68,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
 
   /* ── 取数 ── */
   const loadRows = useCallback(async () => {
+    const t0 = Date.now();
     try {
       const j = await fetch(`/api/matches?day=${day}&league=${league}&tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" }).then((r) => r.json());
       if (j.ok) {
@@ -80,6 +82,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
       }
     } catch { /* 保留旧数据 */ } finally {
       setLastAt(Date.now());
+      setRtt(Date.now() - t0);
     }
   }, [league, day, prefs.tz]);
 
@@ -213,7 +216,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
         <span style={{ flex: 1 }} />
         {/* 与移动端页头同构:第一行真实盯盘状态,第二行数据刷新规则入口 */}
         <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
-          <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} showNext />
+          <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} rtt={rtt} />
           <span onClick={() => setModal({ kind: "refresh" })} style={{ fontSize: 9, color: "var(--gold)", fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer" }}>
             ⟳ 数据刷新规则 ›
           </span>
@@ -357,7 +360,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           <div style={{ flex: 1.2, display: "flex", flexDirection: "column", minHeight: 0, borderBottom: "1px solid var(--line)" }}>
             <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 8px" }}>
               <span style={{ fontSize: 13, fontWeight: 800 }}>盘口异动</span>
-              <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} />
+              <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} rtt={rtt} />
             </div>
             <div style={{ flexShrink: 0, display: "flex", gap: 6, padding: "0 14px 8px" }}>
               {["全部", "滚球", "升盘", "降盘", "水位"].map((l) => (

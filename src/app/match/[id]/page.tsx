@@ -52,6 +52,7 @@ function MobileMatchDetail({ id }: { id: string }) {
   const [share, setShare] = useState<ShareData | null>(null);
   const [err, setErr] = useState("");
   const [lastAt, setLastAt] = useState<number | null>(null);
+  const [rtt, setRtt] = useState<number | null>(null);
   const [player, setPlayer] = useState<PlayerTarget | null>(null);
   const [history, setHistory] = useState<HistoryTarget | null>(null);
   const workerAt = useWorkerBeat();
@@ -59,6 +60,7 @@ function MobileMatchDetail({ id }: { id: string }) {
   const router = useRouter();
 
   const load = useCallback(async () => {
+    const t0 = Date.now();
     try {
       const r = await fetch(`/api/match/${id}?tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" });
       const j = await r.json();
@@ -68,6 +70,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       setErr("网络异常");
     } finally {
       setLastAt(Date.now());
+      setRtt(Date.now() - t0);
     }
   }, [id, prefs.tz]);
 
@@ -282,7 +285,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 8px", cursor: "pointer", flexWrap: "wrap" }}>
         <span style={{ fontSize: 9.5, color: "var(--fg-3)" }}>⟳ {h.fresh.line}{v.summary.oddsAt ? ` · 盘口更新于 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}</span>
         <span style={{ fontSize: 9.5, color: "var(--gold)", fontWeight: 700 }}>规则 ›</span>
-        {!h.finished && <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} showNext />}
+        {!h.finished && <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} rtt={rtt} />}
       </div>
 
       <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", overflowX: "auto", flexShrink: 0 }}>

@@ -65,7 +65,7 @@ export function RefreshRules({ activeIdx, intervals }: { activeIdx: number | nul
       </div>
 
       <div style={{ fontSize: 10, color: "var(--fg-3)", marginTop: 8, lineHeight: 1.7, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
-        赔率、赛况与阵容来自官方接口,平台按上表频率自动抓取归档;频率为后台当前生效配置,调整后此处实时同步。页头「Live · Ns」为本页面向服务器的轮询节奏,与抓取档位相互独立。
+        赔率、赛况与阵容来自官方接口,平台按上表频率自动抓取归档;频率为后台当前生效配置,调整后此处实时同步。页头连接状态行显示的是您与本站之间的实测延迟,与抓取档位相互独立。
       </div>
     </>
   );

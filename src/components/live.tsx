@@ -78,22 +78,27 @@ export interface BeatState {
   lastAt: number | null;
   intervalMs: number;
   workerAt?: number | null;
+  /** 最近一次数据请求的真实往返耗时(ms) */
+  rtt?: number | null;
 }
 
-/** 心跳行:● Live · 10s · 上次检查 3s前(可选 下次约 Ns) */
-export function HeartBeat({ lastAt, intervalMs, workerAt, showNext = false, style }: BeatState & { showNext?: boolean; style?: CSSProperties }) {
+/**
+ * 连接状态行:只报真实状态与延迟,不报轮询参数 ——
+ *   ● 已连接 · 36ms(绿,延迟=最近一次请求实测往返)
+ *   ● 数据延迟(金,本页超过 3 个周期没拿到新数据)
+ *   ● 盯盘暂停(灰,数据端 worker 失联 >3min)
+ */
+export function HeartBeat({ lastAt, intervalMs, workerAt, rtt, style }: BeatState & { style?: CSSProperties }) {
   const now = useNow(1000);
   const workerDown = workerAt != null && now - workerAt > 3 * 60_000;
   const stale = lastAt != null && now - lastAt > intervalMs * 3;
-  const nextS = lastAt != null ? Math.max(0, Math.ceil((lastAt + intervalMs - now) / 1000)) : null;
   const color = workerDown ? "var(--fg-3)" : stale ? "var(--gold)" : "var(--green)";
-  const label = workerDown ? "盯盘暂停" : stale ? "数据延迟" : `Live · ${Math.round(intervalMs / 1000)}s`;
+  const label = workerDown ? "盯盘暂停" : stale ? "数据延迟" : "已连接";
   return (
     <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 9, color: "var(--fg-3)", whiteSpace: "nowrap", ...style }}>
       <span className={workerDown ? undefined : "breathe"} style={{ width: 5, height: 5, borderRadius: "50%", background: color, flexShrink: 0 }} />
       <span style={{ color, fontWeight: 700 }}>{label}</span>
-      <span>· 上次检查 {agoText(lastAt, now)}</span>
-      {showNext && nextS != null && !workerDown && !stale && <span>· 下次约 {nextS}s</span>}
+      {!workerDown && !stale && rtt != null && <span>· {Math.max(1, Math.round(rtt))}ms</span>}
     </span>
   );
 }
@@ -122,20 +127,23 @@ export function useWorkerBeat(): number | null {
 /**
  * 四个一级菜单的统一轮询:全站一条规则 —— 平台有滚球场次 3s,否则 10s
  * (liveNow 来自 /api/health,与列表/详情的「滚球加速」同源)。
- * 返回值直接喂给 PageHeader,页头「Live · Ns」即本页真实轮询节奏。
+ * 返回值直接喂给 PageHeader;rtt 为本页数据请求的实测往返耗时(连接状态行显示)。
  */
-export function useUnifiedPoll(load: () => void | Promise<void>): { lastAt: number | null; workerAt: number | null; intervalMs: number } {
+export function useUnifiedPoll(load: () => void | Promise<void>): { lastAt: number | null; workerAt: number | null; intervalMs: number; rtt: number | null } {
   const { workerAt, liveNow } = useHealth();
   const intervalMs = liveNow > 0 ? 3_000 : 10_000;
   const [lastAt, setLastAt] = useState<number | null>(null);
+  const [rtt, setRtt] = useState<number | null>(null);
   usePoll(async () => {
+    const t0 = Date.now();
     try {
       await load();
     } finally {
       setLastAt(Date.now());
+      setRtt(Date.now() - t0);
     }
   }, intervalMs);
-  return { lastAt, workerAt, intervalMs };
+  return { lastAt, workerAt, intervalMs, rtt };
 }
 
 /** 统一轮询:document.hidden 时暂停(省流量 + 长停留防御),回到前台立即刷一次 */
