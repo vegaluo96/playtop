@@ -450,6 +450,79 @@ export function renormalizeOdds(fixtureId?: number): { fixtures: number; raws: n
 }
 
 /* ── 盘口保真度审计:AF 原始 → 归一化 → 落库 → 显示,四层对照 ── */
+/**
+ * 批量盘口校验:未来 48h 内全部未完场赛事,逐场对照「AF 源共识盘 vs 我方落库主盘」,
+ * 程序自动判定:✓ 一致 ｜ △ 水位偏差(同线,|Δ|>0.05,多为书商基准差) ｜ ✗ 盘口线不一致(真问题)。
+ * 每场消耗 1 次 AF 请求,默认上限 20 场。
+ */
+export async function verifyOdds(maxN = 20): Promise<string> {
+  const d = db();
+  const now = Date.now();
+  const fixtures = fixturesBetween(now - 2 * 3_600_000, now + 48 * 3_600_000)
+    .filter((f) => !["FT", "AET", "PEN", "AWD", "WO"].includes(f.status))
+    .sort((a, b) => a.kickoff_utc - b.kickoff_utc)
+    .slice(0, maxN);
+  if (fixtures.length === 0) return "未来 48h 无未完场赛事。";
+
+  const median = (xs: number[]) => {
+    const s = [...xs].sort((p, q) => p - q);
+    return s.length ? s[Math.floor((s.length - 1) / 2)] : null;
+  };
+  const lines: string[] = [`■ 批量盘口校验 · ${fixtures.length} 场(未来 48h)· 判定口径:线不一致=✗ / 同线水位差>0.05=△ / 否则 ✓`];
+  let ok = 0, warn = 0, bad = 0, skip = 0;
+
+  for (const f of fixtures) {
+    let raw: unknown = null;
+    try {
+      const env = await afGet(`/odds?fixture=${f.fixture_id}`, { force: true });
+      raw = Array.isArray(env.response) ? env.response[0] : null;
+    } catch {
+      /* 单场失败不阻断 */
+    }
+    const name = `${f.home_name} vs ${f.away_name}`.slice(0, 30);
+    if (!raw) {
+      lines.push(`  ⊘ ${name} · fixture=${f.fixture_id}:AF 暂无赔率(未开盘或拉取失败)`);
+      skip++;
+      continue;
+    }
+    const books = normalizeOddsItem(raw);
+    for (const mk of ["ah", "ou"] as const) {
+      const ms = books.flatMap((b) => b.markets.filter((m) => m.market === mk));
+      if (ms.length === 0) continue;
+      const cLine = median(ms.map((m) => m.line ?? 0));
+      const at = ms.filter((m) => (m.line ?? 0) === cLine);
+      const cH = median(at.map((m) => m.h))!;
+      const cA = median(at.map((m) => m.a))!;
+      const mine = d
+        .prepare("SELECT bookmaker, line, h, a FROM odds_snapshots WHERE fixture_id=? AND market=? ORDER BY captured_at DESC LIMIT 1")
+        .get(f.fixture_id, mk) as { bookmaker: string; line: number; h: number; a: number } | undefined;
+      if (!mine) {
+        lines.push(`  ⊘ ${name} ${mk}:库内无快照(待 worker 抓取)`);
+        skip++;
+        continue;
+      }
+      if (mine.line !== cLine) {
+        lines.push(`  ✗ ${name} ${mk}:线不一致!AF共识 ${cLine} vs 我方 ${mine.line}(${mine.bookmaker})← 需排查`);
+        bad++;
+      } else if (Math.abs(mine.h - cH) > 0.05 || Math.abs(mine.a - cA) > 0.05) {
+        lines.push(`  △ ${name} ${mk}:同线 ${cLine},水位差 AF ${cH}/${cA} vs 我方 ${mine.h}/${mine.a}(${mine.bookmaker},书商基准差)`);
+        warn++;
+      } else {
+        ok++;
+      }
+    }
+  }
+  lines.push(`  汇总:✓ ${ok} 项一致 · △ ${warn} 项水位小差 · ✗ ${bad} 项线不一致 · ⊘ ${skip} 项无数据`);
+  lines.push(
+    bad > 0
+      ? "  结论:存在线不一致项,需逐场 audit 排查!"
+      : ok > 0
+        ? "  结论:全部盘口线与 AF 源一致,数据无错。"
+        : "  结论:本轮无可判定项(均无数据)。",
+  );
+  return lines.join("\n");
+}
+
 export async function auditOdds(fixtureId: number, base?: string): Promise<string> {
   const d = db();
   const lines: string[] = [`■ 盘口保真度审计 · fixture=${fixtureId}`];
