@@ -6,6 +6,7 @@
  *   npm run selfcheck -- --base http://localhost:3001
  *   npm run selfcheck -- audit <fixtureId> # 盘口保真度审计:AF原始→归一化→落库→显示 四层对照
  *   npm run selfcheck -- verify [n]        # 批量校验未来48h全部场次主盘 vs AF源,自动判定 ✓/△/✗
+ *   npm run selfcheck -- clean-live        # 清理旧滚球帧(主盘选线修复后跑一次)
  *   npm run selfcheck -- renorm [fid|all]  # 归一化修正后,重放 odds_raw 重建快照与异动
  * 退出码:有 ✗ 时为 2。
  */
@@ -35,6 +36,15 @@ async function main() {
     const fid = args[1] && args[1] !== "all" ? Number(args[1]) : undefined;
     const r = renormalizeOdds(fid);
     console.log(`重算完成:${r.fixtures} 场 · 重放 ${r.raws} 帧原始数据 · 重建异动 ${r.moves} 条`);
+    return;
+  }
+  if (args[0] === "clean-live") {
+    // 清理旧逻辑(误选边缘线)落库的滚球帧与滚球异动;下场滚球用新逻辑重新归档
+    const { db } = await import("../src/server/db");
+    const d = db();
+    const a = d.prepare("DELETE FROM live_odds_snapshots").run();
+    const b = d.prepare("DELETE FROM movements WHERE phase='滚球'").run();
+    console.log(`清理完成:滚球帧 ${a.changes} 条 · 滚球异动 ${b.changes} 条(下场滚球自动重新归档)`);
     return;
   }
   if (args[0] === "verify") {

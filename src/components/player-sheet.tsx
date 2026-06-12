@@ -14,17 +14,34 @@ export interface PlayerTarget {
   season: number;
 }
 
+/* 会话级缓存:同一球员二次点开零等待 */
+const cache = new Map<string, V>();
+
 export function PlayerSheet({ target, onClose }: { target: PlayerTarget | null; onClose: () => void }) {
   const [v, setV] = useState<V | null>(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    setV(null);
     setErr("");
-    if (!target) return;
+    if (!target) {
+      setV(null);
+      return;
+    }
+    const key = `${target.id}:${target.season}`;
+    const hit = cache.get(key);
+    if (hit) {
+      setV(hit); // 缓存命中即开即显
+      return;
+    }
+    setV(null);
     fetch(`/api/player/${target.id}?season=${target.season}`)
       .then((r) => r.json())
-      .then((j) => (j.ok ? setV(j) : setErr(j.error || "暂无数据")))
+      .then((j) => {
+        if (j.ok) {
+          cache.set(key, j);
+          setV(j);
+        } else setErr(j.error || "暂无数据");
+      })
       .catch(() => setErr("网络异常"));
   }, [target]);
 
@@ -45,6 +62,15 @@ export function PlayerSheet({ target, onClose }: { target: PlayerTarget | null; 
             )}
           </div>
 
+          {!v && !err && (
+            <div style={{ background: "var(--inset)", borderRadius: 10, padding: "12px", marginBottom: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 6 }}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} style={{ height: 30, borderRadius: 6, background: "var(--line)", opacity: 0.5, animation: "livepulse 1.4s infinite" }} />
+                ))}
+              </div>
+            </div>
+          )}
           {v?.stats?.length > 0 && (
             <>
               {v.stats.map((st: V, i: number) => (

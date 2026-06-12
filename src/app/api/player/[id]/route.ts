@@ -32,10 +32,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const season = Number(req.nextUrl.searchParams.get("season")) || new Date().getFullYear();
 
   try {
-    const item = await kvCached<unknown>(`player:${pid}:${season}`, 24 * 3_600_000, async () => {
-      const r = await runAfEndpoint("players", { id: String(pid), season: String(season) });
-      return arr(r.response)[0] ?? null;
-    });
+    // 并行拉取:players 与 sidelined 互不阻塞,首开延迟减半
+    const [item, sidelined] = await Promise.all([
+      kvCached<unknown>(`player:${pid}:${season}`, 24 * 3_600_000, async () => {
+        const r = await runAfEndpoint("players", { id: String(pid), season: String(season) });
+        return arr(r.response)[0] ?? null;
+      }),
+      kvCached<unknown[]>(`player:${pid}:sidelined`, 7 * 86_400_000, async () => {
+        const r = await runAfEndpoint("sidelined", { player: String(pid) });
+        return arr(r.response).slice(0, 6);
+      }).catch(() => [] as unknown[]),
+    ]);
     if (!item) return NextResponse.json({ ok: false, error: "暂无该球员赛季数据" }, { status: 404 });
 
     const pl = dig(item, "player");
@@ -59,12 +66,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       .filter((st) => st.apps > 0)
       .sort((a, b) => b.apps - a.apps)
       .slice(0, 3);
-
-    // 停赛/伤停史(sidelined 端点,7 天缓存)
-    const sidelined = await kvCached<unknown[]>(`player:${pid}:sidelined`, 7 * 86_400_000, async () => {
-      const r = await runAfEndpoint("sidelined", { player: String(pid) });
-      return arr(r.response).slice(0, 6);
-    }).catch(() => [] as unknown[]);
 
     return NextResponse.json({
       ok: true,
