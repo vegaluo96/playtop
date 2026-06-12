@@ -107,6 +107,8 @@ export function CenterPane({
   const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
     <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, ...style }}>{children}</div>
   );
+  const pairQuoteGrid = "72px minmax(0,1fr) 50px 50px";
+  const euQuoteGrid = "76px repeat(3,minmax(44px,1fr))";
 
   const trendCol = (title: string, data: { rows: V[]; chart: ChartRow[] }, idx: V, mk: "ah" | "ou", cols: [string, string]) => (
     <div>
@@ -126,18 +128,18 @@ export function CenterPane({
         <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 4, lineHeight: 1.5 }}>{idx?.method}</div>
       </Card>
       <Card style={{ marginTop: 8, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 44px 44px", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: pairQuoteGrid, columnGap: 8, padding: "7px 12px", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
           {["时间", "指数", cols[0], cols[1]].map((c, i) => (
-            <span key={c} style={{ fontSize: 11.5, color: "var(--fg-3)", textAlign: i >= 2 ? "right" : "left" }}>{c}</span>
+            <span key={c} style={{ fontSize: 11.5, color: "var(--fg-3)", textAlign: i >= 2 ? "right" : "left", minWidth: 0 }}>{c}</span>
           ))}
         </div>
         {data.rows.length === 0 && <div style={{ padding: 12, fontSize: 11.5, color: "var(--fg-3)", textAlign: "center" }}>快照积累中</div>}
         {data.rows.map((r: V, i: number) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "72px 1fr 50px 50px", padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-            <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{r.t}</span>
-            <span style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+          <div key={i} style={{ display: "grid", gridTemplateColumns: pairQuoteGrid, columnGap: 8, padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+            <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)", whiteSpace: "nowrap" }}>{r.t}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden" }}>
               <MarketValue v={r.text} className="" small style={{ color: r.chg ? "var(--gold)" : "var(--fg-mid)", fontWeight: 800 }} />
-              {r.chg ? <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--gold)" }}>变盘</span> : null}
+              {r.chg ? <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--gold)", flexShrink: 0 }}>变盘</span> : null}
             </span>
             <MarketValue v={r.h} small style={{ justifyContent: "flex-end" }} />
             <MarketValue v={r.a} small style={{ justifyContent: "flex-end" }} />
@@ -325,14 +327,14 @@ export function CenterPane({
                   <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 4, lineHeight: 1.5 }}>{v.odds.index?.eu?.method}</div>
                 </Card>
                 <Card style={{ marginTop: 8, overflow: "hidden" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "76px 1fr 1fr 1fr", padding: "8px 12px", borderBottom: "1px solid var(--line)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: euQuoteGrid, columnGap: 8, padding: "8px 12px", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
                     {["时间", "主胜", "平局", "客胜"].map((c, i) => (
-                      <span key={c} style={{ fontSize: 11.5, color: "var(--fg-3)", textAlign: i > 0 ? "right" : "left" }}>{c}</span>
+                      <span key={c} style={{ fontSize: 11.5, color: "var(--fg-3)", textAlign: i > 0 ? "right" : "left", minWidth: 0 }}>{c}</span>
                     ))}
                   </div>
                   {v.odds.eu.map((r: V, i: number) => (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "76px 1fr 1fr 1fr", padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-                      <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{r.t}</span>
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: euQuoteGrid, columnGap: 8, padding: "7px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+                      <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)", whiteSpace: "nowrap" }}>{r.t}</span>
                       <MarketValue v={r.h} small style={{ justifyContent: "flex-end" }} />
                       <MarketValue v={r.d} small dim style={{ justifyContent: "flex-end" }} />
                       <MarketValue v={r.a} small style={{ justifyContent: "flex-end" }} />

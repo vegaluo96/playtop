@@ -138,12 +138,14 @@ function MobileMatchDetail({ id }: { id: string }) {
     });
 
   const Th = ({ cols, widths }: { cols: string[]; widths: string }) => (
-    <div style={{ display: "grid", gridTemplateColumns: widths, padding: "9px 12px", borderBottom: "1px solid var(--line)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: widths, padding: "9px 12px", borderBottom: "1px solid var(--line)", alignItems: "center", columnGap: 8 }}>
       {cols.map((c, i) => (
-        <span key={i} style={{ fontSize: 11, color: "var(--fg-3)", textAlign: i > 0 ? "right" : "left" }}>{c}</span>
+        <span key={i} style={{ fontSize: 11, color: "var(--fg-3)", textAlign: i > 1 ? "right" : "left", minWidth: 0 }}>{c}</span>
       ))}
     </div>
   );
+  const pairQuoteGrid = "78px minmax(0,1fr) 58px 58px";
+  const euQuoteGrid = "78px repeat(3,minmax(50px,1fr))";
 
   const trendBlock = (title: string, data: { rows: V[]; chart: ChartRow[]; startAt?: number | null }, idx: V, mk: "ah" | "ou", cols: [string, string]) => (
     <>
@@ -160,14 +162,14 @@ function MobileMatchDetail({ id }: { id: string }) {
         <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.6 }}>{idx?.method}</div>
       </Card>
       <Card style={{ marginTop: 8, overflow: "hidden" }}>
-        <Th cols={["时间", "指数", cols[0], cols[1]]} widths="82px 1fr 60px 60px" />
+        <Th cols={["时间", "指数", cols[0], cols[1]]} widths={pairQuoteGrid} />
         {data.rows.length === 0 && <div style={{ padding: 14, fontSize: 12, color: "var(--fg-3)", textAlign: "center" }}>快照积累中</div>}
         {data.rows.map((r: V, i: number) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "82px 1fr 60px 60px", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-            <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.t}</span>
-            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <div key={i} style={{ display: "grid", gridTemplateColumns: pairQuoteGrid, columnGap: 8, padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+            <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap" }}>{r.t}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden" }}>
               <MarketValue v={r.text} className="" small style={{ color: r.chg ? "var(--gold)" : "var(--fg-mid)", fontWeight: 800 }} />
-              {r.chg && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)" }}>变盘</span>}
+              {r.chg && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", flexShrink: 0 }}>变盘</span>}
             </span>
             <MarketValue v={r.h} small style={{ justifyContent: "flex-end" }} />
             <MarketValue v={r.a} small style={{ justifyContent: "flex-end" }} />
@@ -356,10 +358,10 @@ function MobileMatchDetail({ id }: { id: string }) {
               <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.6 }}>{v.odds.index?.eu?.method}</div>
             </Card>
             <Card style={{ marginTop: 8, overflow: "hidden" }}>
-              <Th cols={["时间", "主胜", "平局", "客胜"]} widths="78px 1fr 1fr 1fr" />
+              <Th cols={["时间", "主胜", "平局", "客胜"]} widths={euQuoteGrid} />
               {v.odds.eu.map((r: V, i: number) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "78px 1fr 1fr 1fr", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-                  <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.t}</span>
+                <div key={i} style={{ display: "grid", gridTemplateColumns: euQuoteGrid, columnGap: 8, padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap" }}>{r.t}</span>
                   <MarketValue v={r.h} small style={{ justifyContent: "flex-end" }} />
                   <MarketValue v={r.d} small dim style={{ justifyContent: "flex-end" }} />
                   <MarketValue v={r.a} small style={{ justifyContent: "flex-end" }} />
