@@ -12,6 +12,7 @@ import { cfgAfKey, cfgEffectiveTierIntervals, cfgFirstBonusOn, cfgLlmKey, cfgRec
 import { audit, ensureAdminSeed, listAudit } from "./admin/auth";
 import { chatComplete } from "./llm/client";
 import { demoRechargeEnabled } from "./platform/wallet";
+import { USER_ROUTE_CONTRACT } from "./contract/registry";
 
 export interface CheckRow {
   layer: string;
@@ -243,6 +244,41 @@ export async function checkApi(base: string): Promise<CheckRow[]> {
 }
 
 /* ── L4:商业闭环(真实 API 走一遍,事务清理)── */
+/** L3 契约:每个用户端路由实际响应顶层字段 ⊆ registry 登记(超出 = 漂移,把"人工对比"变机器判定) */
+export async function checkContract(base: string): Promise<CheckRow[]> {
+  const rows: CheckRow[] = [];
+  const get = async (path: string): Promise<Record<string, unknown> | null> => {
+    try {
+      const r = await fetch(`${base}${path}`, { cache: "no-store" });
+      return (await r.json().catch(() => null)) as Record<string, unknown> | null;
+    } catch {
+      return null;
+    }
+  };
+  const m = await get("/api/matches?day=today");
+  const list = (m?.rows ?? []) as Record<string, unknown>[];
+  const fid = (list.find((r) => !r.masked)?.id ?? list[0]?.id) as number | undefined;
+  const always = new Set(["ok", "error"]);
+  for (const c of USER_ROUTE_CONTRACT) {
+    let path: string;
+    if (c.route.includes("[id]")) {
+      if (fid == null) { rows.push(row("L3 契约", c.route, "skip", "无可采样 fixture")); continue; }
+      path = `/api${c.route.replace("[id]", String(fid))}` + (c.route.endsWith("/history") ? "?mk=ah" : "");
+    } else {
+      path = `/api${c.route}`;
+    }
+    const j = await get(path);
+    if (!j || j.ok === false) { rows.push(row("L3 契约", c.route, "skip", j ? "ok=false(可能今日无数据)" : "未取到响应")); continue; }
+    const allowed = new Set([...c.fields, ...always]);
+    const extra = Object.keys(j).filter((k) => !allowed.has(k));
+    rows.push(
+      row("L3 契约", c.route, extra.length === 0 ? "ok" : "fail",
+        extra.length === 0 ? `${Object.keys(j).length} 字段全在契约内` : `漂移:响应多出未登记字段 [${extra.join(", ")}] → 同步 src/server/contract/registry.ts`),
+    );
+  }
+  return rows;
+}
+
 export async function checkBusiness(base: string): Promise<CheckRow[]> {
   const rows: CheckRow[] = [];
   const ts = Date.now();

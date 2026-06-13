@@ -16,6 +16,7 @@ import {
   renormalizeOdds,
   checkAdmin,
   checkApi,
+  checkContract,
   checkBusiness,
   checkLlm,
   checkReadonly,
@@ -83,6 +84,7 @@ async function main() {
   const rows = await checkReadonly();
   if (!args.includes("--readonly")) {
     rows.push(...(await checkApi(base)));
+    rows.push(...(await checkContract(base)));
     rows.push(...(await checkBusiness(base)));
     rows.push(...(await checkAdmin(base)));
     if (args.includes("--llm")) rows.push(...(await checkLlm()));

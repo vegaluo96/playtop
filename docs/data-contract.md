@@ -23,7 +23,7 @@
 
 ## §1 源登记(AF 端点 → 表 → 覆盖键 → 管线落点)
 
-数据源唯一:比赛数据 = API-Football v3(39 端点,`src/server/af/catalog.ts` 逐条登记);外部增强 = Polymarket(Gamma `public-search`)、天气(MET Norway + Open-Meteo)。**逐端点↔显示面的完整矩阵见 `docs/history/af-coverage.md`(附录,随功能同步)。** 本节给规范层的归并视图:
+数据源唯一:比赛数据 = API-Football v3(39 端点,`src/server/af/catalog.ts` 逐条登记);外部增强 = Polymarket(Gamma `public-search`)、天气(MET Norway + Open-Meteo)。**39 端点逐一归属的机器可读权威 = `src/server/contract/registry.ts` 的 `AF_ENDPOINT_ROLE`**(测试 `data-contract.test.ts` 保证与 catalog 同步,见 §11);逐端点↔显示面详细矩阵见 `docs/history/af-coverage.md`(附录)。本节给规范层的归并视图:
 
 | 覆盖键(`SourceCoverageKey`) | 主要 AF 端点 | 落库/缓存 | 管线角色 | 是否参与报告拟合(`usedInReport`) |
 |---|---|---|---|---|
@@ -204,11 +204,39 @@ interface Fitted<T> {
 ## §11 完整性工程(AF 源完整 + 契约完整 + 机器核查,反功能漂移)
 
 > 目标:UI 重构有一张**穷尽**的"源→视图模型→界面"地图,且"对不对得上"由**机器**判定,不靠人工对比。
+> **机器可读单一真相 = `src/server/contract/registry.ts`**;本文档是人类可读镜像,以 registry + 测试为准(防文档自身漂移)。
 
-- **§11.1 完整 AF 源清单**:对 `src/server/af/catalog.ts` 登记的全部端点,逐端点列出**实际解析的字段** → 落库表 → 新鲜度 → 覆盖键 → 视图模型字段。规范 §1 由"归并视图"升级为"字段级穷尽表";详细矩阵 `docs/history/af-coverage.md` 并入。
-- **§11.2 UI ↔ 源映射**:对每个用户可见 surface/组件,登记其消费的视图模型字段 → 上溯源字段。这是 UI 重构的施工图,也是"对不上"的检出点。
-- **§11.3 机器核查**(接 selfcheck,§7 待办 #7):
-  - 每个 API 响应字段必须在契约登记内(多出 = 漂移,失败);
-  - 每个用户可见拟合值必须带 §5 信封(缺 `ready/sourceKind` = 失败);
-  - 前端不得出现 AF raw 形状的直读(F1,静态扫描)。
-  完成后,"UI 与后台是否对得上"成为 `npm run selfcheck` 的一项,改任意一端即时报漂移。
+**已落地(机器层)**:
+- `src/server/contract/registry.ts` —— `AF_ENDPOINT_ROLE`(39 端点逐一归属)+ `USER_ROUTE_CONTRACT`(每路由允许字段/拟合字段/锁定差异/视图模型)。
+- `tests/platform/data-contract.test.ts`(静态,无需服务,进 `npm test`):
+  - **AF 源完整** —— catalog 新增/删除端点未同步 registry → fail;
+  - **覆盖键完整** —— 非法/无归属覆盖键 → fail;
+  - **路由完整** —— `src/app/api` 新增用户端路由未登记契约 → fail;
+  - **F1** —— 前端 import AF 源模块(`af/client|store|...`)→ fail。
+- `checkContract(base)`(接 `npm run selfcheck` L3,需运行中服务):GET 每个用户端路由,**实际响应顶层字段 ⊆ 契约**,多出未登记字段 = 漂移 fail,提示同步 registry。
+
+**仍开放**:
+- 字段级"拟合值必须带 §5 信封(`ready`+`sourceKind`)"的运行时断言(当前 checkContract 校验字段集,信封完整性靠 §10);
+- §11.2 组件级 UI↔字段映射沉淀(当前 §12 给到路由级,足够 UI 重构起步)。
+
+效果:**改 AF 端点 / 路由字段 / 前端任意一端,机器即时报漂移**,你不再人工对比。UI 重构前先让 `npm test` + `npm run selfcheck` 全绿 = 契约完整且对得上。
+
+---
+
+## §12 UI ↔ 源映射(路由级 · UI 重构施工图)
+
+> 权威字段集在 `USER_ROUTE_CONTRACT`(registry.ts);下表为人类速览。前端按"路由 → 拟合字段 → 就绪/来源标志 → 锁定差异"设计界面。
+
+| 路由 | 拟合/派生字段 | 就绪/来源标志 | 锁定(未解锁)差异 | 视图模型 |
+|---|---|---|---|---|
+| `/matches` | `rows.{ah,ou,eu}`(MarketCell)、`rows.ex`(滚球半场/角球/红牌) | 序列长度隐含;`ah.chgAt` 变化时点 | `masked` 时 `ah/ou/eu=null` | `marketCell` |
+| `/match/[id]` | `summary`、`marketOverview`、`odds.index`(综合指数)、`comp.{euMeta,trend}`、`insights` | `marketOverview.dataQualityScore`/`reason`/`warnings` | `deep` 仅 `deep=1` | `detailView`+`publicMarketOverview` |
+| `/match/[id]/history` | —(纯归档帧) | `rows.chg`(变盘)、`rows.live`(滚球帧) | — | `quoteHistory` |
+| `/report/[id]` | `pH/pD/pA`、`comparison`、`advice`、`directions.{ah,ou}`、`model`、`market`、`marketOverview`、`sourceCoverage` | `probReady`/`comparisonReady`/`summaryReady`;`directions.sourceKind`+`derived`;`fittingScope` | `advice/directions/model/market/sections/versions/ver=null`;`sourceCoverage` 仅解锁 | `buildReportSignals`+`publicSourceCoverage` |
+| `/predictions` | `cards.{pH,pD,pA,advice,marketOverview,sourceCoverage}` | `cards.probReady`/`summaryReady` | `advice/winnerText/ahText/uoText/goalsText/sourceCoverage=null` | `predSummary`+`buildReportSignals` |
+| `/moves` | `rows.{direction,waterLabel,note}` | `rows.sev`(急变)、`rows.live` | `masked` 时 `from/to/water/note/rows` 脱敏 | `movements`+`detectMovement` |
+| `/data` | —(重组+中文化) | `seasonSource`(cache/official/inferred) | — | `dataCenterView` |
+| `/player/[id]` | —(资料/统计) | — | — | `playerCard` |
+| `/config`、`/health` | — | `health.{workerAt,liveNow,intervals}` | — | 配置/心跳 |
+
+**红线复述(前端必守)**:任何拟合值都要读 §5 的 `ready`/`sourceKind`/`derived` 决定展示("就绪才显示;派生必标'指数派生/行情观察';无数据显示空态")—— **绝不**把 `marketDerived` 当模型预测,**绝不**在 `ready=false` 时渲染 `0%`/假值。
