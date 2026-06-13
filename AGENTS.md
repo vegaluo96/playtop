@@ -1,6 +1,6 @@
 # 给 AI 开发者的工作守则(Codex / Claude 等通用)
 
-**先读根目录 `HANDOFF.md`**(架构、数据流、口径、技术债全在里面),AF 数据覆盖矩阵见 `docs/af-coverage.md`。本文件只放必须时刻遵守的规矩。
+**先读 `docs/data-contract.md`(数据口径唯一规范)+ `HANDOFF.md`(架构/数据流/技术债)。** 逐端点显示矩阵见 `docs/history/af-coverage.md`(规范附录)。本文件只放必须时刻遵守的规矩。
 
 ## 红线(违背=事故)
 
