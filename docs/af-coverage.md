@@ -20,15 +20,15 @@
 | fixtures | ✅ | 列表/详情头/比分/状态(含中场)/14 天日期带 | — |
 | fixtures.rounds | ⚙ | catalog/selftest 可测 | UI 轮次来自 `/fixtures` 的 `league.round`,再由本地 `roundZh` 中文化 |
 | fixtures.headtohead | ✅ | 详情·技术面「历史交锋」(满拉 10 场) | — |
-| fixtures.statistics | ✅ | 详情·技术面「实时技术统计」**17 项全量**(含黄红牌/越位/扑救/传球成功率/禁区内外射门);half=true →「半场拆分」 | 无数据时常显「暂无数据」占位 |
-| fixtures.events | ✅ | 详情·技术面「实时事件」(进球/牌/换人/VAR,球员名汉化) | — |
-| fixtures.lineups | ✅ | 详情·阵容(球场图+球衣号+头像+替补席+教练;客队列序镜像) | 列向假设需真实滚球窗口对照官方阵容复核一次 |
-| fixtures.players | ✅ | 详情·深挖「关键球员评分」(滚球实时评分优先) | — |
+| fixtures.statistics | ✅ | 详情·技术面「实时技术统计」**17 项全量**(含黄红牌/越位/扑救/传球成功率/禁区内外射门);half=true →「半场拆分」 | 无数据时常显「暂无数据」占位;空返回/errors/请求失败会写后台 DiagnosticIssue |
+| fixtures.events | ✅ | 详情·技术面「实时事件」(进球/牌/换人/VAR,球员名汉化) | 空返回/errors/请求失败会写后台 DiagnosticIssue |
+| fixtures.lineups | ✅ | 详情·阵容(球场图+球衣号+头像+替补席+教练;客队列序镜像) | 列向假设需真实滚球窗口对照官方阵容复核一次;空返回/errors/请求失败会写后台 DiagnosticIssue |
+| fixtures.players | ✅ | 详情·深挖「关键球员评分」(滚球实时评分优先) | 空返回/errors/请求失败会写后台 DiagnosticIssue |
 | injuries | ✅ | 详情·情报「伤停与情报」+ 报告人员小节 | — |
 | predictions | ✅ | 预测页/详情概率条/AI 报告(胜率·七维·H2H·进球模型);缺方向时盘口推导 | — |
 | sidelined | ✅ | 情报伤停 + **球员资料卡「伤停/停赛史」**(类型中文化+起止日期) | — |
 | coachs | ✅ | 阵容主教练 + 深挖教练卡(上任年份/年龄/国籍/冠军数,汉化) | — |
-| players / players.seasons / players.profiles / players.teams | ✅ | 头像 + 赛季评分 + **球员资料卡**(/api/player:出场/进球/助攻/牌/评分/可用赛季/效力球队,阵容与榜单点击打开,双端) | 球员卡优先展示赛季统计;无统计但有 profile 时仍展示基础资料 |
+| players / players.seasons / players.profiles / players.teams | ✅ | 头像 + 赛季评分 + **球员资料卡**(/api/player:出场/进球/助攻/牌/评分/可用赛季/效力球队,阵容与榜单点击打开,双端) | 球员卡优先展示赛季统计;无统计但有 profile 时仍展示基础资料;各子端点空返回/errors 会写后台 DiagnosticIssue |
 | players.squads | ✅ | 深挖「阵容深度」 | — |
 | players.topscorers / topassists / topyellowcards / topredcards | ✅ | 详情·深挖「联赛榜单」**各榜前 5**(点击进球员卡) | — |
 | transfers | ✅ | 详情·深挖「转会动态」 | — |
@@ -41,6 +41,11 @@
 
 ## 已确认不存在的端点(不得伪造)
 - 天气、裁判统计:AF v3 无对应端点(裁判姓名在 fixture.referee 字段,已显示于深挖「当值主裁」)。
+
+## 外部增强源诊断口径
+- Polymarket:只作为预测市场增强信号;搜索无结果、接口错误、命中事件但 outcome 无法映射时写后台 DiagnosticIssue,用户端不硬填。
+- 天气:只作为详情页增强信息;城市缺失、地理编码失败、预报窗口不覆盖、天气接口失败时写后台 DiagnosticIssue,用户端整卡隐藏。
+- 球员静态资料:赛季统计、档案、可用赛季、效力队、伤停记录均经平台 KV 缓存;源端点空/错时写后台 DiagnosticIssue,不实时反复扣费。
 
 ## 复核清单(每次大版本跑一遍)
 1. `npm run selfcheck -- audit <今日滚球场id>`:AF 原始 → 归一化 → 落库 → 显示 四层对照;

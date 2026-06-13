@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kvCached } from "@/server/af/store";
 import { runAfEndpoint } from "@/server/af/catalog";
+import { recordDiagnosticIssue, type DiagnosticSeverity } from "@/server/af/diagnostics";
 import { nameZh } from "@/server/views/names";
 
 function dig(obj: unknown, ...path: (string | number)[]): unknown {
@@ -31,6 +32,83 @@ const PLAYER_VIEW_TTL_MS = 6 * H;
 const PLAYER_STATS_TTL_MS = 24 * H;
 const PLAYER_PROFILE_TTL_MS = 30 * DAY;
 const PLAYER_DYNAMIC_TTL_MS = 12 * H;
+const PLAYER_ENDPOINTS = ["players", "players.profiles", "players.seasons", "players.teams", "sidelined"] as const;
+type PlayerEndpointKey = (typeof PLAYER_ENDPOINTS)[number];
+
+function recordPlayerIssue(args: {
+  source?: "API_FOOTBALL" | "PLAYER_CACHE";
+  endpoint: PlayerEndpointKey | "player.view";
+  pid: number;
+  season?: number | null;
+  errorType: string;
+  errorReason: string;
+  severity?: DiagnosticSeverity;
+  rawValue?: unknown;
+  parsedValue?: unknown;
+}): void {
+  try {
+    recordDiagnosticIssue({
+      source: args.source ?? "API_FOOTBALL",
+      endpoint: args.endpoint,
+      rawValue: args.rawValue,
+      parsedValue: { player: args.pid, season: args.season ?? null, ...(args.parsedValue && typeof args.parsedValue === "object" ? args.parsedValue as Record<string, unknown> : {}) },
+      errorType: args.errorType,
+      errorReason: args.errorReason,
+      severity: args.severity ?? "info",
+    });
+  } catch {
+    /* player diagnostics must not break the API response */
+  }
+}
+
+async function runPlayerAfEndpoint(
+  endpoint: PlayerEndpointKey,
+  pid: number,
+  season: number | null,
+  params: Record<string, string>,
+  opts: { emptyReason: string; emptySeverity?: DiagnosticSeverity } = { emptyReason: "AF 未返回该球员资料" },
+) {
+  try {
+    const r = await runAfEndpoint(endpoint, params);
+    const responseLen = arr(r.response).length;
+    if (!r.ok) {
+      recordPlayerIssue({
+        endpoint,
+        pid,
+        season,
+        errorType: "PLAYER_AF_ERROR",
+        errorReason: `AF ${endpoint} 返回 errors`,
+        severity: "error",
+        rawValue: r.errors,
+        parsedValue: { params, results: r.results },
+      });
+    } else if (responseLen === 0) {
+      recordPlayerIssue({
+        endpoint,
+        pid,
+        season,
+        errorType: "PLAYER_AF_EMPTY",
+        errorReason: opts.emptyReason,
+        severity: opts.emptySeverity ?? "info",
+        rawValue: { results: r.results, paging: r.paging },
+        parsedValue: { params },
+      });
+    }
+    return r;
+  } catch (e) {
+    recordPlayerIssue({
+      endpoint,
+      pid,
+      season,
+      errorType: "PLAYER_AF_FETCH_ERROR",
+      errorReason: `AF ${endpoint} 请求失败`,
+      severity: "error",
+      rawValue: e instanceof Error ? e.message : String(e),
+      parsedValue: { params },
+    });
+    throw e;
+  }
+}
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -54,27 +132,50 @@ async function loadPlayerView(pid: number, season: number) {
   // 并行拉取:球员卡不再只靠 players 单端点,避免档案/赛季/效力轨迹空缺。
   const [item, profile, seasons, careerTeams, sidelined] = await Promise.all([
     kvCached<unknown>(`player:${pid}:${season}`, PLAYER_STATS_TTL_MS, async () => {
-      const r = await runAfEndpoint("players", { id: String(pid), season: String(season) });
+      const r = await runPlayerAfEndpoint("players", pid, season, { id: String(pid), season: String(season) }, {
+        emptyReason: "AF 未返回该球员本赛季统计;可能该赛季暂无出场或统计覆盖不足",
+      });
       return arr(r.response)[0] ?? null;
     }, { emptyTtlMs: 6 * H }),
     kvCached<unknown>(`player:${pid}:profile`, PLAYER_PROFILE_TTL_MS, async () => {
-      const r = await runAfEndpoint("players.profiles", { player: String(pid) });
+      const r = await runPlayerAfEndpoint("players.profiles", pid, null, { player: String(pid) }, {
+        emptyReason: "AF 未返回该球员档案",
+        emptySeverity: "warn",
+      });
       return arr(r.response)[0] ?? null;
     }).catch(() => null),
     kvCached<unknown[]>(`player:${pid}:seasons`, PLAYER_PROFILE_TTL_MS, async () => {
-      const r = await runAfEndpoint("players.seasons", { player: String(pid) });
+      const r = await runPlayerAfEndpoint("players.seasons", pid, null, { player: String(pid) }, {
+        emptyReason: "AF 未返回该球员可用赛季列表",
+      });
       return arr(r.response);
     }).catch(() => [] as unknown[]),
     kvCached<unknown[]>(`player:${pid}:teams`, PLAYER_PROFILE_TTL_MS, async () => {
-      const r = await runAfEndpoint("players.teams", { player: String(pid) });
+      const r = await runPlayerAfEndpoint("players.teams", pid, null, { player: String(pid) }, {
+        emptyReason: "AF 未返回该球员效力球队轨迹",
+      });
       return arr(r.response);
     }).catch(() => [] as unknown[]),
     kvCached<unknown[]>(`player:${pid}:sidelined`, PLAYER_DYNAMIC_TTL_MS, async () => {
-      const r = await runAfEndpoint("sidelined", { player: String(pid) });
+      const r = await runPlayerAfEndpoint("sidelined", pid, null, { player: String(pid) }, {
+        emptyReason: "AF 未返回该球员伤停/停赛记录;无记录也会出现该状态",
+      });
       return arr(r.response).slice(0, 6);
     }).catch(() => [] as unknown[]),
   ]);
-  if (!item && !profile) return null;
+  if (!item && !profile) {
+    recordPlayerIssue({
+      source: "PLAYER_CACHE",
+      endpoint: "player.view",
+      pid,
+      season,
+      errorType: "PLAYER_VIEW_EMPTY",
+      errorReason: "球员统计与档案均为空,用户端不展示资料卡",
+      severity: "warn",
+      rawValue: { hasSeasonStats: Boolean(item), hasProfile: Boolean(profile) },
+    });
+    return null;
+  }
 
   const pl = dig(profile, "player") ?? dig(item, "player");
   // 取出场最多的一条联赛统计为主行,其余列为次要

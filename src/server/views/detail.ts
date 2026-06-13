@@ -486,7 +486,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   const indexPromise = Promise.all([cidx("ah"), cidx("ou"), cidx("eu")]);
   const h2hPromise = h2hRows(fx.home_id, fx.away_id, pred).then((rows) => h2hView(rows, fx.home_id, tz));
   const standingsPromise = standingsView(fx.league_id, fx.season, fx.home_id, fx.away_id);
-  const weatherPromise = matchWeather(String(dig(p.bundle, "fixture", "venue", "city") ?? ""), fx.kickoff_utc);
+  const weatherPromise = matchWeather(String(dig(p.bundle, "fixture", "venue", "city") ?? ""), fx.kickoff_utc, { fixtureId: fx.fixture_id });
   const insightsPromise = insightsView(fx);
   const deepPromise = opts.deep ? deepView(p, lineups) : Promise.resolve(null);
   const ah = seriesRows(ahAll, "ah", tz);

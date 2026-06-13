@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 process.env.PLAYTOP_DB = ":memory:";
 
-import { _resetDbForTest } from "../../src/server/db";
+import { _resetDbForTest, db } from "../../src/server/db";
 import { fixtureById, upsertFixture } from "../../src/server/af/store";
 import {
   fixtureDetailPartKey,
@@ -83,5 +83,38 @@ describe("refreshFixtureDetailsFromAf", () => {
     expect(JSON.parse(fx.payload)).toMatchObject({ events: [{ type: "Goal" }] });
     expect(JSON.parse(fx.payload).statistics).toBeUndefined();
     expect(JSON.parse(fx.payload).lineups).toBeUndefined();
+  });
+
+  it("记录 AF 详情端点空返回/errors/请求失败,但不阻塞其它详情补抓", async () => {
+    upsertFixture(afFixture(901, Date.parse("2026-06-12T12:00:00Z"), "1H"));
+    const fetcher = async (metric: string): Promise<AfEnvelope> => {
+      if (metric === "fixtures.events") return { response: [], results: 0, parameters: { fixture: "901" } };
+      if (metric === "fixtures.statistics") return { response: [{ team: { id: 50 }, statistics: [] }], results: 1 };
+      if (metric === "fixtures.lineups") return { response: [], errors: { fixture: "bad fixture" }, parameters: { fixture: "901" } };
+      throw new Error("network down");
+    };
+
+    const patch = await refreshFixtureDetailsFromAf(
+      901,
+      { events: true, statistics: true, lineups: true, players: true },
+      { fetcher },
+    );
+
+    expect(patch).toEqual({ statistics: [{ team: { id: 50 }, statistics: [] }] });
+    const issues = db()
+      .prepare("SELECT endpoint, error_type, severity FROM diagnostic_issues ORDER BY issue_id")
+      .all() as { endpoint: string; error_type: string; severity: string }[];
+    expect(issues).toEqual([
+      { endpoint: "fixtures.events", error_type: "FIXTURE_DETAIL_EMPTY", severity: "info" },
+      { endpoint: "fixtures.lineups", error_type: "FIXTURE_DETAIL_ERROR", severity: "error" },
+      { endpoint: "fixtures.players", error_type: "FIXTURE_DETAIL_FETCH_ERROR", severity: "error" },
+    ]);
+    const raw = db()
+      .prepare("SELECT endpoint, fixture_id FROM af_raw_payloads ORDER BY id")
+      .all() as { endpoint: string; fixture_id: number }[];
+    expect(raw).toEqual([
+      { endpoint: "fixtures.statistics", fixture_id: 901 },
+      { endpoint: "fixtures.lineups", fixture_id: 901 },
+    ]);
   });
 });

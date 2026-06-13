@@ -3,9 +3,11 @@ import { db } from "../db";
 export const ODDS_PARSER_VERSION = "odds-adapter-2026-06-13";
 
 export type DiagnosticSeverity = "info" | "warn" | "error";
+export type DiagnosticSource = "API_FOOTBALL" | "POLYMARKET" | "WEATHER" | "PLAYER_CACHE" | "SYSTEM";
 
 export interface DiagnosticIssueInput {
-  endpoint: "odds" | "odds.live" | "odds.extra" | "predictions";
+  source?: DiagnosticSource;
+  endpoint: string;
   fixtureId?: number | null;
   bookmakerId?: number | null;
   betId?: number | null;
@@ -39,7 +41,7 @@ export function recordDiagnosticIssue(issue: DiagnosticIssueInput): void {
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     )
     .run(
-      "API_FOOTBALL",
+      issue.source ?? "API_FOOTBALL",
       issue.endpoint,
       issue.fixtureId ?? null,
       issue.bookmakerId ?? null,

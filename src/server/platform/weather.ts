@@ -6,9 +6,35 @@
  * 前端不显示——绝不伪造天气。预报点离开球 >2.5h 同样弃用。
  */
 import { kvGet, kvSet } from "../af/store";
+import { recordDiagnosticIssue, type DiagnosticSeverity } from "../af/diagnostics";
 
 const UA = "zsky-football-sky/1.0 zsky.com (contact: admin@zsky.com)";
 const H = 3_600_000;
+
+function recordWeatherIssue(args: {
+  endpoint: "weather.geocode" | "weather.forecast";
+  fixtureId?: number | null;
+  errorType: string;
+  errorReason: string;
+  severity?: DiagnosticSeverity;
+  rawValue?: unknown;
+  parsedValue?: unknown;
+}): void {
+  try {
+    recordDiagnosticIssue({
+      source: "WEATHER",
+      endpoint: args.endpoint,
+      fixtureId: args.fixtureId ?? null,
+      rawValue: args.rawValue,
+      parsedValue: args.parsedValue,
+      errorType: args.errorType,
+      errorReason: args.errorReason,
+      severity: args.severity ?? "info",
+    });
+  } catch {
+    /* optional data diagnostics must not break detail page rendering */
+  }
+}
 
 const SYMBOL_ZH: [RegExp, string][] = [
   [/^clearsky/, "晴"],
@@ -37,7 +63,13 @@ export interface MatchWeather {
 }
 
 /** 成功/失败双 TTL 缓存:失败(null)短缓存,避免反复打超时请求拖慢请求路径 */
-async function cached<T>(key: string, okTtl: number, failTtl: number, fn: () => Promise<T | null>): Promise<T | null> {
+async function cached<T>(
+  key: string,
+  okTtl: number,
+  failTtl: number,
+  fn: () => Promise<T | null>,
+  opts: { onError?: (e: unknown) => void } = {},
+): Promise<T | null> {
   const raw = kvGet(key);
   if (raw) {
     try {
@@ -47,7 +79,10 @@ async function cached<T>(key: string, okTtl: number, failTtl: number, fn: () => 
       /* 重新拉 */
     }
   }
-  const data = await fn().catch(() => null);
+  const data = await fn().catch((e) => {
+    opts.onError?.(e);
+    return null;
+  });
   kvSet(key, JSON.stringify({ at: Date.now(), data }));
   return data;
 }
@@ -65,14 +100,45 @@ async function geocode(city: string): Promise<{ lat: number; lon: number } | nul
 }
 
 /** 开球时刻的球场天气;城市未知/接口失败/预报覆盖不到开球时刻 → null */
-export async function matchWeather(city: string, kickoffUtcMs: number): Promise<MatchWeather | null> {
+export async function matchWeather(city: string, kickoffUtcMs: number, opts: { fixtureId?: number | null } = {}): Promise<MatchWeather | null> {
   // MET 预报约覆盖未来 9 天;过早查到的是错误时点,完场太久预报也已无意义
   const dt = kickoffUtcMs - Date.now();
-  if (dt > 9 * 24 * H || dt < -6 * H) return null;
+  if (!city.trim()) {
+    recordWeatherIssue({
+      endpoint: "weather.geocode",
+      fixtureId: opts.fixtureId,
+      errorType: "WEATHER_CITY_MISSING",
+      errorReason: "fixture venue.city 为空,无法查询球场天气",
+      rawValue: { city },
+      parsedValue: { kickoffUtcMs },
+    });
+    return null;
+  }
+  if (dt > 9 * 24 * H || dt < -6 * H) {
+    recordWeatherIssue({
+      endpoint: "weather.forecast",
+      fixtureId: opts.fixtureId,
+      errorType: "WEATHER_OUT_OF_RANGE",
+      errorReason: "开球时间超出天气预报有效窗口,不展示天气",
+      rawValue: { dtHours: Math.round(dt / H), kickoffUtcMs },
+      parsedValue: { city },
+    });
+    return null;
+  }
   const geo = await geocode(city);
-  if (!geo) return null;
+  if (!geo) {
+    recordWeatherIssue({
+      endpoint: "weather.geocode",
+      fixtureId: opts.fixtureId,
+      errorType: "WEATHER_GEOCODE_EMPTY",
+      errorReason: "Open-Meteo 未返回该球场城市的可用经纬度",
+      rawValue: { city },
+      parsedValue: { kickoffUtcMs },
+    });
+    return null;
+  }
   const hourKey = Math.floor(kickoffUtcMs / H);
-  return cached(`wx:${geo.lat},${geo.lon}:${hourKey}`, 3 * H, 10 * 60_000, async () => {
+  const weather = await cached(`wx:${geo.lat},${geo.lon}:${hourKey}`, 3 * H, 10 * 60_000, async () => {
     const r = await fetch(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${geo.lat}&lon=${geo.lon}`, {
       headers: { "user-agent": UA },
       signal: AbortSignal.timeout(6_000),
@@ -99,5 +165,27 @@ export async function matchWeather(city: string, kickoffUtcMs: number): Promise<
       pressure: Math.round(inst["air_pressure_at_sea_level"] ?? 0),
       src: "挪威气象局 MET Norway",
     };
+  }, {
+    onError: (e) =>
+      recordWeatherIssue({
+        endpoint: "weather.forecast",
+        fixtureId: opts.fixtureId,
+        errorType: "WEATHER_FORECAST_ERROR",
+        errorReason: "MET Norway 天气预报接口请求失败",
+        severity: "warn",
+        rawValue: e instanceof Error ? e.message : String(e),
+        parsedValue: { city, geo, kickoffUtcMs },
+      }),
   });
+  if (!weather) {
+    recordWeatherIssue({
+      endpoint: "weather.forecast",
+      fixtureId: opts.fixtureId,
+      errorType: "WEATHER_FORECAST_EMPTY",
+      errorReason: "MET Norway 未返回覆盖开球时刻的可用天气点",
+      rawValue: { city, geo, kickoffUtcMs },
+      parsedValue: { hourKey },
+    });
+  }
+  return weather;
 }

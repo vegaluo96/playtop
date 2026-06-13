@@ -1,8 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 process.env.PLAYTOP_DB = ":memory:";
 
-import { __polymarketForTest } from "../../src/server/external/polymarket";
+import { db, _resetDbForTest } from "../../src/server/db";
+import { __polymarketForTest, findPolymarketSignal } from "../../src/server/external/polymarket";
+
+beforeEach(() => {
+  _resetDbForTest();
+  vi.restoreAllMocks();
+});
 
 describe("Polymarket public-search parser", () => {
   it("从足球事件的二元 Yes/No 子市场提取主客概率方向", () => {
@@ -64,5 +70,26 @@ describe("Polymarket public-search parser", () => {
     ], "Canada", "Bosnia & Herzegovina");
 
     expect(signal.status).toBe("missing");
+  });
+
+  it("搜索无结果时写入逐场诊断,避免 Polymarket missing 静默失败", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ events: [] }), { status: 200 })));
+
+    const signal = await findPolymarketSignal("Canada", "Bosnia & Herzegovina", {
+      fixtureId: 4993253,
+      kickoffAt: Date.now() + 3_600_000,
+    });
+
+    expect(signal.status).toBe("missing");
+    const row = db()
+      .prepare("SELECT source, endpoint, fixture_id, error_type, severity FROM diagnostic_issues")
+      .get() as { source: string; endpoint: string; fixture_id: number; error_type: string; severity: string };
+    expect(row).toEqual({
+      source: "POLYMARKET",
+      endpoint: "polymarket.gamma",
+      fixture_id: 4993253,
+      error_type: "POLYMARKET_EMPTY",
+      severity: "info",
+    });
   });
 });

@@ -1,10 +1,35 @@
 import { kvCached, kvGet } from "../af/store";
+import { recordDiagnosticIssue, type DiagnosticSeverity } from "../af/diagnostics";
 import type { PublicMarketSignal } from "../views/report-signals";
 
 const GAMMA_SEARCH = "https://gamma-api.polymarket.com/public-search";
 const TTL_MS = 15 * 60_000;
 const TIMEOUT_MS = 1800;
 const MIN_EDGE = 0.04;
+
+function recordPolyIssue(args: {
+  fixtureId?: number | null;
+  errorType: string;
+  errorReason: string;
+  severity?: DiagnosticSeverity;
+  rawValue?: unknown;
+  parsedValue?: unknown;
+}): void {
+  try {
+    recordDiagnosticIssue({
+      source: "POLYMARKET",
+      endpoint: "polymarket.gamma",
+      fixtureId: args.fixtureId ?? null,
+      rawValue: args.rawValue,
+      parsedValue: args.parsedValue,
+      errorType: args.errorType,
+      errorReason: args.errorReason,
+      severity: args.severity ?? "info",
+    });
+  } catch {
+    /* diagnostics must never break report generation */
+  }
+}
 
 function norm(s: string): string {
   return s
@@ -232,9 +257,64 @@ export async function findPolymarketSignal(
           seen.add(n);
           return true;
         });
-        const events = (await Promise.all(queries.map((q) => searchEvents(q).catch(() => [] as unknown[])))).flat();
-        return pickMarket(events, homeName, awayName);
-      } catch {
+        const results = await Promise.all(
+          queries.map(async (q) => {
+            try {
+              return { q, events: await searchEvents(q), error: null as string | null };
+            } catch (e) {
+              return { q, events: [] as unknown[], error: e instanceof Error ? e.message : String(e) };
+            }
+          }),
+        );
+        const errors = results.filter((r) => r.error);
+        if (errors.length > 0) {
+          recordPolyIssue({
+            fixtureId: opts.fixtureId,
+            errorType: "POLYMARKET_SEARCH_ERROR",
+            errorReason: "Polymarket Gamma 搜索接口部分查询失败",
+            severity: errors.length === results.length ? "error" : "warn",
+            rawValue: errors.map((r) => ({ q: r.q, error: r.error })),
+            parsedValue: { homeName, awayName },
+          });
+        }
+        const events = results.flatMap((r) => r.events);
+        const signal = pickMarket(events, homeName, awayName);
+        if (events.length === 0) {
+          recordPolyIssue({
+            fixtureId: opts.fixtureId,
+            errorType: "POLYMARKET_EMPTY",
+            errorReason: "Polymarket Gamma 搜索未返回相关公开事件",
+            rawValue: { queries },
+            parsedValue: { homeName, awayName },
+          });
+        } else if (signal.status === "missing") {
+          recordPolyIssue({
+            fixtureId: opts.fixtureId,
+            errorType: "POLYMARKET_MATCH_MISS",
+            errorReason: "Polymarket 有搜索结果,但没有同时命中主客队的未关闭足球市场",
+            rawValue: { queries, eventCount: events.length },
+            parsedValue: { homeName, awayName },
+          });
+        } else if (signal.status === "ok" && signal.homeProb == null && signal.awayProb == null && signal.drawProb == null) {
+          recordPolyIssue({
+            fixtureId: opts.fixtureId,
+            errorType: "POLYMARKET_OUTCOME_UNMAPPED",
+            errorReason: "Polymarket 命中事件,但 outcome 标签无法稳定映射为主/平/客概率",
+            severity: "warn",
+            rawValue: { queries, eventCount: events.length },
+            parsedValue: { homeName, awayName, note: signal.note },
+          });
+        }
+        return signal;
+      } catch (e) {
+        recordPolyIssue({
+          fixtureId: opts.fixtureId,
+          errorType: "POLYMARKET_ERROR",
+          errorReason: "Polymarket 公开接口暂不可用",
+          severity: "error",
+          rawValue: e instanceof Error ? e.message : String(e),
+          parsedValue: { homeName, awayName },
+        });
         return { status: "error", source: "Polymarket", note: "Polymarket 公开接口暂不可用", capturedAt: Date.now() };
       }
     },
