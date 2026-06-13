@@ -46,36 +46,16 @@ function tLabelOf(series: SnapRow[], tz: string): (at: number) => string {
   return (at) => (spanDay ? `${dateStr(at, tz).slice(5)} ${hhmm(at, tz)}` : hhmm(at, tz));
 }
 
-function quoteAnchorIndexes(length: number): number[] {
-  if (length <= 3) return Array.from({ length }, (_, i) => i);
-  return [0, Math.floor((length - 1) / 2), length - 1];
-}
-
-function quoteAnchorRows(series: SnapRow[], picked: Set<number>, max = 3): SnapRow[] {
-  if (series.length <= max) return series;
-  const indexes = quoteAnchorIndexes(series.length);
-  for (const i of indexes) picked.add(i);
-  const sorted = [...picked].filter((i) => i >= 0 && i < series.length).sort((x, y) => x - y);
-  if (sorted.length <= max) return sorted.map((i) => series[i]);
-  const keep = [sorted[0], ...sorted.slice(-(max - 1))];
-  return keep.map((i) => series[i]);
+function latestQuoteRows(series: SnapRow[], max = 3): { row: SnapRow; index: number }[] {
+  const start = Math.max(0, series.length - max);
+  return series.slice(start).map((row, i) => ({ row, index: start + i }));
 }
 
 export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
   if (series.length === 0) return { rows: [], chart: [] };
   const tl = tLabelOf(series, tz);
-  const picked = new Set<number>();
-  let prevLine: number | null = null;
-  series.forEach((s, i) => {
-    const chg = prevLine != null && s.line !== prevLine;
-    const isEdge = i === 0 || i === series.length - 1;
-    if (isEdge || chg) {
-      picked.add(i);
-    }
-    prevLine = s.line;
-  });
-  const rows = quoteAnchorRows(series, picked).map((s, i, list) => {
-    const prev = i > 0 ? list[i - 1] : null;
+  const rows = latestQuoteRows(series).map(({ row: s, index }) => {
+    const prev = index > 0 ? series[index - 1] : null;
     return {
       t: tl(s.captured_at), // 首帧=本站归档起点,不冒充真实初盘
       text: market === "ah" ? ahText(s.line ?? 0) : ouText(s.line ?? 0),
@@ -96,8 +76,7 @@ export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
 
 export function euRows(series: SnapRow[], tz: string) {
   const tl = tLabelOf(series, tz);
-  const pick = quoteAnchorRows(series, new Set<number>());
-  return pick.map((s) => ({
+  return latestQuoteRows(series).map(({ row: s }) => ({
     t: tl(s.captured_at),
     h: f2(s.h),
     d: f2(s.d ?? 0),

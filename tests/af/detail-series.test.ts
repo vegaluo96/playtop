@@ -18,7 +18,7 @@ function snap(at: number, line: number | null, h: number, a: number, d: number |
 }
 
 describe("detail odds quote rows", () => {
-  it("稳定未变盘的赛前序列也展示首帧、中间确认帧、最新帧", () => {
+  it("稳定未变盘的赛前序列展示最新三帧", () => {
     const rows = seriesRows([
       snap(Date.parse("2026-06-13T00:00:00Z"), 0.5, 0.9, 0.96),
       snap(Date.parse("2026-06-13T03:00:00Z"), 0.5, 0.88, 0.98),
@@ -27,11 +27,11 @@ describe("detail odds quote rows", () => {
     ], "ah", "UTC+0").rows;
 
     expect(rows).toHaveLength(3);
-    expect(rows.map((r) => r.t)).toEqual(["00:00", "03:00", "09:00"]);
+    expect(rows.map((r) => r.t)).toEqual(["03:00", "06:00", "09:00"]);
     expect(rows.every((r) => !r.chg)).toBe(true);
   });
 
-  it("变盘序列保留首帧和最近两个关键点", () => {
+  it("变盘序列也展示最新三帧,变盘标记按完整上一帧计算", () => {
     const rows = seriesRows([
       snap(Date.parse("2026-06-13T00:00:00Z"), 0.5, 0.9, 0.96),
       snap(Date.parse("2026-06-13T03:00:00Z"), 0.75, 0.9, 0.96),
@@ -40,11 +40,11 @@ describe("detail odds quote rows", () => {
     ], "ah", "UTC+0").rows;
 
     expect(rows).toHaveLength(3);
-    expect(rows.map((r) => r.t)).toEqual(["00:00", "06:00", "09:00"]);
-    expect(rows.map((r) => r.chg)).toEqual([false, true, false]);
+    expect(rows.map((r) => r.t)).toEqual(["03:00", "06:00", "09:00"]);
+    expect(rows.map((r) => r.chg)).toEqual([true, true, false]);
   });
 
-  it("胜平负也使用同一组三锚点口径", () => {
+  it("胜平负也使用同一组最新三帧口径", () => {
     const rows = euRows([
       snap(Date.parse("2026-06-13T00:00:00Z"), null, 1.8, 4.5, 3.6),
       snap(Date.parse("2026-06-13T03:00:00Z"), null, 1.75, 4.7, 3.7),
@@ -53,6 +53,6 @@ describe("detail odds quote rows", () => {
     ], "UTC+0");
 
     expect(rows).toHaveLength(3);
-    expect(rows.map((r) => r.t)).toEqual(["00:00", "03:00", "09:00"]);
+    expect(rows.map((r) => r.t)).toEqual(["03:00", "06:00", "09:00"]);
   });
 });
