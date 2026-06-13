@@ -46,28 +46,43 @@ function tLabelOf(series: SnapRow[], tz: string): (at: number) => string {
   return (at) => (spanDay ? `${dateStr(at, tz).slice(5)} ${hhmm(at, tz)}` : hhmm(at, tz));
 }
 
-function defaultQuoteRows<T>(rows: T[]): T[] {
-  return rows.length > 3 ? [rows[0], ...rows.slice(-2)] : rows;
+function quoteAnchorIndexes(length: number): number[] {
+  if (length <= 3) return Array.from({ length }, (_, i) => i);
+  return [0, Math.floor((length - 1) / 2), length - 1];
+}
+
+function quoteAnchorRows(series: SnapRow[], picked: Set<number>, max = 3): SnapRow[] {
+  if (series.length <= max) return series;
+  const indexes = quoteAnchorIndexes(series.length);
+  for (const i of indexes) picked.add(i);
+  const sorted = [...picked].filter((i) => i >= 0 && i < series.length).sort((x, y) => x - y);
+  if (sorted.length <= max) return sorted.map((i) => series[i]);
+  const keep = [sorted[0], ...sorted.slice(-(max - 1))];
+  return keep.map((i) => series[i]);
 }
 
 export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
   if (series.length === 0) return { rows: [], chart: [] };
   const tl = tLabelOf(series, tz);
-  const rows: { t: string; text: string; h: string; a: string; chg: boolean }[] = [];
+  const picked = new Set<number>();
   let prevLine: number | null = null;
   series.forEach((s, i) => {
     const chg = prevLine != null && s.line !== prevLine;
     const isEdge = i === 0 || i === series.length - 1;
     if (isEdge || chg) {
-      rows.push({
-        t: tl(s.captured_at), // 首帧=本站归档起点,不冒充真实初盘
-        text: market === "ah" ? ahText(s.line ?? 0) : ouText(s.line ?? 0),
-        h: f2(s.h),
-        a: f2(s.a),
-        chg,
-      });
+      picked.add(i);
     }
     prevLine = s.line;
+  });
+  const rows = quoteAnchorRows(series, picked).map((s, i, list) => {
+    const prev = i > 0 ? list[i - 1] : null;
+    return {
+      t: tl(s.captured_at), // 首帧=本站归档起点,不冒充真实初盘
+      text: market === "ah" ? ahText(s.line ?? 0) : ouText(s.line ?? 0),
+      h: f2(s.h),
+      a: f2(s.a),
+      chg: prev != null && s.line !== prev.line,
+    };
   });
   const step = Math.max(1, Math.ceil(series.length / 40));
   const chart = series.filter((_, i) => i % step === 0 || i === series.length - 1).map((s) => ({
@@ -76,12 +91,12 @@ export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
     a: s.a,
     chg: false,
   }));
-  return { rows: defaultQuoteRows(rows), chart, startAt: series[0]?.captured_at ?? null };
+  return { rows, chart, startAt: series[0]?.captured_at ?? null };
 }
 
 export function euRows(series: SnapRow[], tz: string) {
   const tl = tLabelOf(series, tz);
-  const pick = defaultQuoteRows(series);
+  const pick = quoteAnchorRows(series, new Set<number>());
   return pick.map((s) => ({
     t: tl(s.captured_at),
     h: f2(s.h),
