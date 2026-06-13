@@ -7,6 +7,7 @@ import { useApp } from "@/components/app-context";
 import { PageHeader } from "@/components/page-header";
 import { SearchAction, type SearchItem } from "@/components/page-search";
 import { ProbBar } from "@/components/charts";
+import { SourceBadge, CoverageStrip } from "@/components/source-trust";
 import { useUnlockFlow } from "@/components/unlock-flow";
 import { Chip, EmptyBox, LockIcon, Sheet } from "@/components/ui";
 import { useUnifiedPoll } from "@/components/live";
@@ -125,13 +126,19 @@ function MobilePredictionsPage() {
             </div>
             <ProbBar pH={p.pH} pD={p.pD} pA={p.pA} empty={!p.probReady} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 9 }}>
-              {[["亚盘方向", p.ahText], ["大小方向", p.uoText], ["模型覆盖", p.goalsText]].map(([label, val]) => (
+              {[
+                ["亚盘方向", p.ahText, { sourceKind: p.ahKind, derived: p.ahDerived }],
+                ["大小方向", p.uoText, { sourceKind: p.ouKind, derived: p.ouDerived }],
+                ["模型", p.goalsText, null],
+              ].map(([label, val, sig]) => (
                 <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "7px 6px", textAlign: "center" }}>
                   <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginBottom: 2 }}>{label as string}</div>
                   <div style={{ fontSize: 12, fontWeight: 800 }}>{(val as string) ?? (p.locked ? "登录查看" : "积累中")}</div>
+                  {!p.locked && (sig as V)?.sourceKind && <SourceBadge signal={sig as V} style={{ marginTop: 3 }} />}
                 </div>
               ))}
             </div>
+            {!p.locked && p.sourceCoverage && <CoverageStrip coverage={p.sourceCoverage} style={{ marginBottom: 9 }} />}
             <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>
               {p.comparisonReady ? "七维对比 · 近 5 场 · 查看完整报告 ›" : "七维对比积累中 · 查看完整报告 ›"}
             </div>

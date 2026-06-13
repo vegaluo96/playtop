@@ -130,7 +130,7 @@ export const USER_ROUTE_CONTRACT: RouteContract[] = [
   {
     route: "/predictions",
     fields: ["ok", "cards", "record", "loggedIn"],
-    fitted: ["cards.pH", "cards.pD", "cards.pA", "cards.advice", "cards.marketOverview", "cards.sourceCoverage"],
+    fitted: ["cards.pH", "cards.pD", "cards.pA", "cards.advice", "cards.ahKind", "cards.ouKind", "cards.ahDerived", "cards.ouDerived", "cards.marketOverview", "cards.sourceCoverage"],
     lockedNull: ["cards.advice", "cards.winnerText", "cards.ahText", "cards.uoText", "cards.goalsText", "cards.sourceCoverage"],
     viewModels: ["predSummary", "buildReportSignals", "publicProbability", "publicReportAdvice", "publicMarketOverview", "publicSourceCoverage"],
   },

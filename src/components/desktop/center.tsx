@@ -8,6 +8,7 @@ import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
 import { CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
 import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
+import { SourceBadge, CoverageStrip } from "@/components/source-trust";
 import { Flash } from "@/components/live";
 import { MarketCell, MarketValue, type MarketCellData } from "@/components/market-cell";
 import { RefreshCountdownText } from "@/components/refresh-countdown";
@@ -467,6 +468,25 @@ export function CenterPane({
                     </span>
                   )}
                 </div>
+                {report.directions && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14, marginBottom: 14 }}>
+                    {[["亚盘方向", report.directions.ah, report.model?.ahScore], ["大小方向", report.directions.ou, report.model?.ouScore]].map(([label, sig, score]) => (
+                      <Card key={label as string} style={{ borderRadius: 12, padding: "11px 14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>{label as string}</span>
+                          <SourceBadge signal={sig as V} style={{ marginLeft: "auto" }} />
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 850 }}>{(sig as V)?.text || "暂无明确方向"}</div>
+                        <div className="mono" style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 4 }}>score {(score as V) ?? "—"}{report.model ? ` · 模型输入覆盖 ${report.model.coverage}%` : ""}</div>
+                      </Card>
+                    ))}
+                    {report.sourceCoverage && (
+                      <Card style={{ borderRadius: 12, overflow: "hidden" }}>
+                        <CoverageStrip coverage={report.sourceCoverage} style={{ background: "transparent", padding: "11px 14px" }} />
+                      </Card>
+                    )}
+                  </div>
+                )}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: 14 }}>
                   {report.sections.map((sec: V) => (
                     <Card key={sec.h} style={{ borderRadius: 12, padding: "13px 14px" }}>
