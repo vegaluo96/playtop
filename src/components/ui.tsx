@@ -155,3 +155,25 @@ export function EmptyBox({ title, sub }: { title: string; sub?: string }) {
     </div>
   );
 }
+
+/** 列表骨架:加载首屏时的脉冲占位卡(复用全局 livepulse 关键帧) */
+export function Skeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div style={{ marginTop: 6 }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} style={{ height: 72, borderRadius: 12, background: "var(--card)", border: "1px solid var(--line)", marginBottom: 8, opacity: 0.6, animation: "livepulse 1.4s infinite" }} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 列表统一状态(加载/错误/空)。仅在列表无数据时渲染:
+ * 加载未完 → 骨架;首屏失败 → 错误态(轮询会自动重试);否则 → 空态。
+ * 已有数据时不渲染本组件(继续显示旧数据,由轮询刷新)。
+ */
+export function FeedState({ loading, error, emptyTitle, emptySub }: { loading: boolean; error?: boolean; emptyTitle: string; emptySub?: string }) {
+  if (loading) return <Skeleton />;
+  if (error) return <EmptyBox title="加载失败" sub="网络异常,正在自动重试…" />;
+  return <EmptyBox title={emptyTitle} sub={emptySub} />;
+}

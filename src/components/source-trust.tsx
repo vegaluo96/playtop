@@ -14,11 +14,11 @@
 type SourceKind = "prediction" | "marketDerived" | "marketOnly" | "model" | "mixed" | "open";
 
 const KIND_BADGE: Record<SourceKind, { label: string; bg: string; fg: string } | null> = {
-  prediction: { label: "模型预测", bg: "var(--success-bg, rgba(46,204,138,.14))", fg: "var(--green)" },
-  model: { label: "量化模型", bg: "var(--info-bg, rgba(91,157,255,.14))", fg: "var(--home)" },
-  mixed: { label: "多源加权", bg: "var(--info-bg, rgba(91,157,255,.14))", fg: "var(--home)" },
-  marketDerived: { label: "指数派生 · 行情观察", bg: "var(--selected-bg, rgba(233,185,73,.14))", fg: "var(--gold)" },
-  marketOnly: { label: "市场信号", bg: "var(--selected-bg, rgba(233,185,73,.14))", fg: "var(--gold)" },
+  prediction: { label: "模型预测", bg: "var(--success-bg)", fg: "var(--green)" },
+  model: { label: "量化模型", bg: "var(--info-bg)", fg: "var(--home)" },
+  mixed: { label: "多源加权", bg: "var(--info-bg)", fg: "var(--home)" },
+  marketDerived: { label: "指数派生 · 行情观察", bg: "var(--selected-bg)", fg: "var(--gold)" },
+  marketOnly: { label: "市场信号", bg: "var(--selected-bg)", fg: "var(--gold)" },
   open: null,
 };
 
@@ -37,7 +37,7 @@ export function SourceBadge({ signal, style }: { signal: { sourceKind?: SourceKi
 
 const STATUS_DOT: Record<string, string> = {
   used: "var(--green)",
-  missing: "var(--fg-4, #5b606b)",
+  missing: "var(--fg-4)",
   failed: "var(--red)",
   stale: "var(--gold)",
   pendingReview: "var(--gold)",

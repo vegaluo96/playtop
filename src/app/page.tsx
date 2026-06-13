@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { SearchAction, type SearchItem } from "@/components/page-search";
 import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
-import { Chip, Sheet } from "@/components/ui";
+import { Chip, FeedState, Sheet } from "@/components/ui";
 import { hhmm, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
 import { Flash, useUnifiedPoll } from "@/components/live";
@@ -71,6 +71,7 @@ function MobileMatchesPage() {
   const [searchRows, setSearchRows] = useState<Row[]>([]);
   const [liveCount, setLiveCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [err, setErr] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const { prefs } = useApp();
   const router = useRouter();
@@ -92,8 +93,9 @@ function MobileMatchesPage() {
         const sj = await sr.json();
         if (sj.ok) setSearchRows(sj.rows);
       }
+      setErr(false);
     } catch {
-      /* 网络抖动下保留旧数据 */
+      setErr(true); // 网络抖动下保留旧数据,轮询自动重试
     } finally {
       setLoaded(true);
     }
@@ -279,8 +281,8 @@ function MobileMatchesPage() {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 12px", minHeight: 0 }}>
-        {loaded && rows.length === 0 && (
-          <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>{emptyText}</div>
+        {rows.length === 0 && (
+          <FeedState loading={!loaded} error={err} emptyTitle={emptyText} />
         )}
         {rows.map(renderRow)}
       </div>

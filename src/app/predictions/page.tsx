@@ -9,7 +9,7 @@ import { SearchAction, type SearchItem } from "@/components/page-search";
 import { ProbBar } from "@/components/charts";
 import { SourceBadge, CoverageStrip } from "@/components/source-trust";
 import { useUnlockFlow } from "@/components/unlock-flow";
-import { Chip, EmptyBox, LockIcon, Sheet } from "@/components/ui";
+import { Chip, FeedState, LockIcon, Sheet } from "@/components/ui";
 import { useUnifiedPoll } from "@/components/live";
 import { leagueColor } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
@@ -30,6 +30,7 @@ function MobilePredictionsPage() {
   const [filter, setFilter] = useState("全部");
   const [recOpen, setRecOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [err, setErr] = useState(false);
   const { prefs } = useApp();
   const router = useRouter();
   const flow = useUnlockFlow(() => void load());
@@ -42,8 +43,9 @@ function MobilePredictionsPage() {
         setCards(j.cards);
         setRecord(j.record);
       }
+      setErr(false);
     } catch {
-      /* keep */
+      setErr(true); // 保留已有数据,轮询自动重试
     } finally {
       setLoaded(true);
     }
@@ -100,10 +102,12 @@ function MobilePredictionsPage() {
           <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "var(--fg-1)" }}>详情 ›</div>
         </div>
 
-        {loaded && shown.length === 0 && (
-          <EmptyBox
-            title={filter === "已解锁" ? "尚未解锁任何报告" : "今日概率报告尚未生成"}
-            sub={filter === "已解锁" ? "切到「全部」查看可用场次,或用账户额度解锁任意场报告" : "比赛开盘或概率快照就绪后自动生成报告"}
+        {shown.length === 0 && (
+          <FeedState
+            loading={!loaded}
+            error={err}
+            emptyTitle={filter === "已解锁" ? "尚未解锁任何报告" : "今日概率报告尚未生成"}
+            emptySub={filter === "已解锁" ? "切到「全部」查看可用场次,或用账户额度解锁任意场报告" : "比赛开盘或概率快照就绪后自动生成报告"}
           />
         )}
 

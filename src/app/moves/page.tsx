@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
-import { Chip, GoldBtn, Sheet } from "@/components/ui";
+import { Chip, FeedState, GoldBtn, Sheet } from "@/components/ui";
 import { leagueColor } from "@/lib/leagues";
 import { useNewIds, useUnifiedPoll } from "@/components/live";
 import { PageHeader } from "@/components/page-header";
@@ -41,6 +41,8 @@ function MobileMovesPage() {
   const [rows, setRows] = useState<Move[]>([]);
   const [searchRows, setSearchRows] = useState<Move[]>([]);
   const [loggedIn, setLoggedIn] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const [err, setErr] = useState(false);
   const [sel, setSel] = useState<Move | null>(null);
   const { prefs } = useApp();
   const router = useRouter();
@@ -59,10 +61,12 @@ function MobileMovesPage() {
         const sj = await sr.json();
         if (sj.ok) setSearchRows(sj.rows);
       }
+      setErr(false);
     } catch {
-      /* keep */
+      setErr(true); // 保留已有数据,轮询自动重试
     } finally {
-          }
+      setLoaded(true);
+    }
   }, [filter, prefs.tz]);
 
   useEffect(() => {
@@ -102,11 +106,7 @@ function MobileMovesPage() {
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 12px", minHeight: 0 }}>
         {rows.length === 0 && (
-          <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12.5, padding: "48px 0", lineHeight: 1.9 }}>
-            暂无异动记录
-            <br />
-            <span style={{ fontSize: 11.5 }}>开盘后的指数/水位变化会实时进入这里</span>
-          </div>
+          <FeedState loading={!loaded} error={err} emptyTitle="暂无异动记录" emptySub="开盘后的指数/水位变化会实时进入这里" />
         )}
         {rows.map((f) => (
           <div
