@@ -17,6 +17,7 @@ import { nameZh } from "@/server/views/names";
 import { marketOverviewBatchBefore, publicMarketOverview } from "@/server/markets/overview";
 import { matchPanorama } from "@/server/af/panorama";
 import { findPolymarketSignal } from "@/server/external/polymarket";
+import { buildReportSourceCoverage, publicSourceCoverage } from "@/server/views/source-coverage";
 
 export async function GET(req: NextRequest) {
   const tz = req.nextUrl.searchParams.get("tz") || "UTC+8";
@@ -64,6 +65,7 @@ export async function GET(req: NextRequest) {
           })
         : { status: "skipped" as const, note: "报告未解锁,暂不请求外部预测市场" };
       const signals = buildReportSignals(signalPs, signalOdds, market, signalContext);
+      const sourceCoverage = signalContext ? publicSourceCoverage(buildReportSourceCoverage(signalContext, signals)) : null;
       const prob = publicProbability(signalPs);
       const comp = publicComparison(signalPs);
       const advice = publicReportAdvice(signalPs, signals);
@@ -90,6 +92,7 @@ export async function GET(req: NextRequest) {
         uoText: unlocked ? signals.ou.text : null,
         goalsText: unlocked ? `覆盖 ${signals.model.coverage}%` : null,
         marketOverview: publicMarketOverview(overview),
+        sourceCoverage: unlocked ? sourceCoverage : null,
       };
     }))).filter(Boolean);
 

@@ -321,7 +321,7 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
   // AI 报告预生成:跟随抓取频次检查,指纹变化才出新版(getLlmReport 内部判),开赛锁定
   if (shouldPregenReport(fxId, f.kickoff_utc, f.status, now)) {
     try {
-      const p = await matchPanorama(fxId);
+      const p = await matchPanorama(fxId, { deep: true, injuries: true, preKickoffOnly: true });
       if (p) {
         const ps = buildReportSummary(p);
         const market = await findPolymarketSignal(p.fixture.home_name, p.fixture.away_name, {
@@ -398,7 +398,14 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
     }
   }
   // 赛前预测市场快照:开赛后只使用赛前缓存,避免赛后价格污染。
-  const polyBucket = minsTo > 0 && minsTo <= 5 ? "t5m" : minsTo > 0 && minsTo <= 60 ? "t60m" : minsTo > 0 && minsTo <= 120 ? "t120m" : null;
+  const polyBucket =
+    minsTo > 0 && minsTo <= 5 ? "t5m"
+    : minsTo > 0 && minsTo <= 15 ? "t15m"
+    : minsTo > 0 && minsTo <= 60 ? "t60m"
+    : minsTo > 0 && minsTo <= 120 ? "t120m"
+    : minsTo > 0 && minsTo <= 360 ? "t6h"
+    : minsTo > 0 && minsTo <= 24 * 60 ? "t24h"
+    : null;
   if (polyBucket) {
     const key = `poly_prefetch:${fxId}:${polyBucket}`;
     if (!kvGet(key)) {

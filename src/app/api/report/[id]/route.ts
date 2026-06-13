@@ -12,6 +12,7 @@ import { currentUser } from "@/server/platform/session";
 import { cfgUnlockPrice } from "@/server/platform/config";
 import { isUnlocked } from "@/server/platform/wallet";
 import { publicMarketOverview } from "@/server/markets/overview";
+import { buildReportSourceCoverage, publicSourceCoverage, sourceCoverageNeedsRebuild } from "@/server/views/source-coverage";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const user = await currentUser();
   const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
   const unlocked = !!user && isUnlocked(user.id, fid, today);
-  const p = await matchPanorama(fid, { injuries: unlocked, deep: unlocked, preKickoffOnly: true });
+  const p = await matchPanorama(fid, { injuries: true, deep: unlocked, preKickoffOnly: true });
   if (!p) return NextResponse.json({ ok: false, error: "比赛不存在或数据未就绪" }, { status: 404 });
   const ps0 = buildReportSummary(p);
   const market = unlocked
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   let versions: ReturnType<typeof listReportVersions> = [];
   const reqVer = Number(req.nextUrl.searchParams.get("v")) || null;
   let curVer: number | null = null;
+  let reportGeneratedAt: number | null = null;
   if (unlocked) {
     versions = listReportVersions(fid);
     if (reqVer != null) {
@@ -44,6 +46,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         sections = v.sections;
         genBy = v.model;
         curVer = reqVer;
+        reportGeneratedAt = v.gen_at;
       }
     }
     if (curVer == null) {
@@ -52,7 +55,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         sections = llm.sections;
         genBy = llm.by;
         versions = listReportVersions(fid);
-        curVer = versions.length > 0 ? versions[versions.length - 1].ver : null;
+        const latest = versions[versions.length - 1] ?? null;
+        curVer = latest?.ver ?? null;
+        reportGeneratedAt = latest?.gen_at ?? null;
       }
     }
   }
@@ -61,6 +66,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const prob = publicProbability(ps);
   const comp = publicComparison(ps);
   const advice = publicReportAdvice(ps, signals);
+  const coverage = buildReportSourceCoverage(p, signals, { reportGeneratedAt });
+  const publicCoverage = publicSourceCoverage(coverage);
   return NextResponse.json({
     ok: true,
     id: fid,
@@ -80,6 +87,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     model: unlocked ? signals.model : null,
     market: unlocked ? signals.market : null,
     marketOverview: publicMarketOverview(p.marketOverview),
+    sourceCoverage: publicCoverage,
+    sourceCoverageNeedsRebuild: sourceCoverageNeedsRebuild(coverage),
+    fittingScope: unlocked ? "fullReport" : "preview",
     sections: unlocked ? sections : [],
     genBy,
     versions: unlocked ? versions.map((v) => ({ ver: v.ver, genAt: v.gen_at, changed: v.changed })) : [],

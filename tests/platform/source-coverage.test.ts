@@ -6,7 +6,7 @@ import type { Panorama } from "../../src/server/af/panorama";
 import { db, _resetDbForTest } from "../../src/server/db";
 import { buildReportSummary } from "../../src/server/views/report";
 import { buildReportSignals, type PublicMarketSignal } from "../../src/server/views/report-signals";
-import { buildReportSourceCoverage, sourceCoverageNeedsRebuild } from "../../src/server/views/source-coverage";
+import { buildReportSourceCoverage, publicSourceCoverage, sourceCoverageNeedsRebuild } from "../../src/server/views/source-coverage";
 
 const fixture = {
   fixture_id: 8801,
@@ -116,5 +116,20 @@ describe("report sourceCoverage", () => {
     expect(coverage.afPredictions.status).toBe("stale");
     expect(coverage.polymarket.status).toBe("stale");
     expect(sourceCoverageNeedsRebuild(coverage)).toBe(true);
+  });
+
+  it("publishes user-safe coverage without internal source names or endpoints", () => {
+    const p = pano({ prediction: null, injuries: [] });
+    const signals = buildReportSignals(null, p.odds, { status: "skipped", note: "已开赛,不使用即时预测市场避免赛后价格污染" }, p);
+    const publicCoverage = publicSourceCoverage(buildReportSourceCoverage(p, signals));
+
+    expect(publicCoverage.afPredictions).toMatchObject({
+      label: "预测概率",
+      status: "missing",
+      reason: "预测概率数据积累中",
+      usedInReport: false,
+    });
+    expect(publicCoverage.polymarket.reason).toBe("已开赛,没有可用的赛前预测市场快照");
+    expect(JSON.stringify(publicCoverage)).not.toMatch(/API-Football|endpoint|worker|AF /i);
   });
 });

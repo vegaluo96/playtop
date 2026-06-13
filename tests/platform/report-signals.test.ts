@@ -49,6 +49,8 @@ describe("AI 报告量化方向", () => {
     expect(advice.summaryReady).toBe(true);
     expect(advice.advice).toContain("赛前指数方向");
     expect(advice.advice).not.toContain("33");
+    expect(sig.ah.derived).toBe(true);
+    expect(["marketDerived", "mixed"]).toContain(sig.ah.sourceKind);
   });
 
   it("用 AF 预测、赛前指数和预测市场动态加权生成 AH/OU 方向", () => {
@@ -63,6 +65,8 @@ describe("AI 报告量化方向", () => {
 
     expect(sig.ah.text).toContain("主队方向");
     expect(sig.ou.text).toContain("大于");
+    expect(sig.ah.derived).toBe(false);
+    expect(sig.ah.sourceKind).toBe("mixed");
     expect(sig.model.coverage).toBeGreaterThan(55);
     expect(sig.model.inputs.filter((x) => x.status === "used").length).toBeGreaterThan(3);
   });

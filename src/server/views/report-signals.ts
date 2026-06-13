@@ -43,6 +43,8 @@ export interface DirectionSignal {
   side: AhSide | OuSide | null;
   line: number | null;
   sources: string[];
+  sourceKind: "prediction" | "marketDerived" | "marketOnly" | "model" | "mixed" | "open";
+  derived: boolean;
 }
 
 export interface ReportSignals {
@@ -111,6 +113,38 @@ function chooseSide<T extends string>(votes: { side: T; weight: number; source: 
   if (ranked.length > 1 && ranked[0][1] - ranked[1][1] < 0.75) return null;
   const side = ranked[0][0];
   return { side, sources: votes.filter((v) => v.side === side).map((v) => v.source) };
+}
+
+function sourceKind(sources: string[]): DirectionSignal["sourceKind"] {
+  if (sources.length === 0) return "open";
+  if (sources.includes("量化评分模型")) return "model";
+  const derived = sources.some((s) => s.includes("指数派生"));
+  const prediction = sources.some((s) => s.includes("预测模型") || s.includes("概率") || s.includes("进球模型"));
+  const market = sources.some((s) => s.includes("赛前") || s.includes("Polymarket"));
+  if (derived && !prediction) return market ? "mixed" : "marketDerived";
+  if (derived) return "mixed";
+  if (prediction && market) return "mixed";
+  if (prediction) return "prediction";
+  if (market) return "marketOnly";
+  return "model";
+}
+
+function direction<T extends AhSide | OuSide>(
+  status: DirectionSignal["status"],
+  text: string,
+  side: T | null,
+  line: number | null,
+  sources: string[],
+): DirectionSignal {
+  return {
+    status,
+    text,
+    side,
+    line,
+    sources,
+    sourceKind: sourceKind(sources),
+    derived: sources.some((s) => s.includes("指数派生")),
+  };
 }
 
 function parseUo(ps: PredSummary | null): OuSide | null {
@@ -393,15 +427,15 @@ export function buildReportSignals(
   const scoreSideOu: OuSide | null = ouScore.score == null || Math.abs(ouScore.score) < 8 ? null : ouScore.score > 0 ? "over" : "under";
 
   const ahSignal: DirectionSignal = ahPick
-    ? { status: "ok", text: ahDirectionText(ahPick.side, ah?.line ?? null), side: ahPick.side, line: ah?.line ?? null, sources: ahPick.sources }
+    ? direction("ok", ahDirectionText(ahPick.side, ah?.line ?? null), ahPick.side, ah?.line ?? null, ahPick.sources)
     : scoreSideAh
-      ? { status: "ok", text: ahDirectionText(scoreSideAh, ah?.line ?? null), side: scoreSideAh, line: ah?.line ?? null, sources: ["量化评分模型"] }
-    : { status: "open", text: "暂无明确亚盘方向", side: null, line: ah?.line ?? null, sources: [] };
+      ? direction("ok", ahDirectionText(scoreSideAh, ah?.line ?? null), scoreSideAh, ah?.line ?? null, ["量化评分模型"])
+    : direction("open", "暂无明确亚盘方向", null, ah?.line ?? null, []);
   const ouSignal: DirectionSignal = ouPick
-    ? { status: "ok", text: ouDirectionText(ouPick.side, ou?.line ?? null), side: ouPick.side, line: ou?.line ?? null, sources: ouPick.sources }
+    ? direction("ok", ouDirectionText(ouPick.side, ou?.line ?? null), ouPick.side, ou?.line ?? null, ouPick.sources)
     : scoreSideOu
-      ? { status: "ok", text: ouDirectionText(scoreSideOu, ou?.line ?? null), side: scoreSideOu, line: ou?.line ?? null, sources: ["量化评分模型"] }
-    : { status: "open", text: "暂无明确大小球方向", side: null, line: ou?.line ?? null, sources: [] };
+      ? direction("ok", ouDirectionText(scoreSideOu, ou?.line ?? null), scoreSideOu, ou?.line ?? null, ["量化评分模型"])
+    : direction("open", "暂无明确大小球方向", null, ou?.line ?? null, []);
   const inputs = [...ahScore.inputs, ...ouScore.inputs];
   const coverage = Math.round((ahScore.coverage + ouScore.coverage) / 2);
   const model = {

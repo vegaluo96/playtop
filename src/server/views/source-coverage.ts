@@ -35,6 +35,20 @@ export interface SourceCoverageItem {
 
 export type SourceCoverage = Record<SourceCoverageKey, SourceCoverageItem>;
 
+export interface PublicSourceCoverageItem {
+  key: SourceCoverageKey;
+  label: string;
+  status: SourceCoverageStatus;
+  statusText: string;
+  lastFetchedAt: number | null;
+  dataVersion: string;
+  confidence: number;
+  usedInReport: boolean;
+  reason: string;
+}
+
+export type PublicSourceCoverage = Record<SourceCoverageKey, PublicSourceCoverageItem>;
+
 function dig(obj: unknown, ...path: (string | number)[]): unknown {
   let cur: unknown = obj;
   for (const k of path) {
@@ -147,7 +161,7 @@ export function buildReportSourceCoverage(
   const events = arr(dig(p.bundle, "events"));
   const statistics = arr(dig(p.bundle, "statistics"));
   const polyCached = readCachedPolymarketSignal(p.fixture.home_name, p.fixture.away_name, fixtureId);
-  const poly = signals.market.status === "skipped" ? polyCached : signals.market;
+  const poly = signals.market.status === "skipped" ? (polyCached ?? signals.market) : signals.market;
   const injuriesAt = kvBoxAt(kvGet(`fx:${fixtureId}:injuries`));
   const hasOdds = p.odds.ah.length + p.odds.ou.length + p.odds.eu.length > 0;
   const hasDeepStats = !!p.deep?.statsHome && !!p.deep?.statsAway;
@@ -303,4 +317,77 @@ export function buildReportSourceCoverage(
 
 export function sourceCoverageNeedsRebuild(coverage: SourceCoverage): boolean {
   return Object.values(coverage).some((s) => s.status === "stale");
+}
+
+const publicLabels: Record<SourceCoverageKey, string> = {
+  afPredictions: "预测概率",
+  polymarket: "预测市场",
+  prematchOdds: "赛前盘口",
+  liveOdds: "滚球盘口",
+  lineups: "阵容",
+  injuries: "伤停",
+  standings: "积分/赛季统计",
+  recentForm: "近期状态",
+  statistics: "技术统计",
+  events: "赛况事件",
+  weather: "天气",
+};
+
+const publicStatusText: Record<SourceCoverageStatus, string> = {
+  used: "已参与",
+  missing: "数据积累中",
+  failed: "暂时不可用",
+  stale: "需要刷新",
+  pendingReview: "待确认",
+};
+
+function publicReason(item: SourceCoverageItem): string {
+  if (item.status === "stale") return "有新数据到达,本场报告需要刷新或重新生成";
+  if (item.status === "pendingReview") return "已找到候选预测市场,需要人工确认后才能参与拟合";
+  if (item.status === "failed") {
+    if (item.key === "weather") return "天气数据暂时无法更新";
+    if (item.key === "polymarket") return "预测市场暂时无法更新";
+    return "该来源暂时无法更新";
+  }
+  if (item.status === "used") {
+    return item.usedInReport ? "已参与本次报告拟合" : "已归档,当前仅用于展示或校验";
+  }
+  if (item.key === "polymarket") {
+    const reason = `${item.missingReason ?? ""}${item.failReason ?? ""}`;
+    if (reason.includes("已开赛")) return "已开赛,没有可用的赛前预测市场快照";
+    if (reason.includes("未解锁")) return "解锁后检查预测市场";
+  }
+  const defaults: Record<SourceCoverageKey, string> = {
+    afPredictions: "预测概率数据积累中",
+    polymarket: "暂无可精确匹配的预测市场",
+    prematchOdds: "赛前主盘口数据积累中",
+    liveOdds: "开赛后更新",
+    lineups: "暂未公布",
+    injuries: "暂无伤停通报",
+    standings: "赛季统计数据积累中",
+    recentForm: "近期状态样本不足",
+    statistics: "开赛后更新",
+    events: "开赛后更新",
+    weather: "天气数据积累中",
+  };
+  return defaults[item.key];
+}
+
+export function publicSourceCoverage(coverage: SourceCoverage): PublicSourceCoverage {
+  return Object.fromEntries(
+    Object.entries(coverage).map(([k, v]) => [
+      k,
+      {
+        key: v.key,
+        label: publicLabels[v.key],
+        status: v.status,
+        statusText: publicStatusText[v.status],
+        lastFetchedAt: v.lastFetchedAt,
+        dataVersion: v.dataVersion,
+        confidence: v.confidence,
+        usedInReport: v.usedInReport,
+        reason: publicReason(v),
+      },
+    ]),
+  ) as PublicSourceCoverage;
 }
