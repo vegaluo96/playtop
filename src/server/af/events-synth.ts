@@ -6,6 +6,7 @@
  * 存储:kv fx:{id}:synthev = { counts, status, events[] }(单场体量 < 100 条)。
  */
 import { kvGet, kvSet, type FixtureRow } from "./store";
+import { dig } from "@/lib/dig";
 
 const TRACK: [string, string][] = [
   ["Corner Kicks", "corner"],
@@ -29,14 +30,6 @@ interface SynthState {
   events: SynthEvent[];
 }
 
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 export function synthEventsOf(fixtureId: number): SynthEvent[] {

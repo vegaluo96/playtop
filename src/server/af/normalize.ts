@@ -6,6 +6,7 @@
  */
 
 import { isDisplayableLiveEuTriplet, isFulltimeResultMarketName, isHalfPeriodMarketName, isValidAhLine, isValidDecimalOdd, isValidEuTriplet, isValidOuLine } from "./odds-quality";
+import { dig } from "@/lib/dig";
 
 export interface NormalizedMarket {
   market: "ah" | "ou" | "eu";
@@ -282,14 +283,6 @@ export interface LiveMarketFrame {
 }
 
 export function normalizeLiveOddsItem(item: unknown, opts: NormalizeOptions = {}): LiveMarketFrame[] {
-  const dig = (o: unknown, ...p: (string | number)[]): unknown => {
-    let cur = o;
-    for (const k of p) {
-      if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-      else return undefined;
-    }
-    return cur;
-  };
   const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
   const odds = arr(dig(item, "odds"));
   const find = (re: RegExp) => odds.find((o) => re.test(String(dig(o, "name") ?? "")) && !isHalfPeriodMarketName(String(dig(o, "name") ?? "")));

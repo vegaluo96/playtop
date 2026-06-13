@@ -1,4 +1,5 @@
 import { db } from "../db";
+import { dig } from "@/lib/dig";
 import type { Panorama } from "../af/panorama";
 import { kvGet } from "../af/store";
 import { readCachedPolymarketSignal } from "../external/polymarket";
@@ -48,15 +49,6 @@ export interface PublicSourceCoverageItem {
 }
 
 export type PublicSourceCoverage = Record<SourceCoverageKey, PublicSourceCoverageItem>;
-
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 
 function arr(v: unknown): unknown[] {
   return Array.isArray(v) ? v : [];

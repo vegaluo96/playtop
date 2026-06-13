@@ -1,13 +1,6 @@
 import { nameZh } from "./names";
+import { dig } from "@/lib/dig";
 
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 interface LineupPlayer {

@@ -3,19 +3,12 @@
  * players(赛季统计)+ profiles(档案)+ seasons(可用赛季)+ teams(效力队)+ sidelined(伤停/停赛史)。
  */
 import { NextRequest, NextResponse } from "next/server";
+import { dig } from "@/lib/dig";
 import { kvCached } from "@/server/af/store";
 import { runAfEndpoint } from "@/server/af/catalog";
 import { recordDiagnosticIssue, type DiagnosticSeverity } from "@/server/af/diagnostics";
 import { nameZh } from "@/server/views/names";
 
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 const POS_ZH: Record<string, string> = { Goalkeeper: "门将", Defender: "后卫", Midfielder: "中场", Attacker: "前锋" };

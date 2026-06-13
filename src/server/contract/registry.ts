@@ -109,6 +109,7 @@ export const USER_ROUTE_CONTRACT: RouteContract[] = [
   {
     route: "/match/[id]",
     fields: ["ok", "header", "summary", "marketOverview", "liveOdds", "odds", "comp", "tech", "markets", "weather", "insights", "lineups", "intel", "deep", "loggedIn", "unlocked", "price"],
+    // odds.index 为综合指数派生展示序列(IdxData: points/method/books),非 §5 信封值,豁免 envelope
     fitted: ["summary", "marketOverview", "odds.index", "comp.euMeta", "comp.trend", "insights"],
     lockedNull: ["deep"], // deep=1 才有
     viewModels: ["detailView", "publicMarketOverview", "compositePre/Live", "seriesRows", "insightsView"],
@@ -138,7 +139,7 @@ export const USER_ROUTE_CONTRACT: RouteContract[] = [
     route: "/moves",
     fields: ["ok", "rows", "loggedIn"],
     fitted: ["rows.direction", "rows.waterLabel", "rows.note", "rows.grade"],
-    lockedNull: ["rows.from", "rows.to", "rows.water", "rows.note", "rows.rows"], // masked 时脱敏
+    lockedNull: ["rows.from", "rows.to", "rows.water", "rows.note", "rows.rows"], // masked 时脱敏为占位文本(●●● / 登录 CTA / 空数组),非字面 null
     viewModels: ["movements", "detectMovement"],
   },
   {

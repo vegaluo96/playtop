@@ -2,6 +2,7 @@
  * 详情页视图模型:matchPanorama → 6 个 tab 的渲染数据(全部中文化)。
  */
 import { ahText, dateStr, f2, hhmm, maskBookmaker, ouText, parseTzOffset } from "@/lib/format";
+import { dig } from "@/lib/dig";
 import { leagueZh, roundZh } from "@/lib/leagues";
 import { freshLine, isFinished, isLive } from "../af/schedule";
 import { cfgEffectiveTierIntervals } from "../platform/config";
@@ -29,14 +30,6 @@ export { timelineView } from "./detail-tech";
 const H = 3_600_000;
 const EMPTY_AF_TTL_MS = 30 * 60_000;
 
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 /* ── 指数走势:全序列 → 变盘点行 + 折线采样 ── */
@@ -205,6 +198,36 @@ function intelView(injuries: unknown[], homeId: number | null) {
   });
 }
 
+/** 球场:fixture payload 自带名称/城市;容量/草皮取 /venues?id=(缓存 30 天) */
+async function venueView(bundle: unknown): Promise<{ name: string; city: string; cap: string; surface: string; country: string }> {
+  const venueId = Number(dig(bundle, "fixture", "venue", "id")) || null;
+  const venue = {
+    name: String(dig(bundle, "fixture", "venue", "name") ?? "—"),
+    city: String(dig(bundle, "fixture", "venue", "city") ?? ""),
+    cap: "—", surface: "—", country: "",
+  };
+  if (!venueId) return venue;
+  try {
+    const v = await kvCached<unknown>(`venue:${venueId}`, 30 * 86_400_000, async () => {
+      const r = await runAfEndpoint("venues", { id: String(venueId) });
+      return arr(r.response)[0] ?? null;
+    });
+    if (v) {
+      const capN = Number(dig(v, "capacity"));
+      return {
+        name: String(dig(v, "name") ?? venue.name),
+        city: String(dig(v, "city") ?? venue.city),
+        cap: capN ? `${(capN / 10_000).toFixed(1)} 万` : "—",
+        surface: /grass/i.test(String(dig(v, "surface") ?? "")) ? "天然草" : String(dig(v, "surface") ?? "—"),
+        country: String(dig(v, "country") ?? ""),
+      };
+    }
+  } catch {
+    /* 留默认 */
+  }
+  return venue;
+}
+
 async function deepView(p: Panorama, lineups: LineupsView) {
   if (!p.deep) return null;
   const d = p.deep;
@@ -221,38 +244,12 @@ async function deepView(p: Panorama, lineups: LineupsView) {
     }));
   const lb = [
     { tag: "射手榜", tagC: "var(--chart-primary)", rows: board(d.topscorers, (it) => `${stat0(it, "goals", "total") ?? 0} 球`) },
-    { tag: "助攻榜", tagC: "#3f8cff", rows: board(d.topassists, (it) => `${stat0(it, "goals", "assists") ?? 0} 助攻`) },
-    { tag: "黄牌榜", tagC: "#f2b84b", rows: board(d.topyellow, (it) => `${stat0(it, "cards", "yellow") ?? 0} 黄`) },
+    { tag: "助攻榜", tagC: "var(--info)", rows: board(d.topassists, (it) => `${stat0(it, "goals", "assists") ?? 0} 助攻`) },
+    { tag: "黄牌榜", tagC: "var(--warn)", rows: board(d.topyellow, (it) => `${stat0(it, "cards", "yellow") ?? 0} 黄`) },
     { tag: "红牌榜", tagC: "var(--red)", rows: board(d.topred, (it) => `${stat0(it, "cards", "red") ?? 0} 红`) },
   ].filter((b) => b.rows.length > 0);
 
-  // 球场:fixture payload 自带 venue 名称/城市;容量等取 /venues?id=
-  const venueId = Number(dig(p.bundle, "fixture", "venue", "id")) || null;
-  let venue: { name: string; city: string; cap: string; surface: string; country: string } = {
-    name: String(dig(p.bundle, "fixture", "venue", "name") ?? "—"),
-    city: String(dig(p.bundle, "fixture", "venue", "city") ?? ""),
-    cap: "—", surface: "—", country: "",
-  };
-  if (venueId) {
-    try {
-      const v = await kvCached<unknown>(`venue:${venueId}`, 30 * 86_400_000, async () => {
-        const r = await runAfEndpoint("venues", { id: String(venueId) });
-        return arr(r.response)[0] ?? null;
-      });
-      if (v) {
-        const capN = Number(dig(v, "capacity"));
-        venue = {
-          name: String(dig(v, "name") ?? venue.name),
-          city: String(dig(v, "city") ?? venue.city),
-          cap: capN ? `${(capN / 10_000).toFixed(1)} 万` : "—",
-          surface: /grass/i.test(String(dig(v, "surface") ?? "")) ? "天然草" : String(dig(v, "surface") ?? "—"),
-          country: String(dig(v, "country") ?? ""),
-        };
-      }
-    } catch {
-      /* 留默认 */
-    }
-  }
+  const venue = await venueView(p.bundle);
 
   const pred = p.prediction;
   const teamGoals = (side: string) => Number(dig(pred, "teams", side, "league", "goals", "for", "total", "total")) || 0;

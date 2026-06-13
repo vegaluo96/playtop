@@ -9,6 +9,7 @@
  * 覆盖范围 = 本站归档数据(开赛前 14 天起持续归档),如实标注,随时间自然变厚。
  */
 import { db } from "../db";
+import { dig } from "@/lib/dig";
 import { isFinished } from "../af/schedule";
 import { isDisplayableSnapshot } from "../af/odds-quality";
 import { kvCached, oddsSeries, type FixtureRow, type SnapRow } from "../af/store";
@@ -17,15 +18,6 @@ import { nameZh } from "./names";
 
 const DAY = 86_400_000;
 const EPS = 1e-9;
-
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 
 /* ── ① 盘路榜 ── */
 

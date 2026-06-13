@@ -10,6 +10,7 @@
  * - 每次调用 try/catch，单点失败不影响整体；可选 delay 适配限流套餐。
  */
 import { afGet, type AfEnvelope } from "./client";
+import { dig } from "@/lib/dig";
 import { AF_ENDPOINTS, runAfEndpoint, afEndpointByKey } from "./catalog";
 
 export interface SelftestContext {
@@ -48,14 +49,6 @@ export interface SelftestReport {
 }
 
 /* 安全取值：在未知 JSON 上按路径钻取 */
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 function firstArr(env: AfEnvelope | { response: unknown }): Record<string, unknown> | undefined {
   const r = (env as { response?: unknown }).response;
   return Array.isArray(r) && r.length > 0 ? (r[0] as Record<string, unknown>) : undefined;

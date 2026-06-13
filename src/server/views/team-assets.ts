@@ -1,11 +1,4 @@
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
+import { dig } from "@/lib/dig";
 
 export function publicImageUrl(raw: unknown): string | null {
   const text = String(raw ?? "").trim();

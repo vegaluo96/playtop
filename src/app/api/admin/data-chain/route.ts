@@ -1,5 +1,6 @@
 /** 后台:单场数据链路诊断。只重放本地归档/缓存,不主动回源 AF。 */
 import { NextRequest, NextResponse } from "next/server";
+import { dig } from "@/lib/dig";
 import { db } from "@/server/db";
 import { currentAdmin } from "@/server/admin/auth";
 import { requireSameOrigin } from "@/server/platform/rate-limit";
@@ -46,15 +47,6 @@ interface FixturePayload {
   lineups?: unknown[];
   players?: unknown[];
   [key: string]: unknown;
-}
-
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
 }
 
 function arr(v: unknown): unknown[] {

@@ -7,7 +7,6 @@ import { useIsDesktop } from "@/components/use-viewport";
 import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { useUnlockFlow } from "@/components/unlock-flow";
 import { SubpageHeader } from "@/components/ui";
-import { nowStr } from "@/lib/format";
 
 interface Row {
   kind: string;
@@ -40,7 +39,6 @@ function MobileLedgerPage() {
     const p = (n: number) => String(n).padStart(2, "0");
     return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
   };
-  void nowStr;
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>

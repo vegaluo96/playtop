@@ -3,6 +3,7 @@
  * 基于 panorama 真实数据的规则模板生成;后续可在 buildReport 外层接 LLM 润色。
  */
 import { ahText, f2, ouText } from "@/lib/format";
+import { dig } from "@/lib/dig";
 import type { Panorama } from "../af/panorama";
 import { formZh, predSummary, type PredSummary } from "./common";
 import { nameZh } from "./names";
@@ -25,15 +26,6 @@ export function buildReportSummary(p: Panorama): PredSummary | null {
     homeName: nameZh(fx.home_name),
     awayName: nameZh(fx.away_name),
   });
-}
-
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
 }
 
 export function buildReport(p: Panorama, signals?: ReportSignals): { ps: PredSummary | null; secs: ReportSection[]; signals: ReportSignals } {

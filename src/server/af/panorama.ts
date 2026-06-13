@@ -6,6 +6,7 @@
  * 滚球与 T-30min 内 force=true 绕 client 缓存;其余沿用缓存与 kv TTL。
  */
 import { afGet } from "./client";
+import { dig } from "@/lib/dig";
 import { runAfEndpoint } from "./catalog";
 import { mustForce, isLive } from "./schedule";
 import { fixtureDetailPartKey, fixtureDetailPartsForBundle, refreshFixtureDetailsFromAf } from "./fixture-details";
@@ -28,15 +29,6 @@ import { marketOverview, type MarketOverview } from "../markets/overview";
 const H = 3_600_000;
 const DETAIL_PROBE_TTL_MS = 5 * 60_000;
 const EMPTY_AF_TTL_MS = 30 * 60_000;
-
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 
 export interface Panorama {
   fixture: FixtureRow;

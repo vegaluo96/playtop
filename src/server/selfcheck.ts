@@ -4,6 +4,7 @@
  * 原则:不伪造数据——查不到如实 ✗ 并给修复提示;依赖真实赛况的项条件不满足时 skip 并注明。
  */
 import { db, tx } from "./db";
+import { dig } from "@/lib/dig";
 import { afGet } from "./af/client";
 import { archiveOdds, fixturesBetween, hasPrediction, kvGet, kvSet, latestPrediction, mainOddsSnapshot } from "./af/store";
 import { normalizeOddsItem, pairMargin } from "./af/normalize";
@@ -35,14 +36,6 @@ function row(layer: string, key: string, status: CheckRow["status"], note?: stri
   return { layer, key, status, note };
 }
 
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 
 /* ── L0–L2:只读层(worker 每日自检 / 后台按钮 / CLI 共用)── */
 export async function checkReadonly(opts: { skipNetwork?: boolean; now?: number } = {}): Promise<CheckRow[]> {

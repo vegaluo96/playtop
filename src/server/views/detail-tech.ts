@@ -1,16 +1,9 @@
 import { isFinished, isLive } from "../af/schedule";
+import { dig } from "@/lib/dig";
 import type { SynthEvent } from "../af/events-synth";
 import { kvGet } from "../af/store";
 import { nameZh } from "./names";
 
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 const STAT_ZH: [string, string][] = [

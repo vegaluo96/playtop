@@ -1,4 +1,5 @@
 import { dateStr, hhmm } from "@/lib/format";
+import { dig } from "@/lib/dig";
 import { leagueColor, leagueZh, roundZh } from "@/lib/leagues";
 import { db } from "../db";
 import { runAfEndpoint } from "../af/catalog";
@@ -10,15 +11,6 @@ import { publicImageUrl, teamLogoFromFixturePayload } from "./team-assets";
 
 const H = 3_600_000;
 const EMPTY_TTL_MS = 30 * 60_000;
-
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 

@@ -4,6 +4,7 @@
  */
 import { cfgLlmBalanceKey, cfgLlmBase, cfgLlmKey, cfgLlmModel } from "../platform/config";
 import { kvGet, kvSet } from "../af/store";
+import { dig } from "@/lib/dig";
 
 export interface ChatResult {
   text: string;
@@ -55,15 +56,6 @@ export interface LlmBalanceSnapshot {
 }
 
 const APIYI_QUOTA_PER_USD = 500_000;
-
-function dig(obj: unknown, ...path: string[]): unknown {
-  let cur = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k];
-    else return undefined;
-  }
-  return cur;
-}
 
 function firstFinite(...values: unknown[]): number | null {
   for (const value of values) {

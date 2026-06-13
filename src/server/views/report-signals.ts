@@ -1,4 +1,5 @@
 import { ahText, ouText } from "@/lib/format";
+import { dig } from "@/lib/dig";
 import type { SnapRow } from "../af/store";
 import type { Panorama } from "../af/panorama";
 import type { PredSummary } from "./common";
@@ -68,15 +69,6 @@ export interface PublicComparison {
 
 function last(s: SnapRow[]): SnapRow | null {
   return s.length > 0 ? s[s.length - 1] : null;
-}
-
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
 }
 
 function voteWinner(ps: PredSummary | null): AhSide | null {

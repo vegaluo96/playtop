@@ -1,5 +1,6 @@
 /** 列表页 DB 取数小件(从 store 转出,带轻量缓存语义) */
 import { db } from "../db";
+import { dig } from "@/lib/dig";
 import { dailyFreeFixtureIds } from "../platform/wallet";
 import { oddsSeries, oddsSeriesBatch, type OddsMarket, type SnapRow } from "../af/store";
 import { liveOddsSeries } from "../af/live-store";
@@ -100,14 +101,6 @@ export function hiddenFixtureIds(): Set<number> {
 export function liveExtras(payload: string): { ht: string | null; cor: string | null; red: string | null } {
   try {
     const p = JSON.parse(payload) as Record<string, unknown>;
-    const dig = (o: unknown, ...path: string[]): unknown => {
-      let c: unknown = o;
-      for (const k of path) {
-        if (c && typeof c === "object") c = (c as Record<string, unknown>)[k];
-        else return undefined;
-      }
-      return c;
-    };
     const hth = dig(p, "score", "halftime", "home");
     const ht = hth != null ? `${hth}-${dig(p, "score", "halftime", "away")}` : null;
     const blocks = Array.isArray(p.statistics) ? (p.statistics as unknown[]) : [];

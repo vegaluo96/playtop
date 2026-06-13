@@ -3,6 +3,7 @@
  * 必须平台自有库持续归档)、相邻快照 diff 生成「异动」、模型战绩结算。
  */
 import { db, tx } from "../db";
+import { dig } from "@/lib/dig";
 import { detectMovement, normalizeOddsItem } from "./normalize";
 import { isDisplayableSnapshot, LIVE_EU_DISPLAY_MAX_ODD } from "./odds-quality";
 import { ODDS_PARSER_VERSION, recordDiagnosticIssue } from "./diagnostics";
@@ -27,14 +28,6 @@ export function bookmakerZh(name: string): string {
 /** 主源书商优先级(列表/走势的「主盘」同线下优先取第一个有数据的) */
 export const PRIMARY_BOOKMAKERS = ["Bet365", "平博", "马拉松", "Bwin", "1xBet", "必发"];
 
-function dig(obj: unknown, ...path: (string | number)[]): unknown {
-  let cur: unknown = obj;
-  for (const k of path) {
-    if (cur && typeof cur === "object") cur = (cur as Record<string, unknown>)[k as string];
-    else return undefined;
-  }
-  return cur;
-}
 const asArr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const FIXTURE_DETAIL_KEYS = ["events", "statistics", "lineups", "players"] as const;
 
