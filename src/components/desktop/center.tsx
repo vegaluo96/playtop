@@ -12,6 +12,7 @@ import { CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/compon
 import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
 import { Flash } from "@/components/live";
 import { MarketCell, MarketValue, type MarketCellData } from "@/components/market-cell";
+import { RefreshCountdownText } from "@/components/refresh-countdown";
 import { ahText, dayLabel, hhmm } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
 import type { DTab } from "./terminal";
@@ -243,7 +244,9 @@ export function CenterPane({
             {h.live ? (h.ht ? "中场休息" : `${h.elapsed ?? ""}' 进行中`) : h.finished ? "已完场" : `${dayLabel(h.kickoff, tz)} ${hhmm(h.kickoff, tz)} 开赛`}
           </span>
           <span style={{ flex: 1 }} />
-          <span style={{ fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap" }}>{h.finished ? "已完场 · 数据已固化" : `⟳ ${h.fresh.freq}刷新`}{v.summary.oddsAt ? ` · 指数 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}</span>
+          <span style={{ fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap" }}>
+            <RefreshCountdownText finished={h.finished} fresh={h.fresh} oddsAt={v.summary.oddsAt} />
+          </span>
           {copied && <span style={{ fontSize: 11, color: "var(--up)", fontWeight: 700, whiteSpace: "nowrap" }}>链接已复制</span>}
           <span onClick={copyLink} style={{ cursor: "pointer", color: "var(--fg-2)", display: "flex", alignItems: "center", flexShrink: 0 }}>
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

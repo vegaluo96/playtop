@@ -46,6 +46,7 @@ describe("freshLine(详情页提示行)", () => {
     const intervals = [12 * 3_600_000, 3 * 3_600_000, 60 * M, 30 * M, 3 * M, 5 * M, M, 5_000];
     expect(freshLine(ko(-10), now, "1H", intervals).line).toBe("滚球数据 · 每 5 秒刷新");
     expect(freshLine(ko(45), now, "NS", intervals).line).toContain("每 3 分钟刷新");
+    expect(freshLine(ko(45), now, "NS", intervals).intervalMs).toBe(3 * M);
     expect(freshLine(ko(45), now, "NS").line).toContain("每 10 分钟刷新"); // 不传则静态默认
   });
 });

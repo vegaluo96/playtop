@@ -13,6 +13,7 @@ import { ahText, dayLabel, hhmm } from "@/lib/format";
 
 import { Flash, HeartBeat, usePoll, useWorkerBeat } from "@/components/live";
 import { MarketCell, MarketValue, type MarketCellData } from "@/components/market-cell";
+import { RefreshCountdownText } from "@/components/refresh-countdown";
 import { useIsDesktop } from "@/components/use-viewport";
 import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { PlayerAvatar, TeamLogo } from "@/components/img";
@@ -298,8 +299,7 @@ function MobileMatchDetail({ id }: { id: string }) {
       <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 8px", cursor: "pointer" }}>
         {!h.finished && <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} rtt={rtt} />}
         <span style={{ fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap" }}>
-          {h.finished ? "已完场 · 数据已固化" : `⟳ ${h.fresh.freq}刷新`}
-          {v.summary.oddsAt ? ` · 指数 ${Math.max(0, Math.round((Date.now() - v.summary.oddsAt) / 60_000))}m前` : ""}
+          <RefreshCountdownText finished={h.finished} fresh={h.fresh} oddsAt={v.summary.oddsAt} fallbackAt={lastAt} />
         </span>
         <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 700, whiteSpace: "nowrap" }}>规则 ›</span>
       </div>

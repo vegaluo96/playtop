@@ -69,10 +69,10 @@ export function tierFor(kickoffUtcMs: number, nowMs: number, status: string): Ti
 }
 
 /** 详情页提示行:把当前档位翻译给用户(设计稿 freshFor)。intervals 传后台实际生效档位(cfgTierIntervals),不传则用静态默认 */
-export function freshLine(kickoffUtcMs: number, nowMs: number, status: string, intervals?: number[]): { idx: number; line: string; freq: string } {
+export function freshLine(kickoffUtcMs: number, nowMs: number, status: string, intervals?: number[]): { idx: number; line: string; freq: string; intervalMs: number } {
   const iv = (i: number) => intervals?.[i] ?? TIERS[i].intervalMs;
-  if (isLive(status)) return { idx: LIVE_TIER, line: `滚球数据 · ${fmtFreq(iv(LIVE_TIER))}刷新`, freq: fmtFreq(iv(LIVE_TIER)) };
-  if (isFinished(status)) return { idx: 0, line: "已完场 · 数据已固化", freq: "—" };
+  if (isLive(status)) return { idx: LIVE_TIER, line: `滚球数据 · ${fmtFreq(iv(LIVE_TIER))}刷新`, freq: fmtFreq(iv(LIVE_TIER)), intervalMs: iv(LIVE_TIER) };
+  if (isFinished(status)) return { idx: 0, line: "已完场 · 数据已固化", freq: "—", intervalMs: iv(0) };
   const t = tierFor(kickoffUtcMs, nowMs, status);
   const mins = Math.max(0, Math.round((kickoffUtcMs - nowMs) / M));
   const label = mins >= 60 ? `${Math.round(mins / 6) / 10} 小时` : `${mins} 分钟`;
@@ -80,6 +80,7 @@ export function freshLine(kickoffUtcMs: number, nowMs: number, status: string, i
     idx: t.idx,
     line: `距开赛约 ${label}` + (t.idx <= 1 ? ` · 低频巡检中(${fmtFreq(iv(t.idx))})` : ` · ${fmtFreq(iv(t.idx))}刷新`),
     freq: fmtFreq(iv(t.idx)),
+    intervalMs: iv(t.idx),
   };
 }
 
