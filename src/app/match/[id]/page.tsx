@@ -22,8 +22,13 @@ import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-histor
 import { OddsCompareMatrix, OddsEuTrendPanel, OddsSegmentedTabs, OddsTrendPanel, type OddsMarketKey } from "@/components/odds-workbench";
 import { SITE_HOST } from "@/lib/site";
 
+import type { DetailView } from "@/server/views/detail";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type V = any; // 视图模型由 /api/match/[id] 输出,字段见 src/server/views/detail.ts
+type V = any; // 局部多态占位(行/玩法/球员等异构子对象的 map 回调)
+/** 详情响应 = detailView 视图模型 + 路由附加字段(前后端字段编译期对齐) */
+type DetailResp = DetailView & { ok: boolean; loggedIn: boolean; unlocked: boolean; price: number };
+type DeepResp = NonNullable<DetailView["deep"]>;
 
 function pairSummary(s: V | null | undefined): MarketCellData | null {
   if (!s?.w) return null;
@@ -58,10 +63,10 @@ export default function MatchRoute({ params }: { params: Promise<{ id: string }>
 }
 
 function MobileMatchDetail({ id }: { id: string }) {
-  const [v, setV] = useState<V | null>(null);
+  const [v, setV] = useState<DetailResp | null>(null);
   const [tab, setTab] = useState("odds");
   const [oddsSub, setOddsSub] = useState<OddsMarketKey>("ah");
-  const [deepV, setDeepV] = useState<V | null>(null);
+  const [deepV, setDeepV] = useState<DeepResp | null>(null);
   const [rfOpen, setRfOpen] = useState(false);
   const [share, setShare] = useState<ShareData | null>(null);
   const [err, setErr] = useState("");

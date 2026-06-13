@@ -434,6 +434,8 @@ async function deepView(p: Panorama, lineups: LineupsView) {
 }
 
 /* ── 汇总 ── */
+/** 详情视图模型类型(供 /api/match/[id] 客户端复用,前后端字段编译期对齐) */
+export type DetailView = Awaited<ReturnType<typeof detailView>>;
 export async function detailView(p: Panorama, tz: string, opts: { deep: boolean }) {
   const fx = p.fixture;
   const lineups = lineupsView(p.bundle, fx.home_id, fx.home_name, fx.away_name);
