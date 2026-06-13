@@ -22,6 +22,8 @@ export interface IdxData {
   books: number;
 }
 
+const EMPTY_INDEX_DATA: IdxData = { points: [], markers: [], method: "", books: 0 };
+
 const W = 720;
 const H = 240;
 const PAD_L = 10;
@@ -44,7 +46,7 @@ function niceTicks(lo: number, hi: number, n = 4): number[] {
 export function IndexChart({
   data, kickoff, tz, unit, lineText, height = 200,
 }: {
-  data: IdxData;
+  data?: Partial<IdxData> | null;
   kickoff: number;
   tz: string;
   unit: string; // 例:净水 / 主胜概率
@@ -55,18 +57,26 @@ export function IndexChart({
   const [hover, setHover] = useState<IdxPoint | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const fillId = useId().replace(/:/g, "");
+  const safeData: IdxData = data && Array.isArray(data.points)
+    ? {
+        points: data.points,
+        markers: Array.isArray(data.markers) ? data.markers : [],
+        method: typeof data.method === "string" ? data.method : "",
+        books: Number.isFinite(data.books) ? Number(data.books) : 0,
+      }
+    : EMPTY_INDEX_DATA;
 
   const pts = useMemo(() => {
-    const all = data.points;
+    const all = safeData.points;
     if (range === "live") return all.filter((p) => p.phase === "live");
     if (range === "24h") {
       const end = all.length > 0 ? all[all.length - 1].t : Date.now();
       return all.filter((p) => p.t >= end - 24 * 3_600_000);
     }
     return all;
-  }, [data.points, range]);
+  }, [safeData.points, range]);
 
-  const hasLive = data.points.some((p) => p.phase === "live");
+  const hasLive = safeData.points.some((p) => p.phase === "live");
   const ranges: { k: typeof range; label: string }[] = [
     { k: "all", label: "全部" },
     { k: "24h", label: "24H" },
@@ -95,7 +105,7 @@ export function IndexChart({
 
   const path = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
   const area = `${path} L${x(t1).toFixed(1)},${H - PAD_B} L${x(t0).toFixed(1)},${H - PAD_B} Z`;
-  const markers = data.markers.filter((m) => m.t >= t0 && m.t <= t1);
+  const markers = safeData.markers.filter((m) => m.t >= t0 && m.t <= t1);
   const last = pts[pts.length - 1];
 
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {

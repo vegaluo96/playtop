@@ -153,6 +153,7 @@ export function OddsCompareMatrix({
   onHistory: (row: V) => void;
 }) {
   const isEu = market === "eu";
+  const safeRows = Array.isArray(rows) ? rows : [];
   const labels = market === "ah" ? ["主", "让球", "客"] : market === "ou" ? ["大", "总进球", "小"] : ["主胜", "平局", "客胜"];
   const grid = compact ? "72px repeat(6,minmax(34px,1fr)) 12px" : "82px repeat(6,minmax(44px,1fr)) 14px";
 
@@ -167,8 +168,8 @@ export function OddsCompareMatrix({
           <Cell key={`${l}-${i}`} muted style={{ padding: "0 0 7px", fontSize: compact ? 10.5 : 11, fontWeight: 800 }}>{l}</Cell>
         ))}
       </div>
-      {rows.length === 0 && <EmptyBox title={`${marketName[market]}暂无指数数据`} sub="开盘后将按真实快照自动展示" />}
-      {rows.map((row: V, idx: number) => {
+      {safeRows.length === 0 && <EmptyBox title={`${marketName[market]}暂无指数数据`} sub="开盘后将按真实快照自动展示" />}
+      {safeRows.map((row: V, idx: number) => {
         const iW = splitQuote(row.iW, isEu ? 3 : 2);
         const nW = splitQuote(row.nW, isEu ? 3 : 2);
         const initCells = isEu ? iW : [iW[0], row.iText ?? "—", iW[1]];
@@ -226,14 +227,15 @@ export function OddsTrendPanel({
 }: {
   market: "ah" | "ou";
   title: string;
-  data: { rows: V[]; chart: ChartRow[] };
-  index: V;
+  data?: { rows?: V[]; chart?: ChartRow[] } | null;
+  index?: V;
   kickoff: number;
   tz: string;
   compact?: boolean;
   onHistory: () => void;
 }) {
   const cols = market === "ah" ? ["时间", "指数", "主水", "客水"] : ["时间", "指数", "大水", "小水"];
+  const safeRows = Array.isArray(data?.rows) ? data.rows : [];
   return (
     <div style={{ marginTop: compact ? 10 : 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "0 2px 8px" }}>
@@ -252,7 +254,7 @@ export function OddsTrendPanel({
           />
           {!compact && <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 5, lineHeight: 1.5 }}>{index?.method}</div>}
         </div>
-        <QuoteRows cols={cols} rows={data.rows} eu={false} compact={compact} onHistory={onHistory} />
+        <QuoteRows cols={cols} rows={safeRows} eu={false} compact={compact} onHistory={onHistory} />
       </div>
     </div>
   );
@@ -266,13 +268,14 @@ export function OddsEuTrendPanel({
   compact = false,
   onHistory,
 }: {
-  rows: V[];
-  index: V;
+  rows?: V[] | null;
+  index?: V;
   kickoff: number;
   tz: string;
   compact?: boolean;
   onHistory: () => void;
 }) {
+  const safeRows = Array.isArray(rows) ? rows : [];
   return (
     <div style={{ marginTop: compact ? 10 : 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "0 2px 8px" }}>
@@ -284,7 +287,7 @@ export function OddsEuTrendPanel({
           <IndexChart data={index} kickoff={kickoff} tz={tz} unit="主胜概率" height={compact ? 134 : 178} />
           {!compact && <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 5, lineHeight: 1.5 }}>{index?.method}</div>}
         </div>
-        <QuoteRows cols={["时间", "主胜", "平局", "客胜"]} rows={rows} eu compact={compact} onHistory={onHistory} />
+        <QuoteRows cols={["时间", "主胜", "平局", "客胜"]} rows={safeRows} eu compact={compact} onHistory={onHistory} />
       </div>
     </div>
   );
@@ -298,19 +301,20 @@ function QuoteRows({
   onHistory,
 }: {
   cols: string[];
-  rows: V[];
+  rows?: V[] | null;
   eu: boolean;
   compact: boolean;
   onHistory: () => void;
 }) {
+  const safeRows = Array.isArray(rows) ? rows : [];
   const grid = compact ? "62px repeat(3,minmax(42px,1fr))" : "76px repeat(3,minmax(50px,1fr))";
   return (
     <>
       <div style={{ display: "grid", gridTemplateColumns: grid, padding: compact ? "7px 9px" : "8px 12px", borderBottom: "1px solid var(--line)", columnGap: 8 }}>
         {cols.map((c, i) => <Cell key={c} muted style={{ textAlign: i === 0 ? "left" : "right", fontSize: compact ? 10.5 : 11 }}>{c}</Cell>)}
       </div>
-      {rows.length === 0 && <div style={{ padding: 14, fontSize: 12, color: "var(--fg-3)", textAlign: "center" }}>快照积累中</div>}
-      {rows.map((r: V, i: number) => (
+      {safeRows.length === 0 && <div style={{ padding: 14, fontSize: 12, color: "var(--fg-3)", textAlign: "center" }}>快照积累中</div>}
+      {safeRows.map((r: V, i: number) => (
         <div key={i} style={{ display: "grid", gridTemplateColumns: grid, columnGap: 8, padding: compact ? "7px 9px" : "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
           <Cell muted style={{ textAlign: "left", fontSize: compact ? 10.5 : 11 }}>{r.t}</Cell>
           {eu ? (
