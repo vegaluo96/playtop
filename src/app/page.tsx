@@ -7,7 +7,6 @@ import { useApp } from "@/components/app-context";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { PageHeader } from "@/components/page-header";
 import { SearchAction, type SearchItem } from "@/components/page-search";
-import { RiskFooter } from "@/components/consent-bar";
 import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
 import { Chip, Sheet } from "@/components/ui";
@@ -265,7 +264,6 @@ function MobileMatchesPage() {
           <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>{emptyText}</div>
         )}
         {rows.map(renderRow)}
-        {loaded && <RiskFooter />}
       </div>
       <Sheet open={dateOpen} onClose={() => setDateOpen(false)}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
