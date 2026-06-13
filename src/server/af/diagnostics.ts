@@ -5,7 +5,7 @@ export const ODDS_PARSER_VERSION = "odds-adapter-2026-06-13";
 export type DiagnosticSeverity = "info" | "warn" | "error";
 
 export interface DiagnosticIssueInput {
-  endpoint: "odds" | "odds.live" | "odds.extra";
+  endpoint: "odds" | "odds.live" | "odds.extra" | "predictions";
   fixtureId?: number | null;
   bookmakerId?: number | null;
   betId?: number | null;

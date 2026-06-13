@@ -12,7 +12,7 @@
  */
 import { loadEnvFile } from "../src/server/env-file";
 loadEnvFile();
-import { afGet, afGetAllPages } from "../src/server/af/client";
+import { afErrorText, afGet, afGetAllPages, afHasErrors } from "../src/server/af/client";
 import { isFinished, isLive, LIVE_TIER, tierFor, TIERS } from "../src/server/af/schedule";
 import {
   archiveAfRawPayload,
@@ -141,7 +141,6 @@ const lastHalf = new Map<number, number>();
 const lastDetail = new Map<number, number>();
 const lastLineup = new Map<number, number>();
 const lineupDone = new Set<number>();
-const predRefetched = new Set<number>();
 
 function finalDetailState(fixtureId: number): { last: number; runs: number } {
   try {
@@ -339,18 +338,51 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
     }
   }
 
-  // 预测:入窗(14 天)即抓;窗口内每日刷一版;T-60min 再复抓 1 次锁临场版
+  // 预测:入窗(14 天)即抓;空响应按 6h 负缓存,避免 AF 暂无覆盖时每分钟重复烧配额;T-60min 再复抓 1 次锁临场版
   const minsTo = (f.kickoff_utc - now) / 60_000;
   const predDayKey = `pred_day:${fxId}:${day8(now)}`;
-  const needDaily = minsTo > 60 && !kvGet(predDayKey);
-  if (!hasPrediction(fxId) || needDaily || (minsTo <= 60 && minsTo > 0 && !predRefetched.has(fxId))) {
-    if (minsTo <= 60) predRefetched.add(fxId);
+  const predProbeKey = `pred_probe:${fxId}:${Math.floor(now / (6 * H))}`;
+  const predT60Key = `pred_t60:${fxId}:${day8(now)}`;
+  const predExists = hasPrediction(fxId);
+  const needInitial = !predExists && !kvGet(predProbeKey);
+  const needDaily = predExists && minsTo > 60 && !kvGet(predDayKey);
+  const needT60 = minsTo <= 60 && minsTo > 0 && !kvGet(predT60Key);
+  if (needInitial || needDaily || needT60) {
     try {
       const env = await paced(() => tracked("predictions", "入窗+每日+T-1h", () => afGet(`/predictions?fixture=${fxId}`, { force: true })));
+      archiveAfRawPayload({
+        endpoint: "predictions",
+        fixtureId: fxId,
+        requestParams: { fixture: fxId },
+        payload: env,
+      });
       const item = Array.isArray(env.response) ? env.response[0] : null;
+      if (afHasErrors(env)) {
+        recordDiagnosticIssue({
+          endpoint: "predictions",
+          fixtureId: fxId,
+          rawValue: env.errors,
+          parsedValue: env.parameters,
+          errorType: "PREDICTIONS_ERROR",
+          errorReason: `AF /predictions 返回 errors:${afErrorText(env)}`,
+          severity: "error",
+        });
+      } else if (!item) {
+        recordDiagnosticIssue({
+          endpoint: "predictions",
+          fixtureId: fxId,
+          rawValue: { results: env.results, parameters: env.parameters, paging: env.paging },
+          errorType: "PREDICTIONS_EMPTY",
+          errorReason: "AF /predictions 当前未返回该 fixture 的预测;保留 raw 响应并按负缓存稍后重试",
+          severity: "info",
+        });
+      }
+      if (needInitial) kvSet(predProbeKey, "1");
+      if (needDaily) kvSet(predDayKey, "1");
+      if (needT60) kvSet(predT60Key, "1");
       if (item) {
         archivePrediction(fxId, item);
-        kvSet(predDayKey, "1");
+        log(`predictions 已归档:${f.home_name} vs ${f.away_name}`);
       }
     } catch (e) {
       log(`predictions ${fxId} 失败:${msg(e)}`);
