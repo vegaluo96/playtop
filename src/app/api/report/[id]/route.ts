@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   if (!p) return NextResponse.json({ ok: false, error: "比赛不存在或数据未就绪" }, { status: 404 });
   const ps0 = buildReportSummary(p);
   const market = unlocked
-    ? await findPolymarketSignal(p.fixture.home_name, p.fixture.away_name)
+    ? await findPolymarketSignal(p.fixture.home_name, p.fixture.away_name, { kickoffAt: p.fixture.kickoff_utc })
     : { status: "skipped" as const, note: "报告未解锁,暂不请求外部预测市场" };
   const signals = buildReportSignals(ps0, p.odds, market, p);
   const built = unlocked ? buildReport(p, signals) : { ps: ps0, secs: [], signals };

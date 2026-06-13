@@ -53,6 +53,7 @@ Canada vs Bosnia & Herzegovina 滚球阶段,详情页胜平负一度展示 `251.
 - `MarketOverview` 服务层已落地在 `src/server/markets/overview.ts`,输出核心三盘、质量分、选择原因、警告、最后更新时间。`matchPanorama` 已从该层读取赛前核心三盘,报告页/详情页共享同一标准结果。
 - `publicMarketOverview` 成为用户端公开颗粒度:详情 API、AI 概率报告列表、AI 报告详情均只下发脱敏后的质量分、覆盖数、选择原因和诊断警告,不暴露原始书商名。
 - AI 概率报告列表不再自行批量取 AH/OU 序列生成方向,改为按每场 kickoff cutoff 读取 `MarketOverview`,再从同一 `overview.odds` 派生胜平负/亚盘/大小方向。
+- Polymarket 外部预测市场接入改为官方 Gamma `public-search` 入口,解析足球事件下的二元 Yes/No 子市场来生成主/平/客概率;开赛后若没有赛前缓存则跳过,避免赛后 resolved 价格污染预测。
 - 后台 monitor API 增加 `rawAudit`,可看到当天 raw 信封按 endpoint 的计数与最近写入时间。
 - 回归测试新增:
   - raw 信封保存;

@@ -46,7 +46,7 @@ export function PlayerSheet({ target, onClose }: { target: PlayerTarget | null; 
   }, [target]);
 
   return (
-    <Sheet open={!!target} onClose={onClose} z={80}>
+    <Sheet open={!!target} onClose={onClose} z={80} maxHeight="min(76vh, 640px)">
       {target && (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>

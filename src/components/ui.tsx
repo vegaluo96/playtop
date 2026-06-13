@@ -5,12 +5,39 @@
 import { useRouter } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 
-export function Sheet({ open, onClose, children, z = 65 }: { open: boolean; onClose: () => void; children: ReactNode; z?: number }) {
+export function Sheet({
+  open,
+  onClose,
+  children,
+  z = 65,
+  maxHeight = "min(82vh, 720px)",
+  contentStyle,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  z?: number;
+  maxHeight?: CSSProperties["maxHeight"];
+  contentStyle?: CSSProperties;
+}) {
   if (!open) return null;
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: z, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "var(--overlay-soft)" }}>
       <div onClick={onClose} style={{ flex: 1 }} />
-      <div style={{ background: "var(--card)", borderTop: "1px solid var(--line)", borderRadius: "18px 18px 0 0", padding: "10px 16px 24px", boxShadow: "var(--surface-shadow)" }}>
+      <div
+        style={{
+          background: "var(--card)",
+          borderTop: "1px solid var(--line)",
+          borderRadius: "18px 18px 0 0",
+          padding: "10px 16px 24px",
+          boxShadow: "var(--surface-shadow)",
+          maxHeight,
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+          WebkitOverflowScrolling: "touch",
+          ...contentStyle,
+        }}
+      >
         <div style={{ width: 38, height: 4, borderRadius: 2, background: "var(--line)", margin: "0 auto 14px" }} />
         {children}
       </div>
