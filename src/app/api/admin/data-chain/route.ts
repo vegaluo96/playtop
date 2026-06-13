@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { currentAdmin } from "@/server/admin/auth";
+import { requireSameOrigin } from "@/server/platform/rate-limit";
 import { normalizeLiveOddsItem, normalizeOddsItem, type DiagnosticIssueDraft } from "@/server/af/normalize";
 import { ODDS_PARSER_VERSION } from "@/server/af/diagnostics";
 import { fixtureById, fixturesBetween, kvGet, latestPredictionBefore } from "@/server/af/store";
@@ -14,7 +15,7 @@ import { synthEventsOf } from "@/server/af/events-synth";
 import type { Panorama } from "@/server/af/panorama";
 import { buildReportSummary } from "@/server/views/report";
 import { buildReportSignals } from "@/server/views/report-signals";
-import { readCachedPolymarketSignal } from "@/server/external/polymarket";
+import { readCachedPolymarketSignal, writeConfirmedPolymarketSignal } from "@/server/external/polymarket";
 import { buildReportSourceCoverage, sourceCoverageNeedsRebuild } from "@/server/views/source-coverage";
 
 type StepStatus = "PASS" | "WARN" | "FAIL" | "OPEN";
@@ -517,4 +518,22 @@ export async function GET(req: NextRequest) {
   const diag = buildDiagnostic(fixtureId);
   if (!diag) return NextResponse.json({ ok: false, error: "比赛不存在", candidates: candidates() }, { status: 404 });
   return NextResponse.json({ ok: true, candidates: candidates(), diag });
+}
+
+export async function POST(req: NextRequest) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
+  if (!(await currentAdmin())) return NextResponse.json({ ok: false }, { status: 401 });
+  const body = (await req.json().catch(() => ({}))) as { fixtureId?: number; action?: string };
+  const fixtureId = Number(body.fixtureId);
+  if (!fixtureId) return NextResponse.json({ ok: false, error: "缺少比赛 id" }, { status: 400 });
+  const fx = fixtureById(fixtureId);
+  if (!fx) return NextResponse.json({ ok: false, error: "比赛不存在" }, { status: 404 });
+  if (body.action !== "confirmPolymarket") return NextResponse.json({ ok: false, error: "未知操作" }, { status: 400 });
+  const cached = readCachedPolymarketSignal(fx.home_name, fx.away_name, fixtureId);
+  if (!cached) return NextResponse.json({ ok: false, error: "暂无 Polymarket 候选缓存" }, { status: 404 });
+  if (cached.status !== "pendingReview" || !cached.selectedMarket)
+    return NextResponse.json({ ok: false, error: "当前没有待确认候选市场" }, { status: 409 });
+  writeConfirmedPolymarketSignal(fx.home_name, fx.away_name, fixtureId, cached);
+  return NextResponse.json({ ok: true, message: "已确认 Polymarket 候选市场", diag: buildDiagnostic(fixtureId) });
 }

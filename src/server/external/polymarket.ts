@@ -1,4 +1,4 @@
-import { kvCached, kvGet } from "../af/store";
+import { kvCached, kvGet, kvSet } from "../af/store";
 import { recordDiagnosticIssue, type DiagnosticSeverity } from "../af/diagnostics";
 import type { PublicMarketSignal } from "../views/report-signals";
 
@@ -380,6 +380,19 @@ export function readCachedPolymarketSignal(homeName: string, awayName: string, f
     }
   }
   return null;
+}
+
+export function writeConfirmedPolymarketSignal(homeName: string, awayName: string, fixtureId: number, signal: PublicMarketSignal): PublicMarketSignal {
+  const { key } = polymarketKeys(homeName, awayName, fixtureId);
+  const confirmed: PublicMarketSignal = {
+    ...signal,
+    status: "ok",
+    note: "管理员已确认 Polymarket 候选市场",
+    needsReview: false,
+    capturedAt: Date.now(),
+  };
+  kvSet(key, JSON.stringify({ at: Date.now(), data: confirmed }));
+  return confirmed;
 }
 
 function buildQueries(homeName: string, awayName: string, kickoffAt?: number | null): string[] {

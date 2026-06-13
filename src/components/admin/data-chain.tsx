@@ -334,6 +334,7 @@ export function DataChainView({ fixtureId }: { fixtureId?: number | null }) {
   const [query, setQuery] = useState("");
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [msg, setMsg] = useState("");
 
   const load = useCallback(async (id = selected) => {
@@ -384,6 +385,26 @@ export function DataChainView({ fixtureId }: { fixtureId?: number | null }) {
       return;
     }
     setSelected(id);
+  };
+
+  const confirmPolymarket = async () => {
+    if (!diag?.fixture.fixtureId) return;
+    setConfirming(true);
+    setMsg("");
+    try {
+      const j = await fetch("/api/admin/data-chain", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fixtureId: diag.fixture.fixtureId, action: "confirmPolymarket" }),
+      }).then((r) => r.json()) as Payload & { message?: string };
+      if (!j.ok) setMsg(j.error || "确认失败");
+      else {
+        setMsg(j.message || "已确认候选市场");
+        setData((prev) => prev ? { ...prev, diag: j.diag } : j);
+      }
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
@@ -472,6 +493,21 @@ export function DataChainView({ fixtureId }: { fixtureId?: number | null }) {
           </div>
 
           <SourceCoveragePanel coverage={diag.report.sourceCoverage} needsRebuild={diag.report.needsRebuild} />
+          {diag.report.sourceCoverage.polymarket?.status === "pendingReview" && (
+            <ACard title="Polymarket 候选人工确认">
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.6 }}>
+                    当前候选不会自动参与拟合。确认后仅把这个候选市场作为预测市场输入,不会重写比分、盘口或报告锁定规则。
+                  </div>
+                  <div className="mono" style={{ marginTop: 7, fontSize: 10.5, color: "var(--fg-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {shortJson(diag.report.sourceCoverage.polymarket.detail?.selectedMarket ?? diag.report.sourceCoverage.polymarket.detail?.candidates)}
+                  </div>
+                </div>
+                <ABtn label={confirming ? "确认中" : "确认候选"} kind="line" onClick={() => void confirmPolymarket()} />
+              </div>
+            </ACard>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
             <ACard title="parser 重放">
