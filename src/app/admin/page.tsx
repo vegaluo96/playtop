@@ -1,12 +1,13 @@
 "use client";
 
-/** 管理后台(admin.zsky.com / /admin):顶栏 + 10 模块侧栏 + 登录门 */
+/** 管理后台(admin.zsky.com / /admin):顶栏 + 11 模块侧栏 + 登录门 */
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/app-context";
 import { DashView } from "@/components/admin/dash";
 import { MatchesView, MktView, OrdersView, UsersView } from "@/components/admin/ops";
 import { DataMonView, RiskView, SettingsView, TicketsView } from "@/components/admin/sys";
 import { ReportsView } from "@/components/admin/reports";
+import { DataChainView } from "@/components/admin/data-chain";
 import { useNow, agoText } from "@/components/live";
 import { AdminDialogHost } from "@/components/admin/dialogs";
 
@@ -15,7 +16,7 @@ import { AdminDialogHost } from "@/components/admin/dialogs";
 const NAVS: [string, string][] = [
   ["dash", "运营看板"], ["user", "用户管理"], ["order", "订单与额度"], ["match", "赛事与内容"],
   ["mkt", "营销配置"], ["risk", "风控与审计"], ["ticket", "工单处理"], ["data", "数据与模型监控"],
-  ["reports", "分析报告管理"], ["cfg", "系统设置"],
+  ["reports", "分析报告管理"], ["chain", "数据链路诊断"], ["cfg", "系统设置"],
 ];
 
 export default function AdminPage() {
@@ -23,6 +24,7 @@ export default function AdminPage() {
   const [view, setView] = useState("dash");
   const [openTickets, setOpenTickets] = useState(0);
   const [workerAt, setWorkerAt] = useState<number | null>(null);
+  const [chainFixtureId, setChainFixtureId] = useState<number | null>(null);
   const [err, setErr] = useState("");
   const { prefs, setPrefs } = useApp();
   const now = useNow(5000);
@@ -45,6 +47,17 @@ export default function AdminPage() {
     const t = setInterval(load, 30_000);
     return () => clearInterval(t);
   }, [me]);
+  useEffect(() => {
+    const applyHash = () => {
+      const m = /^#chain:(\d+)$/.exec(window.location.hash);
+      if (!m) return;
+      setChainFixtureId(Number(m[1]));
+      setView("chain");
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
 
   const login = async () => {
     setErr("");
@@ -77,9 +90,15 @@ export default function AdminPage() {
     );
 
   const workerOk = workerAt != null && now - workerAt < 3 * 60_000;
+  const openChain = (fixtureId: number) => {
+    setChainFixtureId(fixtureId);
+    setView("chain");
+    window.location.hash = `chain:${fixtureId}`;
+  };
   const views: Record<string, React.ReactNode> = {
     dash: <DashView />, user: <UsersView />, order: <OrdersView />, match: <MatchesView />, mkt: <MktView />,
-    risk: <RiskView />, ticket: <TicketsView />, data: <DataMonView />, reports: <ReportsView />, cfg: <SettingsView />,
+    risk: <RiskView />, ticket: <TicketsView />, data: <DataMonView />, reports: <ReportsView onChain={openChain} />,
+    chain: <DataChainView fixtureId={chainFixtureId} />, cfg: <SettingsView />,
   };
 
   return (

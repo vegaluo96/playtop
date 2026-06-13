@@ -137,7 +137,7 @@ function MiniButton({ label, disabled, onClick }: { label: string; disabled?: bo
   );
 }
 
-export function ReportsView() {
+export function ReportsView({ onChain }: { onChain?: (fixtureId: number) => void }) {
   const [data, setData] = useState<ReportsPayload | null>(null);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState("");
@@ -177,6 +177,11 @@ export function ReportsView() {
     }
   };
 
+  const openChain = (fixtureId: number) => {
+    if (onChain) return onChain(fixtureId);
+    window.location.hash = `chain:${fixtureId}`;
+  };
+
   const summary = data?.summary ?? { total: 0, generated: 0, cacheReady: 0, missing: 0, locked: 0, needsInput: 0, failed: 0 };
 
   return (
@@ -209,7 +214,7 @@ export function ReportsView() {
       {msg && <div style={{ fontSize: 12, color: msg.includes("失败") || msg.includes("不能") ? "var(--red)" : "var(--fg-2)" }}>{msg}</div>}
 
       <ACard title="报告与输入源" pad={false}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.25fr .55fr 1.2fr 1.45fr 1.35fr .75fr", gap: 0, padding: "9px 14px", borderBottom: "1px solid var(--line)", color: "var(--fg-3)", fontSize: 11 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.25fr .55fr 1.2fr 1.45fr 1.35fr .95fr", gap: 0, padding: "9px 14px", borderBottom: "1px solid var(--line)", color: "var(--fg-3)", fontSize: 11 }}>
           <span>比赛</span>
           <span>报告</span>
           <span>访问/锁定</span>
@@ -222,7 +227,7 @@ export function ReportsView() {
             key={row.fixtureId}
             style={{
               display: "grid",
-              gridTemplateColumns: "1.25fr .55fr 1.2fr 1.45fr 1.35fr .75fr",
+              gridTemplateColumns: "1.25fr .55fr 1.2fr 1.45fr 1.35fr .95fr",
               gap: 12,
               alignItems: "center",
               padding: "13px 14px",
@@ -260,6 +265,7 @@ export function ReportsView() {
               {row.report.summary && <div style={{ color: "var(--fg-3)", fontSize: 10.5, marginTop: 5, lineHeight: 1.45 }}>{row.report.summary}</div>}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+              <MiniButton label="链路" disabled={!!busy} onClick={() => openChain(row.fixtureId)} />
               <MiniButton label="重算诊断" disabled={!!busy} onClick={() => void run(row.fixtureId, "refresh")} />
               <MiniButton
                 label={row.canRegenerate ? "重新生成" : "已锁定"}
