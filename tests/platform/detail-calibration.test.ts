@@ -125,8 +125,8 @@ describe("external calibration fixes", () => {
     expect(view.comp.ah[0]).toMatchObject({
       co: "实时盘",
       bid: null,
-      iText: "半一",
-      iW: "0.86 / 1.00",
+      iText: "半球",
+      iW: "0.88 / 0.98",
       nText: "平手",
       nW: "0.99 / 0.86",
       live: true,
@@ -191,10 +191,10 @@ describe("external calibration fixes", () => {
     });
     expect(coaches.find((c) => c.side === "a")).toMatchObject({
       name: "Miroslav Koubek",
-      meta: "本场阵容主帅 · 资料待官方返回",
+      meta: "本场阵容主帅 · 资料待同步",
       trophies: null,
     });
-    expect(view.deep?.motiv).toContain("Miroslav Koubek:荣誉数据待官方返回");
+    expect(view.deep?.motiv).toContain("Miroslav Koubek:荣誉数据待同步");
   });
 
   it("does not expose empty leaderboard shells or unusable transfer rows as data", async () => {

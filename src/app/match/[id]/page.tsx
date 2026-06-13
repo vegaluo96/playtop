@@ -4,12 +4,10 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
-import { type ChartRow } from "@/components/charts";
-import { IndexChart } from "@/components/index-chart";
 import { RefreshSheet } from "@/components/refresh-sheet";
 import { ShareSheet, type ShareData } from "@/components/share-sheet";
 import { Card, Chip, EmptyBox, SectionTitle, ShareIcon } from "@/components/ui";
-import { ahText, dayLabel, hhmm } from "@/lib/format";
+import { dayLabel, hhmm } from "@/lib/format";
 
 import { Flash, HeartBeat, usePoll, useWorkerBeat } from "@/components/live";
 import { MarketCell, MarketValue, type MarketCellData } from "@/components/market-cell";
@@ -21,6 +19,7 @@ import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { MatchTimeline, WeatherCard } from "@/components/match-timeline";
 import { CornersRefNote, FatigueCard, RoadSection, SameOddsCard } from "@/components/insights";
 import { QuoteHistorySheet, type HistoryTarget } from "@/components/quote-history";
+import { OddsCompareMatrix, OddsEuTrendPanel, OddsSegmentedTabs, OddsTrendPanel, type OddsMarketKey } from "@/components/odds-workbench";
 import { SITE_HOST } from "@/lib/site";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -42,7 +41,6 @@ function euSummary(s: V | null | undefined): MarketCellData | null {
 const TABS: [string, string][] = [
   ["odds", "指数"], ["match", "赛况"], ["squad", "人员"], ["deep", "深度"],
 ];
-const ODDS_SUBS: [string, string][] = [["trend", "走势"], ["comp", "对比"], ["road", "盘路"], ["markets", "更多玩法"]];
 
 const FORM_STYLE: Record<string, { bg: string; c: string }> = {
   胜: { bg: "var(--success-bg)", c: "var(--green)" },
@@ -62,7 +60,7 @@ export default function MatchRoute({ params }: { params: Promise<{ id: string }>
 function MobileMatchDetail({ id }: { id: string }) {
   const [v, setV] = useState<V | null>(null);
   const [tab, setTab] = useState("odds");
-  const [oddsSub, setOddsSub] = useState("trend");
+  const [oddsSub, setOddsSub] = useState<OddsMarketKey>("ah");
   const [deepV, setDeepV] = useState<V | null>(null);
   const [rfOpen, setRfOpen] = useState(false);
   const [share, setShare] = useState<ShareData | null>(null);
@@ -138,82 +136,29 @@ function MobileMatchDetail({ id }: { id: string }) {
       inviteCode: me.inviteCode,
     });
 
-  const Th = ({ cols, widths }: { cols: string[]; widths: string }) => (
-    <div style={{ display: "grid", gridTemplateColumns: widths, padding: "9px 12px", borderBottom: "1px solid var(--line)", alignItems: "center", columnGap: 8 }}>
-      {cols.map((c, i) => (
-        <span key={i} style={{ fontSize: 11, color: "var(--fg-3)", textAlign: i > 1 ? "right" : "left", minWidth: 0 }}>{c}</span>
-      ))}
-    </div>
-  );
-  const pairQuoteGrid = "78px minmax(0,1fr) 58px 58px";
-  const euQuoteGrid = "78px repeat(3,minmax(50px,1fr))";
-
-  const trendBlock = (title: string, data: { rows: V[]; chart: ChartRow[]; startAt?: number | null }, idx: V, mk: "ah" | "ou", cols: [string, string]) => (
-    <>
-      <SectionTitle title={title} right={data.chart.length > 1 ? `自 ${data.chart[0].t} 归档` : undefined} />
-      <Card style={{ padding: "10px 10px 8px" }}>
-        <IndexChart
-          data={idx}
-          kickoff={h.kickoff}
-          tz={prefs.tz}
-          unit={mk === "ah" ? "主水指数" : "大球指数"}
-          lineText={(l) => (l == null ? "" : mk === "ah" ? ahText(l) : `${l} 球`)}
-          height={188}
-        />
-        <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.6 }}>{idx?.method}</div>
-      </Card>
-      <Card style={{ marginTop: 8, overflow: "hidden" }}>
-        <Th cols={["时间", "指数", cols[0], cols[1]]} widths={pairQuoteGrid} />
-        {data.rows.length === 0 && <div style={{ padding: 14, fontSize: 12, color: "var(--fg-3)", textAlign: "center" }}>快照积累中</div>}
-        {data.rows.map((r: V, i: number) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: pairQuoteGrid, columnGap: 8, padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-            <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap" }}>{r.t}</span>
-            <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden" }}>
-              <MarketValue v={r.text} className="" small style={{ color: r.chg ? "var(--gold)" : "var(--fg-mid)", fontWeight: 800 }} />
-              {r.chg && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", flexShrink: 0 }}>变盘</span>}
-            </span>
-            <MarketValue v={r.h} small style={{ justifyContent: "flex-end" }} />
-            <MarketValue v={r.a} small style={{ justifyContent: "flex-end" }} />
+  const liveOddsStrip =
+    h.live && v.liveOdds ? (
+      <>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "6px 4px 8px" }}>
+          <div style={{ fontSize: 13, fontWeight: 800 }}>滚球实时盘</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
+            <span className="mono" style={{ fontSize: 11, color: "var(--red)", fontWeight: 800, whiteSpace: "nowrap" }}>LIVE · {h.fresh.freq}刷新</span>
           </div>
-        ))}
-        <div onClick={() => setHistory({ id: h.id, mk })} style={{ padding: "10px 0", textAlign: "center", fontSize: 12, fontWeight: 800, color: "var(--gold)", cursor: "pointer" }}>
-          完整历史报价 ›
         </div>
-      </Card>
-    </>
-  );
-
-  const compTable = (title: string, rows: V[], mk: "ah" | "ou" | "eu") => {
-    const headEu = mk === "eu";
-    return (
-    <>
-      <SectionTitle title={title} right="初盘=赛前末盘;及时=滚球盘" />
-      <Card style={{ overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "66px 1fr 18px 1fr", padding: "9px 12px", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: "var(--fg-3)" }}>公司</span>
-          <span style={{ fontSize: 11, color: "var(--fg-3)" }} title="初盘=开赛前最后一版真实归档指数">{headEu ? "初盘 主/平/客" : "初盘 · 主/客"}</span>
-          <span />
-          <span style={{ fontSize: 11, color: "var(--fg-3)" }}>{headEu ? "即时 主/平/客" : "即时 · 主/客"}</span>
+        <div style={{ background: "var(--card)", border: "1px solid var(--danger-border)", borderRadius: 12, padding: "4px 14px", marginBottom: 12 }}>
+          {v.liveOdds.map((r: V) => (
+            <div key={r.mk} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--line-soft)" }}>
+              <span style={{ flexShrink: 0, width: 54, fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 0", textAlign: "center", background: "var(--inset)", color: "var(--fg-2)" }}>{r.mk}</span>
+              <span style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+                {r.susp && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--fg-3)", border: "1px solid var(--line)", borderRadius: 4, padding: "1px 5px" }}>封盘中</span>}
+                <MarketValue v={r.v || "—"} small dim={!!r.susp} />
+              </span>
+            </div>
+          ))}
         </div>
-        {rows.length === 0 && <div style={{ padding: 14, fontSize: 12, color: "var(--fg-3)", textAlign: "center" }}>归档快照积累中</div>}
-        {rows.map((c: V) => (
-          <div key={c.co} onClick={() => c.bid && setHistory({ id: h.id, mk, bid: c.bid, co: c.co })} style={{ display: "grid", gridTemplateColumns: "66px 1fr 18px 1fr", padding: "9px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", cursor: c.bid ? "pointer" : "default", background: c.live ? "var(--danger-bg-soft)" : "transparent" }}>
-            <span style={{ fontSize: 12.5, fontWeight: 800, color: c.live ? "var(--red)" : "var(--fg)" }}>{c.co}</span>
-            <span>
-              {!headEu && <MarketValue v={c.iText} className="" small dim style={{ justifyContent: "flex-start" }} />}
-              <MarketValue v={c.iW} small dim style={{ justifyContent: "flex-start" }} />
-            </span>
-            <span style={{ fontSize: 12, color: "var(--fg-3)" }}>→</span>
-            <span>
-              {!headEu && <MarketValue v={c.nText} className="" small pulse={c.changed ? c.chgAt : null} style={{ justifyContent: "flex-start", color: c.changed ? "var(--gold)" : "var(--fg-mid)", fontWeight: 800 }} />}
-              <MarketValue v={c.nW} small pulse={c.waterChanged || c.changed ? c.chgAt : null} style={{ justifyContent: "flex-start", color: c.waterChanged || c.changed ? "var(--gold)" : "var(--fg-mid)" }} />
-            </span>
-          </div>
-        ))}
-      </Card>
-    </>
-    );
-  };
+      </>
+    ) : null;
 
   const lineupPitch = (side: V, color: string) =>
     side && (
@@ -312,73 +257,33 @@ function MobileMatchDetail({ id }: { id: string }) {
           </div>
         ))}
       </div>
-      {tab === "odds" && (
-        <div style={{ display: "flex", gap: 6, padding: "0 12px 10px", flexShrink: 0 }}>
-          {ODDS_SUBS.map(([k, label]) => (
-            <span key={k} onClick={() => setOddsSub(k)} style={{ fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: 7, padding: "4px 12px", background: oddsSub === k ? "var(--selected-bg)" : "var(--inset)", color: oddsSub === k ? "var(--gold)" : "var(--fg-3)" }}>
-              {label}
-            </span>
-          ))}
-        </div>
-      )}
+      {tab === "odds" && <OddsSegmentedTabs value={oddsSub} onChange={setOddsSub} />}
 
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 16px", minHeight: 0 }}>
-        {tab === "odds" && oddsSub === "trend" && (
+        {tab === "odds" && oddsSub === "ah" && (
           <>
-            {h.live && v.liveOdds && (
-              <>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "6px 4px 8px" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>滚球实时盘</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)" }} />
-                    <span className="mono" style={{ fontSize: 11, color: "var(--red)", fontWeight: 700, whiteSpace: "nowrap" }}>LIVE · {h.fresh.freq}刷新</span>
-                  </div>
-                </div>
-                <div style={{ background: "var(--card)", border: "1px solid var(--danger-border)", borderRadius: 12, padding: "4px 14px", marginBottom: 14 }}>
-                  {v.liveOdds.map((r: V) => (
-                    <div key={r.mk} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                      <span style={{ flexShrink: 0, width: 54, fontSize: 11, fontWeight: 800, borderRadius: 4, padding: "2px 0", textAlign: "center", background: "var(--inset)", color: "var(--fg-2)" }}>{r.mk}</span>
-                      <span style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
-                        {r.susp && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--fg-3)", border: "1px solid var(--line)", borderRadius: 4, padding: "1px 5px" }}>封盘中</span>}
-                        <MarketValue v={r.v || "—"} small dim={!!r.susp} />
-                      </span>
-                    </div>
-                  ))}
-                  <div style={{ height: 5 }} />
-                </div>
-              </>
-            )}
-            {trendBlock("让球指数走势", v.odds.ah, v.odds.index?.ah, "ah", ["主水", "客水"])}
-            <div style={{ height: 8 }} />
-            {trendBlock("大小指数走势", v.odds.ou, v.odds.index?.ou, "ou", ["大水", "小水"])}
-            <SectionTitle title="胜平负指数走势" />
-            <Card style={{ padding: "10px 10px 8px" }}>
-              <IndexChart data={v.odds.index?.eu} kickoff={h.kickoff} tz={prefs.tz} unit="主胜概率" height={188} />
-              <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 6, lineHeight: 1.6 }}>{v.odds.index?.eu?.method}</div>
-            </Card>
-            <Card style={{ marginTop: 8, overflow: "hidden" }}>
-              <Th cols={["时间", "主胜", "平局", "客胜"]} widths={euQuoteGrid} />
-              {v.odds.eu.map((r: V, i: number) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: euQuoteGrid, columnGap: 8, padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)" }}>
-                  <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)", whiteSpace: "nowrap" }}>{r.t}</span>
-                  <MarketValue v={r.h} small style={{ justifyContent: "flex-end" }} />
-                  <MarketValue v={r.d} small dim style={{ justifyContent: "flex-end" }} />
-                  <MarketValue v={r.a} small style={{ justifyContent: "flex-end" }} />
-                </div>
-              ))}
-              <div onClick={() => setHistory({ id: h.id, mk: "eu" })} style={{ padding: "10px 0", textAlign: "center", fontSize: 12, fontWeight: 800, color: "var(--gold)", cursor: "pointer" }}>
-                完整历史报价 ›
-              </div>
-            </Card>
+            {liveOddsStrip}
+            <SectionTitle title="让球指数" right="初始 / 即时" />
+            <OddsCompareMatrix market="ah" rows={v.comp.ah} compact onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ah", bid: c.bid, co: c.co })} />
+            <OddsTrendPanel market="ah" title="让球指数走势" data={v.odds.ah} index={v.odds.index?.ah} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "ah" })} />
           </>
         )}
 
-        {tab === "odds" && oddsSub === "comp" && (
+        {tab === "odds" && oddsSub === "eu" && (
           <>
-            {compTable("让球指数 · 对比", v.comp.ah, "ah")}
-            {compTable("大小指数 · 对比", v.comp.ou, "ou")}
-            {compTable("胜平负指数 · 对比", v.comp.eu, "eu")}
-            <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>初盘取开赛前最后一版归档指数;及时取滚球盘,无滚球返回时只展示赛前归档。</div>
+            {liveOddsStrip}
+            <SectionTitle title="欧指" right="主胜 / 平局 / 客胜" />
+            <OddsCompareMatrix market="eu" rows={v.comp.eu} euMeta={v.comp.euMeta} compact onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "eu", bid: c.bid, co: c.co })} />
+            <OddsEuTrendPanel rows={v.odds.eu} index={v.odds.index?.eu} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "eu" })} />
+          </>
+        )}
+
+        {tab === "odds" && oddsSub === "ou" && (
+          <>
+            {liveOddsStrip}
+            <SectionTitle title="进球数" right="大球 / 总进球 / 小球" />
+            <OddsCompareMatrix market="ou" rows={v.comp.ou} compact onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ou", bid: c.bid, co: c.co })} />
+            <OddsTrendPanel market="ou" title="进球数走势" data={v.odds.ou} index={v.odds.index?.ou} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "ou" })} />
           </>
         )}
 
@@ -387,11 +292,6 @@ function MobileMatchDetail({ id }: { id: string }) {
             <RoadSection ins={v.insights} home={h.home} away={h.away} />
             <SameOddsCard so={v.insights?.sameOdds} />
             <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>{v.insights?.note}</div>
-          </>
-        )}
-
-        {tab === "odds" && oddsSub === "markets" && (
-          <>
             <SectionTitle title="更多玩法" right="数据随指数归档实时更新" />
             {(v.markets ?? []).length === 0 && <EmptyBox title="暂无扩展玩法数据" sub={"开盘后将自动解析半场盘/角球/罚牌/波胆等玩法"} />}
             {(v.markets ?? []).map((m: V) => (
@@ -531,7 +431,7 @@ function MobileMatchDetail({ id }: { id: string }) {
               ))}
             </Card>
 
-            <SectionTitle title="积分榜" right="官方返回 · 两队高亮" />
+            <SectionTitle title="积分榜" right="两队高亮" />
             <Card style={{ overflow: "hidden" }}>
               {(v.tech.standings?.table ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>杯赛暂无官方积分榜</div>}
               {(v.tech.standings?.table ?? []).length > 0 && (
@@ -674,7 +574,7 @@ function MobileMatchDetail({ id }: { id: string }) {
 
               <SectionTitle title="射手依赖度" />
               <Card style={{ padding: "6px 14px" }}>
-                {(deepV.scorers ?? []).length === 0 && <div style={{ padding: 10, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>榜单暂无官方返回</div>}
+                {(deepV.scorers ?? []).length === 0 && <div style={{ padding: 10, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>榜单暂无数据</div>}
                 {deepV.scorers?.map((s: V) => (
                   <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: s.side === "h" ? "var(--home)" : "var(--team-away)" }} />
@@ -700,7 +600,7 @@ function MobileMatchDetail({ id }: { id: string }) {
 
               <SectionTitle title="赛季场均评分 · 关键球员" />
               <Card style={{ padding: "4px 14px 6px" }}>
-                {(deepV.ratings ?? []).length === 0 && <div style={{ padding: 10, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>评分暂无官方返回</div>}
+                {(deepV.ratings ?? []).length === 0 && <div style={{ padding: 10, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>评分暂无数据</div>}
                 {deepV.ratings?.map((r: V) => {
                   const bc = r.r >= 8 ? ["var(--selected-bg-strong)", "var(--gold)"] : r.r >= 7 ? ["var(--success-bg)", "var(--green)"] : ["var(--neutral-bg)", "var(--fg-3)"];
                   return (
@@ -744,7 +644,7 @@ function MobileMatchDetail({ id }: { id: string }) {
 
               <SectionTitle title="教练荣誉" />
               <Card style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 7 }}>
-                {(deepV.motiv ?? []).length === 0 && <span style={{ fontSize: 11, color: "var(--fg-3)" }}>暂无官方荣誉数据</span>}
+                {(deepV.motiv ?? []).length === 0 && <span style={{ fontSize: 11, color: "var(--fg-3)" }}>暂无荣誉数据</span>}
                 {deepV.motiv?.map((x: string) => (
                   <div key={x} style={{ display: "flex", gap: 6, fontSize: 11, color: "var(--fg-2)", lineHeight: 1.6 }}>
                     <span style={{ color: "var(--gold)" }}>·</span>

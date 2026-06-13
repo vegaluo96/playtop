@@ -341,7 +341,7 @@ async function deepView(p: Panorama, lineups: LineupsView) {
       return {
         side,
         name: matchCoach,
-        meta: "本场阵容主帅 · 资料待官方返回",
+        meta: "本场阵容主帅 · 资料待同步",
         trophies: null,
       };
     }
@@ -411,7 +411,7 @@ async function deepView(p: Panorama, lineups: LineupsView) {
     depthOf(d.squadAway, nameZh(fx.away_name), awayFormation),
   ];
 
-  const motiv = coaches.map((c) => c.trophies == null ? `${c.name}:荣誉数据待官方返回` : `${c.name}:执教生涯冠军 ${c.trophies} 座`);
+  const motiv = coaches.map((c) => c.trophies == null ? `${c.name}:荣誉数据待同步` : `${c.name}:执教生涯冠军 ${c.trophies} 座`);
 
   // 赛季面板:teams.statistics 主客拆分/均进失/零封/连胜(AF 深度数据补齐)
   const panelOf = (st: unknown) => {
@@ -444,6 +444,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   const live = isLive(fx.status);
   const pred = p.prediction;
   const lastOf = (s: SnapRow[]) => (s.length > 0 ? s[s.length - 1] : null);
+  const firstOf = (s: SnapRow[]) => (s.length > 0 ? s[0] : null);
   // 该市场最近真实变化时间(进入页面近窗变化也要闪)
   const chgAtOf = (s: SnapRow[]) => {
     if (s.length < 2) return null;
@@ -515,18 +516,18 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     }
   }
 
-  // 对比表口径:初盘=赛前最后一版归档盘,及时=滚球实时盘。
-  const liveCompRow = (market: "ah" | "ou" | "eu", preLast: SnapRow | null) => {
+  // 对比表口径:初始=归档首帧,即时=当前最新帧;滚球时即时可来自 live odds。
+  const liveCompRow = (market: "ah" | "ou" | "eu", initial: SnapRow | null) => {
     const rows = liveExt(market);
-    if (rows.length === 0 || !preLast) return null;
+    if (rows.length === 0 || !initial) return null;
     const last = rows[rows.length - 1];
     if (market === "eu") {
       return {
         co: "实时盘",
         bid: null,
-        iW: `${f2(preLast.h)} / ${f2(preLast.d ?? 0)} / ${f2(preLast.a)}`,
+        iW: `${f2(initial.h)} / ${f2(initial.d ?? 0)} / ${f2(initial.a)}`,
         nW: `${f2(last.h)} / ${f2(last.d ?? 0)} / ${f2(last.a)}`,
-        changed: preLast.h !== last.h || preLast.d !== last.d || preLast.a !== last.a,
+        changed: initial.h !== last.h || initial.d !== last.d || initial.a !== last.a,
         chgAt: last.captured_at,
         live: true,
       };
@@ -534,12 +535,12 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     return {
       co: "实时盘",
       bid: null,
-      iText: market === "ah" ? ahText(preLast.line ?? 0) : ouText(preLast.line ?? 0),
-      iW: `${f2(preLast.h)} / ${f2(preLast.a)}`,
+      iText: market === "ah" ? ahText(initial.line ?? 0) : ouText(initial.line ?? 0),
+      iW: `${f2(initial.h)} / ${f2(initial.a)}`,
       nText: market === "ah" ? ahText(last.line ?? 0) : ouText(last.line ?? 0),
       nW: `${f2(last.h)} / ${f2(last.a)}`,
-      changed: preLast.line !== last.line,
-      waterChanged: preLast.h !== last.h || preLast.a !== last.a,
+      changed: initial.line !== last.line,
+      waterChanged: initial.h !== last.h || initial.a !== last.a,
       chgAt: last.captured_at,
       live: true,
     };
@@ -557,7 +558,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       waterChanged: c.first.h !== c.last.h || c.first.a !== c.last.a,
       chgAt: c.last.captured_at,
     }));
-    const liveRow = liveCompRow(market, lastOf(market === "ah" ? p.odds.ah : p.odds.ou) ?? list[0]?.last ?? null);
+    const liveRow = liveCompRow(market, firstOf(market === "ah" ? p.odds.ah : p.odds.ou) ?? list[0]?.first ?? null);
     return liveRow ? [liveRow, ...rows] : rows;
   };
   // ② 胜平负离散度(≥3 家才有共识意义);④ 升降盘方向 + 返还率首末对照
@@ -570,7 +571,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     changed: c.first.h !== c.last.h || c.first.d !== c.last.d || c.first.a !== c.last.a,
     chgAt: c.last.captured_at,
   }));
-  const compEuLive = liveCompRow("eu", lastOf(p.odds.eu) ?? p.odds.compareEu[0]?.last ?? null);
+  const compEuLive = liveCompRow("eu", firstOf(p.odds.eu) ?? p.odds.compareEu[0]?.first ?? null);
   const compEu = compEuLive ? [compEuLive, ...compEuRows] : compEuRows;
   // ah/ou 快照存净水,返还率按欧赔小数(净水+1)计算
   const dec = (s: SnapRow | null) => (s ? { h: s.h + 1, a: s.a + 1 } : null);

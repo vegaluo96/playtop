@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { SearchAction, type SearchItem } from "@/components/page-search";
 import { TeamLogo, PlayerAvatar } from "@/components/img";
-import { EmptyBox } from "@/components/ui";
+import { EmptyBox, Sheet, SheetTitle } from "@/components/ui";
+import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { useApp } from "@/components/app-context";
 import { useUnifiedPoll } from "@/components/live";
 import { useSiteConfig } from "@/components/site-config";
@@ -72,6 +73,15 @@ interface DataView {
   schedule: ScheduleRow[];
 }
 
+interface TeamFocus {
+  group: string;
+  teamId: number | null;
+  team: string;
+  logo: string | null;
+  stats?: Partial<StandingRow>;
+  matches: ScheduleRow[];
+}
+
 const TABS: { key: TabKey; label: string }[] = [
   { key: "standings", label: "积分" },
   { key: "scorers", label: "射手" },
@@ -98,6 +108,8 @@ function MobileDataPage() {
   const [tab, setTab] = useState<TabKey>("standings");
   const [view, setView] = useState<DataView | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [teamFocus, setTeamFocus] = useState<TeamFocus | null>(null);
+  const [player, setPlayer] = useState<PlayerTarget | null>(null);
 
   useEffect(() => {
     if (leagueTabs.length && !leagueTabs.some((l) => l.id === league)) setLeague(firstLeague);
@@ -121,6 +133,15 @@ function MobileDataPage() {
   }, [load]);
   useUnifiedPoll(load);
 
+  const teamMatches = useCallback((teamId: number | null, teamName: string) => {
+    if (!view) return [];
+    return view.schedule.filter((m) => (teamId != null && (m.homeId === teamId || m.awayId === teamId)) || m.home === teamName || m.away === teamName);
+  }, [view]);
+
+  const openTeam = useCallback((group: string, row: StandingRow) => {
+    setTeamFocus({ group, teamId: row.teamId, team: row.team, logo: row.logo, stats: row, matches: teamMatches(row.teamId, row.team) });
+  }, [teamMatches]);
+
   const searchItems = useMemo<SearchItem[]>(() => {
     if (!view) return [];
     const standings = view.standings.flatMap((group) =>
@@ -131,6 +152,7 @@ function MobileDataPage() {
         meta: `${r.points} 分 · ${r.win}胜${r.draw}平${r.lose}负`,
         badge: "积分",
         section: "积分榜",
+        onSelect: () => openTeam(group.group, r),
         keywords: [r.team, r.points, r.goals, r.note, r.form],
       })),
     );
@@ -141,6 +163,7 @@ function MobileDataPage() {
       meta: `${r.goals} 球${r.penalty ? ` · 点球 ${r.penalty}` : ""}`,
       badge: "射手",
       section: "射手榜",
+      onSelect: r.playerId ? () => setPlayer({ id: r.playerId!, name: r.player, season: view.season }) : undefined,
       keywords: [r.player, r.team, r.goals, r.penalty],
     }));
     const assists = view.assists.map((r) => ({
@@ -150,6 +173,7 @@ function MobileDataPage() {
       meta: `${r.assists} 助攻`,
       badge: "助攻",
       section: "助攻榜",
+      onSelect: r.playerId ? () => setPlayer({ id: r.playerId!, name: r.player, season: view.season }) : undefined,
       keywords: [r.player, r.team, r.assists],
     }));
     const schedule = view.schedule.map((r) => ({
@@ -163,7 +187,7 @@ function MobileDataPage() {
       keywords: [r.id, r.home, r.away, r.round, r.status, r.score],
     }));
     return [...standings, ...scorers, ...assists, ...schedule];
-  }, [view]);
+  }, [openTeam, view]);
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
@@ -211,32 +235,84 @@ function MobileDataPage() {
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: view?.league.color ?? leagueColor(league), flexShrink: 0 }} />
         <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 750 }}>{view ? `${view.league.zh} · ${view.season}` : "数据加载中"}</span>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>官方返回数据</span>
+        <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>数据同步</span>
       </div>
+      {view && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6, padding: "0 12px 10px", flexShrink: 0 }}>
+          <DataPill label="小组" value={view.standings.length} />
+          <DataPill label="赛程" value={view.schedule.length} />
+          <DataPill label="榜单" value={view.scorers.length + view.assists.length} />
+        </div>
+      )}
 
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 12px", minHeight: 0 }}>
         {!loaded && <div style={{ padding: "48px 0", textAlign: "center", color: "var(--fg-3)", fontSize: 12 }}>加载中</div>}
-        {loaded && view && tab === "standings" && <Standings groups={view.standings} />}
-        {loaded && view && tab === "scorers" && <PlayerBoard rows={view.scorers} value="goals" />}
-        {loaded && view && tab === "assists" && <PlayerBoard rows={view.assists} value="assists" />}
+        {loaded && view && tab === "standings" && <Standings groups={view.standings} schedule={view.schedule} onOpenTeam={openTeam} onOpenMatch={(id) => router.push(`/match/${id}`)} />}
+        {loaded && view && tab === "scorers" && <PlayerBoard rows={view.scorers} value="goals" season={view.season} onOpenPlayer={setPlayer} onOpenTeam={(row) => setTeamFocus({ group: "球员所属球队", teamId: row.teamId, team: row.team, logo: row.teamLogo, matches: teamMatches(row.teamId, row.team) })} />}
+        {loaded && view && tab === "assists" && <PlayerBoard rows={view.assists} value="assists" season={view.season} onOpenPlayer={setPlayer} onOpenTeam={(row) => setTeamFocus({ group: "球员所属球队", teamId: row.teamId, team: row.team, logo: row.teamLogo, matches: teamMatches(row.teamId, row.team) })} />}
         {loaded && view && tab === "schedule" && <Schedule rows={view.schedule} onOpen={(id) => router.push(`/match/${id}`)} />}
       </div>
+      <TeamSheet focus={teamFocus} onClose={() => setTeamFocus(null)} onOpenMatch={(id) => router.push(`/match/${id}`)} />
+      <PlayerSheet target={player} onClose={() => setPlayer(null)} />
     </div>
   );
 }
 
-function Standings({ groups }: { groups: { group: string; rows: StandingRow[] }[] }) {
-  if (groups.length === 0) return <EmptyBox title="积分榜暂无官方返回" sub="该赛事积分数据尚未公布或仍在归档积累中" />;
+function Standings({
+  groups,
+  schedule,
+  onOpenTeam,
+  onOpenMatch,
+}: {
+  groups: { group: string; rows: StandingRow[] }[];
+  schedule: ScheduleRow[];
+  onOpenTeam: (group: string, row: StandingRow) => void;
+  onOpenMatch: (id: number) => void;
+}) {
+  if (groups.length === 0) return <EmptyBox title="暂无积分数据" sub="该赛事积分仍在更新或尚未公布" />;
   return (
     <>
-      {groups.map((group) => (
+      {groups.map((group) => {
+        const teamIds = new Set(group.rows.map((r) => r.teamId).filter((id): id is number => id != null));
+        const teamNames = new Set(group.rows.map((r) => r.team));
+        const groupMatches = schedule
+          .filter((m) => (m.homeId != null && teamIds.has(m.homeId)) || (m.awayId != null && teamIds.has(m.awayId)) || teamNames.has(m.home) || teamNames.has(m.away))
+          .slice(0, 4);
+        return (
         <div key={group.group} style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", background: "var(--card)", marginBottom: 10 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 28px 28px 28px 28px 54px 38px", gap: 8, alignItems: "center", padding: "9px 10px", background: "var(--inset)", borderBottom: "1px solid var(--line)" }}>
-            <span style={{ fontSize: 12, fontWeight: 850 }}>{group.group}</span>
-            {["场", "胜", "平", "负", "进/失", "积分"].map((h) => <span key={h} style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 800, textAlign: "center" }}>{h}</span>)}
+          <div style={{ padding: "9px 10px", background: "var(--inset)", borderBottom: "1px solid var(--line)" }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 900 }}>{group.group}</span>
+              <span style={{ fontSize: 11, color: "var(--fg-3)" }}>{groupMatches.length > 0 ? `本组赛程 ${groupMatches.length} 场` : "赛程待同步"}</span>
+            </div>
+            {groupMatches.length > 0 && (
+              <div style={{ display: "grid", gap: 5, marginTop: 8 }}>
+                {groupMatches.slice(0, 3).map((m) => (
+                  <button
+                    key={`${group.group}:${m.id}`}
+                    type="button"
+                    onClick={() => onOpenMatch(m.id)}
+                    style={{ display: "grid", gridTemplateColumns: "48px minmax(0,1fr) 40px minmax(0,1fr)", gap: 6, alignItems: "center", border: 0, borderRadius: 8, background: "var(--card)", padding: "7px 8px", color: "var(--fg)", cursor: "pointer" }}
+                  >
+                    <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-3)", textAlign: "left" }}>{m.date} {m.time}</span>
+                    <span style={{ minWidth: 0, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 800 }}>{m.home}</span>
+                    <span className="mono" style={{ textAlign: "center", fontSize: 11.5, fontWeight: 900, color: m.live ? "var(--red)" : "var(--fg-2)" }}>{m.score}</span>
+                    <span style={{ minWidth: 0, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 800 }}>{m.away}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 28px 28px 28px 28px 54px 38px", gap: 8, alignItems: "center", padding: "8px 10px", background: "var(--card)", borderBottom: "1px solid var(--line-soft)" }}>
+            <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 850 }}>球队</span>
+            {["场", "胜", "平", "负", "进/失", "积分"].map((h) => <span key={h} style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 850, textAlign: "center" }}>{h}</span>)}
           </div>
           {group.rows.map((r) => (
-            <div key={`${group.group}:${r.rank}:${r.teamId ?? r.team}`} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 28px 28px 28px 28px 54px 38px", gap: 8, alignItems: "center", padding: "10px 10px", borderBottom: "1px solid var(--line-soft)" }}>
+            <div
+              key={`${group.group}:${r.rank}:${r.teamId ?? r.team}`}
+              onClick={() => onOpenTeam(group.group, r)}
+              style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 28px 28px 28px 28px 54px 38px", gap: 8, alignItems: "center", padding: "10px 10px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }}
+            >
               <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
                 <span className="mono" style={{ width: 18, flexShrink: 0, fontSize: 12, color: "var(--fg-3)", fontWeight: 850 }}>{r.rank}</span>
                 <TeamLogo id={r.teamId} src={r.logo} name={r.team} size={19} />
@@ -254,13 +330,35 @@ function Standings({ groups }: { groups: { group: string; rows: StandingRow[] }[
             </div>
           ))}
         </div>
-      ))}
+        );
+      })}
     </>
   );
 }
 
-function PlayerBoard({ rows, value }: { rows: PlayerRow[]; value: "goals" | "assists" }) {
-  if (rows.length === 0) return <EmptyBox title={`${value === "goals" ? "射手榜" : "助攻榜"}暂无官方返回`} sub="榜单数据尚未公布或样本仍在积累中" />;
+function DataPill({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "8px 4px", textAlign: "center" }}>
+      <div className="mono" style={{ fontSize: 15, fontWeight: 900 }}>{value}</div>
+      <div style={{ fontSize: 10.5, color: "var(--fg-3)", marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+function PlayerBoard({
+  rows,
+  value,
+  season,
+  onOpenPlayer,
+  onOpenTeam,
+}: {
+  rows: PlayerRow[];
+  value: "goals" | "assists";
+  season: number;
+  onOpenPlayer: (target: PlayerTarget) => void;
+  onOpenTeam: (row: PlayerRow) => void;
+}) {
+  if (rows.length === 0) return <EmptyBox title={`${value === "goals" ? "射手榜" : "助攻榜"}暂无数据`} sub="榜单尚未公布或样本仍在积累中" />;
   return (
     <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", background: "var(--card)" }}>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(76px,0.55fr) 52px", gap: 8, padding: "9px 12px", background: "var(--inset)", borderBottom: "1px solid var(--line)" }}>
@@ -270,12 +368,15 @@ function PlayerBoard({ rows, value }: { rows: PlayerRow[]; value: "goals" | "ass
       </div>
       {rows.map((r) => (
         <div key={`${value}:${r.rank}:${r.playerId ?? r.player}`} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(76px,0.55fr) 52px", gap: 8, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid var(--line-soft)" }}>
-          <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          <div
+            onClick={() => r.playerId && onOpenPlayer({ id: r.playerId, name: r.player, season })}
+            style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8, cursor: r.playerId ? "pointer" : "default" }}
+          >
             <span className="mono" style={{ width: 18, flexShrink: 0, fontSize: 12, color: "var(--fg-3)", fontWeight: 850 }}>{r.rank}</span>
             <PlayerAvatar id={r.playerId} name={r.player} size={26} />
             <span style={{ minWidth: 0, fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.player}</span>
           </div>
-          <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 6 }}>
+          <div onClick={() => onOpenTeam(r)} style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
             <TeamLogo id={r.teamId} src={r.teamLogo} name={r.team} size={17} />
             <span style={{ minWidth: 0, fontSize: 12.5, color: "var(--fg-2)", fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.team}</span>
           </div>
@@ -290,17 +391,39 @@ function PlayerBoard({ rows, value }: { rows: PlayerRow[]; value: "goals" | "ass
 }
 
 function Schedule({ rows, onOpen }: { rows: ScheduleRow[]; onOpen: (id: number) => void }) {
-  if (rows.length === 0) return <EmptyBox title="赛程暂无官方返回" sub="该联赛赛程尚未入库或官方暂未公布" />;
-  let lastRound = "";
+  const rounds = useMemo(() => {
+    const map = new Map<string, ScheduleRow[]>();
+    for (const row of rows) {
+      const list = map.get(row.round) ?? [];
+      list.push(row);
+      map.set(row.round, list);
+    }
+    return [...map.entries()].map(([round, items]) => ({ round, rows: items }));
+  }, [rows]);
+  const [roundIndex, setRoundIndex] = useState(0);
+
+  useEffect(() => {
+    if (rounds.length === 0) return;
+    const next = rounds.findIndex((r) => r.rows.some((m) => m.live || !m.finished));
+    setRoundIndex(next >= 0 ? next : Math.max(0, rounds.length - 1));
+  }, [rounds]);
+
+  if (rows.length === 0) return <EmptyBox title="暂无赛程数据" sub="该联赛赛程尚未入库或暂未公布" />;
+  const active = rounds[Math.min(roundIndex, rounds.length - 1)] ?? rounds[0];
+  const canPrev = roundIndex > 0;
+  const canNext = roundIndex < rounds.length - 1;
   return (
     <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", background: "var(--card)" }}>
-      {rows.map((r) => {
-        const showRound = r.round !== lastRound;
-        lastRound = r.round;
-        return (
-          <div key={r.id}>
-            {showRound && <div style={{ padding: "8px 12px", background: "var(--inset)", borderBottom: "1px solid var(--line)", fontSize: 12, color: "var(--fg-2)", fontWeight: 850 }}>{r.round}</div>}
-            <div onClick={() => onOpen(r.id)} style={{ display: "grid", gridTemplateColumns: "48px minmax(0,1fr) 52px minmax(0,1fr)", gap: 8, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "76px minmax(0,1fr) 76px", alignItems: "center", gap: 8, padding: "10px 12px", background: "var(--inset)", borderBottom: "1px solid var(--line)" }}>
+        <RoundButton label="上一轮" disabled={!canPrev} onClick={() => setRoundIndex((i) => Math.max(0, i - 1))} />
+        <div style={{ minWidth: 0, textAlign: "center" }}>
+          <div style={{ fontSize: 13, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{active.round}</div>
+          <div style={{ fontSize: 10.5, color: "var(--fg-3)", marginTop: 2 }}>第 {roundIndex + 1} / {rounds.length} 轮 · {active.rows.length} 场</div>
+        </div>
+        <RoundButton label="下一轮" disabled={!canNext} onClick={() => setRoundIndex((i) => Math.min(rounds.length - 1, i + 1))} />
+      </div>
+      {active.rows.map((r) => (
+        <div key={r.id} onClick={() => onOpen(r.id)} style={{ display: "grid", gridTemplateColumns: "48px minmax(0,1fr) 52px minmax(0,1fr)", gap: 8, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }}>
               <div className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)", lineHeight: 1.35 }}>
                 <div>{r.date}</div>
                 <div>{r.time}</div>
@@ -314,10 +437,91 @@ function Schedule({ rows, onOpen }: { rows: ScheduleRow[]; onOpen: (id: number) 
                 <TeamLogo id={r.awayId} src={r.awayLogo} name={r.away} size={18} />
                 <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 800 }}>{r.away}</span>
               </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RoundButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        height: 30,
+        border: `1px solid ${disabled ? "var(--line-soft)" : "var(--line)"}`,
+        borderRadius: 8,
+        background: disabled ? "transparent" : "var(--card)",
+        color: disabled ? "var(--fg-3)" : "var(--fg)",
+        fontSize: 11.5,
+        fontWeight: 850,
+        cursor: disabled ? "default" : "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function TeamSheet({ focus, onClose, onOpenMatch }: { focus: TeamFocus | null; onClose: () => void; onOpenMatch: (id: number) => void }) {
+  return (
+    <Sheet open={!!focus} onClose={onClose} z={78} maxHeight="min(76vh, 640px)">
+      {focus && (
+        <>
+          <SheetTitle title={focus.team} hint={focus.group} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <TeamLogo id={focus.teamId} src={focus.logo} name={focus.team} size={42} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 850 }}>{focus.team}</div>
+              <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 3 }}>
+                {focus.stats?.rank ? `第 ${focus.stats.rank} 名 · ${focus.stats.points ?? 0} 分` : "球队赛程与关联数据"}
+              </div>
             </div>
           </div>
-        );
-      })}
+
+          {focus.stats?.played != null && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginBottom: 12 }}>
+              <TeamMetric label="场" value={focus.stats.played ?? 0} />
+              <TeamMetric label="胜/平/负" value={`${focus.stats.win ?? 0}/${focus.stats.draw ?? 0}/${focus.stats.lose ?? 0}`} />
+              <TeamMetric label="进/失" value={focus.stats.goals ?? "—"} />
+              <TeamMetric label="积分" value={focus.stats.points ?? 0} />
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "8px 0" }}>
+            <span style={{ fontSize: 13, fontWeight: 900 }}>关联赛程</span>
+            <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>{focus.matches.length} 场</span>
+          </div>
+          {focus.matches.length === 0 && <EmptyBox title="暂无关联赛程" sub="当前缓存中还没有该队赛程" />}
+          {focus.matches.slice(0, 12).map((m) => (
+            <button
+              key={`team:${m.id}`}
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenMatch(m.id);
+              }}
+              style={{ width: "100%", display: "grid", gridTemplateColumns: "48px minmax(0,1fr) 44px minmax(0,1fr)", gap: 7, alignItems: "center", border: "1px solid var(--line-soft)", borderRadius: 9, background: "var(--card)", color: "var(--fg)", padding: "8px 9px", marginBottom: 6, cursor: "pointer" }}
+            >
+              <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-3)", textAlign: "left", lineHeight: 1.35 }}>{m.date}<br />{m.time}</span>
+              <span style={{ minWidth: 0, fontSize: 12.5, fontWeight: 800, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.home}</span>
+              <span className="mono" style={{ fontSize: 12, fontWeight: 900, color: m.live ? "var(--red)" : "var(--fg-2)", textAlign: "center" }}>{m.score}</span>
+              <span style={{ minWidth: 0, fontSize: 12.5, fontWeight: 800, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.away}</span>
+            </button>
+          ))}
+        </>
+      )}
+    </Sheet>
+  );
+}
+
+function TeamMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div style={{ background: "var(--inset)", border: "1px solid var(--line-soft)", borderRadius: 9, padding: "8px 4px", textAlign: "center" }}>
+      <div className="mono" style={{ fontSize: 13, fontWeight: 900 }}>{value}</div>
+      <div style={{ fontSize: 10.5, color: "var(--fg-3)", marginTop: 3 }}>{label}</div>
     </div>
   );
 }
