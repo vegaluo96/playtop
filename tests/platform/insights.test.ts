@@ -70,6 +70,19 @@ describe("盘路分类", () => {
     expect(r.ah.rows).toHaveLength(1);
     expect(r.ah.rows[0]).toMatchObject({ line: "平半", res: "赢" });
   });
+
+  it("完场详情页盘路纳入当前比赛,避免刚完场仍为空", async () => {
+    seedFixture(8, 0, 100, 200, 1, 0, "FT");
+    seedSnapBook(8, 99, "SmallBook", "ah", 0.5, 0.88, 0.96, null, NOW - 60_000);
+    seedSnapBook(8, 99, "SmallBook", "ou", 2.5, 0.88, 0.96, null, NOW - 60_000);
+
+    const fx = db().prepare("SELECT * FROM fixtures_cache WHERE fixture_id=8").get() as unknown as FixtureRow;
+    const ins = await insightsView(fx);
+
+    expect(ins.road.home.ah.rows[0]).toMatchObject({ opp: "T200", ha: "主", score: "1-0", line: "半球", res: "赢" });
+    expect(ins.road.away.ah.rows[0]).toMatchObject({ opp: "T100", ha: "客", score: "1-0", line: "受半球", res: "输" });
+    expect(ins.road.home.ou.rows[0]).toMatchObject({ line: "两球半", res: "小" });
+  });
 });
 
 describe("离散度/升降盘/返还率", () => {

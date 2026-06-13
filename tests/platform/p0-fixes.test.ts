@@ -38,6 +38,32 @@ describe("predSummary 指数派生观点(AF 模型缺方向时不误称官方方
     expect(ps.advice).toContain("指数派生观点");
   });
 
+  it("AF 预测快照缺失时,赛前盘口仍可生成降权摘要", () => {
+    const ps = predSummary(null, 50, {
+      ah: { line: 0.75, h: 0.86, a: 1.0 },
+      ou: { line: 2.25, h: 1.02, a: 0.84 },
+      homeName: "Canada", awayName: "Bosnia",
+    })!;
+    expect(ps).not.toBeNull();
+    expect(ps.derived).toBe(true);
+    expect(ps.pH + ps.pD + ps.pA).toBe(0);
+    expect(ps.winnerName).toBe("Canada");
+    expect(ps.uoText).toBe("小于 2.25 球");
+    expect(ps.advice).toContain("指数派生观点");
+  });
+
+  it("AF 预测和真实盘口都缺失时不生成报告摘要", () => {
+    expect(predSummary(null, 50)).toBeNull();
+    expect(predSummary(null, 50, { ah: { line: 0, h: 0.93, a: 0.93 } })).toBeNull();
+  });
+
+  it("只有大小球真实信号时,摘要不吞掉进球方向", () => {
+    const ps = predSummary(null, 50, { ou: { line: 2.5, h: 1.02, a: 0.84 } })!;
+    expect(ps.winnerName).toBe("");
+    expect(ps.uoText).toBe("小于 2.5 球");
+    expect(ps.advice).toContain("进球方向:小于 2.5 球");
+  });
+
   it("受让盘 → 客队方向", () => {
     const ps = predSummary(emptyPred, 50, { ah: { line: -0.75, h: 0.92, a: 0.94 }, awayName: "Japan" })!;
     expect(ps.winnerName).toBe("Japan");

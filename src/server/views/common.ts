@@ -77,8 +77,8 @@ const pct = (v: unknown) => {
 
 /** AF /predictions 信封项 → 中文摘要;odds 仅在 AF 缺方向时生成「指数派生观点」,不得混同官方概率方向。 */
 export function predSummary(pred: unknown, homeId: number | null, odds?: OddsHint): PredSummary | null {
-  if (!pred) return null;
-  const p = pred as Record<string, unknown>;
+  const hasPrediction = !!pred;
+  const p = (pred ?? {}) as Record<string, unknown>;
   const pH = pct(dig(p, "predictions", "percent", "home"));
   const pD = pct(dig(p, "predictions", "percent", "draw"));
   const pA = pct(dig(p, "predictions", "percent", "away"));
@@ -94,7 +94,7 @@ export function predSummary(pred: unknown, homeId: number | null, odds?: OddsHin
   }
 
   // 指数派生观点:AF 模型未给方向时,只把让球方向/大小低水侧作为行情观察,前端需降权展示。
-  let derived = false;
+  let derived = !hasPrediction;
   if (!winnerName && odds?.ah && odds.ah.line != null && odds.ah.line !== 0) {
     const homeSide = odds.ah.line > 0;
     winnerName = homeSide ? (odds.homeName ?? "主队") : (odds.awayName ?? "客队");
@@ -106,9 +106,13 @@ export function predSummary(pred: unknown, homeId: number | null, odds?: OddsHin
     uoLine = uoLine ?? String(odds.ou.line);
     derived = true;
   }
+  if (!hasPrediction && !winnerName && !uoTextZh) return null;
 
-  const winPart = winnerName ? (winDraw ? `概率倾向:${winnerName} 或平局` : `概率倾向:${winnerName}`) : "暂无明确方向";
-  const body = winnerName && uoTextZh ? `${winPart};进球方向:${uoTextZh}` : winPart;
+  const parts = [
+    winnerName ? (winDraw ? `概率倾向:${winnerName} 或平局` : `概率倾向:${winnerName}`) : null,
+    uoTextZh ? `进球方向:${uoTextZh}` : null,
+  ].filter(Boolean);
+  const body = parts.length > 0 ? parts.join(";") : "暂无明确方向";
   const advice = derived ? `指数派生观点:${body}` : body;
   const comparison: Record<string, { home: number; away: number }> = {};
   const compKeys: [string, string][] = [

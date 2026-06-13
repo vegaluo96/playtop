@@ -1,6 +1,6 @@
 /**
  * 指数洞察:全部由已归档真实数据推导,无任何虚构。
- *   ① 盘路榜:本站归档的临场盘(收盘前最后一帧)× 官方比分 → 赢/走/输、大/小
+ *   ① 盘路榜:本站归档的赛前末盘 × 官方比分 → 赢/走/输、大/小
  *   ② 胜平负离散度:多书商胜平负报价标准差,用于观察市场分歧
  *   ③ 同赔历史:赛前末盘胜平负三元组(±0.03)匹配本站归档完场赛事 → 胜平负分布
  *   ④ 升降盘统计 + 返还率趋势:早期归档 vs 赛前末盘方向;主源返还率首末对照
@@ -77,14 +77,21 @@ function aggRoad(rows: RoadRow[], winSet: string[], loseSet: string[]): RoadAgg 
   return { n: rows.length, win, push, lose, rate: win + lose > 0 ? Math.round((win / (win + lose)) * 100) : null, streak };
 }
 
-function teamFinished(teamId: number, beforeUtc: number, lim = 24): FixtureRow[] {
-  return (
+function teamFinished(teamId: number, beforeUtc: number, lim = 24, include?: FixtureRow): FixtureRow[] {
+  const rows = (
     db()
       .prepare(
         "SELECT * FROM fixtures_cache WHERE (home_id = ? OR away_id = ?) AND kickoff_utc < ? ORDER BY kickoff_utc DESC LIMIT ?",
       )
       .all(teamId, teamId, beforeUtc, lim) as unknown as FixtureRow[]
   ).filter((f) => isFinished(f.status) && f.goals_home != null && f.goals_away != null);
+  const includeOk =
+    include &&
+    (include.home_id === teamId || include.away_id === teamId) &&
+    isFinished(include.status) &&
+    include.goals_home != null &&
+    include.goals_away != null;
+  return (includeOk ? [include, ...rows.filter((r) => r.fixture_id !== include.fixture_id)] : rows).slice(0, lim);
 }
 
 /** 收盘帧 = 赛前归档最后一帧;盘路结算不能因主列表质量门禁过严而隐藏真实样本。 */
@@ -95,12 +102,12 @@ function closing(fixtureId: number, market: "ah" | "ou"): SnapRow | null {
   return rows.find((row) => isDisplayableSnapshot(market, row)) ?? null;
 }
 
-export function teamRoad(teamId: number | null, beforeUtc: number, n = 10) {
+export function teamRoad(teamId: number | null, beforeUtc: number, n = 10, include?: FixtureRow) {
   const empty = { rows: [] as RoadRow[], agg: aggRoad([], ["赢"], ["输"]) };
   if (!teamId) return { ah: empty, ou: { rows: [] as RoadRow[], agg: aggRoad([], ["大"], ["小"]) } };
   const ahRows: RoadRow[] = [];
   const ouRows: RoadRow[] = [];
-  for (const m of teamFinished(teamId, beforeUtc)) {
+  for (const m of teamFinished(teamId, beforeUtc, 24, include)) {
     if (ahRows.length >= n && ouRows.length >= n) break;
     const isHome = m.home_id === teamId;
     const gh = m.goals_home!;
@@ -279,9 +286,9 @@ function cornersAvgOf(teamId: number | null, beforeUtc: number) {
 /* ── 汇总(kv 缓存 10min:盘路/同赔涉及多场扫描,详情页 3s 轮询不能每次重算)── */
 
 export async function insightsView(fx: FixtureRow) {
-  return kvCached(`insights:${fx.fixture_id}`, 10 * 60_000, async () => {
-    const home = teamRoad(fx.home_id, fx.kickoff_utc);
-    const away = teamRoad(fx.away_id, fx.kickoff_utc);
+  return kvCached(`insights:v2:${fx.fixture_id}`, 10 * 60_000, async () => {
+    const home = teamRoad(fx.home_id, fx.kickoff_utc, 10, fx);
+    const away = teamRoad(fx.away_id, fx.kickoff_utc, 10, fx);
     const ch = cornersAvgOf(fx.home_id, fx.kickoff_utc);
     const ca = cornersAvgOf(fx.away_id, fx.kickoff_utc);
     return {
@@ -289,7 +296,7 @@ export async function insightsView(fx: FixtureRow) {
       sameOdds: sameOddsOf(fx),
       fatigue: { home: fatigueOf(fx.home_id, fx.kickoff_utc, fx.fixture_id), away: fatigueOf(fx.away_id, fx.kickoff_utc, fx.fixture_id) },
       cornersRef: ch && ca ? { h: ch, a: ca, ref: Math.round(((ch.avg + ca.avg) / 2) * 10) / 10 } : null,
-      note: "盘路与同赔基于本站归档的临场盘与官方比分推算,自归档之日起积累;赛程仅统计本站收录赛事。",
+      note: "盘路与同赔基于本站归档的赛前末盘与官方比分推算,自归档之日起积累;赛程仅统计本站收录赛事。",
     };
   });
 }

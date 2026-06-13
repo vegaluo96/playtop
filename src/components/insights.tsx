@@ -90,7 +90,7 @@ export function RoadSection({ ins, home, away }: { ins: V; home: string; away: s
   const grid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 10 };
   return (
     <>
-      <div style={{ fontSize: 13.5, fontWeight: 750, margin: "8px 4px" }}>让球盘路 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>临场盘 × 官方比分 · 近 10 场</span></div>
+      <div style={{ fontSize: 13.5, fontWeight: 750, margin: "8px 4px" }}>让球盘路 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>赛前末盘 × 官方比分 · 近 10 场</span></div>
       <div style={grid}>
         <RoadCard team={home} color="var(--home)" data={ins.road.home?.ah} kind="ah" />
         <RoadCard team={away} color="var(--team-away)" data={ins.road.away?.ah} kind="ah" />

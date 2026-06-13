@@ -32,15 +32,13 @@ export async function GET(req: NextRequest) {
   const fixtureIds = fixtures.map((f) => f.fixture_id);
   const cutoffByFixture = new Map(fixtures.map((f) => [f.fixture_id, Math.min(now, f.kickoff_utc - 1)]));
   const predictions = latestPredictionsBeforeMap(fixtureIds, cutoffByFixture);
-  const cardFixtures = fixtures.filter((f) => predictions.has(f.fixture_id));
-  const cardFixtureIds = cardFixtures.map((f) => f.fixture_id);
-  const overviews = marketOverviewBatchBefore(cardFixtureIds, cutoffByFixture);
+  const overviews = marketOverviewBatchBefore(fixtureIds, cutoffByFixture);
   const today = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
   const freeSet = new Set(dailyFreeFixtureIds(today));
   const user = await userPromise;
   const unlockedSet = user ? new Set(unlockedIds(user.id)) : new Set<number>();
 
-  const cards = (await Promise.all(cardFixtures
+  const cards = (await Promise.all(fixtures
     .map(async (f) => {
       const overview = overviews.get(f.fixture_id);
       if (!overview) return null;
