@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { SearchAction, type SearchItem } from "@/components/page-search";
 import { TeamLogo, PlayerAvatar } from "@/components/img";
-import { EmptyBox, Sheet, SheetTitle } from "@/components/ui";
+import { Chip, EmptyBox, Sheet, SheetTitle } from "@/components/ui";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
 import { useApp } from "@/components/app-context";
 import { useUnifiedPoll } from "@/components/live";
@@ -233,21 +233,27 @@ function MobileDataPage() {
         right={<SearchAction title="搜索数据" placeholder="球队 / 球员 / 小组 / 轮次 / 赛程" hint={`${searchItems.length} 条可搜索`} scopeLabel={dataScope} emptyText="没有匹配的数据" examples={["球队", "球员", "小组", "赛程", "轮次"]} items={searchItems} />}
       />
 
-      <div style={{ display: "flex", gap: 18, overflowX: "auto", padding: "0 16px 8px", flexShrink: 0 }}>
-        {leagueTabs.map((l) => {
-          const active = league === l.id;
-          return (
-            <button
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", flexShrink: 0 }}>
+        {leagueTabs.map((l) =>
+          l.wc ? (
+            <div
               key={l.id}
-              type="button"
               onClick={() => setLeague(l.id)}
-              style={{ position: "relative", flexShrink: 0, border: 0, background: "transparent", color: active ? "var(--fg)" : "var(--fg-2)", padding: "4px 0 9px", fontSize: 15, fontWeight: active ? 850 : 750, cursor: "pointer", whiteSpace: "nowrap" }}
+              className={league === l.id ? "wcglow" : undefined}
+              style={{
+                position: "relative", overflow: "hidden", flexShrink: 0, padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 750, cursor: "pointer",
+                background: league === l.id ? "var(--selected-bg-strong)" : "var(--card)",
+                color: league === l.id ? "var(--gold)" : "var(--fg-2)",
+                border: `1px solid ${league === l.id ? "var(--selected-border-strong)" : "var(--selected-border-soft)"}`,
+              }}
             >
-              {l.zh}
-              <span style={{ position: "absolute", left: 0, right: 0, bottom: 1, height: 3, borderRadius: 3, background: active ? "var(--fg)" : "transparent" }} />
-            </button>
-          );
-        })}
+              {league === l.id && <span className="wcsweep" style={{ position: "absolute", top: 0, left: 0, width: 36, height: "100%", background: "transparent" }} />}
+              <span style={{ position: "relative" }}>{l.zh}</span>
+            </div>
+          ) : (
+            <Chip key={l.id} label={l.zh} active={league === l.id} onClick={() => setLeague(l.id)} style={{ padding: "6px 12px", fontSize: 12 }} />
+          ),
+        )}
       </div>
 
       <div style={{ padding: "0 12px 10px", flexShrink: 0 }}>

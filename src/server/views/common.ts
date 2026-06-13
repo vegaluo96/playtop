@@ -108,7 +108,7 @@ export function predSummary(pred: unknown, homeId: number | null, odds?: OddsHin
   const advice = derived ? `指数派生观点:${body}` : body;
   const comparison: Record<string, { home: number; away: number }> = {};
   const compKeys: [string, string][] = [
-    ["form", "状态"], ["att", "攻击"], ["def", "防守"], ["poisson_distribution", "泊松"],
+    ["form", "状态"], ["att", "攻击"], ["def", "防守"], ["poisson_distribution", "预期"],
     ["h2h", "交锋"], ["goals", "进球"], ["total", "综合"],
   ];
   for (const [k, zh] of compKeys) {

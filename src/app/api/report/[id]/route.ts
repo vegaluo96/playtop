@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hhmm } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
+import { nameZh } from "@/server/views/names";
 import { matchPanorama } from "@/server/af/panorama";
 import { isLive } from "@/server/af/schedule";
 import { buildReport, buildReportSummary } from "@/server/views/report";
@@ -62,6 +63,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     }
   }
   const fx = p.fixture;
+  const homeZh = nameZh(fx.home_name);
+  const awayZh = nameZh(fx.away_name);
   const lockedFinal = reportLocked(fx.status);
   const prob = publicProbability(ps);
   const comp = publicComparison(ps);
@@ -71,7 +74,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   return NextResponse.json({
     ok: true,
     id: fid,
-    match: `${fx.home_name} vs ${fx.away_name}`,
+    match: `${homeZh} vs ${awayZh}`,
     league: leagueZh(fx.league_id, fx.league_name),
     leagueId: fx.league_id,
     time: isLive(fx.status) ? `${fx.elapsed ?? ""}' 进行中` : `${hhmm(fx.kickoff_utc, tz)}`,
@@ -79,8 +82,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     probReady: prob.probReady,
     comparison: comp.comparison,
     comparisonReady: comp.comparisonReady,
-    homeName: fx.home_name,
-    awayName: fx.away_name,
+    homeName: homeZh,
+    awayName: awayZh,
     advice: unlocked ? advice.advice : null,
     summaryReady: unlocked ? advice.summaryReady : false,
     directions: unlocked ? { ah: signals.ah, ou: signals.ou } : null,
