@@ -79,7 +79,7 @@ export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
       a: f2(s.a),
       chg: prev != null && s.line !== prev.line,
     };
-  });
+  }).reverse(); // 预览表最新在上;走势图仍保持时间正序
   const step = Math.max(1, Math.ceil(series.length / 40));
   const chart = series.filter((_, i) => i % step === 0 || i === series.length - 1).map((s) => ({
     t: hhmm(s.captured_at, tz),
@@ -98,7 +98,7 @@ export function euRows(series: SnapRow[], tz: string) {
     h: f2(s.h),
     d: f2(s.d ?? 0),
     a: f2(s.a),
-  }));
+  })).reverse();
 }
 
 function minutesView(pred: Record<string, unknown> | null) {

@@ -27,7 +27,7 @@ describe("detail odds quote rows", () => {
     ], "ah", "UTC+0").rows;
 
     expect(rows).toHaveLength(3);
-    expect(rows.map((r) => r.t)).toEqual(["03:00", "06:00", "09:00"]);
+    expect(rows.map((r) => r.t)).toEqual(["09:00", "06:00", "03:00"]);
     expect(rows.every((r) => !r.chg)).toBe(true);
   });
 
@@ -40,8 +40,8 @@ describe("detail odds quote rows", () => {
     ], "ah", "UTC+0").rows;
 
     expect(rows).toHaveLength(3);
-    expect(rows.map((r) => r.t)).toEqual(["03:00", "06:00", "09:00"]);
-    expect(rows.map((r) => r.chg)).toEqual([true, true, false]);
+    expect(rows.map((r) => r.t)).toEqual(["09:00", "06:00", "03:00"]);
+    expect(rows.map((r) => r.chg)).toEqual([false, true, true]);
   });
 
   it("胜平负也使用同一组最新三帧口径", () => {
@@ -53,7 +53,7 @@ describe("detail odds quote rows", () => {
     ], "UTC+0");
 
     expect(rows).toHaveLength(3);
-    expect(rows.map((r) => r.t)).toEqual(["03:00", "06:00", "09:00"]);
+    expect(rows.map((r) => r.t)).toEqual(["09:00", "06:00", "03:00"]);
   });
 
   it("最新三帧落在同一分钟时显示秒,避免看起来像重复时间", () => {
@@ -63,6 +63,6 @@ describe("detail odds quote rows", () => {
       snap(Date.parse("2026-06-13T03:00:45Z"), 0.5, 0.87, 0.99),
     ], "ah", "UTC+0").rows;
 
-    expect(rows.map((r) => r.t)).toEqual(["03:00:01", "03:00:12", "03:00:45"]);
+    expect(rows.map((r) => r.t)).toEqual(["03:00:45", "03:00:12", "03:00:01"]);
   });
 });
