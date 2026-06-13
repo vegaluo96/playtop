@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hhmm, parseTzOffset } from "@/lib/format";
 import { leagueZh } from "@/lib/leagues";
-import { fixtureById, fixturesBetween, latestPredictionsBeforeMap, modelStats, oddsSeriesBatchBefore } from "@/server/af/store";
+import { fixtureById, fixturesBetween, latestPredictionsBeforeMap, modelStats } from "@/server/af/store";
 import { isLive } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
 import { cfgUnlockPrice } from "@/server/platform/config";
@@ -13,6 +13,7 @@ import { dailyFreeFixtureIds, unlockedIds } from "@/server/platform/wallet";
 import { predSummary } from "@/server/views/common";
 import { buildReportSignals, publicComparison, publicProbability, publicReportAdvice } from "@/server/views/report-signals";
 import { nameZh } from "@/server/views/names";
+import { marketOverviewBatchBefore, publicMarketOverview } from "@/server/markets/overview";
 
 export async function GET(req: NextRequest) {
   const tz = req.nextUrl.searchParams.get("tz") || "UTC+8";
@@ -30,8 +31,7 @@ export async function GET(req: NextRequest) {
   const predictions = latestPredictionsBeforeMap(fixtureIds, cutoffByFixture);
   const cardFixtures = fixtures.filter((f) => predictions.has(f.fixture_id));
   const cardFixtureIds = cardFixtures.map((f) => f.fixture_id);
-  const ahSeries = oddsSeriesBatchBefore(cardFixtureIds, "ah", cutoffByFixture);
-  const ouSeries = oddsSeriesBatchBefore(cardFixtureIds, "ou", cutoffByFixture);
+  const overviews = marketOverviewBatchBefore(cardFixtureIds, cutoffByFixture);
   const today = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
   const freeSet = new Set(dailyFreeFixtureIds(today));
   const user = await userPromise;
@@ -39,8 +39,10 @@ export async function GET(req: NextRequest) {
 
   const cards = cardFixtures
     .map((f) => {
+      const overview = overviews.get(f.fixture_id);
+      if (!overview) return null;
       const lastSnap = (mk: "ah" | "ou") => {
-        const s = (mk === "ah" ? ahSeries : ouSeries).get(f.fixture_id) ?? [];
+        const s = overview.markets[mk].series;
         const r = s[s.length - 1];
         return r ? { line: r.line, h: r.h, a: r.a } : null;
       };
@@ -48,10 +50,7 @@ export async function GET(req: NextRequest) {
         ah: lastSnap("ah"), ou: lastSnap("ou"), homeName: nameZh(f.home_name), awayName: nameZh(f.away_name),
       });
       if (!ps) return null;
-      const signals = buildReportSignals(ps, {
-        ah: ahSeries.get(f.fixture_id) ?? [],
-        ou: ouSeries.get(f.fixture_id) ?? [],
-      });
+      const signals = buildReportSignals(ps, overview.odds);
       const prob = publicProbability(ps);
       const comp = publicComparison(ps);
       const advice = publicReportAdvice(ps, signals);
@@ -78,6 +77,7 @@ export async function GET(req: NextRequest) {
         ahText: unlocked ? signals.ah.text : null,
         uoText: unlocked ? signals.ou.text : null,
         goalsText: unlocked ? `覆盖 ${signals.model.coverage}%` : null,
+        marketOverview: publicMarketOverview(overview),
       };
     })
     .filter(Boolean);

@@ -11,6 +11,7 @@ import { getLlmReport, getReportVersion, listReportVersions, reportLocked } from
 import { currentUser } from "@/server/platform/session";
 import { cfgUnlockPrice } from "@/server/platform/config";
 import { isUnlocked } from "@/server/platform/wallet";
+import { publicMarketOverview } from "@/server/markets/overview";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -78,6 +79,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     directions: unlocked ? { ah: signals.ah, ou: signals.ou } : null,
     model: unlocked ? signals.model : null,
     market: unlocked ? signals.market : null,
+    marketOverview: publicMarketOverview(p.marketOverview),
     sections: unlocked ? sections : [],
     genBy,
     versions: unlocked ? versions.map((v) => ({ ver: v.ver, genAt: v.gen_at, changed: v.changed })) : [],

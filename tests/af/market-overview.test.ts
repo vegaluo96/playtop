@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 process.env.PLAYTOP_DB = ":memory:";
 
 import { _resetDbForTest, db } from "../../src/server/db";
-import { marketOverview } from "../../src/server/markets/overview";
+import { marketOverview, marketOverviewBatchBefore, publicMarketOverview } from "../../src/server/markets/overview";
 
 beforeEach(() => {
   _resetDbForTest();
@@ -51,5 +51,28 @@ describe("marketOverview", () => {
 
     expect(overview.odds.ah.at(-1)?.line).toBe(-0.5);
     expect(overview.cutoffAt).toBe(2000);
+  });
+
+  it("公开口径只返回质量与原因,不泄露原始书商名", () => {
+    insertSnap(3, 8, "Bet365", "ah", 0.5, 0.88, 0.98, null, 1000);
+    insertSnap(3, 4, "平博", "ou", 2.5, 0.9, 0.96, null, 1100);
+    insertSnap(3, 8, "Bet365", "eu", null, 1.9, 3.4, 4.2, 1200);
+
+    const pub = publicMarketOverview(marketOverview(3));
+    const text = JSON.stringify(pub);
+
+    expect(pub?.selectedReasons.ah).toContain("覆盖");
+    expect(text).not.toContain("Bet365");
+    expect(text).not.toContain("平博");
+  });
+
+  it("批量截止版复用同一主盘口选择口径", () => {
+    insertSnap(4, 8, "Bet365", "ah", -0.5, 0.9, 0.96, null, 1000);
+    insertSnap(4, 8, "Bet365", "ah", 1.5, 0.8, 1.05, null, 3000);
+
+    const batch = marketOverviewBatchBefore([4], new Map([[4, 2000]]));
+
+    expect(batch.get(4)?.odds.ah.at(-1)?.line).toBe(-0.5);
+    expect(batch.get(4)?.cutoffAt).toBe(2000);
   });
 });

@@ -36,6 +36,70 @@ export interface MarketOverview {
   diagnosticWarnings: string[];
 }
 
+export interface PublicMarketOverview {
+  fixtureId: number;
+  phase: MarketOverview["phase"];
+  cutoffAt: number | null;
+  dataQualityScore: number;
+  lastUpdated: number | null;
+  markets: Record<OddsMarket, {
+    qualityScore: number;
+    books: number;
+    selectedBooks: number;
+    reason: string;
+    warnings: string[];
+  }>;
+  selectedReasons: Record<OddsMarket, string>;
+  diagnosticWarnings: string[];
+}
+
+function publicMarketReason(market: MarketOverviewMarket): string {
+  const source = market.source;
+  if (!source) return market.reason;
+  const line = source.line == null ? "无盘口线" : source.line;
+  return `共识线 ${line}:覆盖 ${market.selectedBooks}/${market.books} 家,质量 ${market.qualityScore}`;
+}
+
+export function publicMarketOverview(overview: MarketOverview | undefined | null): PublicMarketOverview | null {
+  if (!overview) return null;
+  return {
+    fixtureId: overview.fixtureId,
+    phase: overview.phase,
+    cutoffAt: overview.cutoffAt,
+    dataQualityScore: overview.dataQualityScore,
+    lastUpdated: overview.lastUpdated,
+    markets: {
+      ah: {
+        qualityScore: overview.markets.ah.qualityScore,
+        books: overview.markets.ah.books,
+        selectedBooks: overview.markets.ah.selectedBooks,
+        reason: publicMarketReason(overview.markets.ah),
+        warnings: overview.markets.ah.warnings,
+      },
+      ou: {
+        qualityScore: overview.markets.ou.qualityScore,
+        books: overview.markets.ou.books,
+        selectedBooks: overview.markets.ou.selectedBooks,
+        reason: publicMarketReason(overview.markets.ou),
+        warnings: overview.markets.ou.warnings,
+      },
+      eu: {
+        qualityScore: overview.markets.eu.qualityScore,
+        books: overview.markets.eu.books,
+        selectedBooks: overview.markets.eu.selectedBooks,
+        reason: `胜平负完整报价 ${overview.markets.eu.selectedBooks}/${overview.markets.eu.books} 家,质量 ${overview.markets.eu.qualityScore}`,
+        warnings: overview.markets.eu.warnings,
+      },
+    },
+    selectedReasons: {
+      ah: publicMarketReason(overview.markets.ah),
+      ou: publicMarketReason(overview.markets.ou),
+      eu: `胜平负完整报价 ${overview.markets.eu.selectedBooks}/${overview.markets.eu.books} 家`,
+    },
+    diagnosticWarnings: overview.diagnosticWarnings,
+  };
+}
+
 function marketFromDecision(decision: MainOddsDecision, series: SnapRow[]): MarketOverviewMarket {
   return {
     market: decision.market,
@@ -85,4 +149,12 @@ export function marketOverview(fixtureId: number, opts: { cutoffAt?: number | nu
     },
     diagnosticWarnings: list.flatMap((m) => m.warnings.map((w) => `${m.market}:${w}`)),
   };
+}
+
+export function marketOverviewBatchBefore(fixtureIds: number[], cutoffByFixture: Map<number, number>): Map<number, MarketOverview> {
+  const result = new Map<number, MarketOverview>();
+  for (const fixtureId of [...new Set(fixtureIds)]) {
+    result.set(fixtureId, marketOverview(fixtureId, { cutoffAt: cutoffByFixture.get(fixtureId) ?? null }));
+  }
+  return result;
 }

@@ -38,6 +38,8 @@ Current status: code-level data fitting/stop-loss patch completed locally. This 
 - Tightened shared display gates for prematch and live AH/OU/EU: invalid line, invalid odds range, bad full-return/margin, incomplete two-way/three-way structure, and low `qualityScore` are blocked from public main-market output.
 - Live AH/OU/EU display now follows the same rule: if the newest live frame for that market is not displayable, the UI does not fall back to a stale prematch value or an older live value.
 - `MarketOverview` service layer now exists at `src/server/markets/overview.ts`; `matchPanorama` reads the core prematch three markets from it, so detail/report share the same market result.
+- Public `marketOverview` disclosure is now centralized and sanitized. Match detail, AI predictions list, and AI report detail all expose the same quality/reason/warning granularity without leaking raw bookmaker names.
+- AI predictions cards now build directions from each fixture's kickoff-cutoff `MarketOverview` instead of independently reading AH/OU batch series.
 - Admin monitor API now returns `rawAudit` endpoint counts for the raw envelope layer.
 - Tests added or updated for raw retention, fixture mismatch diagnostics, low-quality main-market rejection, live dirty-frame no-fallback behavior, MarketOverview cutoff behavior, and compare-table filtering.
 - Local gates passed: `npm run typecheck`, `npm test` (28 files / 187 tests), `npm run build`.

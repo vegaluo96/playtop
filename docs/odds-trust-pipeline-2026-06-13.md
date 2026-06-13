@@ -51,6 +51,8 @@ Canada vs Bosnia & Herzegovina 滚球阶段,详情页胜平负一度展示 `251.
 - `isDisplayableSnapshot` / `isDisplayableLiveSnapshot` 成为用户端共同展示门禁;赛前主盘、百家对比、首页、详情、历史报价均复用。
 - 赛前主盘序列低于 `qualityScore < 70` 不进入用户端主盘结果;历史完场盘口不会仅因时间旧被误杀,新鲜度只作为加分项。
 - `MarketOverview` 服务层已落地在 `src/server/markets/overview.ts`,输出核心三盘、质量分、选择原因、警告、最后更新时间。`matchPanorama` 已从该层读取赛前核心三盘,报告页/详情页共享同一标准结果。
+- `publicMarketOverview` 成为用户端公开颗粒度:详情 API、AI 概率报告列表、AI 报告详情均只下发脱敏后的质量分、覆盖数、选择原因和诊断警告,不暴露原始书商名。
+- AI 概率报告列表不再自行批量取 AH/OU 序列生成方向,改为按每场 kickoff cutoff 读取 `MarketOverview`,再从同一 `overview.odds` 派生胜平负/亚盘/大小方向。
 - 后台 monitor API 增加 `rawAudit`,可看到当天 raw 信封按 endpoint 的计数与最近写入时间。
 - 回归测试新增:
   - raw 信封保存;
@@ -72,5 +74,5 @@ API-Football 是原材料,不是产品答案。ZSKY 的展示链路必须是:
 
 - 将数据层 `qualityScore/reason` 接入用户端小字提示,前端可显示“高可信/可信/一般/暂不展示”。
 - 异动等级从单市场阈值升级为 S/A/B/C:三盘共振、多家主流确认、单市场明显变化、单家公司观察。
-- 首页列表目前仍走批量 helper,但已经复用同一主盘 selector 和展示门禁;下一步可把 `MarketOverview` 做成批量输出,让列表 payload 也显式带 `dataQualityScore/selectedReasons`。
+- 首页列表目前仍走批量 helper,但已经复用同一主盘 selector 和展示门禁;下一步可在不拖慢 `/api/matches` 的前提下补轻量 `dataQualityScore/selectedReasons` payload。
 - `prematch_bet_map`、`live_bet_map`、`bookmaker_map` 仍是代码内映射/权重,还不是后台可维护表。下一阶段需要做人工 mapping 修正与 parser replay。
