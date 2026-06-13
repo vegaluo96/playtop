@@ -73,7 +73,7 @@ export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
   const rows = selected.map(({ row: s, index }) => {
     const prev = index > 0 ? series[index - 1] : null;
     return {
-      t: tl(s.captured_at), // 首帧=本站归档起点,不冒充真实初盘
+      t: tl(s.captured_at),
       text: market === "ah" ? ahText(s.line ?? 0) : ouText(s.line ?? 0),
       h: f2(s.h),
       a: f2(s.a),
@@ -515,19 +515,18 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     }
   }
 
-  // 「首帧」= 本站归档到的第一帧(AF 不提供真正初盘),表头与此对齐,不冒充初盘
-  const liveCompRow = (market: "ah" | "ou" | "eu") => {
+  // 对比表口径:初盘=赛前最后一版归档盘,及时=滚球实时盘。
+  const liveCompRow = (market: "ah" | "ou" | "eu", preLast: SnapRow | null) => {
     const rows = liveExt(market);
-    if (rows.length === 0) return null;
-    const first = rows[0];
+    if (rows.length === 0 || !preLast) return null;
     const last = rows[rows.length - 1];
     if (market === "eu") {
       return {
         co: "实时盘",
         bid: null,
-        iW: `${f2(first.h)} / ${f2(first.d ?? 0)} / ${f2(first.a)}`,
+        iW: `${f2(preLast.h)} / ${f2(preLast.d ?? 0)} / ${f2(preLast.a)}`,
         nW: `${f2(last.h)} / ${f2(last.d ?? 0)} / ${f2(last.a)}`,
-        changed: first.h !== last.h || first.d !== last.d || first.a !== last.a,
+        changed: preLast.h !== last.h || preLast.d !== last.d || preLast.a !== last.a,
         chgAt: last.captured_at,
         live: true,
       };
@@ -535,12 +534,12 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     return {
       co: "实时盘",
       bid: null,
-      iText: market === "ah" ? ahText(first.line ?? 0) : ouText(first.line ?? 0),
-      iW: `${f2(first.h)} / ${f2(first.a)}`,
+      iText: market === "ah" ? ahText(preLast.line ?? 0) : ouText(preLast.line ?? 0),
+      iW: `${f2(preLast.h)} / ${f2(preLast.a)}`,
       nText: market === "ah" ? ahText(last.line ?? 0) : ouText(last.line ?? 0),
       nW: `${f2(last.h)} / ${f2(last.a)}`,
-      changed: first.line !== last.line,
-      waterChanged: first.h !== last.h || first.a !== last.a,
+      changed: preLast.line !== last.line,
+      waterChanged: preLast.h !== last.h || preLast.a !== last.a,
       chgAt: last.captured_at,
       live: true,
     };
@@ -558,7 +557,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       waterChanged: c.first.h !== c.last.h || c.first.a !== c.last.a,
       chgAt: c.last.captured_at,
     }));
-    const liveRow = liveCompRow(market);
+    const liveRow = liveCompRow(market, lastOf(market === "ah" ? p.odds.ah : p.odds.ou) ?? list[0]?.last ?? null);
     return liveRow ? [liveRow, ...rows] : rows;
   };
   // ② 胜平负离散度(≥3 家才有共识意义);④ 升降盘方向 + 返还率首末对照
@@ -571,7 +570,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     changed: c.first.h !== c.last.h || c.first.d !== c.last.d || c.first.a !== c.last.a,
     chgAt: c.last.captured_at,
   }));
-  const compEuLive = liveCompRow("eu");
+  const compEuLive = liveCompRow("eu", lastOf(p.odds.eu) ?? p.odds.compareEu[0]?.last ?? null);
   const compEu = compEuLive ? [compEuLive, ...compEuRows] : compEuRows;
   // ah/ou 快照存净水,返还率按欧赔小数(净水+1)计算
   const dec = (s: SnapRow | null) => (s ? { h: s.h + 1, a: s.a + 1 } : null);

@@ -159,7 +159,7 @@ export function CenterPane({
     <div>
       <div style={{ fontSize: 12, fontWeight: 700, margin: "0 2px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         {title}
-        <span style={{ fontSize: 11.5, color: "var(--fg-3)", fontWeight: 500 }}>公司可点历史;实时盘随刷新更新</span>
+        <span style={{ fontSize: 11.5, color: "var(--fg-3)", fontWeight: 500 }}>初盘=赛前末盘;及时=滚球盘</span>
       </div>
       <Card style={{ overflow: "hidden" }}>
         {rows.length === 0 && <div style={{ padding: 12, fontSize: 11.5, color: "var(--fg-3)", textAlign: "center" }}>暂无官方指数数据</div>}
@@ -365,7 +365,7 @@ export function CenterPane({
               {compCol("大小指数 · 对比", v.comp.ou, "ou")}
               {compCol("胜平负指数 · 对比", v.comp.eu, "eu")}
             </div>
-            <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 2px 0" }}>上行为初盘(开赛前 14 天起本站持续归档的最早指数),下行为即时盘;各公司变盘时间与幅度可横向比对。</div>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 2px 0" }}>初盘取开赛前最后一版归档指数;及时取滚球盘,无滚球返回时只展示赛前归档。</div>
           </>
         )}
 

@@ -125,8 +125,8 @@ describe("external calibration fixes", () => {
     expect(view.comp.ah[0]).toMatchObject({
       co: "实时盘",
       bid: null,
-      iText: "平半",
-      iW: "0.94 / 0.90",
+      iText: "半一",
+      iW: "0.86 / 1.00",
       nText: "平手",
       nW: "0.99 / 0.86",
       live: true,

@@ -53,11 +53,11 @@ export function buildReport(p: Panorama, signals?: ReportSignals): { ps: PredSum
     if (first.line !== last.line && first.line != null && last.line != null) {
       const dir = Math.abs(last.line) > Math.abs(first.line) ? "升" : "降";
       ps1.push(
-        `让球指数自归档首帧 ${ahText(first.line)} ${dir}至 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)}。` +
+        `让球指数由早期归档 ${ahText(first.line)} ${dir}至赛前末盘 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)}。` +
           (dir === "升" ? "让球加深,市场对让球方的信心有所增强。" : "指数回撤,市场对让球方的态度趋于谨慎。"),
       );
     } else if (last.line != null) {
-      ps1.push(`让球指数自归档首帧维持 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)},市场对该指数分歧不大。`);
+      ps1.push(`让球指数赛前末盘维持 ${ahText(last.line)},临场水位 ${f2(last.h)} / ${f2(last.a)},市场对该指数分歧不大。`);
     }
   }
   const ouS = p.odds.ou;

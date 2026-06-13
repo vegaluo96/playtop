@@ -351,7 +351,7 @@ export function mainOddsSeriesFromRows(rows: SnapRow[], market: OddsMarket): Sna
   return decision.qualityScore >= 70 ? decision.rows : [];
 }
 
-/** 从某场某市场全量快照生成百家对比首帧/即时盘。 */
+/** 从某场某市场全量快照生成百家对比早期归档/赛前末盘。 */
 export function oddsCompareFromRows(rows: SnapRow[], market?: OddsMarket): OddsCompareRow[] {
   const validRows = rows.filter((row) => isDisplayableSnapshot(market ?? (row.market as OddsMarket), row));
   return [...rowsByBookmaker(validRows).entries()]
@@ -536,7 +536,7 @@ export function oddsSeriesBatchBefore(fixtureIds: number[], market: OddsMarket, 
   return result;
 }
 
-/** 各书商归档首帧/即时盘(百家对比) */
+/** 各书商早期归档/赛前末盘(百家对比) */
 export function oddsCompare(fixtureId: number, market: OddsMarket): OddsCompareRow[] {
   const rows = db()
     .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND market = ? ORDER BY captured_at")

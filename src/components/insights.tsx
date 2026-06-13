@@ -104,7 +104,7 @@ export function RoadSection({ ins, home, away }: { ins: V; home: string; away: s
   );
 }
 
-/** ③ 同赔历史:初盘三元组 ±0.03 匹配本站归档完场赛事 */
+/** ③ 同赔历史:赛前末盘三元组 ±0.03 匹配本站归档完场赛事 */
 export function SameOddsCard({ so }: { so: V }) {
   if (!so) return null;
   const pct = (x: number) => (so.n > 0 ? Math.round((x / so.n) * 100) : 0);
@@ -113,7 +113,7 @@ export function SameOddsCard({ so }: { so: V }) {
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
         <span style={{ fontSize: 12.5, fontWeight: 800 }}>同赔历史</span>
         <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--fg-2)" }}>
-          <span style={{ fontSize: 11.5 }}>初盘</span>
+          <span style={{ fontSize: 11.5 }}>赛前末盘</span>
           <MarketValue v={so.triple} small dim style={{ justifyContent: "flex-end" }} />
           <span className="mono" style={{ fontSize: 11.5 }}>±0.03</span>
         </span>

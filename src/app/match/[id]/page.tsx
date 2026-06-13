@@ -187,11 +187,11 @@ function MobileMatchDetail({ id }: { id: string }) {
     const headEu = mk === "eu";
     return (
     <>
-      <SectionTitle title={title} right="公司可点历史;实时盘随刷新更新" />
+      <SectionTitle title={title} right="初盘=赛前末盘;及时=滚球盘" />
       <Card style={{ overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "66px 1fr 18px 1fr", padding: "9px 12px", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
           <span style={{ fontSize: 11, color: "var(--fg-3)" }}>公司</span>
-          <span style={{ fontSize: 11, color: "var(--fg-3)" }} title="初盘=本站归档到的最早指数(开赛前 14 天起持续归档)">{headEu ? "初盘 主/平/客" : "初盘 · 主/客"}</span>
+          <span style={{ fontSize: 11, color: "var(--fg-3)" }} title="初盘=开赛前最后一版真实归档指数">{headEu ? "初盘 主/平/客" : "初盘 · 主/客"}</span>
           <span />
           <span style={{ fontSize: 11, color: "var(--fg-3)" }}>{headEu ? "即时 主/平/客" : "即时 · 主/客"}</span>
         </div>
@@ -378,7 +378,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             {compTable("让球指数 · 对比", v.comp.ah, "ah")}
             {compTable("大小指数 · 对比", v.comp.ou, "ou")}
             {compTable("胜平负指数 · 对比", v.comp.eu, "eu")}
-            <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>各公司变盘时间与幅度可横向比对。</div>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>初盘取开赛前最后一版归档指数;及时取滚球盘,无滚球返回时只展示赛前归档。</div>
           </>
         )}
 

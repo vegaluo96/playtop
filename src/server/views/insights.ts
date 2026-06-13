@@ -2,14 +2,15 @@
  * 指数洞察:全部由已归档真实数据推导,无任何虚构。
  *   ① 盘路榜:本站归档的临场盘(收盘前最后一帧)× 官方比分 → 赢/走/输、大/小
  *   ② 胜平负离散度:多书商胜平负报价标准差,用于观察市场分歧
- *   ③ 同赔历史:初盘胜平负三元组(±0.03)匹配本站归档完场赛事 → 胜平负分布
- *   ④ 升降盘统计 + 返还率趋势:各书商首帧 vs 即时盘方向;主源返还率首末对照
+ *   ③ 同赔历史:赛前末盘胜平负三元组(±0.03)匹配本站归档完场赛事 → 胜平负分布
+ *   ④ 升降盘统计 + 返还率趋势:早期归档 vs 赛前末盘方向;主源返还率首末对照
  *   ⑤ 疲劳/赛程密度:距上场天数 + 未来 7 天赛程数(仅统计本站收录赛事)
  *   ⑥ 角球参考:两队近 6 场归档统计的场均角球合计 vs 角球玩法指数
  * 覆盖范围 = 本站归档数据(开赛前 14 天起持续归档),如实标注,随时间自然变厚。
  */
 import { db } from "../db";
 import { isFinished } from "../af/schedule";
+import { isDisplayableSnapshot } from "../af/odds-quality";
 import { kvCached, oddsSeries, type FixtureRow, type SnapRow } from "../af/store";
 import { ahText, f2, ouText } from "@/lib/format";
 import { nameZh } from "./names";
@@ -86,10 +87,12 @@ function teamFinished(teamId: number, beforeUtc: number, lim = 24): FixtureRow[]
   ).filter((f) => isFinished(f.status) && f.goals_home != null && f.goals_away != null);
 }
 
-/** 收盘帧 = 该市场归档序列最后一帧(完场赛事的最后一帧即临场盘) */
+/** 收盘帧 = 赛前归档最后一帧;盘路结算不能因主列表质量门禁过严而隐藏真实样本。 */
 function closing(fixtureId: number, market: "ah" | "ou"): SnapRow | null {
-  const s = oddsSeries(fixtureId, market);
-  return s.length > 0 ? s[s.length - 1] : null;
+  const rows = db()
+    .prepare("SELECT * FROM odds_snapshots WHERE fixture_id = ? AND market = ? ORDER BY captured_at DESC, id DESC")
+    .all(fixtureId, market) as unknown as SnapRow[];
+  return rows.find((row) => isDisplayableSnapshot(market, row)) ?? null;
 }
 
 export function teamRoad(teamId: number | null, beforeUtc: number, n = 10) {
@@ -176,16 +179,17 @@ export function payoutRate(s: { h: number; a: number; d?: number | null } | null
 
 /* ── ③ 同赔历史 ── */
 
-function firstEuOf(fixtureId: number): { h: number; d: number; a: number } | null {
-  const first = oddsSeries(fixtureId, "eu")[0];
-  return first && first.d ? { h: first.h, d: first.d, a: first.a } : null;
+function preCloseEuOf(fixtureId: number): { h: number; d: number; a: number } | null {
+  const rows = oddsSeries(fixtureId, "eu");
+  const last = rows[rows.length - 1];
+  return last && last.d ? { h: last.h, d: last.d, a: last.a } : null;
 }
 
 function sameOddsOf(fx: FixtureRow) {
   const d = db();
-  const first = firstEuOf(fx.fixture_id);
-  if (!first) return null;
-  // 各场首帧胜平负(本站归档起点≈初盘):与详情页主盘同源,避免同时间多书商导致行序漂移。
+  const preClose = preCloseEuOf(fx.fixture_id);
+  if (!preClose) return null;
+  // 各场赛前末盘胜平负:与详情页主盘同源,避免同时间多书商导致行序漂移。
   const fixtures = d
     .prepare(
       `SELECT DISTINCT f.fixture_id fid, f.home_name, f.away_name, f.goals_home gh, f.goals_away ga, f.status, f.kickoff_utc
@@ -196,18 +200,18 @@ function sameOddsOf(fx: FixtureRow) {
   const TOL = 0.03;
   const hits = fixtures.flatMap((r) => {
     if (r.fid === fx.fixture_id) return [];
-    const snap = firstEuOf(r.fid);
+    const snap = preCloseEuOf(r.fid);
     if (!snap) return [];
     return (
       isFinished(r.status) && r.gh != null && r.ga != null &&
-      Math.abs(snap.h - first.h) <= TOL && Math.abs(snap.d - first.d) <= TOL && Math.abs(snap.a - first.a) <= TOL
+      Math.abs(snap.h - preClose.h) <= TOL && Math.abs(snap.d - preClose.d) <= TOL && Math.abs(snap.a - preClose.a) <= TOL
     ) ? [r] : [];
   });
-  if (hits.length === 0) return { triple: `${f2(first.h)}/${f2(first.d)}/${f2(first.a)}`, n: 0, w: 0, dr: 0, l: 0, samples: [] };
+  if (hits.length === 0) return { triple: `${f2(preClose.h)}/${f2(preClose.d)}/${f2(preClose.a)}`, n: 0, w: 0, dr: 0, l: 0, samples: [] };
   const w = hits.filter((r) => r.gh! > r.ga!).length;
   const dr = hits.filter((r) => r.gh === r.ga).length;
   return {
-    triple: `${f2(first.h)}/${f2(first.d)}/${f2(first.a)}`,
+    triple: `${f2(preClose.h)}/${f2(preClose.d)}/${f2(preClose.a)}`,
     n: hits.length,
     w, dr,
     l: hits.length - w - dr,

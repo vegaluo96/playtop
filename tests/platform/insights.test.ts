@@ -60,6 +60,16 @@ describe("盘路分类", () => {
     seedFixture(6, 1, 100, 200, 1, 0, "NS");
     expect(teamRoad(100, NOW).ah.rows).toHaveLength(0);
   });
+
+  it("盘路使用真实赛前末盘,不因主盘展示门禁过严而隐藏低覆盖样本", () => {
+    seedFixture(7, 2, 100, 200, 2, 1);
+    seedSnapBook(7, 99, "SmallBook", "ah", 0.25, 0.88, 0.96, null, NOW - 2 * DAY - 60_000);
+
+    const r = teamRoad(100, NOW);
+
+    expect(r.ah.rows).toHaveLength(1);
+    expect(r.ah.rows[0]).toMatchObject({ line: "平半", res: "赢" });
+  });
 });
 
 describe("离散度/升降盘/返还率", () => {
@@ -90,8 +100,8 @@ describe("离散度/升降盘/返还率", () => {
 });
 
 describe("insightsView:同赔历史 + 疲劳", () => {
-  it("初盘三元组 ±0.03 匹配完场样本;疲劳=距上场天数+未来7天赛程", async () => {
-    // 当前场:首帧 2.00/3.40/3.60
+  it("赛前末盘三元组 ±0.03 匹配完场样本;疲劳=距上场天数+未来7天赛程", async () => {
+    // 当前场:赛前末盘 2.00/3.40/3.60
     seedFixture(10, -1, 100, 200, 0, 0, "NS"); // 明天开球
     seedSnap(10, "eu", null, 2.0, 3.6, 3.4, NOW - DAY);
     // 同赔完场样本 ×2(一主胜一客胜),一场超容差
@@ -113,7 +123,7 @@ describe("insightsView:同赔历史 + 疲劳", () => {
     expect(ins.fatigue.home?.next7).toBe(1);
   });
 
-  it("同赔历史按主盘稳定取首帧,不受同时间多书商行序影响", async () => {
+  it("同赔历史按主盘稳定取赛前末盘,不受同时间多书商行序影响", async () => {
     seedFixture(20, -1, 100, 200, 0, 0, "NS");
     seedSnapBook(20, 99, "OtherBook", "eu", null, 9.9, 9.8, 9.7, NOW - DAY); // 先插入但非主源
     seedSnapBook(20, 8, "Bet365", "eu", null, 2.0, 3.6, 3.4, NOW - DAY);
