@@ -32,16 +32,13 @@ function gradeOf(m: { fixture_id: number; market: string; type: string; sev: num
   return m.sev ? "B" : "C";
 }
 
-export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams;
-  const type = q.get("type") || "全部";
-  const tz = q.get("tz") || "UTC+8";
-  const userPromise = currentUser();
-  const list = recentMovements(60, type);
-  const user = await userPromise;
+type Movement = ReturnType<typeof recentMovements>[number];
 
-  const rows = list.map((m, i) => {
-    const masked = !user && i >= GUEST_VISIBLE_ROWS;
+/** 单条异动行(前端 /moves 直接消费;ReturnType 导出避免前后端字段漂移) */
+function buildMoveRow(m: Movement, i: number, ctx: { tz: string; loggedIn: boolean; list: Movement[] }) {
+  const { tz, list } = ctx;
+  {
+    const masked = !ctx.loggedIn && i >= GUEST_VISIBLE_ROWS;
     const grade = gradeOf(m, list);
     const isAh = m.market === "ah";
     const isEu = m.market === "eu";
@@ -108,7 +105,17 @@ export async function GET(req: NextRequest) {
               { k: isAh ? "客队水位" : "小球水位", a: f2(m.from_a), b: f2(m.to_a), chg: m.from_a !== m.to_a, delta: aDelta },
             ],
     };
-  });
+  }
+}
+export type MoveRow = ReturnType<typeof buildMoveRow>;
 
+export async function GET(req: NextRequest) {
+  const q = req.nextUrl.searchParams;
+  const type = q.get("type") || "全部";
+  const tz = q.get("tz") || "UTC+8";
+  const userPromise = currentUser();
+  const list = recentMovements(60, type);
+  const user = await userPromise;
+  const rows = list.map((m, i) => buildMoveRow(m, i, { tz, loggedIn: !!user, list }));
   return NextResponse.json({ ok: true, rows, loggedIn: !!user });
 }

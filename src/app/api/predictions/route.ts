@@ -19,6 +19,80 @@ import { matchPanorama } from "@/server/af/panorama";
 import { findPolymarketSignal } from "@/server/external/polymarket";
 import { buildReportSourceCoverage, publicSourceCoverage } from "@/server/views/source-coverage";
 
+type PredFixture = ReturnType<typeof fixturesBetween>[number];
+type PredCtx = {
+  tz: string;
+  now: number;
+  user: Awaited<ReturnType<typeof currentUser>>;
+  freeSet: Set<number>;
+  unlockedSet: Set<number>;
+  overviews: ReturnType<typeof marketOverviewBatchBefore>;
+  predictions: ReturnType<typeof latestPredictionsBeforeMap>;
+};
+
+/** 单张概率卡(前端 /predictions 直接消费;ReturnType 导出避免前后端字段漂移) */
+async function buildCard(f: PredFixture, ctx: PredCtx) {
+  const { tz, now, user, freeSet, unlockedSet, overviews, predictions } = ctx;
+  const overview = overviews.get(f.fixture_id);
+  if (!overview) return null;
+  const lastSnap = (mk: "ah" | "ou") => {
+    const s = overview.markets[mk].series;
+    const r = s[s.length - 1];
+    return r ? { line: r.line, h: r.h, a: r.a } : null;
+  };
+  const ps = predSummary(predictions.get(f.fixture_id) ?? null, f.home_id, {
+    ah: lastSnap("ah"), ou: lastSnap("ou"), homeName: nameZh(f.home_name), awayName: nameZh(f.away_name),
+  });
+  if (!ps) return null;
+  const unlocked = !!user && (freeSet.has(f.fixture_id) || unlockedSet.has(f.fixture_id));
+  const signalContext = unlocked
+    ? await matchPanorama(f.fixture_id, { injuries: true, deep: true, preKickoffOnly: true }).catch(() => null)
+    : null;
+  const signalPs = signalContext ? buildReportSummary(signalContext) ?? ps : ps;
+  const signalOdds = signalContext?.odds ?? overview.odds;
+  const market = signalContext
+    ? await findPolymarketSignal(signalContext.fixture.home_name, signalContext.fixture.away_name, {
+        fixtureId: signalContext.fixture.fixture_id,
+        kickoffAt: signalContext.fixture.kickoff_utc,
+      })
+    : { status: "skipped" as const, note: "报告未解锁,暂不请求外部预测市场" };
+  const signals = buildReportSignals(signalPs, signalOdds, market, signalContext);
+  const sourceCoverage = signalContext ? publicSourceCoverage(buildReportSourceCoverage(signalContext, signals)) : null;
+  const prob = publicProbability(signalPs);
+  const comp = publicComparison(signalPs);
+  const advice = publicReportAdvice(signalPs, signals);
+  const winnerText = signalPs?.winnerName ? signalPs.winnerName + (signalPs.winDraw ? " / 平" : "") : null;
+  const price = cfgUnlockPrice(f.kickoff_utc, now);
+  return {
+    id: f.fixture_id,
+    match: `${nameZh(f.home_name)} vs ${nameZh(f.away_name)}`,
+    league: leagueZh(f.league_id, f.league_name),
+    leagueId: f.league_id,
+    time: hhmm(f.kickoff_utc, tz),
+    live: isLive(f.status),
+    free: freeSet.has(f.fixture_id),
+    pH: prob.pH, pD: prob.pD, pA: prob.pA,
+    probReady: prob.probReady,
+    comparisonReady: comp.comparisonReady,
+    locked: !unlocked,
+    price,
+    lockText: !user ? "登录查看报告额度说明" : `解锁本场报告 · ${price} 额度`,
+    advice: unlocked ? advice.advice : null,
+    summaryReady: unlocked ? advice.summaryReady : false,
+    winnerText: unlocked ? winnerText : null,
+    ahText: unlocked ? signals.ah.text : null,
+    uoText: unlocked ? signals.ou.text : null,
+    ahKind: unlocked ? signals.ah.sourceKind : null,
+    ouKind: unlocked ? signals.ou.sourceKind : null,
+    ahDerived: unlocked ? signals.ah.derived : false,
+    ouDerived: unlocked ? signals.ou.derived : false,
+    goalsText: unlocked ? `模型输入覆盖 ${signals.model.coverage}%` : null,
+    marketOverview: publicMarketOverview(overview),
+    sourceCoverage: unlocked ? sourceCoverage : null,
+  };
+}
+export type PredCard = NonNullable<Awaited<ReturnType<typeof buildCard>>>;
+
 export async function GET(req: NextRequest) {
   const tz = req.nextUrl.searchParams.get("tz") || "UTC+8";
   const fixtureParam = Number(req.nextUrl.searchParams.get("fixture")) || null;
@@ -39,66 +113,8 @@ export async function GET(req: NextRequest) {
   const user = await userPromise;
   const unlockedSet = user ? new Set(unlockedIds(user.id)) : new Set<number>();
 
-  const cards = (await Promise.all(fixtures
-    .map(async (f) => {
-      const overview = overviews.get(f.fixture_id);
-      if (!overview) return null;
-      const lastSnap = (mk: "ah" | "ou") => {
-        const s = overview.markets[mk].series;
-        const r = s[s.length - 1];
-        return r ? { line: r.line, h: r.h, a: r.a } : null;
-      };
-      const ps = predSummary(predictions.get(f.fixture_id) ?? null, f.home_id, {
-        ah: lastSnap("ah"), ou: lastSnap("ou"), homeName: nameZh(f.home_name), awayName: nameZh(f.away_name),
-      });
-      if (!ps) return null;
-      const unlocked = !!user && (freeSet.has(f.fixture_id) || unlockedSet.has(f.fixture_id));
-      const signalContext = unlocked
-        ? await matchPanorama(f.fixture_id, { injuries: true, deep: true, preKickoffOnly: true }).catch(() => null)
-        : null;
-      const signalPs = signalContext ? buildReportSummary(signalContext) ?? ps : ps;
-      const signalOdds = signalContext?.odds ?? overview.odds;
-      const market = signalContext
-        ? await findPolymarketSignal(signalContext.fixture.home_name, signalContext.fixture.away_name, {
-            fixtureId: signalContext.fixture.fixture_id,
-            kickoffAt: signalContext.fixture.kickoff_utc,
-          })
-        : { status: "skipped" as const, note: "报告未解锁,暂不请求外部预测市场" };
-      const signals = buildReportSignals(signalPs, signalOdds, market, signalContext);
-      const sourceCoverage = signalContext ? publicSourceCoverage(buildReportSourceCoverage(signalContext, signals)) : null;
-      const prob = publicProbability(signalPs);
-      const comp = publicComparison(signalPs);
-      const advice = publicReportAdvice(signalPs, signals);
-      const winnerText = signalPs?.winnerName ? signalPs.winnerName + (signalPs.winDraw ? " / 平" : "") : null;
-      const price = cfgUnlockPrice(f.kickoff_utc, now);
-      return {
-        id: f.fixture_id,
-        match: `${nameZh(f.home_name)} vs ${nameZh(f.away_name)}`,
-        league: leagueZh(f.league_id, f.league_name),
-        leagueId: f.league_id,
-        time: hhmm(f.kickoff_utc, tz),
-        live: isLive(f.status),
-        free: freeSet.has(f.fixture_id),
-        pH: prob.pH, pD: prob.pD, pA: prob.pA,
-        probReady: prob.probReady,
-        comparisonReady: comp.comparisonReady,
-        locked: !unlocked,
-        price,
-        lockText: !user ? "登录查看报告额度说明" : `解锁本场报告 · ${price} 额度`,
-        advice: unlocked ? advice.advice : null,
-        summaryReady: unlocked ? advice.summaryReady : false,
-        winnerText: unlocked ? winnerText : null,
-        ahText: unlocked ? signals.ah.text : null,
-        uoText: unlocked ? signals.ou.text : null,
-        ahKind: unlocked ? signals.ah.sourceKind : null,
-        ouKind: unlocked ? signals.ou.sourceKind : null,
-        ahDerived: unlocked ? signals.ah.derived : false,
-        ouDerived: unlocked ? signals.ou.derived : false,
-        goalsText: unlocked ? `模型输入覆盖 ${signals.model.coverage}%` : null,
-        marketOverview: publicMarketOverview(overview),
-        sourceCoverage: unlocked ? sourceCoverage : null,
-      };
-    }))).filter(Boolean);
+  const ctx: PredCtx = { tz, now, user, freeSet, unlockedSet, overviews, predictions };
+  const cards = (await Promise.all(fixtures.map((f) => buildCard(f, ctx)))).filter((c): c is PredCard => c != null);
 
   return NextResponse.json({ ok: true, cards, record: modelStats(now), loggedIn: !!user });
 }

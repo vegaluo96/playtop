@@ -15,6 +15,7 @@ import { leagueColor } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
 import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 
+import type { PredCard } from "@/app/api/predictions/route";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
 
@@ -25,7 +26,7 @@ export default function PredictionsRoute() {
 }
 
 function MobilePredictionsPage() {
-  const [cards, setCards] = useState<V[]>([]);
+  const [cards, setCards] = useState<PredCard[]>([]);
   const [record, setRecord] = useState<V | null>(null);
   const [filter, setFilter] = useState("全部");
   const [recOpen, setRecOpen] = useState(false);

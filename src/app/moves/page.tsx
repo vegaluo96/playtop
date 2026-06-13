@@ -27,8 +27,8 @@ import {
   moveWaterValueStyle,
 } from "@/components/move-styles";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type Move = any;
+import type { MoveRow } from "@/app/api/moves/route";
+type Move = MoveRow;
 
 export default function MovesRoute() {
   const isDesktop = useIsDesktop();
@@ -171,7 +171,7 @@ function MobileMovesPage() {
                 <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)", textAlign: "right" }}>{sel.t0} 快照</span>
                 <span className="mono" style={{ fontSize: 11.5, color: "var(--fg)", fontWeight: 750, textAlign: "right" }}>{sel.t} 快照</span>
               </div>
-              {sel.rows.map((r: Move) => {
+              {sel.rows.map((r) => {
                 const na = parseFloat(r.a), nb = parseFloat(r.b);
                 const delta = typeof r.delta === "number" ? r.delta : nb - na;
                 const bC =
