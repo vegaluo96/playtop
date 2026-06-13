@@ -137,7 +137,7 @@ export const USER_ROUTE_CONTRACT: RouteContract[] = [
   {
     route: "/moves",
     fields: ["ok", "rows", "loggedIn"],
-    fitted: ["rows.direction", "rows.waterLabel", "rows.note"],
+    fitted: ["rows.direction", "rows.waterLabel", "rows.note", "rows.grade"],
     lockedNull: ["rows.from", "rows.to", "rows.water", "rows.note", "rows.rows"], // masked 时脱敏
     viewModels: ["movements", "detectMovement"],
   },

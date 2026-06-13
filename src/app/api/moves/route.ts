@@ -14,6 +14,24 @@ function deltaText(v: number): string {
   return `${v >= 0 ? "+" : ""}${f2(v)}`;
 }
 
+/**
+ * 异动分级(S/A/B/C):仅由"已观测到的确认"判定,不夸大。
+ *  S 三盘共振:同场 15min 内三市场(让球/大小/胜平负)同时异动
+ *  A 多家确认:同场同市场同方向 ≥2 家书商
+ *  B 单市场显著:单笔达急变阈值(sev)
+ *  C 单家观察:其余
+ * 仅看当前异动流窗口的确认,窗口外的书商未计入(宁可低估不高估)。
+ */
+const GRADE_LABEL: Record<string, string> = { S: "三盘共振", A: "多家确认", B: "单市场显著", C: "单家观察" };
+function gradeOf(m: { fixture_id: number; market: string; type: string; sev: number; t1: number; bookmaker: string }, list: typeof m[]): string {
+  const sibs = list.filter((x) => x.fixture_id === m.fixture_id && Math.abs(x.t1 - m.t1) <= 15 * 60_000);
+  const markets = new Set(sibs.map((x) => x.market));
+  if (markets.size >= 3) return "S";
+  const sameDir = new Set(sibs.filter((x) => x.market === m.market && x.type === m.type).map((x) => x.bookmaker));
+  if (sameDir.size >= 2) return "A";
+  return m.sev ? "B" : "C";
+}
+
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const type = q.get("type") || "全部";
@@ -24,6 +42,7 @@ export async function GET(req: NextRequest) {
 
   const rows = list.map((m, i) => {
     const masked = !user && i >= GUEST_VISIBLE_ROWS;
+    const grade = gradeOf(m, list);
     const isAh = m.market === "ah";
     const isEu = m.market === "eu";
     const liveMove = m.phase === "滚球";
@@ -69,6 +88,8 @@ export async function GET(req: NextRequest) {
       awayWaterDelta: aDelta,
       waterLabel,
       sev: !masked && !!m.sev,
+      grade,
+      gradeLabel: GRADE_LABEL[grade],
       masked,
       from: masked ? "●●●" : fromS,
       to: masked ? "●●●" : toS,

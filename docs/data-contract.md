@@ -234,7 +234,7 @@ interface Fitted<T> {
 | `/match/[id]/history` | —(纯归档帧) | `rows.chg`(变盘)、`rows.live`(滚球帧) | — | `quoteHistory` |
 | `/report/[id]` | `pH/pD/pA`、`comparison`、`advice`、`directions.{ah,ou}`、`model`、`market`、`marketOverview`、`sourceCoverage` | `probReady`/`comparisonReady`/`summaryReady`;`directions.sourceKind`+`derived`;`fittingScope` | `advice/directions/model/market/sections/versions/ver=null`;`sourceCoverage` 仅解锁 | `buildReportSignals`+`publicSourceCoverage` |
 | `/predictions` | `cards.{pH,pD,pA,advice,marketOverview,sourceCoverage}` | `cards.probReady`/`summaryReady` | `advice/winnerText/ahText/uoText/goalsText/sourceCoverage=null` | `predSummary`+`buildReportSignals` |
-| `/moves` | `rows.{direction,waterLabel,note}` | `rows.sev`(急变)、`rows.live` | `masked` 时 `from/to/water/note/rows` 脱敏 | `movements`+`detectMovement` |
+| `/moves` | `rows.{direction,waterLabel,note,grade}` | `rows.sev`(急变)、`rows.grade`(S/A/B/C 分级)、`rows.live` | `masked` 时 `from/to/water/note/rows` 脱敏 | `movements`+`detectMovement` |
 | `/data` | —(重组+中文化) | `seasonSource`(cache/official/inferred) | — | `dataCenterView` |
 | `/player/[id]` | —(资料/统计) | — | — | `playerCard` |
 | `/config`、`/health` | — | `health.{workerAt,liveNow,intervals}` | — | 配置/心跳 |
