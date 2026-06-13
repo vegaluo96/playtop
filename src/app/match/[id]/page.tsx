@@ -264,8 +264,8 @@ function MobileMatchDetail({ id }: { id: string }) {
         {tab === "odds" && oddsSub === "ah" && (
           <>
             {liveOddsStrip}
-            <SectionTitle title="让球指数" right="初始 / 即时" />
-            <OddsCompareMatrix market="ah" rows={v.comp.ah} compact onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ah", bid: c.bid, co: c.co })} />
+            <SectionTitle title="让球指数" right={h.finished ? "初始 / 终盘" : "初始 / 即时"} />
+            <OddsCompareMatrix market="ah" rows={v.comp.ah} compact finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ah", bid: c.bid, co: c.co })} />
             <OddsTrendPanel market="ah" title="让球指数走势" data={v.odds.ah} index={v.odds.index?.ah} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "ah" })} />
           </>
         )}
@@ -274,7 +274,7 @@ function MobileMatchDetail({ id }: { id: string }) {
           <>
             {liveOddsStrip}
             <SectionTitle title="欧指" right="主胜 / 平局 / 客胜" />
-            <OddsCompareMatrix market="eu" rows={v.comp.eu} euMeta={v.comp.euMeta} compact onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "eu", bid: c.bid, co: c.co })} />
+            <OddsCompareMatrix market="eu" rows={v.comp.eu} euMeta={v.comp.euMeta} compact finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "eu", bid: c.bid, co: c.co })} />
             <OddsEuTrendPanel rows={v.odds.eu} index={v.odds.index?.eu} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "eu" })} />
           </>
         )}
@@ -283,7 +283,7 @@ function MobileMatchDetail({ id }: { id: string }) {
           <>
             {liveOddsStrip}
             <SectionTitle title="进球数" right="大球 / 总进球 / 小球" />
-            <OddsCompareMatrix market="ou" rows={v.comp.ou} compact onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ou", bid: c.bid, co: c.co })} />
+            <OddsCompareMatrix market="ou" rows={v.comp.ou} compact finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ou", bid: c.bid, co: c.co })} />
             <OddsTrendPanel market="ou" title="进球数走势" data={v.odds.ou} index={v.odds.index?.ou} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "ou" })} />
           </>
         )}

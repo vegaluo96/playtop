@@ -144,12 +144,14 @@ export function OddsCompareMatrix({
   rows,
   euMeta,
   compact = false,
+  finished = false,
   onHistory,
 }: {
   market: "ah" | "ou" | "eu";
   rows: V[];
   euMeta?: V | null;
   compact?: boolean;
+  finished?: boolean;
   onHistory: (row: V) => void;
 }) {
   const isEu = market === "eu";
@@ -162,13 +164,13 @@ export function OddsCompareMatrix({
       <div style={{ display: "grid", gridTemplateColumns: grid, background: "var(--inset)", borderBottom: "1px solid var(--line)" }}>
         <Cell muted style={{ gridRow: "1 / 3", display: "flex", alignItems: "center", justifyContent: "center", fontSize: compact ? 11 : 12, fontWeight: 850 }}>公司</Cell>
         <Cell muted style={{ gridColumn: "2 / 5", padding: "7px 0 2px", fontSize: compact ? 11 : 12, fontWeight: 850 }}>初始</Cell>
-        <Cell muted style={{ gridColumn: "5 / 8", padding: "7px 0 2px", fontSize: compact ? 11 : 12, fontWeight: 850 }}>即时</Cell>
+        <Cell muted style={{ gridColumn: "5 / 8", padding: "7px 0 2px", fontSize: compact ? 11 : 12, fontWeight: 850 }}>{finished ? "终盘" : "即时"}</Cell>
         <span />
         {[...labels, ...labels].map((l, i) => (
           <Cell key={`${l}-${i}`} muted style={{ padding: "0 0 7px", fontSize: compact ? 10.5 : 11, fontWeight: 800 }}>{l}</Cell>
         ))}
       </div>
-      {safeRows.length === 0 && <EmptyBox title={`${marketName[market]}暂无指数数据`} sub="开盘后将按真实快照自动展示" />}
+      {safeRows.length === 0 && <EmptyBox title={`${marketName[market]}暂无指数数据`} sub={finished ? "本场未归档完整指数数据" : "开盘后将按真实快照自动展示"} />}
       {safeRows.map((row: V, idx: number) => {
         const iW = splitQuote(row.iW, isEu ? 3 : 2);
         const nW = splitQuote(row.nW, isEu ? 3 : 2);
