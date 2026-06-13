@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { f2, hhmm, mdLabel, parseTzOffset } from "@/lib/format";
 import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
+import { scoreSearchFields } from "@/lib/search";
 import { Flash, HeartBeat, useNewIds, usePoll, useTierIntervals, useWorkerBeat } from "@/components/live";
 import { RefreshRules } from "@/components/refresh-sheet";
 import { Modal, ModalTitle } from "./modal";
@@ -322,8 +323,19 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
           </div>
           <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
             {(() => {
-              const kw = search.trim().toLowerCase();
-              const shown = kw ? rows.filter((m) => `${m.home}${m.away}`.toLowerCase().includes(kw)) : rows;
+              const kw = search.trim();
+              const shown = kw
+                ? rows.filter((m) => scoreSearchFields(kw, [
+                    { value: m.home, weight: 4 },
+                    { value: m.away, weight: 4 },
+                    { value: `${m.home} vs ${m.away}`, weight: 4 },
+                    { value: m.id, weight: 2 },
+                    { value: leagueZh(m.leagueId, m.leagueName), weight: 2 },
+                    { value: m.leagueName, weight: 1.5 },
+                    { value: m.ah?.text, weight: 1 },
+                    { value: m.ou?.text, weight: 1 },
+                  ]) > 0)
+                : rows;
               return (
                 <>
                   {shown.length === 0 && (

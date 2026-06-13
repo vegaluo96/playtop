@@ -39,6 +39,7 @@ export default function MovesRoute() {
 function MobileMovesPage() {
   const [filter, setFilter] = useState("全部");
   const [rows, setRows] = useState<Move[]>([]);
+  const [searchRows, setSearchRows] = useState<Move[]>([]);
   const [loggedIn, setLoggedIn] = useState(true);
   const [sel, setSel] = useState<Move | null>(null);
   const { prefs } = useApp();
@@ -51,6 +52,12 @@ function MobileMovesPage() {
       if (j.ok) {
         setRows(j.rows);
         setLoggedIn(j.loggedIn);
+        if (filter === "全部") setSearchRows(j.rows);
+      }
+      if (filter !== "全部") {
+        const sr = await fetch(`/api/moves?type=${encodeURIComponent("全部")}&tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" });
+        const sj = await sr.json();
+        if (sj.ok) setSearchRows(sj.rows);
       }
     } catch {
       /* keep */
@@ -67,16 +74,17 @@ function MobileMovesPage() {
 
   const searchItems = useMemo<SearchItem[]>(
     () =>
-      rows.map((f) => ({
+      searchRows.map((f) => ({
         id: f.id,
         title: f.match,
         subtitle: `${f.t} · ${f.mkFull ?? f.mk} · ${f.type}`,
         meta: [f.bk, f.note].filter(Boolean).join(" · "),
         badge: f.live ? "滚球" : f.sev ? "急变" : f.type,
-        keywords: [f.fixtureId, f.match, f.league, f.mk, f.mkFull, f.bk, f.type, f.note, f.from, f.to, f.water],
+        section: f.live ? "滚球异动" : "赛前异动",
+        keywords: [f.fixtureId, f.match, f.league, f.mk, f.mkFull, f.bk, f.type, f.note, f.from, f.to, f.water, f.waterLabel],
         onSelect: () => (f.masked ? router.push("/login") : setSel(f)),
       })),
-    [rows, router],
+    [searchRows, router],
   );
 
   return (
@@ -84,7 +92,7 @@ function MobileMovesPage() {
       <PageHeader
         title="指数异动"
         {...beat}
-        right={<SearchAction title="搜索异动" placeholder="球队 / 玩法 / 书商 / 类型" hint={`${rows.length} 条当前异动`} items={searchItems} />}
+        right={<SearchAction title="搜索异动" placeholder="球队 / 玩法 / 书商 / 水位 / 比赛 ID" hint={`${searchRows.length} 条可搜索`} scopeLabel="最近异动 · 全部类型" emptyText="没有匹配的异动记录" items={searchItems} />}
       />
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
         {MOVE_FILTERS.map((l) => (

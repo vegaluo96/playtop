@@ -67,6 +67,7 @@ function MobileMatchesPage() {
   const [day, setDay] = useState("soon"); // 默认「即将」:滚球+未来24h,对齐球盘站
   const [league, setLeague] = useState("all");
   const [rows, setRows] = useState<Row[]>([]);
+  const [searchRows, setSearchRows] = useState<Row[]>([]);
   const [liveCount, setLiveCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
@@ -83,6 +84,12 @@ function MobileMatchesPage() {
       if (j.ok) {
         setRows(j.rows);
         setLiveCount(j.liveCount);
+        if (league === "all") setSearchRows(j.rows);
+      }
+      if (league !== "all") {
+        const sr = await fetch(`/api/matches?day=${day}&league=all&tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" });
+        const sj = await sr.json();
+        if (sj.ok) setSearchRows(sj.rows);
       }
     } catch {
       /* 网络抖动下保留旧数据 */
@@ -172,7 +179,7 @@ function MobileMatchesPage() {
 
   const searchItems = useMemo<SearchItem[]>(
     () =>
-      rows.map((m) => {
+      searchRows.map((m) => {
         const leagueLabel = leagueZh(m.leagueId, m.leagueName);
         const markets = [
           m.ah ? `让球 ${m.ah.text}` : null,
@@ -187,11 +194,12 @@ function MobileMatchesPage() {
           subtitle: `${leagueLabel} · ${hhmm(m.kickoff, prefs.tz)}`,
           meta: markets || (m.live ? "滚球中" : "指数积累中"),
           badge: m.live ? "滚球" : m.free ? "免费报告" : undefined,
+          section: leagueLabel,
           keywords: [m.id, m.home, m.away, m.homeId, m.awayId, m.leagueName, leagueLabel, markets],
           onSelect: () => (m.masked ? router.push("/login") : router.push(`/match/${m.id}`)),
         };
       }),
-    [rows, prefs.tz, router],
+    [searchRows, prefs.tz, router],
   );
 
   return (
@@ -200,7 +208,7 @@ function MobileMatchesPage() {
       <PageHeader
         title={<>足球<span style={{ color: "var(--gold)" }}>终端</span></>}
         {...beat}
-        right={<SearchAction title="搜索赛事" placeholder="球队 / 联赛 / 比赛 ID" hint={`${rows.length} 场当前列表`} items={searchItems} />}
+        right={<SearchAction title="搜索赛事" placeholder="球队 / 联赛 / 盘口 / 比赛 ID" hint={`${searchRows.length} 场可搜索`} scopeLabel="当前日期 · 全部联赛" emptyText="当前日期没有匹配赛事" items={searchItems} />}
       />
 
       <div style={{ display: "flex", gap: 8, padding: "6px 16px 8px", flexShrink: 0 }}>

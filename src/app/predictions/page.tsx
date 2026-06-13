@@ -57,16 +57,17 @@ function MobilePredictionsPage() {
   const streak = record?.streak ? `${record.streak} 连续命中` : "积累中";
   const searchItems = useMemo<SearchItem[]>(
     () =>
-      shown.map((p) => ({
+      cards.map((p) => ({
         id: p.id,
         title: p.match,
         subtitle: `${p.league} · ${p.time}`,
         meta: p.locked ? "报告未解锁" : [p.ahText, p.uoText, p.goalsText].filter(Boolean).join(" · "),
         badge: p.locked ? "待解锁" : "已解锁",
+        section: p.league,
         keywords: [p.id, p.match, p.league, p.advice, p.ahText, p.uoText, p.goalsText],
         onSelect: () => router.push(`/report/${p.id}`),
       })),
-    [shown, router],
+    [cards, router],
   );
 
   return (
@@ -74,7 +75,7 @@ function MobilePredictionsPage() {
       <PageHeader
         title="AI 概率报告"
         {...beat}
-        right={<SearchAction title="搜索报告" placeholder="球队 / 联赛 / 方向 / 比赛 ID" hint={`${shown.length} 份当前报告`} items={searchItems} />}
+        right={<SearchAction title="搜索报告" placeholder="球队 / 联赛 / 方向 / 比赛 ID" hint={`${cards.length} 份可搜索`} scopeLabel="全部概率报告" emptyText="没有匹配的报告" items={searchItems} />}
       />
       <div style={{ display: "flex", gap: 8, padding: "0 12px 10px", flexShrink: 0 }}>
         {["全部", "已解锁"].map((l) => (
