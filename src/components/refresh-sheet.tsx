@@ -69,7 +69,7 @@ export function RefreshRules({ activeIdx, intervals }: { activeIdx: number | nul
       </div>
 
       <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 8, lineHeight: 1.7, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
-        指数、赛况与阵容来自官方接口,平台按上表频率自动抓取归档;频率为后台当前生效配置,调整后此处实时同步。页头连接状态用于打开本规则,与抓取档位相互独立。
+        指数、赛况与阵容来自公开数据源,平台按上表频率自动同步归档;频率按当前生效配置展示,调整后此处实时同步。
       </div>
     </>
   );

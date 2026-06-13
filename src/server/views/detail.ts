@@ -377,7 +377,7 @@ async function deepView(p: Panorama, lineups: LineupsView) {
         return /^\d{4}-\d{2}-\d{2}/.test(date) && !unusable(type) && !unusable(rawPlayer) && !unusable(player) && (inId != null || outId != null);
       })
       .sort((x, y) => Date.parse(String(dig(y.tr, "date") ?? 0)) - Date.parse(String(dig(x.tr, "date") ?? 0)))[0];
-    if (!last) return { team, tag: "官方未返回", x: "未获取到可用官方转会记录" };
+    if (!last) return { team, tag: "暂无数据", x: "暂未获取到可用转会记录" };
     const inbound = Number(dig(last.tr, "teams", "in", "id")) === teamId;
     return {
       team,

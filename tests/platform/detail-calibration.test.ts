@@ -226,8 +226,8 @@ describe("external calibration fixes", () => {
 
     expect(view.deep?.lb).toEqual([]);
     expect(view.deep?.transfers).toEqual([
-      { team: "韩国", tag: "官方未返回", x: "未获取到可用官方转会记录" },
-      { team: "捷克", tag: "官方未返回", x: "未获取到可用官方转会记录" },
+      { team: "韩国", tag: "暂无数据", x: "暂未获取到可用转会记录" },
+      { team: "捷克", tag: "暂无数据", x: "暂未获取到可用转会记录" },
     ]);
   });
 });

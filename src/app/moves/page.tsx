@@ -90,9 +90,10 @@ function MobileMovesPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <PageHeader
-        title="指数异动"
+        title="异动"
+        subtitle={`${filter} · ${rows.length} 条 · 指数/水位变化`}
         {...beat}
-        right={<SearchAction title="搜索异动" placeholder="球队 / 玩法 / 书商 / 水位 / 比赛 ID" hint={`${searchRows.length} 条可搜索`} scopeLabel="最近异动 · 全部类型" emptyText="没有匹配的异动记录" items={searchItems} />}
+        right={<SearchAction title="搜索异动" placeholder="球队 / 盘口类型 / 异动类型 / 比赛 ID" hint={`${searchRows.length} 条可搜索`} scopeLabel="最近异动 · 全部类型" emptyText="没有匹配的异动记录" examples={["比赛", "球队", "让球 / 大小", "升盘 / 降水", "滚球"]} items={searchItems} />}
       />
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
         {MOVE_FILTERS.map((l) => (

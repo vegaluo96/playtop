@@ -9,7 +9,7 @@ import { ShareSheet, type ShareData } from "@/components/share-sheet";
 import { Card, Chip, EmptyBox, SectionTitle, ShareIcon } from "@/components/ui";
 import { dayLabel, hhmm } from "@/lib/format";
 
-import { Flash, HeartBeat, usePoll, useWorkerBeat } from "@/components/live";
+import { Flash, usePoll } from "@/components/live";
 import { MarketCell, MarketValue, type MarketCellData } from "@/components/market-cell";
 import { RefreshCountdownText } from "@/components/refresh-countdown";
 import { useIsDesktop } from "@/components/use-viewport";
@@ -66,15 +66,12 @@ function MobileMatchDetail({ id }: { id: string }) {
   const [share, setShare] = useState<ShareData | null>(null);
   const [err, setErr] = useState("");
   const [lastAt, setLastAt] = useState<number | null>(null);
-  const [rtt, setRtt] = useState<number | null>(null);
   const [player, setPlayer] = useState<PlayerTarget | null>(null);
   const [history, setHistory] = useState<HistoryTarget | null>(null);
-  const workerAt = useWorkerBeat();
   const { prefs, me } = useApp();
   const router = useRouter();
 
   const load = useCallback(async () => {
-    const t0 = Date.now();
     try {
       const r = await fetch(`/api/match/${id}?tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" });
       const j = await r.json();
@@ -84,7 +81,6 @@ function MobileMatchDetail({ id }: { id: string }) {
       setErr("网络异常");
     } finally {
       setLastAt(Date.now());
-      setRtt(Date.now() - t0);
     }
   }, [id, prefs.tz]);
 
@@ -193,14 +189,15 @@ function MobileMatchDetail({ id }: { id: string }) {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", padding: "10px 12px 6px" }}>
-        <div onClick={() => router.back()} style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--fg-2)", fontSize: 22, lineHeight: 1 }}>‹</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px 8px", minHeight: 54, boxSizing: "border-box" }}>
+        <button type="button" onClick={() => router.back()} aria-label="返回" style={{ width: 38, height: 38, border: "1px solid var(--line)", borderRadius: 999, background: "var(--card)", color: "var(--fg-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 22, lineHeight: 1, flexShrink: 0 }}>‹</button>
         <div style={{ flex: 1, textAlign: "center" }}>
-          <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 600, whiteSpace: "nowrap" }}>{h.league} · {h.round}</span>
+          <div style={{ fontSize: 10.5, color: "var(--fg-3)", fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>比赛详情</div>
+          <div style={{ marginTop: 3, fontSize: 12, color: "var(--fg-2)", fontWeight: 750, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.league} · {h.round}</div>
         </div>
-        <div onClick={openShare} style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--fg-2)" }}>
+        <button type="button" onClick={openShare} aria-label="分享" style={{ width: 38, height: 38, border: "1px solid var(--line)", borderRadius: 999, background: "var(--card)", color: "var(--fg-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
           <ShareIcon />
-        </div>
+        </button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center", padding: "2px 16px 10px" }}>
@@ -242,7 +239,6 @@ function MobileMatchDetail({ id }: { id: string }) {
       </div>
 
       <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 8px", cursor: "pointer" }}>
-        {!h.finished && <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} rtt={rtt} />}
         <span style={{ fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap" }}>
           <RefreshCountdownText finished={h.finished} fresh={h.fresh} oddsAt={v.summary.oddsAt} fallbackAt={lastAt} />
         </span>
@@ -292,7 +288,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             <RoadSection ins={v.insights} home={h.home} away={h.away} />
             <SameOddsCard so={v.insights?.sameOdds} />
             <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>{v.insights?.note}</div>
-            <SectionTitle title="更多玩法" right="数据随指数归档实时更新" />
+            <SectionTitle title="更多玩法" right="随指数更新" />
             {(v.markets ?? []).length === 0 && <EmptyBox title="暂无扩展玩法数据" sub={"开盘后将自动解析半场盘/角球/罚牌/波胆等玩法"} />}
             {(v.markets ?? []).map((m: V) => (
               <Card key={m.key} style={{ padding: "10px 14px", marginBottom: 8 }}>
@@ -328,7 +324,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             {h.live && (
               <>
                 <SectionTitle title="实时技术统计" />
-                {!v.tech.stats && <Card style={{ padding: "16px 12px", textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>暂无技术统计,随官方接口实时更新</Card>}
+                {!v.tech.stats && <Card style={{ padding: "16px 12px", textAlign: "center", fontSize: 11, color: "var(--fg-3)" }}>暂无技术统计,开赛后更新</Card>}
                 {v.tech.stats && <Card style={{ padding: "10px 14px 6px" }}>
                   {(v.tech.stats ?? []).map((b: V) => (
                     <div key={b.label} style={{ marginBottom: 9 }}>
@@ -374,7 +370,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                 <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: idx === 0 ? 8 : 0 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: idx === 0 ? undefined : "var(--fg-mid)" }}>{name as string}</span>
                   <div style={{ display: "flex", gap: 5 }}>
-                    {(form as string[]).length === 0 && <span style={{ fontSize: 11, color: "var(--fg-3)" }}>近期战绩暂无官方数据</span>}
+                    {(form as string[]).length === 0 && <span style={{ fontSize: 11, color: "var(--fg-3)" }}>近期战绩暂无数据</span>}
                     {(form as string[]).map((ch, i) => {
                       const s = FORM_STYLE[ch] ?? FORM_STYLE.平;
                       return (
@@ -433,7 +429,7 @@ function MobileMatchDetail({ id }: { id: string }) {
 
             <SectionTitle title="积分榜" right="两队高亮" />
             <Card style={{ overflow: "hidden" }}>
-              {(v.tech.standings?.table ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>杯赛暂无官方积分榜</div>}
+              {(v.tech.standings?.table ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>暂无积分榜数据</div>}
               {(v.tech.standings?.table ?? []).length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 30px 64px 36px 36px", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
                   {["#", "球队", "赛", "胜/平/负", "净胜", "积分"].map((hd, i) => (
@@ -471,14 +467,14 @@ function MobileMatchDetail({ id }: { id: string }) {
               {lineupPitch(v.lineups.away, "var(--team-away)")}
             </>
           ) : (
-            <EmptyBox title="官方首发尚未公布" sub={"官方首发通常于开赛前约 40 分钟公布\n公布后将自动更新"} />
+            <EmptyBox title="首发尚未公布" sub={"首发通常于开赛前约 40 分钟公布\n公布后将自动更新"} />
           ))}
 
         {tab === "squad" && (
           <>
             <SectionTitle title="伤停与情报" />
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {v.intel.length === 0 && <EmptyBox title="暂无官方伤停通报" sub="伤停状态随官方发布实时更新" />}
+              {v.intel.length === 0 && <EmptyBox title="暂无伤停通报" sub="伤停状态随发布后更新" />}
               {v.intel.map((i: V, idx: number) => (
                 <Card key={idx} style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 9 }}>
                   <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, background: i.side === "主" ? "var(--team-home-bg)" : "var(--team-away-bg)", color: i.side === "主" ? "var(--home)" : "var(--team-away)" }}>{i.side}</span>
@@ -487,7 +483,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                 </Card>
               ))}
             </div>
-            {v.intel.length > 0 && <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>伤停状态随官方发布实时更新。</div>}
+            {v.intel.length > 0 && <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 4px 0", lineHeight: 1.6 }}>伤停状态随发布后更新。</div>}
           </>
         )}
 
@@ -508,7 +504,7 @@ function MobileMatchDetail({ id }: { id: string }) {
             <>
               {deepV.seasonPanel && (deepV.seasonPanel.home || deepV.seasonPanel.away) && (
                 <>
-                  <SectionTitle title="赛季面板" right="主客拆分 · 官方统计" />
+                  <SectionTitle title="赛季面板" right="主客拆分" />
                   <Card style={{ overflow: "hidden", marginBottom: 8 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 1fr", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
                       <span style={{ fontSize: 11, color: "var(--fg-3)" }}>指标</span>
@@ -537,7 +533,7 @@ function MobileMatchDetail({ id }: { id: string }) {
               <SectionTitle title="联赛榜单" right="各榜前 5 · 点击看球员" />
               {(deepV.lb ?? []).length === 0 && (
                 <Card style={{ padding: "12px 14px", marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>官方榜单数据积累中</div>
+                  <div style={{ fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>榜单数据积累中</div>
                 </Card>
               )}
               {deepV.lb?.map((b: V) => (
@@ -568,7 +564,7 @@ function MobileMatchDetail({ id }: { id: string }) {
                     </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 11.5, color: "var(--fg-2)", marginTop: 9 }}>当值主裁:{deepV.referee ?? "官方未公布"}</div>
+                <div style={{ fontSize: 11.5, color: "var(--fg-2)", marginTop: 9 }}>当值主裁:{deepV.referee ?? "暂未公布"}</div>
               </Card>
               </>)}
 

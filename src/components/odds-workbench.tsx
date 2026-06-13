@@ -154,7 +154,7 @@ export function OddsCompareMatrix({
 }) {
   const isEu = market === "eu";
   const labels = market === "ah" ? ["主", "让球", "客"] : market === "ou" ? ["大", "总进球", "小"] : ["主胜", "平局", "客胜"];
-  const grid = compact ? "58px repeat(6,minmax(38px,1fr)) 12px" : "74px repeat(6,minmax(44px,1fr)) 14px";
+  const grid = compact ? "72px repeat(6,minmax(34px,1fr)) 12px" : "82px repeat(6,minmax(44px,1fr)) 14px";
 
   return (
     <div style={panelStyle(compact)}>
@@ -187,11 +187,11 @@ export function OddsCompareMatrix({
               cursor: row.bid ? "pointer" : "default",
             }}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, height: "100%", padding: compact ? "0 5px" : "0 8px", background: row.live ? "var(--danger-bg-soft)" : "var(--selected-bg-soft)", borderRight: "1px solid var(--line-soft)" }}>
-              <span style={{ width: compact ? 22 : 25, height: compact ? 22 : 25, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: row.live ? "var(--red)" : "var(--gold)", color: "var(--on-accent)", fontSize: 10.5, fontWeight: 900 }}>
-                {String(row.co ?? "?").slice(0, compact ? 1 : 2)}
+            <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, height: "100%", padding: compact ? "0 6px" : "0 8px", background: row.live ? "var(--danger-bg-soft)" : "var(--selected-bg-soft)", borderRight: "1px solid var(--line-soft)" }}>
+              <span style={{ width: compact ? 20 : 24, height: compact ? 20 : 24, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: row.live ? "var(--red)" : "var(--gold)", color: "var(--on-accent)", fontSize: compact ? 10 : 10.5, fontWeight: 900 }}>
+                {String(row.co ?? "?").slice(0, 1)}
               </span>
-              {!compact && <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, fontWeight: 800 }}>{row.co}</span>}
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: compact ? 11 : 12, fontWeight: 800 }}>{row.co}</span>
             </span>
             {initCells.map((v, i) => (
               <Cell key={`i-${i}`} muted={String(v) === "—"}>{v}</Cell>
@@ -250,7 +250,7 @@ export function OddsTrendPanel({
             lineText={(l) => (l == null ? "" : market === "ah" ? ahText(l) : `${l} 球`)}
             height={compact ? 134 : 178}
           />
-          <div style={{ fontSize: compact ? 10.5 : 11, color: "var(--fg-3)", marginTop: 5, lineHeight: 1.5 }}>{index?.method}</div>
+          {!compact && <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 5, lineHeight: 1.5 }}>{index?.method}</div>}
         </div>
         <QuoteRows cols={cols} rows={data.rows} eu={false} compact={compact} onHistory={onHistory} />
       </div>
@@ -282,7 +282,7 @@ export function OddsEuTrendPanel({
       <div style={panelStyle(compact)}>
         <div style={{ padding: compact ? "8px 8px 6px" : "10px 10px 8px", borderBottom: "1px solid var(--line)" }}>
           <IndexChart data={index} kickoff={kickoff} tz={tz} unit="主胜概率" height={compact ? 134 : 178} />
-          <div style={{ fontSize: compact ? 10.5 : 11, color: "var(--fg-3)", marginTop: 5, lineHeight: 1.5 }}>{index?.method}</div>
+          {!compact && <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 5, lineHeight: 1.5 }}>{index?.method}</div>}
         </div>
         <QuoteRows cols={["时间", "主胜", "平局", "客胜"]} rows={rows} eu compact={compact} onHistory={onHistory} />
       </div>

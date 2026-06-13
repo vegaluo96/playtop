@@ -86,7 +86,7 @@ export function MatchTimeline({ tl, home, away, live }: { tl: TLData; home: stri
       )}
 
       <div style={{ maxHeight: 420, overflowY: "auto", padding: "4px 12px 8px" }}>
-        {rows.length === 0 && <div style={{ padding: "16px 0", fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>暂无官方事件数据,随官方接口实时更新</div>}
+        {rows.length === 0 && <div style={{ padding: "16px 0", fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>暂无事件数据,开赛后更新</div>}
         {rows.map((r, i) =>
           r.side === "mid" ? (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0" }}>

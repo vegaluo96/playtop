@@ -122,7 +122,7 @@ export function buildReport(p: Panorama, signals?: ReportSignals): { ps: PredSum
     const side = Number(dig(i, "team", "id")) === fx.home_id ? nameZh(fx.home_name) : nameZh(fx.away_name);
     return `${side}:${nameZh(String(dig(i, "player", "name") ?? ""), "player")} · ${dig(i, "player", "reason") ?? "未注明"}(${dig(i, "player", "type") ?? ""})`;
   });
-  secs.push({ h: "人员情报", ps: intel.length > 0 ? intel : ["暂无官方伤停通报;首发公布后自动更新。"] });
+  secs.push({ h: "人员情报", ps: intel.length > 0 ? intel : ["暂无伤停通报;首发公布后自动更新。"] });
 
   // ── 概率摘要与风险 ──
   const ps5: string[] = [];

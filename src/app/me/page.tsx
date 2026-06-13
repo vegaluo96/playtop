@@ -130,7 +130,7 @@ function MobileMePage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <PageHeader title="我" {...beat} />
+      <PageHeader title="我" subtitle={me.loggedIn ? "账户与偏好" : "登录后同步额度"} {...beat} />
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 16px", minHeight: 0 }}>
         {me.loggedIn ? (
           <div style={{ background: "var(--card)", border: "1px solid var(--selected-border-soft)", borderRadius: 14, padding: "16px 16px 15px", marginBottom: 12 }}>

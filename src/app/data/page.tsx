@@ -13,7 +13,7 @@ import { useUnifiedPoll } from "@/components/live";
 import { useSiteConfig } from "@/components/site-config";
 import { useIsDesktop } from "@/components/use-viewport";
 import { LazyTerminal } from "@/components/desktop/lazy-terminal";
-import { LEAGUES, leagueColor } from "@/lib/leagues";
+import { LEAGUES } from "@/lib/leagues";
 
 type TabKey = "standings" | "scorers" | "assists" | "schedule";
 
@@ -110,6 +110,7 @@ function MobileDataPage() {
   const [loaded, setLoaded] = useState(false);
   const [teamFocus, setTeamFocus] = useState<TeamFocus | null>(null);
   const [player, setPlayer] = useState<PlayerTarget | null>(null);
+  const [targetRound, setTargetRound] = useState<string | null>(null);
 
   useEffect(() => {
     if (leagueTabs.length && !leagueTabs.some((l) => l.id === league)) setLeague(firstLeague);
@@ -144,6 +145,21 @@ function MobileDataPage() {
 
   const searchItems = useMemo<SearchItem[]>(() => {
     if (!view) return [];
+    const groupItems = view.standings.map((group) => {
+      const ids = new Set(group.rows.map((r) => r.teamId).filter((id): id is number => id != null));
+      const teams = group.rows.map((r) => r.team);
+      const matchCount = view.schedule.filter((m) => (m.homeId != null && ids.has(m.homeId)) || (m.awayId != null && ids.has(m.awayId)) || teams.includes(m.home) || teams.includes(m.away)).length;
+      return {
+        id: `grp:${group.group}`,
+        title: group.group,
+        subtitle: `${view.league.zh} · 积分榜`,
+        meta: `${group.rows.length} 队 · ${matchCount} 场关联赛程`,
+        badge: "小组",
+        section: "积分榜",
+        onSelect: () => setTab("standings"),
+        keywords: [group.group, ...teams],
+      };
+    });
     const standings = view.standings.flatMap((group) =>
       group.rows.map((r) => ({
         id: `st:${group.group}:${r.teamId ?? r.rank}`,
@@ -186,14 +202,33 @@ function MobileDataPage() {
       href: `/match/${r.id}`,
       keywords: [r.id, r.home, r.away, r.round, r.status, r.score],
     }));
-    return [...standings, ...scorers, ...assists, ...schedule];
+    const roundItems = [...new Set(view.schedule.map((r) => r.round))].map((round) => {
+      const roundRows = view.schedule.filter((r) => r.round === round);
+      return {
+        id: `round:${round}`,
+        title: round,
+        subtitle: `${view.league.zh} · 赛程`,
+        meta: `${roundRows.length} 场`,
+        badge: "轮次",
+        section: "赛程",
+        onSelect: () => {
+          setTab("schedule");
+          setTargetRound(round);
+        },
+        keywords: [round, ...roundRows.flatMap((r) => [r.home, r.away, r.date, r.time])],
+      };
+    });
+    return [...groupItems, ...standings, ...scorers, ...assists, ...roundItems, ...schedule];
   }, [openTeam, view]);
+  const activeTabLabel = TABS.find((t) => t.key === tab)?.label ?? "数据";
+  const dataScope = view ? `${view.league.zh} · ${view.season} · ${activeTabLabel}` : "数据加载中";
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <PageHeader
         title="数据"
-        right={<SearchAction title="搜索数据" placeholder="球队 / 球员 / 赛程 / 排名" hint={`${searchItems.length} 条可搜索`} scopeLabel={view ? `${view.league.zh} · ${view.season}` : "数据中心"} emptyText="没有匹配的数据" items={searchItems} />}
+        subtitle={dataScope}
+        right={<SearchAction title="搜索数据" placeholder="球队 / 球员 / 小组 / 轮次 / 赛程" hint={`${searchItems.length} 条可搜索`} scopeLabel={dataScope} emptyText="没有匹配的数据" examples={["球队", "球员", "小组", "赛程", "轮次"]} items={searchItems} />}
       />
 
       <div style={{ display: "flex", gap: 18, overflowX: "auto", padding: "0 16px 8px", flexShrink: 0 }}>
@@ -231,26 +266,12 @@ function MobileDataPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "0 16px 9px", flexShrink: 0 }}>
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: view?.league.color ?? leagueColor(league), flexShrink: 0 }} />
-        <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 750 }}>{view ? `${view.league.zh} · ${view.season}` : "数据加载中"}</span>
-        <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>数据同步</span>
-      </div>
-      {view && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6, padding: "0 12px 10px", flexShrink: 0 }}>
-          <DataPill label="小组" value={view.standings.length} />
-          <DataPill label="赛程" value={view.schedule.length} />
-          <DataPill label="榜单" value={view.scorers.length + view.assists.length} />
-        </div>
-      )}
-
       <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 12px", minHeight: 0 }}>
         {!loaded && <div style={{ padding: "48px 0", textAlign: "center", color: "var(--fg-3)", fontSize: 12 }}>加载中</div>}
-        {loaded && view && tab === "standings" && <Standings groups={view.standings} schedule={view.schedule} onOpenTeam={openTeam} onOpenMatch={(id) => router.push(`/match/${id}`)} />}
+        {loaded && view && tab === "standings" && <Standings groups={view.standings} onOpenTeam={openTeam} />}
         {loaded && view && tab === "scorers" && <PlayerBoard rows={view.scorers} value="goals" season={view.season} onOpenPlayer={setPlayer} onOpenTeam={(row) => setTeamFocus({ group: "球员所属球队", teamId: row.teamId, team: row.team, logo: row.teamLogo, matches: teamMatches(row.teamId, row.team) })} />}
         {loaded && view && tab === "assists" && <PlayerBoard rows={view.assists} value="assists" season={view.season} onOpenPlayer={setPlayer} onOpenTeam={(row) => setTeamFocus({ group: "球员所属球队", teamId: row.teamId, team: row.team, logo: row.teamLogo, matches: teamMatches(row.teamId, row.team) })} />}
-        {loaded && view && tab === "schedule" && <Schedule rows={view.schedule} onOpen={(id) => router.push(`/match/${id}`)} />}
+        {loaded && view && tab === "schedule" && <Schedule rows={view.schedule} targetRound={targetRound} onOpen={(id) => router.push(`/match/${id}`)} />}
       </div>
       <TeamSheet focus={teamFocus} onClose={() => setTeamFocus(null)} onOpenMatch={(id) => router.push(`/match/${id}`)} />
       <PlayerSheet target={player} onClose={() => setPlayer(null)} />
@@ -260,48 +281,19 @@ function MobileDataPage() {
 
 function Standings({
   groups,
-  schedule,
   onOpenTeam,
-  onOpenMatch,
 }: {
   groups: { group: string; rows: StandingRow[] }[];
-  schedule: ScheduleRow[];
   onOpenTeam: (group: string, row: StandingRow) => void;
-  onOpenMatch: (id: number) => void;
 }) {
   if (groups.length === 0) return <EmptyBox title="暂无积分数据" sub="该赛事积分仍在更新或尚未公布" />;
   return (
     <>
       {groups.map((group) => {
-        const teamIds = new Set(group.rows.map((r) => r.teamId).filter((id): id is number => id != null));
-        const teamNames = new Set(group.rows.map((r) => r.team));
-        const groupMatches = schedule
-          .filter((m) => (m.homeId != null && teamIds.has(m.homeId)) || (m.awayId != null && teamIds.has(m.awayId)) || teamNames.has(m.home) || teamNames.has(m.away))
-          .slice(0, 4);
         return (
         <div key={group.group} style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", background: "var(--card)", marginBottom: 10 }}>
-          <div style={{ padding: "9px 10px", background: "var(--inset)", borderBottom: "1px solid var(--line)" }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 900 }}>{group.group}</span>
-              <span style={{ fontSize: 11, color: "var(--fg-3)" }}>{groupMatches.length > 0 ? `本组赛程 ${groupMatches.length} 场` : "赛程待同步"}</span>
-            </div>
-            {groupMatches.length > 0 && (
-              <div style={{ display: "grid", gap: 5, marginTop: 8 }}>
-                {groupMatches.slice(0, 3).map((m) => (
-                  <button
-                    key={`${group.group}:${m.id}`}
-                    type="button"
-                    onClick={() => onOpenMatch(m.id)}
-                    style={{ display: "grid", gridTemplateColumns: "48px minmax(0,1fr) 40px minmax(0,1fr)", gap: 6, alignItems: "center", border: 0, borderRadius: 8, background: "var(--card)", padding: "7px 8px", color: "var(--fg)", cursor: "pointer" }}
-                  >
-                    <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-3)", textAlign: "left" }}>{m.date} {m.time}</span>
-                    <span style={{ minWidth: 0, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 800 }}>{m.home}</span>
-                    <span className="mono" style={{ textAlign: "center", fontSize: 11.5, fontWeight: 900, color: m.live ? "var(--red)" : "var(--fg-2)" }}>{m.score}</span>
-                    <span style={{ minWidth: 0, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 800 }}>{m.away}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+          <div style={{ padding: "10px 12px", background: "var(--inset)", borderBottom: "1px solid var(--line)", fontSize: 13, fontWeight: 900 }}>
+            {group.group}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 28px 28px 28px 28px 54px 38px", gap: 8, alignItems: "center", padding: "8px 10px", background: "var(--card)", borderBottom: "1px solid var(--line-soft)" }}>
             <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 850 }}>球队</span>
@@ -333,15 +325,6 @@ function Standings({
         );
       })}
     </>
-  );
-}
-
-function DataPill({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "8px 4px", textAlign: "center" }}>
-      <div className="mono" style={{ fontSize: 15, fontWeight: 900 }}>{value}</div>
-      <div style={{ fontSize: 10.5, color: "var(--fg-3)", marginTop: 2 }}>{label}</div>
-    </div>
   );
 }
 
@@ -390,7 +373,7 @@ function PlayerBoard({
   );
 }
 
-function Schedule({ rows, onOpen }: { rows: ScheduleRow[]; onOpen: (id: number) => void }) {
+function Schedule({ rows, targetRound, onOpen }: { rows: ScheduleRow[]; targetRound?: string | null; onOpen: (id: number) => void }) {
   const rounds = useMemo(() => {
     const map = new Map<string, ScheduleRow[]>();
     for (const row of rows) {
@@ -404,9 +387,16 @@ function Schedule({ rows, onOpen }: { rows: ScheduleRow[]; onOpen: (id: number) 
 
   useEffect(() => {
     if (rounds.length === 0) return;
+    if (targetRound) {
+      const target = rounds.findIndex((r) => r.round === targetRound);
+      if (target >= 0) {
+        setRoundIndex(target);
+        return;
+      }
+    }
     const next = rounds.findIndex((r) => r.rows.some((m) => m.live || !m.finished));
     setRoundIndex(next >= 0 ? next : Math.max(0, rounds.length - 1));
-  }, [rounds]);
+  }, [rounds, targetRound]);
 
   if (rows.length === 0) return <EmptyBox title="暂无赛程数据" sub="该联赛赛程尚未入库或暂未公布" />;
   const active = rounds[Math.min(roundIndex, rounds.length - 1)] ?? rounds[0];

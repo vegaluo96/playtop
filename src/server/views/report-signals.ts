@@ -265,7 +265,7 @@ function ahModelScore(ps: PredSummary | null, ah: SnapRow | null, eu: SnapRow | 
     { label: "球队赛季统计", baseWeight: 0.12, value: season, note: "使用赛季积分效率与场均净胜球" },
     { label: "近期状态", baseWeight: 0.07, value: form, note: "使用最近比赛结果" },
     { label: "历史交锋", baseWeight: 0.03, value: h2h, note: "使用近场胜负差" },
-    { label: "伤停情报", baseWeight: 0.05, value: injuries, note: "使用官方伤停数量差,不估算球员权重" },
+    { label: "伤停情报", baseWeight: 0.05, value: injuries, note: "使用伤停数量差,不估算球员权重" },
     { label: "Polymarket 预测市场", baseWeight: 0.05, value: poly, note: "使用公开市场 outcome 价格方向" },
   ]);
 }

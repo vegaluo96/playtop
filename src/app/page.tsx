@@ -121,6 +121,8 @@ function MobileMatchesPage() {
     { k: "results", label: "赛果" },
     { k: "tmr", label: "明日" },
   ];
+  const activeDateLabel = dateChips.find((c) => c.k === day)?.label ?? pickedDate?.label ?? "日期";
+  const leagueScope = league === "all" ? "全部联赛" : leagueChips.find((l) => String(l.id) === league)?.zh ?? "当前联赛";
   const emptyText = day === "soon"
     ? "未来 24 小时暂无即将开赛的场次"
     : day === "results" || day.startsWith("p")
@@ -206,9 +208,11 @@ function MobileMatchesPage() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <AnnouncementBar />
       <PageHeader
-        title={<>足球<span style={{ color: "var(--gold)" }}>终端</span></>}
+        kicker="足球终端"
+        title="赛事"
+        subtitle={`${activeDateLabel} · ${leagueScope} · ${rows.length} 场`}
         {...beat}
-        right={<SearchAction title="搜索赛事" placeholder="球队 / 联赛 / 盘口 / 比赛 ID" hint={`${searchRows.length} 场可搜索`} scopeLabel="当前日期 · 全部联赛" emptyText="当前日期没有匹配赛事" items={searchItems} />}
+        right={<SearchAction title="搜索赛事" placeholder="球队 / 联赛 / 盘口 / 比赛 ID" hint={`${searchRows.length} 场可搜索`} scopeLabel={`${activeDateLabel} · 全部联赛`} emptyText="当前日期没有匹配赛事" examples={["比赛", "球队", "联赛", "让球 / 大小", "比赛 ID"]} items={searchItems} />}
       />
 
       <div style={{ display: "flex", gap: 8, padding: "6px 16px 8px", flexShrink: 0 }}>

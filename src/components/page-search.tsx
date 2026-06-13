@@ -30,6 +30,7 @@ export function SearchAction({
   title,
   placeholder,
   hint,
+  examples,
   items,
   emptyText = "没有匹配结果",
   scopeLabel = "当前页面",
@@ -37,6 +38,7 @@ export function SearchAction({
   title: string;
   placeholder: string;
   hint: string;
+  examples?: string[];
   items: SearchItem[];
   emptyText?: string;
   scopeLabel?: string;
@@ -86,8 +88,8 @@ export function SearchAction({
         title={title}
         onClick={() => setOpen(true)}
         style={{
-          width: 34,
-          height: 34,
+          width: 38,
+          height: 38,
           border: "1px solid var(--line)",
           borderRadius: 999,
           background: "var(--card)",
@@ -103,7 +105,7 @@ export function SearchAction({
       </button>
       <Sheet open={open} onClose={close} z={70} maxHeight="min(78vh, 680px)" contentStyle={{ display: "flex", flexDirection: "column" }}>
         <SheetTitle title={title} hint={hint} />
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 10px", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 12, padding: "10px 11px", marginBottom: 8 }}>
           <SearchIcon size={15} />
           <input
             ref={inputRef}
@@ -118,7 +120,7 @@ export function SearchAction({
               background: "transparent",
               color: "var(--fg)",
               fontSize: 13,
-              fontWeight: 650,
+              fontWeight: 700,
             }}
           />
           {q && (
@@ -138,6 +140,15 @@ export function SearchAction({
             {q.trim() ? `${results.length}/${items.length}` : `${items.length}`} 条
           </span>
         </div>
+        {examples && examples.length > 0 && (
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 9, marginBottom: 3 }}>
+            {examples.map((x) => (
+              <span key={x} style={{ flexShrink: 0, fontSize: 11, color: "var(--fg-2)", background: "var(--card)", border: "1px solid var(--line-soft)", borderRadius: 999, padding: "4px 8px", whiteSpace: "nowrap" }}>
+                {x}
+              </span>
+            ))}
+          </div>
+        )}
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 2 }}>
           {results.length === 0 && (
             <div style={{ color: "var(--fg-3)", fontSize: 12, textAlign: "center", padding: "24px 8px" }}>
@@ -152,7 +163,7 @@ export function SearchAction({
                 if (it.onSelect) it.onSelect();
                 else if (it.href) router.push(it.href);
               }}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 2px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 2px", borderBottom: "1px solid var(--line-soft)", cursor: it.onSelect || it.href ? "pointer" : "default" }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 {it.section && <div style={{ fontSize: 10.5, color: "var(--fg-3)", fontWeight: 700, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.section}</div>}

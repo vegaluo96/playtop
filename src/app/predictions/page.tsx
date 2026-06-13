@@ -73,9 +73,10 @@ function MobilePredictionsPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <PageHeader
-        title="AI 概率报告"
+        title="报告"
+        subtitle={`${filter} · ${cards.length} 份 · 已解锁 ${unlockedCount}`}
         {...beat}
-        right={<SearchAction title="搜索报告" placeholder="球队 / 联赛 / 方向 / 比赛 ID" hint={`${cards.length} 份可搜索`} scopeLabel="全部概率报告" emptyText="没有匹配的报告" items={searchItems} />}
+        right={<SearchAction title="搜索报告" placeholder="球队 / 联赛 / 报告状态 / 比赛 ID" hint={`${cards.length} 份可搜索`} scopeLabel={`${filter}报告`} emptyText="没有匹配的报告" examples={["比赛", "球队", "联赛", "已解锁", "待解锁"]} items={searchItems} />}
       />
       <div style={{ display: "flex", gap: 8, padding: "0 12px 10px", flexShrink: 0 }}>
         {["全部", "已解锁"].map((l) => (
