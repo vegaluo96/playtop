@@ -32,6 +32,7 @@ import {
   moveTypeStyle,
   moveValueFromStyle,
   moveValueToStyle,
+  moveWaterValueStyle,
 } from "@/components/move-styles";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -450,13 +451,13 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                     {f.sev && <span style={movePillStyle("danger", true)}>急变</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    {f.live && <span style={movePillStyle("danger", true)}>滚球</span>}
+                    {f.live && <span style={movePillStyle("live", true)}>滚球</span>}
                     <span style={movePillStyle("neutral", true)}>{f.mk}</span>
                     {f.bk && <span style={movePillStyle("muted", true, 64)}>{f.bk}</span>}
-                    <span style={moveTypeStyle(f.type, true)}>{f.type}</span>
+                    <span style={moveTypeStyle(f.type, true, f.direction)}>{f.type}</span>
                     <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={moveValueFromStyle} />
-                    <span style={moveArrowStyle(f.type, true)}>→</span>
-                    <MarketValue v={f.masked ? "●●" : f.to} className="" small style={moveValueToStyle(f.type)} />
+                    <span style={moveArrowStyle(f.type, true, f.direction)}>→</span>
+                    <MarketValue v={f.masked ? "●●" : f.to} className="" small dim={!!f.masked} style={f.masked ? moveValueFromStyle : moveValueToStyle(f.type, f.direction)} />
                     <span style={{ flex: 1 }} />
                     <span className="mono" style={moveNoteStyle(true, 96)}>{f.masked ? "注册可见" : f.note}</span>
                   </div>
@@ -690,7 +691,7 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               <span style={movePillStyle("neutral")}>{modal.data.mkFull}</span>
               <span style={movePillStyle("muted")}>{modal.data.bk}</span>
-              <span style={moveTypeStyle(modal.data.type)}>{modal.data.type}</span>
+              <span style={moveTypeStyle(modal.data.type, false, modal.data.direction)}>{modal.data.type}</span>
             </div>
             <div style={{ background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "8px 12px", borderBottom: "1px solid var(--line)" }}>
@@ -700,7 +701,8 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
               </div>
               {modal.data.rows.map((r: V) => {
                 const na = parseFloat(r.a), nb = parseFloat(r.b);
-                const bC = r.k === "指数" ? (r.chg ? moveTypeColor(modal.data.type) : "var(--fg)") : !isNaN(na) && !isNaN(nb) && na !== nb ? (nb > na ? "var(--up)" : "var(--down)") : "var(--fg)";
+                const delta = typeof r.delta === "number" ? r.delta : nb - na;
+                const bC = r.k === "指数" ? (r.chg ? moveTypeColor(modal.data.type, modal.data.direction) : "var(--fg)") : !isNaN(delta) && delta !== 0 ? (delta > 0 ? "var(--up)" : "var(--down)") : "var(--fg)";
                 return (
                   <div key={r.k} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "9px 12px", borderBottom: "1px solid var(--line-soft)", alignItems: "center" }}>
                     <span style={{ fontSize: 11.5, color: "var(--fg-2)", fontWeight: 650 }}>{r.k}</span>
@@ -761,13 +763,14 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
                   {f.sev && <span style={movePillStyle("danger", true)}>急变</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  {f.live && <span style={movePillStyle("danger", true)}>滚球</span>}
+                  {f.live && <span style={movePillStyle("live", true)}>滚球</span>}
                   <span style={movePillStyle("neutral", true)}>{f.mk}</span>
                   {f.bk && <span style={movePillStyle("muted", true, 74)}>{f.bk}</span>}
-                  <span style={moveTypeStyle(f.type, true)}>{f.type}</span>
+                  <span style={moveTypeStyle(f.type, true, f.direction)}>{f.type}</span>
                   <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={moveValueFromStyle} />
-                  <span style={moveArrowStyle(f.type, true)}>→</span>
-                  <MarketValue v={f.masked ? "●●" : f.to} className="" small style={moveValueToStyle(f.type)} />
+                  <span style={moveArrowStyle(f.type, true, f.direction)}>→</span>
+                  <MarketValue v={f.masked ? "●●" : f.to} className="" small dim={!!f.masked} style={f.masked ? moveValueFromStyle : moveValueToStyle(f.type, f.direction)} />
+                  <MarketValue v={f.masked ? "●●" : f.water} className="" small dim={!!f.masked} style={f.masked ? { justifyContent: "flex-start" } : moveWaterValueStyle(f.waterDirection)} />
                 </div>
               </div>
             ))}
