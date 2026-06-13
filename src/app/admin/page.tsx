@@ -1,11 +1,12 @@
 "use client";
 
-/** 管理后台(admin.zsky.com / /admin):顶栏 + 9 模块侧栏 + 登录门 */
+/** 管理后台(admin.zsky.com / /admin):顶栏 + 10 模块侧栏 + 登录门 */
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/app-context";
 import { DashView } from "@/components/admin/dash";
 import { MatchesView, MktView, OrdersView, UsersView } from "@/components/admin/ops";
 import { DataMonView, RiskView, SettingsView, TicketsView } from "@/components/admin/sys";
+import { ReportsView } from "@/components/admin/reports";
 import { useNow, agoText } from "@/components/live";
 import { AdminDialogHost } from "@/components/admin/dialogs";
 
@@ -13,7 +14,8 @@ import { AdminDialogHost } from "@/components/admin/dialogs";
 
 const NAVS: [string, string][] = [
   ["dash", "运营看板"], ["user", "用户管理"], ["order", "订单与额度"], ["match", "赛事与内容"],
-  ["mkt", "营销配置"], ["risk", "风控与审计"], ["ticket", "工单处理"], ["data", "数据与模型监控"], ["cfg", "系统设置"],
+  ["mkt", "营销配置"], ["risk", "风控与审计"], ["ticket", "工单处理"], ["data", "数据与模型监控"],
+  ["reports", "分析报告管理"], ["cfg", "系统设置"],
 ];
 
 export default function AdminPage() {
@@ -77,7 +79,7 @@ export default function AdminPage() {
   const workerOk = workerAt != null && now - workerAt < 3 * 60_000;
   const views: Record<string, React.ReactNode> = {
     dash: <DashView />, user: <UsersView />, order: <OrdersView />, match: <MatchesView />, mkt: <MktView />,
-    risk: <RiskView />, ticket: <TicketsView />, data: <DataMonView />, cfg: <SettingsView />,
+    risk: <RiskView />, ticket: <TicketsView />, data: <DataMonView />, reports: <ReportsView />, cfg: <SettingsView />,
   };
 
   return (

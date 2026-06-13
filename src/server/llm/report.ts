@@ -11,7 +11,7 @@ import type { ReportSection } from "../views/report";
 import { chatComplete } from "./client";
 
 const day8 = () => new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
-const REPORT_FACTS_VERSION = "report-facts:v2:pre-kickoff-quant-signals";
+export const REPORT_FACTS_VERSION = "report-facts:v2:pre-kickoff-quant-signals";
 
 function usageRow(): { tokens: number; count: number; hits: number; fails: number } {
   const d = db();
