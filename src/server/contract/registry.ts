@@ -102,9 +102,9 @@ export const USER_ROUTE_CONTRACT: RouteContract[] = [
   {
     route: "/matches",
     fields: ["ok", "rows", "liveCount", "loggedIn"],
-    fitted: ["rows.ah", "rows.ou", "rows.eu", "rows.ex"],
-    lockedNull: ["rows.ah", "rows.ou", "rows.eu"], // masked 时为 null
-    viewModels: ["marketCell", "liveAwareSeriesBatch", "liveExtras"],
+    fitted: ["rows.ah", "rows.ou", "rows.eu", "rows.ex", "rows.q"],
+    lockedNull: ["rows.ah", "rows.ou", "rows.eu", "rows.q"], // masked 时为 null;滚球 q 也为 null
+    viewModels: ["marketCell", "liveAwareSeriesBatch", "liveExtras", "mainOddsDecisionBatch"],
   },
   {
     route: "/match/[id]",

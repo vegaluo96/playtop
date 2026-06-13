@@ -13,6 +13,7 @@ import {
   movedRecentlyMap,
 } from "@/server/views/list-helpers";
 import { marketCell } from "@/server/views/common";
+import { mainOddsDecisionBatch } from "@/server/af/store";
 import { isLive, isFinished } from "@/server/af/schedule";
 import { currentUser } from "@/server/platform/session";
 import { guestMasked } from "@/server/platform/rules";
@@ -91,6 +92,11 @@ export async function GET(req: NextRequest) {
   const ouSeries = liveAwareSeriesBatch(visibleFixtureIds, "ou", liveFixtureIds);
   const euSeries = liveAwareSeriesBatch(visibleFixtureIds, "eu", liveFixtureIds);
   const movedMap = movedRecentlyMap(visibleFixtureIds);
+  // 赛前数据质量分(与详情 MarketOverview 同源 mainOddsDecision;滚球/完场无赛前分,置 null)
+  const preFixtureIds = fixtures.filter((f) => !maskedByFixture.get(f.fixture_id) && !isLive(f.status)).map((f) => f.fixture_id);
+  const ahDec = mainOddsDecisionBatch(preFixtureIds, "ah");
+  const ouDec = mainOddsDecisionBatch(preFixtureIds, "ou");
+  const euDec = mainOddsDecisionBatch(preFixtureIds, "eu");
   const today = todayStr();
 
   const rows = fixtures.map((f) => {
@@ -100,6 +106,18 @@ export async function GET(req: NextRequest) {
     const ah = masked ? null : marketCell(ahSeries.get(f.fixture_id) ?? [], "ah");
     const ou = masked ? null : marketCell(ouSeries.get(f.fixture_id) ?? [], "ou");
     const eu = masked ? null : marketCell(euSeries.get(f.fixture_id) ?? [], "eu");
+    // q = 已展示市场的最低质量分(与详情 dataQualityScore 同口径);滚球/完场/打码为 null
+    const q =
+      masked || live
+        ? null
+        : (() => {
+            const ss = [
+              ah && ahDec.get(f.fixture_id)?.qualityScore,
+              ou && ouDec.get(f.fixture_id)?.qualityScore,
+              eu && euDec.get(f.fixture_id)?.qualityScore,
+            ].filter((s): s is number => typeof s === "number" && s > 0);
+            return ss.length > 0 ? Math.min(...ss) : null;
+          })();
     const unlocked = user ? freeSet.has(f.fixture_id) || unlockedSet.has(f.fixture_id) : false;
     return {
       id: f.fixture_id,
@@ -122,6 +140,7 @@ export async function GET(req: NextRequest) {
       masked,
       free: freeSet.has(f.fixture_id),
       unlocked,
+      q,
       ah,
       ou,
       eu,

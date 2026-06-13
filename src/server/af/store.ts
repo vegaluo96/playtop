@@ -477,6 +477,24 @@ export function oddsSeriesBatch(fixtureIds: number[], market: OddsMarket): Map<n
   return result;
 }
 
+/** 批量主盘口决策(质量分/选盘理由),供列表暴露与详情 MarketOverview 同源口径。仅赛前 odds_snapshots。 */
+export function mainOddsDecisionBatch(fixtureIds: number[], market: OddsMarket): Map<number, MainOddsDecision> {
+  const ids = [...new Set(fixtureIds)];
+  const result = new Map<number, MainOddsDecision>();
+  if (ids.length === 0) return result;
+  const rows = db()
+    .prepare(`SELECT * FROM odds_snapshots WHERE market = ? AND fixture_id IN (${placeholders(ids.length)}) ORDER BY fixture_id, bookmaker, captured_at`)
+    .all(market, ...ids) as unknown as SnapRow[];
+  const byFixture = new Map<number, SnapRow[]>();
+  for (const row of rows) {
+    const s = byFixture.get(row.fixture_id) ?? [];
+    s.push(row);
+    byFixture.set(row.fixture_id, s);
+  }
+  for (const [fixtureId, series] of byFixture) result.set(fixtureId, mainOddsDecisionFromRows(series, market));
+  return result;
+}
+
 function oddsByMarket(fixtureId: number, cutoffAt?: number | null): Record<OddsMarket, SnapRow[]> {
   const rows =
     cutoffAt == null

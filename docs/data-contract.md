@@ -157,7 +157,7 @@ interface Fitted<T> {
 
 | 路由 | 必须消费 | 禁止 | 现状 |
 |---|---|---|---|
-| `/api/matches` | 主盘口经 `mainOddsSeriesFromRows` + 门禁(`marketCell`/`liveAwareSeriesBatch`) | 读 raw;自挑主盘 | ✅ 选盘已统一;◐ **未携带 `dataQualityScore/selectedReasons` payload**(§10) |
+| `/api/matches` | 主盘口经 `mainOddsSeriesFromRows` + 门禁(`marketCell`/`liveAwareSeriesBatch`);质量分 `mainOddsDecisionBatch` | 读 raw;自挑主盘 | ✅ 选盘已统一;✅ 行携带 `q`(赛前数据质量分,与详情 `dataQualityScore` 同源;滚球/完场/打码 null) |
 | `/api/match/[id]` | `detailView` + `MarketOverview` | 读 raw;重算主盘 | ✅ |
 | `/api/report/[id]`、`/api/predictions` | `buildReportSummary` + `ReportSignals` + `publicMarketOverview` + `publicSourceCoverage` | 自行批量取序列生成方向;返回内部源名 | ✅ 概率/方向/marketOverview/`sourceCoverage`/`fittingScope`(62e8aa1);◐ 前端尚未展示 `reason`/派生徽标(§10) |
 | `/api/moves` | `movements`(真实快照差分) | 无变化生成事件 | ✅ |
