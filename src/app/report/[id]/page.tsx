@@ -8,6 +8,7 @@ import { ProbBar } from "@/components/charts";
 import { ShareSheet, type ShareData } from "@/components/share-sheet";
 import { useUnlockFlow } from "@/components/unlock-flow";
 import { Card, GoldBtn, LockIcon, SubpageHeader, ShareIcon } from "@/components/ui";
+import { SourceBadge, CoverageStrip } from "@/components/source-trust";
 import { nowStr } from "@/lib/format";
 import { leagueColor } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
@@ -92,12 +93,15 @@ function MobileReportPage({ id }: { id: string }) {
           {!v.locked && v.directions && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
               {[
-                ["亚盘方向", v.directions.ah?.text, v.model?.ahScore],
-                ["大小方向", v.directions.ou?.text, v.model?.ouScore],
-              ].map(([label, text, score]) => (
+                ["亚盘方向", v.directions.ah, v.model?.ahScore],
+                ["大小方向", v.directions.ou, v.model?.ouScore],
+              ].map(([label, sig, score]) => (
                 <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "8px 9px" }}>
-                  <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginBottom: 3 }}>{label as string}</div>
-                  <div style={{ fontSize: 12.5, fontWeight: 850 }}>{(text as string) || "暂无明确方向"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                    <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>{label as string}</span>
+                    <SourceBadge signal={sig as V} style={{ marginLeft: "auto" }} />
+                  </div>
+                  <div style={{ fontSize: 12.5, fontWeight: 850 }}>{((sig as V)?.text as string) || "暂无明确方向"}</div>
                   <div className="mono" style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 4 }}>score {score ?? "—"}</div>
                 </div>
               ))}
@@ -135,7 +139,7 @@ function MobileReportPage({ id }: { id: string }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <span style={{ width: 3, height: 13, borderRadius: 2, background: "var(--fg-1)" }} />
               <span style={{ fontSize: 13, fontWeight: 800 }}>量化模型</span>
-              <span className="mono" style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--fg-3)" }}>覆盖 {v.model.coverage}%</span>
+              <span className="mono" style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--fg-3)" }}>模型输入覆盖 {v.model.coverage}%</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
               <div style={{ background: "var(--inset)", borderRadius: 8, padding: "8px 9px" }}>
@@ -157,6 +161,8 @@ function MobileReportPage({ id }: { id: string }) {
             </div>
           </Card>
         )}
+
+        {!v.locked && v.sourceCoverage && <CoverageStrip coverage={v.sourceCoverage} style={{ marginTop: 10 }} />}
 
         {v.locked && (
           <div style={{ background: "var(--card)", border: "1px solid var(--selected-border)", borderRadius: 14, padding: 16, marginTop: 10, textAlign: "center" }}>

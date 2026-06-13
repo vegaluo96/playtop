@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
         winnerText: unlocked ? winnerText : null,
         ahText: unlocked ? signals.ah.text : null,
         uoText: unlocked ? signals.ou.text : null,
-        goalsText: unlocked ? `覆盖 ${signals.model.coverage}%` : null,
+        goalsText: unlocked ? `模型输入覆盖 ${signals.model.coverage}%` : null,
         marketOverview: publicMarketOverview(overview),
         sourceCoverage: unlocked ? sourceCoverage : null,
       };

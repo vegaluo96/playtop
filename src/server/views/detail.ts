@@ -516,7 +516,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     }
   }
 
-  // 对比表口径:初始=归档首帧,即时=当前最新帧;滚球时即时可来自 live odds。
+  // 对比表口径:初始=最早有效主盘口(过质量门禁的首帧,见 data-contract §7),即时=当前最新帧;滚球时即时可来自 live odds。
   const liveCompRow = (market: "ah" | "ou" | "eu", initial: SnapRow | null) => {
     const rows = liveExt(market);
     if (rows.length === 0 || !initial) return null;
