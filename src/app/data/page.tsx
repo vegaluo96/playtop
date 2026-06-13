@@ -67,6 +67,7 @@ interface DataView {
   ok: boolean;
   league: { id: number; zh: string; color: string; wc?: boolean };
   season: number;
+  seasonSource: "cache" | "official" | "inferred";
   standings: { group: string; rows: StandingRow[] }[];
   scorers: PlayerRow[];
   assists: PlayerRow[];
@@ -221,7 +222,8 @@ function MobileDataPage() {
     return [...groupItems, ...standings, ...scorers, ...assists, ...roundItems, ...schedule];
   }, [openTeam, view]);
   const activeTabLabel = TABS.find((t) => t.key === tab)?.label ?? "数据";
-  const dataScope = view ? `${view.league.zh} · ${view.season} · ${activeTabLabel}` : "数据加载中";
+  const SEASON_SRC: Record<string, string> = { official: "官方", cache: "归档", inferred: "推断" };
+  const dataScope = view ? `${view.league.zh} · ${view.season} 赛季(${SEASON_SRC[view.seasonSource] ?? "—"}) · ${activeTabLabel}` : "数据加载中";
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>

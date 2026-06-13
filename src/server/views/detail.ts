@@ -620,7 +620,6 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     liveOdds,
     odds: {
       ah, ou, eu: euRows(euAll, tz),
-      euChart: euAll.slice(-40).map((s) => ({ t: hhmm(s.captured_at, tz), h: s.h, a: s.a, d: s.d ?? 0 })),
       index: { ah: idxAh, ou: idxOu, eu: idxEu },
     },
     comp: {

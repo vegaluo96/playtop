@@ -38,6 +38,7 @@ interface Row {
   masked: boolean;
   free: boolean;
   unlocked: boolean;
+  q: number | null;
   ah: Cell | null;
   ou: Cell | null;
   eu: Cell | null;
@@ -153,6 +154,12 @@ function MobileMatchesPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, minWidth: 0 }}>
             {exLine && <span className="mono" style={{ maxWidth: 150, fontSize: 11.5, color: "var(--fg-3)", fontWeight: 650, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{exLine}</span>}
+            {m.q != null && (
+              <span title="赛前数据质量分(与详情同口径)" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--fg-3)", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: m.q >= 85 ? "var(--green)" : m.q >= 70 ? "var(--gold)" : "var(--red)" }} />
+                数据 {m.q}
+              </span>
+            )}
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 70px 70px 70px", gap: 8, alignItems: "center" }}>
