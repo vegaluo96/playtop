@@ -96,6 +96,44 @@ describe("external calibration fixes", () => {
     expect(JSON.stringify(view.marketOverview)).not.toContain("平博");
   });
 
+  it("shows live quote row in comparison tables without pretending it is a bookmaker", async () => {
+    const p = basePanorama();
+    p.fixture.status = "2H";
+    p.fixture.elapsed = 58;
+    const first = {
+      fixture_id: p.fixture.fixture_id,
+      bookmaker_id: 8,
+      bookmaker: "Bet365",
+      market: "ah",
+      line: 0.5,
+      h: 0.88,
+      a: 0.98,
+      d: null,
+      captured_at: p.fixture.kickoff_utc - 3_600_000,
+    };
+    const last = { ...first, line: 0.75, h: 0.86, a: 1.0, captured_at: p.fixture.kickoff_utc - 600_000 };
+    p.odds.compareAh = [{ bookmaker: "Bet365", first, last }];
+    db()
+      .prepare("INSERT INTO live_odds_snapshots (fixture_id, market, line, h, a, d, suspended, captured_at) VALUES (?,?,?,?,?,?,?,?)")
+      .run(p.fixture.fixture_id, "ah", 0.25, 0.94, 0.9, null, 0, p.fixture.kickoff_utc + 60_000);
+    db()
+      .prepare("INSERT INTO live_odds_snapshots (fixture_id, market, line, h, a, d, suspended, captured_at) VALUES (?,?,?,?,?,?,?,?)")
+      .run(p.fixture.fixture_id, "ah", 0, 0.99, 0.86, null, 0, p.fixture.kickoff_utc + 120_000);
+
+    const view = await detailView(p, "UTC+8", { deep: false });
+
+    expect(view.comp.ah[0]).toMatchObject({
+      co: "实时盘",
+      bid: null,
+      iText: "平半",
+      iW: "0.94 / 0.90",
+      nText: "平手",
+      nW: "0.99 / 0.86",
+      live: true,
+    });
+    expect(view.comp.ah[1]).toMatchObject({ co: "Be***5", bid: 8, nText: "半一" });
+  });
+
   it("filters standings to the shared group when provider also returns a generic group", async () => {
     const view = await detailView(basePanorama(), "UTC+8", { deep: false });
     const table = view.tech.standings.table;

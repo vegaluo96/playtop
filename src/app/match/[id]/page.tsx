@@ -187,7 +187,7 @@ function MobileMatchDetail({ id }: { id: string }) {
     const headEu = mk === "eu";
     return (
     <>
-      <SectionTitle title={title} right="点击任意公司看其历史" />
+      <SectionTitle title={title} right="公司可点历史;实时盘随刷新更新" />
       <Card style={{ overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "66px 1fr 18px 1fr", padding: "9px 12px", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
           <span style={{ fontSize: 11, color: "var(--fg-3)" }}>公司</span>
@@ -197,8 +197,8 @@ function MobileMatchDetail({ id }: { id: string }) {
         </div>
         {rows.length === 0 && <div style={{ padding: 14, fontSize: 12, color: "var(--fg-3)", textAlign: "center" }}>归档快照积累中</div>}
         {rows.map((c: V) => (
-          <div key={c.co} onClick={() => c.bid && setHistory({ id: h.id, mk, bid: c.bid, co: c.co })} style={{ display: "grid", gridTemplateColumns: "66px 1fr 18px 1fr", padding: "9px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", cursor: c.bid ? "pointer" : "default" }}>
-            <span style={{ fontSize: 12.5, fontWeight: 800 }}>{c.co}</span>
+          <div key={c.co} onClick={() => c.bid && setHistory({ id: h.id, mk, bid: c.bid, co: c.co })} style={{ display: "grid", gridTemplateColumns: "66px 1fr 18px 1fr", padding: "9px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", cursor: c.bid ? "pointer" : "default", background: c.live ? "var(--danger-bg-soft)" : "transparent" }}>
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: c.live ? "var(--red)" : "var(--fg)" }}>{c.co}</span>
             <span>
               {!headEu && <MarketValue v={c.iText} className="" small dim style={{ justifyContent: "flex-start" }} />}
               <MarketValue v={c.iW} small dim style={{ justifyContent: "flex-start" }} />

@@ -95,7 +95,13 @@ export async function checkReadonly(opts: { skipNetwork?: boolean; now?: number 
     rows.push(row("L1 抓取", "指数快照新鲜度", "skip", "今日无在售场次"));
   } else {
     const densest = Math.min(...pending.map((f) => cfgEffectiveTierIntervals()[tierFor(f.kickoff_utc, now, f.status).idx]));
-    const lastSnap = (d.prepare("SELECT MAX(captured_at) m FROM odds_snapshots").get() as { m: number | null }).m ?? 0;
+    const lastSnap = (d.prepare(
+      `SELECT MAX(m) m FROM (
+        SELECT MAX(captured_at) m FROM odds_snapshots
+        UNION ALL
+        SELECT MAX(captured_at) m FROM live_odds_snapshots
+      )`,
+    ).get() as { m: number | null }).m ?? 0;
     const limit = Math.max(2 * densest, 15 * 60_000);
     rows.push(
       row("L1 抓取", "指数快照新鲜度", lastSnap && now - lastSnap < limit ? "ok" : "fail",

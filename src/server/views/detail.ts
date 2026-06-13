@@ -516,8 +516,38 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   }
 
   // 「首帧」= 本站归档到的第一帧(AF 不提供真正初盘),表头与此对齐,不冒充初盘
-  const compMap = (list: Panorama["odds"]["compareAh"], market: "ah" | "ou") =>
-    list.map((c) => ({
+  const liveCompRow = (market: "ah" | "ou" | "eu") => {
+    const rows = liveExt(market);
+    if (rows.length === 0) return null;
+    const first = rows[0];
+    const last = rows[rows.length - 1];
+    if (market === "eu") {
+      return {
+        co: "实时盘",
+        bid: null,
+        iW: `${f2(first.h)} / ${f2(first.d ?? 0)} / ${f2(first.a)}`,
+        nW: `${f2(last.h)} / ${f2(last.d ?? 0)} / ${f2(last.a)}`,
+        changed: first.h !== last.h || first.d !== last.d || first.a !== last.a,
+        chgAt: last.captured_at,
+        live: true,
+      };
+    }
+    return {
+      co: "实时盘",
+      bid: null,
+      iText: market === "ah" ? ahText(first.line ?? 0) : ouText(first.line ?? 0),
+      iW: `${f2(first.h)} / ${f2(first.a)}`,
+      nText: market === "ah" ? ahText(last.line ?? 0) : ouText(last.line ?? 0),
+      nW: `${f2(last.h)} / ${f2(last.a)}`,
+      changed: first.line !== last.line,
+      waterChanged: first.h !== last.h || first.a !== last.a,
+      chgAt: last.captured_at,
+      live: true,
+    };
+  };
+
+  const compMap = (list: Panorama["odds"]["compareAh"], market: "ah" | "ou") => {
+    const rows = list.map((c) => ({
       co: maskBookmaker(c.bookmaker),
       bid: c.last.bookmaker_id, // 点行查看该公司完整历史报价
       iText: market === "ah" ? ahText(c.first.line ?? 0) : ouText(c.first.line ?? 0),
@@ -528,9 +558,12 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       waterChanged: c.first.h !== c.last.h || c.first.a !== c.last.a,
       chgAt: c.last.captured_at,
     }));
+    const liveRow = liveCompRow(market);
+    return liveRow ? [liveRow, ...rows] : rows;
+  };
   // ② 胜平负离散度(≥3 家才有共识意义);④ 升降盘方向 + 返还率首末对照
   const euMeta = euDispersion(p.odds.compareEu.map((c) => c.last));
-  const compEu = p.odds.compareEu.map((c) => ({
+  const compEuRows = p.odds.compareEu.map((c) => ({
     co: maskBookmaker(c.bookmaker),
     bid: c.last.bookmaker_id,
     iW: `${f2(c.first.h)} / ${f2(c.first.d ?? 0)} / ${f2(c.first.a)}`,
@@ -538,6 +571,8 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     changed: c.first.h !== c.last.h || c.first.d !== c.last.d || c.first.a !== c.last.a,
     chgAt: c.last.captured_at,
   }));
+  const compEuLive = liveCompRow("eu");
+  const compEu = compEuLive ? [compEuLive, ...compEuRows] : compEuRows;
   // ah/ou 快照存净水,返还率按欧赔小数(净水+1)计算
   const dec = (s: SnapRow | null) => (s ? { h: s.h + 1, a: s.a + 1 } : null);
   const trendOf = (cmp: Panorama["odds"]["compareAh"], all: SnapRow[]) => ({

@@ -159,13 +159,13 @@ export function CenterPane({
     <div>
       <div style={{ fontSize: 12, fontWeight: 700, margin: "0 2px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         {title}
-        <span style={{ fontSize: 11.5, color: "var(--fg-3)", fontWeight: 500 }}>点击公司看历史</span>
+        <span style={{ fontSize: 11.5, color: "var(--fg-3)", fontWeight: 500 }}>公司可点历史;实时盘随刷新更新</span>
       </div>
       <Card style={{ overflow: "hidden" }}>
         {rows.length === 0 && <div style={{ padding: 12, fontSize: 11.5, color: "var(--fg-3)", textAlign: "center" }}>暂无官方指数数据</div>}
         {rows.map((c: V) => (
-          <div key={c.co} onClick={() => c.bid && setHistory({ id: h.id, mk, bid: c.bid, co: c.co })} style={{ display: "grid", gridTemplateColumns: eu ? "68px 1fr" : "68px 1fr 1fr", padding: "9px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", cursor: c.bid ? "pointer" : "default" }}>
-            <span style={{ fontSize: 12, fontWeight: 800 }}>{c.co}</span>
+          <div key={c.co} onClick={() => c.bid && setHistory({ id: h.id, mk, bid: c.bid, co: c.co })} style={{ display: "grid", gridTemplateColumns: eu ? "68px 1fr" : "68px 1fr 1fr", padding: "9px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", cursor: c.bid ? "pointer" : "default", background: c.live ? "var(--danger-bg-soft)" : "transparent" }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: c.live ? "var(--red)" : "var(--fg)" }}>{c.co}</span>
             {eu ? (
               <span>
                 <MarketValue v={c.iW} small dim style={{ justifyContent: "flex-start" }} />
