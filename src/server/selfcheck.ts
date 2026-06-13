@@ -270,10 +270,14 @@ export async function checkContract(base: string): Promise<CheckRow[]> {
     const j = await get(path);
     if (!j || j.ok === false) { rows.push(row("L3 契约", c.route, "skip", j ? "ok=false(可能今日无数据)" : "未取到响应")); continue; }
     const allowed = new Set([...c.fields, ...always]);
-    const extra = Object.keys(j).filter((k) => !allowed.has(k));
+    const extra = Object.keys(j).filter((k) => !allowed.has(k)); // 响应多出未登记字段
+    // 必有字段缺失:契约登记但锁定态非空的字段,实际响应却没有(信封被侵蚀)
+    const lockedNull = new Set(c.lockedNull.filter((f) => !f.includes(".")));
+    const missing = c.fields.filter((f) => !lockedNull.has(f) && !(f in j));
+    const drift = [...extra.map((e) => `+${e}`), ...missing.map((mi) => `-${mi}`)];
     rows.push(
-      row("L3 契约", c.route, extra.length === 0 ? "ok" : "fail",
-        extra.length === 0 ? `${Object.keys(j).length} 字段全在契约内` : `漂移:响应多出未登记字段 [${extra.join(", ")}] → 同步 src/server/contract/registry.ts`),
+      row("L3 契约", c.route, drift.length === 0 ? "ok" : "fail",
+        drift.length === 0 ? `${Object.keys(j).length} 字段双向对齐` : `漂移(+多出/-缺失):[${drift.join(", ")}] → 同步 src/server/contract/registry.ts`),
     );
   }
   return rows;
