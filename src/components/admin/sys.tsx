@@ -149,28 +149,59 @@ export function DataMonView() {
     return () => clearInterval(t);
   }, [load]);
   if (!v) return <div style={{ color: "var(--fg-3)", fontSize: 12, padding: 40, textAlign: "center" }}>加载中…</div>;
+  const statusColor = (s: string) => (s === "正常" ? "var(--green)" : s === "慢" ? "var(--gold)" : "var(--red)");
+  const shortUrl = (url: string) => {
+    try {
+      const u = new URL(url);
+      return u.host;
+    } catch {
+      return url;
+    }
+  };
 
   return (
     <>
       <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>
-        数据与模型监控 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>· 39 端点调度 · 快照归档 · AI 报告服务</span>
+        数据与模型监控 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>· AF 端点调度 · 其他端点 · 快照归档 · AI 报告服务</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14, alignItems: "start" }}>
-        <ACard pad={false}>
-          <AGrid cols="1fr 100px 100px 64px 64px" head>
-            <Th t="端点" /><Th t="分层" /><Th t="上次抓取" /><Th t="耗时" right /><Th t="状态" center />
-          </AGrid>
-          {(v.eps ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11.5, color: "var(--fg-3)" }}>等待 worker 上报(启动后自动出现)</div>}
-          {(v.eps ?? []).map((e: V) => (
-            <AGrid key={e.k} cols="1fr 100px 100px 64px 64px">
-              <span className="mono" style={{ fontSize: 11 }}>{e.k}</span>
-              <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{e.tier}</span>
-              <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{fmtT(e.last_at).slice(6)}</span>
-              <span className="mono" style={{ fontSize: 11.5, textAlign: "right", color: "var(--fg-2)" }}>{e.ms != null ? `${e.ms}ms` : "—"}</span>
-              <span style={{ fontSize: 11, fontWeight: 800, textAlign: "center", color: e.status === "正常" ? "var(--green)" : e.status === "慢" ? "var(--gold)" : "var(--red)" }}>{e.status}</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <ACard title="AF 端点" pad={false}>
+            <AGrid cols="1fr 100px 100px 64px 64px" head>
+              <Th t="端点" /><Th t="分层" /><Th t="上次抓取" /><Th t="耗时" right /><Th t="状态" center />
             </AGrid>
-          ))}
-        </ACard>
+            {(v.eps ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11.5, color: "var(--fg-3)" }}>等待 worker 上报(启动后自动出现)</div>}
+            {(v.eps ?? []).map((e: V) => (
+              <AGrid key={e.k} cols="1fr 100px 100px 64px 64px">
+                <span className="mono" style={{ fontSize: 11 }}>{e.k}</span>
+                <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{e.tier}</span>
+                <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{fmtT(e.last_at).slice(6)}</span>
+                <span className="mono" style={{ fontSize: 11.5, textAlign: "right", color: "var(--fg-2)" }}>{e.ms != null ? `${e.ms}ms` : "—"}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, textAlign: "center", color: statusColor(e.status) }}>{e.status}</span>
+              </AGrid>
+            ))}
+            <div style={{ padding: "9px 14px", fontSize: 11, color: "var(--fg-3)" }}>API-Football 主数据源抓取链路;只展示 worker 实际调度和回源状态。</div>
+          </ACard>
+          <ACard title="其他端点" pad={false}>
+            <AGrid cols="1fr 96px 92px 64px 64px" head>
+              <Th t="来源" /><Th t="用途" /><Th t="上次探测" /><Th t="耗时" right /><Th t="状态" center />
+            </AGrid>
+            {(v.externalEndpoints ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11.5, color: "var(--fg-3)" }}>暂无其他端点配置</div>}
+            {(v.externalEndpoints ?? []).map((e: V) => (
+              <AGrid key={e.k} cols="1fr 96px 92px 64px 64px">
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.k}</span>
+                  <span className="mono" style={{ display: "block", fontSize: 10.5, color: "var(--fg-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{shortUrl(e.url)}</span>
+                </span>
+                <span style={{ fontSize: 11, color: "var(--fg-2)" }}>{e.kind}</span>
+                <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{fmtT(e.last_at).slice(6)}</span>
+                <span className="mono" style={{ fontSize: 11.5, textAlign: "right", color: "var(--fg-2)" }}>{e.ms != null ? `${e.ms}ms` : "—"}</span>
+                <span title={e.note} style={{ fontSize: 11, fontWeight: 800, textAlign: "center", color: statusColor(e.status) }}>{e.status}</span>
+              </AGrid>
+            ))}
+            <div style={{ padding: "9px 14px", fontSize: 11, color: "var(--fg-3)" }}>Polymarket、天气与后续扩展源统一在这里查看;探测结果缓存 10 分钟,不参与 AF 抓取频率。</div>
+          </ACard>
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <ACard title="快照归档(今日)">
             {v.snaps.map((s: V) => (

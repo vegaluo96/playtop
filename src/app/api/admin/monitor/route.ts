@@ -13,6 +13,7 @@ import { latestOddsRaw, fixturesBetween } from "@/server/af/store";
 import { parseExtraMarkets } from "@/server/af/markets";
 import { readLlmBalance } from "@/server/llm/client";
 import { diagnosticIssueSummary, recentDiagnosticIssues } from "@/server/af/diagnostics";
+import { probeExternalEndpoints } from "@/server/admin/external-endpoints";
 
 export async function GET() {
   if (!(await currentAdmin())) return NextResponse.json({ ok: false }, { status: 401 });
@@ -76,7 +77,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    ok: true, eps, snaps, rawAudit, snapGap: gap, extraMarkets, marketDecision,
+    ok: true, eps, externalEndpoints: await probeExternalEndpoints(), snaps, rawAudit, snapGap: gap, extraMarkets, marketDecision,
     intervals: TIERS.map((t, i) => ({ label: t.label, ms: cfgTierIntervals()[i] })),
     emergency: cfgEmergencyThrottle(),
     af: JSON.parse(kvGet("af_status") || "null"),
