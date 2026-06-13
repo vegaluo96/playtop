@@ -55,4 +55,14 @@ describe("detail odds quote rows", () => {
     expect(rows).toHaveLength(3);
     expect(rows.map((r) => r.t)).toEqual(["03:00", "06:00", "09:00"]);
   });
+
+  it("最新三帧落在同一分钟时显示秒,避免看起来像重复时间", () => {
+    const rows = seriesRows([
+      snap(Date.parse("2026-06-13T03:00:01Z"), 0.5, 0.9, 0.96),
+      snap(Date.parse("2026-06-13T03:00:12Z"), 0.5, 0.88, 0.98),
+      snap(Date.parse("2026-06-13T03:00:45Z"), 0.5, 0.87, 0.99),
+    ], "ah", "UTC+0").rows;
+
+    expect(rows.map((r) => r.t)).toEqual(["03:00:01", "03:00:12", "03:00:45"]);
+  });
 });

@@ -1,7 +1,7 @@
 /**
  * 详情页视图模型:matchPanorama → 6 个 tab 的渲染数据(全部中文化)。
  */
-import { ahText, dateStr, f2, hhmm, maskBookmaker, ouText } from "@/lib/format";
+import { ahText, dateStr, f2, hhmm, maskBookmaker, ouText, parseTzOffset } from "@/lib/format";
 import { leagueZh, roundZh } from "@/lib/leagues";
 import { freshLine, isFinished, isLive } from "../af/schedule";
 import { cfgTierIntervals } from "../platform/config";
@@ -46,6 +46,21 @@ function tLabelOf(series: SnapRow[], tz: string): (at: number) => string {
   return (at) => (spanDay ? `${dateStr(at, tz).slice(5)} ${hhmm(at, tz)}` : hhmm(at, tz));
 }
 
+function hhmmss(utcMs: number, tz: string): string {
+  const d = new Date(utcMs + parseTzOffset(tz) * 3_600_000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+}
+
+function visibleTimeLabelOf(series: SnapRow[], visible: SnapRow[], tz: string): (at: number) => string {
+  const base = tLabelOf(series, tz);
+  const labels = visible.map((s) => base(s.captured_at));
+  const hasDuplicateMinute = labels.some((label, i) => labels.indexOf(label) !== i);
+  if (!hasDuplicateMinute) return base;
+  const spanDay = series.length > 1 && dateStr(series[0].captured_at, tz) !== dateStr(series[series.length - 1].captured_at, tz);
+  return (at) => (spanDay ? `${dateStr(at, tz).slice(5)} ${hhmmss(at, tz)}` : hhmmss(at, tz));
+}
+
 function latestQuoteRows(series: SnapRow[], max = 3): { row: SnapRow; index: number }[] {
   const start = Math.max(0, series.length - max);
   return series.slice(start).map((row, i) => ({ row, index: start + i }));
@@ -53,8 +68,9 @@ function latestQuoteRows(series: SnapRow[], max = 3): { row: SnapRow; index: num
 
 export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
   if (series.length === 0) return { rows: [], chart: [] };
-  const tl = tLabelOf(series, tz);
-  const rows = latestQuoteRows(series).map(({ row: s, index }) => {
+  const selected = latestQuoteRows(series);
+  const tl = visibleTimeLabelOf(series, selected.map((r) => r.row), tz);
+  const rows = selected.map(({ row: s, index }) => {
     const prev = index > 0 ? series[index - 1] : null;
     return {
       t: tl(s.captured_at), // 首帧=本站归档起点,不冒充真实初盘
@@ -75,8 +91,9 @@ export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
 }
 
 export function euRows(series: SnapRow[], tz: string) {
-  const tl = tLabelOf(series, tz);
-  return latestQuoteRows(series).map(({ row: s }) => ({
+  const selected = latestQuoteRows(series);
+  const tl = visibleTimeLabelOf(series, selected.map((r) => r.row), tz);
+  return selected.map(({ row: s }) => ({
     t: tl(s.captured_at),
     h: f2(s.h),
     d: f2(s.d ?? 0),
