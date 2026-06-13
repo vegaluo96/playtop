@@ -99,13 +99,15 @@
 ```ts
 interface Fitted<T> {
   value: T | null;
-  ready: boolean;                  // 取代散落的 probReady/summaryReady/comparisonReady
-  source: "prediction"             // AF 模型直接给出
-        | "model"                  // 平台模型计算(如综合指数)
+  ready: boolean;                  // 统一就绪标(对应 probReady/summaryReady/comparisonReady、DirectionSignal.status)
+  // sourceKind 取实现里 DirectionSignal.sourceKind 的规范枚举:
+  sourceKind: "prediction"         // AF 模型直接给出
         | "marketDerived"          // AF 缺失时由盘口派生(行情观察,非预测)
+        | "marketOnly"             // 仅盘口/预测市场,无模型
+        | "model"                  // 平台模型计算(如综合指数)
         | "mixed"                  // 多源加权
-        | "market"                 // 来自盘口/预测市场(Polymarket)
-        | "none";                  // 无可用来源
+        | "open";                  // 暂无方向 / 未就绪
+  derived: boolean;                // 是否为盘口派生(与 sourceKind:"marketDerived" 同义,便于前端直接判)
   reason?: string;                 // 缺失/降级的"用户安全"原因(来自 §6 publicSourceCoverage)
   asOf?: number;                   // 数据时点(ms)
 }
@@ -113,10 +115,10 @@ interface Fitted<T> {
 
 **派生 vs 兜底的边界(裁决,踩红线那条)**:
 - **禁止**默认假数据:`33/33/33` 假概率、`0%` 七维空壳、伪装成模型结论的默认摘要 —— 一律不允许。
-- **允许**带来源标记的派生信号:`source: "marketDerived"`,但**必须** `ready: true` 且前端**显著标注"指数派生 / 行情观察"**,**绝不渲染成模型预测**。
-- 无任何可用来源时:`value: null, ready: false, source: "none"`,前端显示「暂无数据 / 数据积累中 / 开赛后更新 / 样本不足」。
+- **允许**带来源标记的派生信号:`sourceKind: "marketDerived"` / `derived: true`,但**必须** `ready: true` 且前端**显著标注"指数派生 / 行情观察"**,**绝不渲染成模型预测**。
+- 无任何可用来源时:`value: null, ready: false, sourceKind: "open"`,前端显示「暂无数据 / 数据积累中 / 开赛后更新 / 样本不足」。
 
-落地说明:`DirectionSignal` 当前仅有 `sources: string[]`(中文串),缺机器可读的来源标记 → 收口时按本信封补 `source`/`derived`,前端据此挂徽标(见 §10 待办)。
+落地状态:`DirectionSignal` **已带** `sourceKind` + `derived`(`src/server/views/report-signals.ts`,62e8aa1);`publicProbability/Comparison/ReportAdvice` 已带 `ready` 门控。**剩余**:前端按 `sourceKind/derived` 挂"指数派生"徽标(62e8aa1 未动 `.tsx`),及把散落 readiness 命名统一到 `ready`(见 §10)。
 
 ---
 
@@ -125,7 +127,7 @@ interface Fitted<T> {
 **同一次计算,两个可见度** —— 这是"后台与 UI 必然一致"的物理保证,不是两套算法:
 - 主盘口:`marketOverview()`(全量,含书商名/警告)→ `publicMarketOverview()`(脱敏:质量分/覆盖数/选择原因/诊断警告,**不暴露书商名**)。已落地。
 - 报告信号:`buildReportSignals()` → `publicProbability/publicComparison/publicReportAdvice`(带 `ready` 门控)。已落地。
-- 源覆盖:`buildReportSourceCoverage()`(全量,**含 `API-Football/endpoint/worker` 等内部词,仅后台**)→ `publicSourceCoverage()`(剥离内部词,保留 `used/missing/failed/stale/pendingReview` + 安全原因)。**`publicSourceCoverage` 待补,报告/预测路由据此返回用户安全版**(见 §10)。
+- 源覆盖:`buildReportSourceCoverage()`(全量,**含 `API-Football/endpoint/worker` 等内部词,仅后台**)→ `publicSourceCoverage()`(剥离内部词,保留 `used/missing/failed/stale/pendingReview` + 安全原因)。**已落地(62e8aa1)**:`/api/report/[id]` 返回 `sourceCoverage` + `sourceCoverageNeedsRebuild` + `fittingScope`(`preview`/`fullReport`);`/api/predictions` 已解锁卡返回 `sourceCoverage`。**剩余**:前端系统性展示 `reason`(见 §10)。
 
 **安全原因标准文案**(用户侧 `reason`,不出现内部源名):
 | 状态 | 含义 | 标准文案口径 |
@@ -157,11 +159,11 @@ interface Fitted<T> {
 |---|---|---|---|
 | `/api/matches` | 主盘口经 `mainOddsSeriesFromRows` + 门禁(`marketCell`/`liveAwareSeriesBatch`) | 读 raw;自挑主盘 | ✅ 选盘已统一;◐ **未携带 `dataQualityScore/selectedReasons` payload**(§10) |
 | `/api/match/[id]` | `detailView` + `MarketOverview` | 读 raw;重算主盘 | ✅ |
-| `/api/report/[id]`、`/api/predictions` | `buildReportSummary` + `ReportSignals` + `publicMarketOverview` | 自行批量取序列生成方向;返回内部源名 | ✅ 概率/方向/marketOverview;◐ **未返回 `publicSourceCoverage`**(§10) |
+| `/api/report/[id]`、`/api/predictions` | `buildReportSummary` + `ReportSignals` + `publicMarketOverview` + `publicSourceCoverage` | 自行批量取序列生成方向;返回内部源名 | ✅ 概率/方向/marketOverview/`sourceCoverage`/`fittingScope`(62e8aa1);◐ 前端尚未展示 `reason`/派生徽标(§10) |
 | `/api/moves` | `movements`(真实快照差分) | 无变化生成事件 | ✅ |
 | `/api/data` | `dataCenterView` | 读 raw | ✅ |
 
-通用禁止:F1–F5(§2);前端字符串匹配判断来源(应读 §5 `source` 字段)。
+通用禁止:F1–F5(§2);前端字符串匹配判断来源(应读 §5 `sourceKind`/`derived` 字段)。
 
 ---
 
@@ -177,16 +179,36 @@ interface Fitted<T> {
 
 ## §10 待办 backlog(追踪项,**非规范**;来自历史审计 OPEN/WARN + 本次收口)
 
-> 以下是"尚未达成契约"的工作项,完成一项即从此处划掉。它们不是规则,是规则与现状的差距。
+> 它们不是规则,是规则与现状的差距。完成即划掉。
 
-1. **§5 字段信封**:`DirectionSignal` 补 `source`/`derived`,前端方向挂「指数派生/行情观察」徽标。(红线相关,优先)
-2. **§6 用户覆盖**:新增 `publicSourceCoverage()`,`/api/report/[id]` 与 `/api/predictions` 返回用户安全版;`覆盖 X%` 文案改「模型输入覆盖 X%」。
-3. **§7 初盘注释**:`src/server/views/detail.ts` 注释"初始=归档首帧" → "最早有效主盘口"(代码行为已对)。
+### 已由 62e8aa1 落地(后端)
+- ✅ `DirectionSignal` 带 `sourceKind` + `derived`(§5 机器可读来源)。
+- ✅ `publicSourceCoverage()` + `/api/report/[id]`(含 `sourceCoverageNeedsRebuild`/`fittingScope`)与 `/api/predictions` 返回用户安全覆盖(§6)。
+- ✅ Polymarket 预取窗口扩为 `T-24h/T-6h/T-120m/T-60m/T-15m/T-5m`。
+- ✅ worker 报告预生成对齐 `matchPanorama(fxId, { deep, injuries, preKickoffOnly })`。
+
+### 仍开放(按优先级)
+1. **前端消费(§5)**:方向按 `sourceKind/derived` 挂「指数派生/行情观察」徽标;报告/预测页系统性展示 `sourceCoverage.reason`。**62e8aa1 未动任何 `.tsx`,这是"UI 对不上后台"的主因。**
+2. **文案**:`/api/predictions` 的 `覆盖 ${signals.model.coverage}%` → 「模型输入覆盖 X%」(`route.ts:93`)。
+3. **§7 初盘注释**:`src/server/views/detail.ts:519` "初始=归档首帧" → "最早有效主盘口"(代码行为已对)。
 4. **§8 列表质量 payload**:`/api/matches` 在不拖慢前提下补 `dataQualityScore/selectedReasons`。
-5. **外部源事实表**:新增 `external_source_snapshots`,把 Polymarket/天气的 per-fixture 成功/缺失/错误固化,替代靠 kv+DiagnosticIssue 推断。
-6. **Polymarket 预取窗口**:worker 现仅 `T-120m/60m/5m`,扩 `T-24h/T-6h/T-15m`,减少开赛后无赛前缓存而 skipped。
-7. **worker 预生成对齐**:报告预生成 `matchPanorama(fxId)` → 与解锁报告同款 `{deep, injuries, preKickoffOnly}`。
-8. **异动分级**:单市场阈值 → S/A/B/C(三盘共振 / 多主流确认 / 单市场明显 / 单家观察)。
-9. **mapping 后台化**:`prematch_bet_map/live_bet_map/bookmaker_map` 从代码内映射 → 后台可维护表 + parser replay。
-10. **§9 契约检查**:per-路由"消费 view model + 带信封"自动核查接入 selfcheck。
-11. **球员预热**:今日/明日重点赛事的预计首发/榜单球员提前缓存,减少冷启动延迟。
+5. **readiness 统一**:`probReady/summaryReady/comparisonReady`/`DirectionSignal.status` 收敛到信封 `ready` 命名。
+6. **外部源事实表**:`external_source_snapshots` 固化 Polymarket/天气 per-fixture 成功/缺失/错误。
+7. **§9 契约检查**:per-路由"消费 view model + 带信封"自动核查接入 selfcheck(**反漂移的关键,见下方"完整性工程"**)。
+8. **异动分级**:单市场阈值 → S/A/B/C。
+9. **mapping 后台化**:`prematch_bet_map/live_bet_map/bookmaker_map` → 后台可维护表 + parser replay。
+10. **球员预热**:重点赛事球员提前缓存。
+
+---
+
+## §11 完整性工程(AF 源完整 + 契约完整 + 机器核查,反功能漂移)
+
+> 目标:UI 重构有一张**穷尽**的"源→视图模型→界面"地图,且"对不对得上"由**机器**判定,不靠人工对比。
+
+- **§11.1 完整 AF 源清单**:对 `src/server/af/catalog.ts` 登记的全部端点,逐端点列出**实际解析的字段** → 落库表 → 新鲜度 → 覆盖键 → 视图模型字段。规范 §1 由"归并视图"升级为"字段级穷尽表";详细矩阵 `docs/history/af-coverage.md` 并入。
+- **§11.2 UI ↔ 源映射**:对每个用户可见 surface/组件,登记其消费的视图模型字段 → 上溯源字段。这是 UI 重构的施工图,也是"对不上"的检出点。
+- **§11.3 机器核查**(接 selfcheck,§7 待办 #7):
+  - 每个 API 响应字段必须在契约登记内(多出 = 漂移,失败);
+  - 每个用户可见拟合值必须带 §5 信封(缺 `ready/sourceKind` = 失败);
+  - 前端不得出现 AF raw 形状的直读(F1,静态扫描)。
+  完成后,"UI 与后台是否对得上"成为 `npm run selfcheck` 的一项,改任意一端即时报漂移。

@@ -1,5 +1,7 @@
 # Claude Handoff - PlayTop / ZSKY Data Fitting Chain
 
+> 📌 历史/交接记录:数据口径规范已统一到 `docs/data-contract.md`(唯一规范)。本文件保留为**拟合链路交接与变更记录**;规则本身以规范为准。
+
 更新时间: 2026-06-13 Asia/Shanghai
 
 本文件给 Claude 或其他接手机器人使用。请先读完本文件，再读根目录 `AGENTS.md`、`HANDOFF.md`、`docs/af-coverage.md`。
