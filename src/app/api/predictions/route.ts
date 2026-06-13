@@ -12,8 +12,11 @@ import { cfgUnlockPrice } from "@/server/platform/config";
 import { dailyFreeFixtureIds, unlockedIds } from "@/server/platform/wallet";
 import { predSummary } from "@/server/views/common";
 import { buildReportSignals, publicComparison, publicProbability, publicReportAdvice } from "@/server/views/report-signals";
+import { buildReportSummary } from "@/server/views/report";
 import { nameZh } from "@/server/views/names";
 import { marketOverviewBatchBefore, publicMarketOverview } from "@/server/markets/overview";
+import { matchPanorama } from "@/server/af/panorama";
+import { findPolymarketSignal } from "@/server/external/polymarket";
 
 export async function GET(req: NextRequest) {
   const tz = req.nextUrl.searchParams.get("tz") || "UTC+8";
@@ -37,8 +40,8 @@ export async function GET(req: NextRequest) {
   const user = await userPromise;
   const unlockedSet = user ? new Set(unlockedIds(user.id)) : new Set<number>();
 
-  const cards = cardFixtures
-    .map((f) => {
+  const cards = (await Promise.all(cardFixtures
+    .map(async (f) => {
       const overview = overviews.get(f.fixture_id);
       if (!overview) return null;
       const lastSnap = (mk: "ah" | "ou") => {
@@ -50,12 +53,23 @@ export async function GET(req: NextRequest) {
         ah: lastSnap("ah"), ou: lastSnap("ou"), homeName: nameZh(f.home_name), awayName: nameZh(f.away_name),
       });
       if (!ps) return null;
-      const signals = buildReportSignals(ps, overview.odds);
-      const prob = publicProbability(ps);
-      const comp = publicComparison(ps);
-      const advice = publicReportAdvice(ps, signals);
-      const winnerText = ps.winnerName ? ps.winnerName + (ps.winDraw ? " / 平" : "") : null;
       const unlocked = !!user && (freeSet.has(f.fixture_id) || unlockedSet.has(f.fixture_id));
+      const signalContext = unlocked
+        ? await matchPanorama(f.fixture_id, { injuries: true, deep: true, preKickoffOnly: true }).catch(() => null)
+        : null;
+      const signalPs = signalContext ? buildReportSummary(signalContext) ?? ps : ps;
+      const signalOdds = signalContext?.odds ?? overview.odds;
+      const market = signalContext
+        ? await findPolymarketSignal(signalContext.fixture.home_name, signalContext.fixture.away_name, {
+            fixtureId: signalContext.fixture.fixture_id,
+            kickoffAt: signalContext.fixture.kickoff_utc,
+          })
+        : { status: "skipped" as const, note: "报告未解锁,暂不请求外部预测市场" };
+      const signals = buildReportSignals(signalPs, signalOdds, market, signalContext);
+      const prob = publicProbability(signalPs);
+      const comp = publicComparison(signalPs);
+      const advice = publicReportAdvice(signalPs, signals);
+      const winnerText = signalPs?.winnerName ? signalPs.winnerName + (signalPs.winDraw ? " / 平" : "") : null;
       const price = cfgUnlockPrice(f.kickoff_utc, now);
       return {
         id: f.fixture_id,
@@ -79,8 +93,7 @@ export async function GET(req: NextRequest) {
         goalsText: unlocked ? `覆盖 ${signals.model.coverage}%` : null,
         marketOverview: publicMarketOverview(overview),
       };
-    })
-    .filter(Boolean);
+    }))).filter(Boolean);
 
   return NextResponse.json({ ok: true, cards, record: modelStats(now), loggedIn: !!user });
 }

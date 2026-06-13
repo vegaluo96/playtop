@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, tx } from "@/server/db";
 import { audit, canWrite, currentAdmin } from "@/server/admin/auth";
 import { requireSameOrigin } from "@/server/platform/rate-limit";
-import { TIERS } from "@/server/af/schedule";
+import { isFinished, tierFor, TIERS } from "@/server/af/schedule";
 import { cfgEffectiveTierIntervals, cfgEmergencyThrottle, cfgEmergencyThrottleState, cfgSet, cfgTierIntervals } from "@/server/platform/config";
 import { recentMovements, kvGet, mainOddsDecision } from "@/server/af/store";
 import { llmStats } from "@/server/llm/report";
@@ -18,15 +18,12 @@ import { probeExternalEndpoints } from "@/server/admin/external-endpoints";
 export async function GET() {
   if (!(await currentAdmin())) return NextResponse.json({ ok: false }, { status: 401 });
   const d = db();
-  const t0 = Math.floor((Date.now() + 8 * 3_600_000) / 86_400_000) * 86_400_000 - 8 * 3_600_000;
+  const nowMs = Date.now();
+  const t0 = Math.floor((nowMs + 8 * 3_600_000) / 86_400_000) * 86_400_000 - 8 * 3_600_000;
   const eps = d.prepare("SELECT k, tier, last_at, ms, status FROM endpoint_metrics ORDER BY last_at DESC").all();
-  const cnt = (sql: string) => (d.prepare(sql).get(t0) as { n: number }).n;
-  const snaps = [
-    { k: "AF raw 信封", n: cnt("SELECT COUNT(*) n FROM af_raw_payloads WHERE fetched_at>=?") },
-    { k: "odds 快照", n: cnt("SELECT COUNT(*) n FROM odds_snapshots WHERE captured_at>=?") },
-    { k: "predictions 快照", n: cnt("SELECT COUNT(*) n FROM predictions_snapshots WHERE captured_at>=?") },
-    { k: "异动事件", n: cnt("SELECT COUNT(*) n FROM movements WHERE t1>=?") },
-  ];
+  const cnt = (sql: string, ...args: unknown[]) => (d.prepare(sql).get(...((args.length ? args : [t0]) as [])) as { n: number }).n;
+  const last = (sql: string, ...args: unknown[]) =>
+    (d.prepare(sql).get(...((args.length ? args : [t0]) as [])) as { m: number | null } | undefined)?.m ?? null;
   const rawAudit = d
     .prepare(
       `SELECT endpoint, COUNT(*) n, MAX(fetched_at) lastAt
@@ -36,8 +33,89 @@ export async function GET() {
        ORDER BY lastAt DESC`,
     )
     .all(t0) as { endpoint: string; n: number; lastAt: number }[];
-  const lastSnap = (d.prepare("SELECT MAX(captured_at) m FROM odds_snapshots").get() as { m: number | null }).m;
-  const gap = lastSnap != null && Date.now() - lastSnap > 30 * 60_000;
+
+  const af = (() => {
+    try {
+      return JSON.parse(kvGet("af_status") || "null");
+    } catch {
+      return null;
+    }
+  })();
+  const baseIntervals = cfgTierIntervals();
+  const effectiveIntervals = cfgEffectiveTierIntervals(af);
+  const emergencyState = cfgEmergencyThrottleState(af);
+
+  const watchedFixtures = fixturesBetween(nowMs - 4 * 3_600_000, nowMs + 14 * 86_400_000).filter((f) => !isFinished(f.status));
+  const expectedMs = watchedFixtures.length
+    ? Math.min(...watchedFixtures.map((f) => {
+        const t = tierFor(f.kickoff_utc, nowMs, f.status);
+        return effectiveIntervals[t.idx] ?? TIERS[t.idx]?.intervalMs ?? 60_000;
+      }))
+    : null;
+  const streamGraceMs = expectedMs == null ? null : Math.max(30 * 60_000, Math.ceil(expectedMs * 2.5));
+  const streamExpected = watchedFixtures.length > 0;
+  const streamStatus = (lastAt: number | null): "连续" | "断档" | "待命" => {
+    if (!streamExpected) return "待命";
+    if (streamGraceMs != null && (lastAt == null || nowMs - lastAt > streamGraceMs)) return "断档";
+    return "连续";
+  };
+  const rawStatus = (lastAt: number | null): "连续" | "断档" | "待命" => {
+    if (lastAt == null) return streamExpected ? "断档" : "待命";
+    if (!streamExpected) return nowMs - lastAt <= 60 * 60_000 ? "连续" : "待命";
+    return streamStatus(lastAt);
+  };
+
+  const rawLast = last("SELECT MAX(fetched_at) m FROM af_raw_payloads WHERE fetched_at>=?");
+  const oddsLast = last(
+    `SELECT MAX(m) m FROM (
+      SELECT MAX(captured_at) m FROM odds_snapshots WHERE captured_at>=?
+      UNION ALL
+      SELECT MAX(captured_at) m FROM live_odds_snapshots WHERE captured_at>=?
+    )`,
+    t0,
+    t0,
+  );
+  const predLast = last("SELECT MAX(captured_at) m FROM predictions_snapshots WHERE captured_at>=?");
+  const moveLast = last("SELECT MAX(t1) m FROM movements WHERE t1>=?");
+  const graceText = streamGraceMs == null ? "当前无应抓赛事" : `当前档位宽限约 ${Math.round(streamGraceMs / 60_000)} 分钟`;
+  const snaps = [
+    {
+      k: "AF raw 信封",
+      n: cnt("SELECT COUNT(*) n FROM af_raw_payloads WHERE fetched_at>=?"),
+      lastAt: rawLast,
+      status: rawStatus(rawLast),
+      note: `AF 原始响应归档;${graceText}`,
+    },
+    {
+      k: "odds 快照",
+      n: cnt(
+        `SELECT (
+          (SELECT COUNT(*) FROM odds_snapshots WHERE captured_at>=?) +
+          (SELECT COUNT(*) FROM live_odds_snapshots WHERE captured_at>=?)
+        ) n`,
+        t0,
+        t0,
+      ),
+      lastAt: oddsLast,
+      status: streamStatus(oddsLast),
+      note: `赛前 odds 与滚球 live odds 快照连续性;${graceText}`,
+    },
+    {
+      k: "predictions 快照",
+      n: cnt("SELECT COUNT(*) n FROM predictions_snapshots WHERE captured_at>=?"),
+      lastAt: predLast,
+      status: predLast ? "有记录" : "待命",
+      note: "预测快照按入窗、每日与开赛前复抓生成,不是连续流",
+    },
+    {
+      k: "异动事件",
+      n: cnt("SELECT COUNT(*) n FROM movements WHERE t1>=?"),
+      lastAt: moveLast,
+      status: moveLast ? "有记录" : "待命",
+      note: "只有盘口或水位发生变化才生成事件,无变化不代表断档",
+    },
+  ];
+  const gap = snaps.some((s) => s.status === "断档");
   const alerts = recentMovements(10).filter((m) => m.sev && m.t1 >= Date.now() - 3_600_000).map((m) => ({
     t: hhmm(m.t1, "UTC+8"),
     x: `${m.home_name} vs ${m.away_name} · ${m.market === "ah" ? "让球" : "大小"} ${m.market === "ah" ? ahText(m.from_line) : ouText(m.from_line)}→${m.market === "ah" ? ahText(m.to_line) : ouText(m.to_line)}`,
@@ -55,7 +133,6 @@ export async function GET() {
     reason: string;
     warnings: string[];
   }[] = [];
-  const nowMs = Date.now();
   const probe = fixturesBetween(nowMs - 2 * 3_600_000, nowMs + 48 * 3_600_000).filter(
     (f) => !["FT", "AET", "PEN", "AWD", "WO"].includes(f.status),
   )[0];
@@ -75,17 +152,6 @@ export async function GET() {
       };
     });
   }
-
-  const af = (() => {
-    try {
-      return JSON.parse(kvGet("af_status") || "null");
-    } catch {
-      return null;
-    }
-  })();
-  const baseIntervals = cfgTierIntervals();
-  const effectiveIntervals = cfgEffectiveTierIntervals(af);
-  const emergencyState = cfgEmergencyThrottleState(af);
 
   return NextResponse.json({
     ok: true, eps, externalEndpoints: await probeExternalEndpoints(), snaps, rawAudit, snapGap: gap, extraMarkets, marketDecision,

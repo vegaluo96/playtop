@@ -29,7 +29,7 @@ export function llmStats(): { configured: boolean; model: string; budget: number
   return { configured: !!cfgLlmKey(), model: cfgLlmModel(), budget: cfgLlmDailyBudget(), ...u };
 }
 
-function fingerprintOf(p: Panorama): string {
+function fingerprintOf(p: Panorama, templateSecs?: ReportSection[]): string {
   const last = (s: { line: number | null; h: number; a: number }[]) => {
     const r = s[s.length - 1];
     return r ? [r.line, r.h, r.a] : null;
@@ -43,6 +43,7 @@ function fingerprintOf(p: Panorama): string {
         p.bundle?.lineups ? (p.bundle.lineups as unknown[]).length : 0,
         p.injuries.length,
         p.fixture.status,
+        templateSecs?.map((s) => [s.h, s.ps]) ?? null,
       ]),
     )
     .digest("hex");
@@ -128,7 +129,7 @@ export async function getLlmReport(p: Panorama, templateSecs: ReportSection[]): 
   if (!cfgLlmKey()) return null;
   const d = db();
   const fid = p.fixture.fixture_id;
-  const fp = fingerprintOf(p);
+  const fp = fingerprintOf(p, templateSecs);
   const cached = d.prepare("SELECT fingerprint, content, model FROM report_cache WHERE fixture_id = ?").get(fid) as
     | { fingerprint: string; content: string; model: string }
     | undefined;

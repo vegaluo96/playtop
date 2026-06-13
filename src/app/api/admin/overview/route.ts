@@ -8,6 +8,7 @@ import { kvGet } from "@/server/af/store";
 import { llmStats } from "@/server/llm/report";
 import { readLlmBalance } from "@/server/llm/client";
 import { cfgRechargeMaintenance } from "@/server/platform/config";
+import { parseJsonSafe } from "@/server/platform/safe-json";
 
 const TZ8 = 8 * 3_600_000;
 const dayStartMs = (offset = 0) => Math.floor((Date.now() + TZ8) / 86_400_000 - offset) * 86_400_000 - TZ8;
@@ -77,12 +78,19 @@ export async function GET() {
   const bal = readLlmBalance();
   if (bal?.error) alerts.push("大模型余额查询失败,请检查余额查询密钥");
   else if (bal?.usd != null && bal.usd < 100) alerts.push(`大模型余额不足($${bal.usd})`);
-  const pc = JSON.parse(kvGet("last_platform_check") || "null") as { at: number; fail: number } | null;
+  const pc = parseJsonSafe<{ at: number; fail: number } | null>(kvGet("last_platform_check"), null);
   if (!pc || Date.now() - pc.at > 24 * 3_600_000) alerts.push("超过 24h 未运行平台体检");
   else if (pc.fail > 0) alerts.push(`平台体检存在 ${pc.fail} 个失败项,详见系统设置`);
 
-  const af = JSON.parse(kvGet("af_status") || "null");
-  const snapsToday = one("SELECT COUNT(*) v FROM odds_snapshots WHERE captured_at>=?", t0).v ?? 0;
+  const af = parseJsonSafe(kvGet("af_status"), null);
+  const snapsToday = one(
+    `SELECT (
+      (SELECT COUNT(*) FROM odds_snapshots WHERE captured_at>=?) +
+      (SELECT COUNT(*) FROM live_odds_snapshots WHERE captured_at>=?)
+    ) v`,
+    t0,
+    t0,
+  ).v ?? 0;
   const rechargePaused = cfgRechargeMaintenance() || !demoRechargeEnabled();
 
   return NextResponse.json({

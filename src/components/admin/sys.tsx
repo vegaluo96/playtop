@@ -150,6 +150,7 @@ export function DataMonView() {
   }, [load]);
   if (!v) return <div style={{ color: "var(--fg-3)", fontSize: 12, padding: 40, textAlign: "center" }}>加载中…</div>;
   const statusColor = (s: string) => (s === "正常" ? "var(--green)" : s === "慢" ? "var(--gold)" : "var(--red)");
+  const snapStatusColor = (s: string) => (s === "断档" ? "var(--red)" : s === "连续" || s === "有记录" ? "var(--green)" : "var(--fg-3)");
   const intervalText = (ms: number) => (ms >= 3_600_000 ? `巡检 / ${Math.round(ms / 3_600_000)}h` : ms < 60_000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60_000)} min`);
   const emergency = v.emergencyState ?? { manual: v.emergency, auto: false, active: v.emergency, pct: null };
   const shortUrl = (url: string) => {
@@ -182,7 +183,7 @@ export function DataMonView() {
                 <span style={{ fontSize: 11, fontWeight: 800, textAlign: "center", color: statusColor(e.status) }}>{e.status}</span>
               </AGrid>
             ))}
-            <div style={{ padding: "9px 14px", fontSize: 11, color: "var(--fg-3)" }}>API-Football 主数据源抓取链路;只展示 worker 实际调度和回源状态。</div>
+            <div style={{ padding: "9px 14px", fontSize: 11, color: "var(--fg-3)" }}>AF 主数据源抓取链路;只展示 worker 实际调度和回源状态。</div>
           </ACard>
           <ACard title="其他端点" pad={false}>
             <AGrid cols="1fr 96px 92px 64px 64px" head>
@@ -210,10 +211,11 @@ export function DataMonView() {
               <div key={s.k} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid var(--line-soft)" }}>
                 <span className="mono" style={{ flex: 1, fontSize: 11 }}>{s.k}</span>
                 <span className="mono" style={{ fontSize: 11, fontWeight: 700 }}>{s.n.toLocaleString()} 条</span>
-                <span style={{ fontSize: 11, fontWeight: 800, color: v.snapGap ? "var(--red)" : "var(--green)" }}>{v.snapGap ? "断档" : "连续"}</span>
+                <span className="mono" style={{ width: 40, fontSize: 11, color: "var(--fg-3)", textAlign: "right" }}>{s.lastAt ? fmtT(s.lastAt).slice(6) : "—"}</span>
+                <span title={s.note} style={{ width: 38, fontSize: 11, fontWeight: 800, textAlign: "right", color: snapStatusColor(s.status) }}>{s.status}</span>
               </div>
             ))}
-            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>断档 &gt;30min 自动告警;盘路/战绩依赖归档连续性</div>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>只在存在应抓赛事且超过当前档位宽限未入库时标断档;预测与异动不是连续流。</div>
             <div style={{ borderTop: "1px solid var(--line-soft)", paddingTop: 8, marginTop: 8 }}>
               <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 4 }}>扩展玩法解析(最近未完场样本)</div>
               <div style={{ fontSize: 11.5, lineHeight: 1.6, color: v.extraMarkets ? "var(--green)" : "var(--fg-3)" }}>
@@ -258,7 +260,7 @@ export function DataMonView() {
               </div>
             ))}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0 0" }}>
-              <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>紧急降频模式(手动或配额 &gt;85% 自动)</span>
+              <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>紧急降频模式(手动或配额 ≥95% 自动)</span>
               <span
                 onClick={async () => {
                   if (!await aConfirm(`手动紧急降频 → ${emergency.manual ? "关" : "开"}(全档位 ×2; 自动触发不受此开关影响)`)) return;
@@ -271,7 +273,7 @@ export function DataMonView() {
               </span>
             </div>
             <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>
-              {emergency.active ? `当前实际全档位 ×2${emergency.auto && emergency.pct != null ? ` · AF 已用 ${emergency.pct}%` : ""}` : "未触发;AF 日配额超过 85% 时自动生效"}。改动即时下发调度器并写审计;滚球两档可低至 5s,其余档下限 1 min
+              {emergency.active ? `当前实际全档位 ×2${emergency.auto && emergency.pct != null ? ` · AF 已用 ${emergency.pct}%` : ""}` : "未触发;85% 只提醒观察,95% 才自动保护"}。改动即时下发调度器并写审计;滚球两档可低至 5s,其余档下限 1 min
             </div>
           </ACard>
           <ACard title="AI 报告服务" right={<span style={{ fontSize: 11, fontWeight: 700, color: v.llm.configured ? "var(--green)" : "var(--fg-3)" }}>{v.llm.configured ? "运行正常" : "模板模式"}</span>}>
@@ -384,9 +386,9 @@ export function SettingsView() {
         系统设置 <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>· 密钥仅存服务端,后台不回显明文;每次更新写入审计日志</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "start" }}>
-        <ACard title="API-Football 密钥" right={<span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: v.af.connected ? "var(--green)" : "var(--red)", fontWeight: 700 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: v.af.connected ? "var(--green)" : "var(--red)" }} />{v.af.connected ? "已配置" : "未配置"}</span>}>
+        <ACard title="AF 密钥" right={<span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: v.af.connected ? "var(--green)" : "var(--red)", fontWeight: 700 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: v.af.connected ? "var(--green)" : "var(--red)" }} />{v.af.connected ? "已配置" : "未配置"}</span>}>
           <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 6 }}>API_FOOTBALL_KEY</div>
-          <KeyRow masked={v.af.masked} which="af_key" label="API-Football 密钥" />
+          <KeyRow masked={v.af.masked} which="af_key" label="AF 密钥" />
           <Row k="套餐(/status)" val={v.af.status ? `${v.af.status.plan ?? "—"} · ${v.af.status.limit?.toLocaleString() ?? "—"} req/日` : "—"} />
           <Row k="今日已用" val={v.af.status?.current != null ? `${v.af.status.current.toLocaleString()}(${v.af.status.limit ? Math.round((v.af.status.current / v.af.status.limit) * 100) : "—"}%)` : "—"} />
           <Row
@@ -408,7 +410,7 @@ export function SettingsView() {
         </ACard>
         <ACard title="大模型密钥(AI 报告)" right={<span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: v.llm.usage.configured ? "var(--green)" : "var(--fg-3)", fontWeight: 700 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: v.llm.usage.configured ? "var(--green)" : "var(--fg-3)" }} />{v.llm.usage.configured ? "已连接" : "模板模式"}</span>}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <span style={{ fontSize: 11, color: "var(--fg-2)" }}>服务商:API易(apiyi.com)聚合网关</span>
+            <span style={{ fontSize: 11, color: "var(--fg-2)" }}>服务商:聚合网关</span>
             <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: v.llm.balanceDetail?.error ? "var(--gold)" : v.llm.balance != null && v.llm.balance < 100 ? "var(--red)" : "var(--green)" }}>
               {v.llm.balanceDetail?.error
                 ? "余额查询失败"

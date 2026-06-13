@@ -203,12 +203,14 @@ async function searchEvents(query: string): Promise<unknown[]> {
 export async function findPolymarketSignal(
   homeName: string,
   awayName: string,
-  opts: { kickoffAt?: number | null } = {},
+  opts: { kickoffAt?: number | null; fixtureId?: number | null } = {},
 ): Promise<PublicMarketSignal> {
-  const key = `poly:${norm(homeName)}:${norm(awayName)}`;
+  const legacyKey = `poly:${norm(homeName)}:${norm(awayName)}`;
+  const key = opts.fixtureId ? `poly:fx:${opts.fixtureId}:${norm(homeName)}:${norm(awayName)}` : legacyKey;
   if (opts.kickoffAt != null && Date.now() >= opts.kickoffAt) {
-    const raw = kvGet(key);
-    if (raw) {
+    const raws = [kvGet(key), key === legacyKey ? null : kvGet(legacyKey)];
+    for (const raw of raws) {
+      if (!raw) continue;
       try {
         const cached = JSON.parse(raw) as { data?: PublicMarketSignal };
         if (cached.data?.capturedAt && cached.data.capturedAt < opts.kickoffAt) return cached.data;

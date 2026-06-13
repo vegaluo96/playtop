@@ -45,7 +45,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=3600" },
     });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "拉取失败" }, { status: 502 });
+    console.warn(`player view ${pid} failed`, e);
+    return NextResponse.json({ ok: false, error: "球员资料源暂不可用,请稍后重试" }, { status: 502 });
   }
 }
 

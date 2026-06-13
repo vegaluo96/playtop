@@ -23,12 +23,21 @@ describe("AF fetch interval throttling", () => {
     expect(effective).toEqual(base.map((ms) => ms * 2));
   });
 
-  it("auto-throttles when AF daily quota usage is over 85%", () => {
+  it("warns at 85% quota usage without auto-throttling", () => {
     kvSet("af_status", JSON.stringify({ current: 86, limit: 100 }));
     const base = cfgTierIntervals();
     const state = cfgEmergencyThrottleState();
 
-    expect(state).toMatchObject({ manual: false, auto: true, active: true, pct: 86 });
+    expect(state).toMatchObject({ manual: false, auto: false, active: false, pct: 86 });
+    expect(cfgEffectiveTierIntervals()).toEqual(base);
+  });
+
+  it("auto-throttles when AF daily quota usage reaches 95%", () => {
+    kvSet("af_status", JSON.stringify({ current: 95, limit: 100 }));
+    const base = cfgTierIntervals();
+    const state = cfgEmergencyThrottleState();
+
+    expect(state).toMatchObject({ manual: false, auto: true, active: true, pct: 95 });
     expect(cfgEffectiveTierIntervals()).toEqual(base.map((ms) => ms * 2));
   });
 });

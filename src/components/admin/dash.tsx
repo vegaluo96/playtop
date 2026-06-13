@@ -21,6 +21,7 @@ export function DashView() {
   const maxRev = Math.max(...v.week.map((w: V) => w.rev), 1);
   const maxReg = Math.max(...v.week.map((w: V) => w.reg), 1);
   const afPct = v.af?.limit ? Math.round((v.af.current / v.af.limit) * 100) : null;
+  const afColor = afPct == null ? "var(--green)" : afPct >= 95 ? "var(--red)" : afPct >= 85 ? "var(--gold)" : "var(--green)";
   const llmPct = v.llm.budget ? Math.round((v.llm.tokens / v.llm.budget) * 100) : 0;
 
   return (
@@ -73,7 +74,7 @@ export function DashView() {
             {v.af?.current?.toLocaleString() ?? "—"} <span style={{ fontSize: 11, color: "var(--fg-3)", fontWeight: 400 }}>/ {v.af?.limit?.toLocaleString() ?? "—"} req</span>
           </div>
           <div style={{ height: 7, background: "var(--inset)", borderRadius: 4, overflow: "hidden", margin: "8px 0" }}>
-            <div style={{ height: "100%", background: afPct != null && afPct > 85 ? "var(--red)" : "var(--green)", width: `${afPct ?? 0}%` }} />
+            <div style={{ height: "100%", background: afColor, width: `${afPct ?? 0}%` }} />
           </div>
           <div style={{ fontSize: 11, color: "var(--fg-2)", lineHeight: 1.7 }}>{afPct != null ? `已用 ${afPct}%` : "等待 worker 上报 /status"}</div>
           <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 9, paddingTop: 8, display: "flex", justifyContent: "space-between" }}>

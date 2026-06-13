@@ -71,6 +71,8 @@ export function cfgTierIntervals(): number[] {
   return v.length === def.length ? v.map((ms, i) => Math.max(ms, i >= def.length - 2 ? 5_000 : 60_000)) : def;
 }
 export const cfgEmergencyThrottle = () => num("emergency_throttle", 0) === 1;
+export const AF_QUOTA_WARN_PCT = 0.85;
+export const AF_QUOTA_AUTO_THROTTLE_PCT = 0.95;
 
 export interface AfQuotaStatus {
   current?: number | null;
@@ -92,7 +94,7 @@ export function cfgEmergencyThrottleState(input?: AfQuotaStatus | null) {
   const current = Number(st?.current);
   const limit = Number(st?.limit);
   const pct = Number.isFinite(current) && Number.isFinite(limit) && limit > 0 ? current / limit : null;
-  const auto = pct != null && pct > 0.85;
+  const auto = pct != null && pct >= AF_QUOTA_AUTO_THROTTLE_PCT;
   return {
     manual,
     auto,

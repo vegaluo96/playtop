@@ -4,7 +4,7 @@
  * 桌面三栏终端(≥1080px):左选场 → 中深读 → 右盯流。
  * 与移动端共享 token、数据契约与商业规则,仅视图层分叉。
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { f2, hhmm, mdLabel, parseTzOffset } from "@/lib/format";
@@ -21,6 +21,7 @@ import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
 import { MarketValue } from "@/components/market-cell";
 import { ProbBar } from "@/components/charts";
+import { SearchAction, type SearchItem } from "@/components/page-search";
 import {
   MOVE_FILTERS,
   moveArrowStyle,
@@ -227,6 +228,32 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
     setTab("odds");
   };
 
+  const desktopSearchItems = useMemo<SearchItem[]>(
+    () => [
+      ...rows.map((m: V) => ({
+        id: `match-${m.id}`,
+        title: `${m.home} vs ${m.away}`,
+        subtitle: `${leagueZh(m.leagueId, m.leagueName)} · ${hhmm(m.kickoff, prefs.tz)}`,
+        meta: [m.ah?.text, m.ou?.text, m.score].filter(Boolean).join(" · "),
+        badge: m.live ? "滚球" : m.finished ? "赛果" : "赛事",
+        section: "赛事",
+        keywords: [m.id, m.home, m.away, m.leagueName, leagueZh(m.leagueId, m.leagueName), m.ah?.text, m.ou?.text, m.score],
+        onSelect: () => (m.masked ? router.push("/login") : gotoMatchOdds(m.id)),
+      })),
+      ...moves.slice(0, 80).map((m: V) => ({
+        id: `move-${m.id}`,
+        title: m.match,
+        subtitle: `${m.t} · ${m.mkFull ?? m.mk} · ${m.type}`,
+        meta: [m.bk, m.note].filter(Boolean).join(" · "),
+        badge: m.live ? "滚球" : m.sev ? "急变" : "异动",
+        section: "异动",
+        keywords: [m.fixtureId, m.match, m.league, m.mk, m.mkFull, m.bk, m.type, m.note, m.from, m.to, m.water, m.waterLabel],
+        onSelect: () => (m.masked ? router.push("/login") : setModal({ kind: "move", data: m })),
+      })),
+    ],
+    [moves, prefs.tz, rows, router],
+  );
+
   const X = "-.--";
 
   return (
@@ -255,10 +282,10 @@ export function Terminal({ initialMatchId, initialTab, initialDrawer }: { initia
             <span className="mono" style={{ color: radar.length > 0 ? "var(--red)" : "var(--fg-3)" }}>{radar.length}/{moves.length}</span>
           </button>
         )}
-        {/* 与移动端页头同构:右上角只保留连接状态,点击打开刷新规则 */}
-        <span onClick={() => setModal({ kind: "refresh" })} style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0, cursor: "pointer", minHeight: 24 }}>
-          <HeartBeat lastAt={lastAt} intervalMs={10_000} workerAt={workerAt} />
+        <span onClick={() => setModal({ kind: "refresh" })} style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0, cursor: "pointer", minHeight: 24, fontSize: 11.5, fontWeight: 800, color: "var(--fg-2)" }}>
+          刷新规则 ›
         </span>
+        <SearchAction title="搜索终端" placeholder="球队 / 联赛 / 玩法 / 比赛 ID" hint={`${desktopSearchItems.length} 条可搜索`} scopeLabel="当前终端" emptyText="没有匹配记录" items={desktopSearchItems} />
         {me.loggedIn ? (
           <span onClick={() => setDrawer(true)} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "5px 10px", borderRadius: 8, border: "1px solid var(--line)" }}>
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--fg-2)" strokeWidth="1.7" strokeLinecap="round">

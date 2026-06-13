@@ -13,7 +13,7 @@
 import { loadEnvFile } from "../src/server/env-file";
 loadEnvFile();
 import { afGet, afGetAllPages } from "../src/server/af/client";
-import { isFinished, isLive, LIVE_TIER, tierFor } from "../src/server/af/schedule";
+import { isFinished, isLive, LIVE_TIER, tierFor, TIERS } from "../src/server/af/schedule";
 import {
   archiveAfRawPayload,
   archiveOdds,
@@ -28,7 +28,7 @@ import {
   settleFixture,
   upsertFixture,
 } from "../src/server/af/store";
-import { cfgEffectiveTierIntervals, cfgFollowedIds } from "../src/server/platform/config";
+import { AF_QUOTA_WARN_PCT, cfgEffectiveTierIntervals, cfgEmergencyThrottleState, cfgFollowedIds } from "../src/server/platform/config";
 import { dailyReadonlyCheck } from "../src/server/selfcheck";
 import { fetchLlmBalance } from "../src/server/llm/client";
 import { archiveLiveOdds, pruneLiveData } from "../src/server/af/live-store";
@@ -37,8 +37,10 @@ import { recordDiagnosticIssue } from "../src/server/af/diagnostics";
 import { synthFromFixture } from "../src/server/af/events-synth";
 import { refreshFixtureDetailsFromAf } from "../src/server/af/fixture-details";
 import { getLlmReport, shouldPregenReport } from "../src/server/llm/report";
-import { buildReport } from "../src/server/views/report";
+import { buildReport, buildReportSummary } from "../src/server/views/report";
+import { buildReportSignals } from "../src/server/views/report-signals";
 import { matchPanorama } from "../src/server/af/panorama";
+import { findPolymarketSignal } from "../src/server/external/polymarket";
 import { drainNameQueue } from "../src/server/views/names";
 import { db, tx } from "../src/server/db";
 import { endpointHealthStatus } from "../src/server/admin/monitoring";
@@ -50,9 +52,9 @@ function FOLLOWED(): number[] {
   return (process.env.FOLLOWED_LEAGUES || "39,140,78,135,61,2,3,1").split(",").map((x) => Number(x.trim())).filter(Boolean);
 }
 
-/** 有效抓取间隔:后台可调分层 + 紧急降频(手动开关或配额>85% 自动,×2) */
+/** 有效抓取间隔:后台可调分层 + 紧急降频(手动开关或配额≥95% 自动,×2) */
 function effIntervalMs(tierIdx: number): number {
-  return cfgEffectiveTierIntervals()[tierIdx];
+  return cfgEffectiveTierIntervals()[tierIdx] ?? TIERS[tierIdx]?.intervalMs ?? 60_000;
 }
 
 /** 端点健康上报(后台「数据与模型监控」) */
@@ -80,6 +82,9 @@ const TZ8 = 8 * H;
 const FINAL_DETAIL_LOOKBACK_MS = 6 * H;
 const FINAL_DETAIL_RETRY_MS = 10 * 60_000;
 const FINAL_DETAIL_MAX_RUNS = 3;
+const STATUS_BASE_MS = 10 * 60_000;
+const STATUS_NEAR_LIMIT_MS = 3 * 60_000;
+const STATUS_DANGER_MS = 60_000;
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 let lastCallAt = 0;
@@ -91,6 +96,45 @@ async function paced<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 const day8 = (nowMs: number, offset = 0) => new Date(nowMs + TZ8 + offset * 86_400_000).toISOString().slice(0, 10);
+
+function quotaPctFromStatus(): number | null {
+  const st = cfgEmergencyThrottleState();
+  return st.pct == null ? null : st.pct;
+}
+
+function statusPollIntervalMs(): number {
+  const pct = quotaPctFromStatus();
+  if (pct == null) return STATUS_BASE_MS;
+  if (pct >= AF_QUOTA_WARN_PCT * 100) return STATUS_DANGER_MS;
+  if (pct >= 70) return STATUS_NEAR_LIMIT_MS;
+  return STATUS_BASE_MS;
+}
+
+async function refreshAfStatus(now: number): Promise<void> {
+  let last = 0;
+  try {
+    const raw = kvGet("af_status");
+    last = raw ? Number((JSON.parse(raw) as { at?: number }).at) || 0 : 0;
+  } catch {
+    last = 0;
+  }
+  if (now - last < statusPollIntervalMs()) return;
+  try {
+    const env = await paced(() => tracked("status", "配额监控", () => afGet("/status", { force: true })));
+    const r = (env.response ?? {}) as { subscription?: { plan?: string }; requests?: { current?: number; limit_day?: number } };
+    kvSet("af_status", JSON.stringify({ plan: r.subscription?.plan, current: r.requests?.current, limit: r.requests?.limit_day, at: Date.now() }));
+  } catch (e) {
+    log(`/status 失败:${msg(e)}`);
+  }
+}
+
+function liveDetailIntervalMs(): number {
+  return cfgEmergencyThrottleState().active ? 120_000 : 60_000;
+}
+
+function livePlayersIntervalMs(): number {
+  return cfgEmergencyThrottleState().active ? 10 * 60_000 : 5 * 60_000;
+}
 
 const lastOdds = new Map<number, number>();
 const lastHalf = new Map<number, number>();
@@ -130,6 +174,8 @@ async function refreshDayFixtures(date: string): Promise<void> {
 }
 
 async function tickLive(now: number): Promise<void> {
+  const detailMs = liveDetailIntervalMs();
+  const playerMs = livePlayersIntervalMs();
   const window = fixturesBetween(now - 4 * H, now + 5 * 60_000).filter(
     (f) => !isFinished(f.status) && f.kickoff_utc <= now + 5 * 60_000,
   );
@@ -162,10 +208,10 @@ async function tickLive(now: number): Promise<void> {
   // 半场拆分统计(half=true,每场 60s 一拉,存 kv 供技术面「半场拆分」容器)
   for (const f of lives) {
     const last = lastHalf.get(f.fixture_id) ?? 0;
-    if (now - last >= 60_000) {
+    if (now - last >= detailMs) {
       lastHalf.set(f.fixture_id, now);
       try {
-        const env = await paced(() => tracked("fixtures.statistics (half)", "滚球 60s", () => afGet(`/fixtures/statistics?fixture=${f.fixture_id}&half=true`, { force: true })));
+        const env = await paced(() => tracked("fixtures.statistics (half)", `滚球 ${Math.round(detailMs / 1000)}s`, () => afGet(`/fixtures/statistics?fixture=${f.fixture_id}&half=true`, { force: true })));
         if (Array.isArray(env.response) && env.response.length > 0) {
           kvSet(`fx:${f.fixture_id}:stats_half`, JSON.stringify({ at: Date.now(), data: env.response }));
         }
@@ -177,13 +223,13 @@ async function tickLive(now: number): Promise<void> {
   // 单场详情独立端点补抓:不依赖 /fixtures?id 是否携带 events/statistics/lineups/players。
   for (const f of lives) {
     const last = lastDetail.get(f.fixture_id) ?? 0;
-    if (now - last >= 60_000) {
+    if (now - last >= detailMs) {
       lastDetail.set(f.fixture_id, now);
-      await refreshFixtureDetails(f.fixture_id, "滚球详情 60s", {
+      await refreshFixtureDetails(f.fixture_id, `滚球详情 ${Math.round(detailMs / 1000)}s`, {
         events: true,
         statistics: true,
         lineups: true,
-        players: Math.floor(now / 300_000) !== Math.floor(last / 300_000),
+        players: Math.floor(now / playerMs) !== Math.floor(last / playerMs),
       }).catch((e) => log(`fixture details ${f.fixture_id} 失败:${msg(e)}`));
     }
   }
@@ -278,7 +324,13 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
     try {
       const p = await matchPanorama(fxId);
       if (p) {
-        const { secs } = buildReport(p);
+        const ps = buildReportSummary(p);
+        const market = await findPolymarketSignal(p.fixture.home_name, p.fixture.away_name, {
+          fixtureId: p.fixture.fixture_id,
+          kickoffAt: p.fixture.kickoff_utc,
+        });
+        const signals = buildReportSignals(ps, p.odds, market, p);
+        const { secs } = buildReport(p, signals);
         const r = await getLlmReport(p, secs);
         if (r) log(`报告预生成:${f.home_name} vs ${f.away_name}(${r.by})`);
       }
@@ -302,6 +354,17 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
       }
     } catch (e) {
       log(`predictions ${fxId} 失败:${msg(e)}`);
+    }
+  }
+  // 赛前预测市场快照:开赛后只使用赛前缓存,避免赛后价格污染。
+  const polyBucket = minsTo > 0 && minsTo <= 5 ? "t5m" : minsTo > 0 && minsTo <= 60 ? "t60m" : minsTo > 0 && minsTo <= 120 ? "t120m" : null;
+  if (polyBucket) {
+    const key = `poly_prefetch:${fxId}:${polyBucket}`;
+    if (!kvGet(key)) {
+      kvSet(key, String(now));
+      await findPolymarketSignal(f.home_name, f.away_name, { fixtureId: fxId, kickoffAt: f.kickoff_utc }).catch((e) =>
+        log(`polymarket ${fxId} 失败:${msg(e)}`),
+      );
     }
   }
   // 首发:T-60 起每 5min 拉 AF 独立 lineups 端点,拿到即停
@@ -341,6 +404,7 @@ function log(s: string): void {
 
 async function cycle(): Promise<void> {
   const now = Date.now();
+  await refreshAfStatus(now);
   // 初盘容器:AF 赛前赔率覆盖开赛前 1–14 天,赛程提前 14 天入库、赔率随分层从入窗起归档,
   // 「首帧」从此≈真实初盘
   for (let d = 0; d <= 13; d++) await refreshDayFixtures(day8(now, d));
@@ -354,17 +418,10 @@ async function cycle(): Promise<void> {
   const horizon = fixturesBetween(now - 4 * H, now + 14 * 24 * H);
   for (const f of horizon) await tickFixture(f.fixture_id, now);
   settleAndDailyFree(now);
-  // 每小时:AF 配额(/status)与 LLM 余额(<\$100 由看板告警)
+  // 每小时:LLM 余额(<\$100 由看板告警)
   const hourKey = `hourly:${new Date(now).toISOString().slice(0, 13)}`;
   if (!kvGet(hourKey)) {
     kvSet(hourKey, "1");
-    try {
-      const env = await paced(() => tracked("status", "每小时", () => afGet("/status", { force: true })));
-      const r = (env.response ?? {}) as { subscription?: { plan?: string }; requests?: { current?: number; limit_day?: number } };
-      kvSet("af_status", JSON.stringify({ plan: r.subscription?.plan, current: r.requests?.current, limit: r.requests?.limit_day, at: Date.now() }));
-    } catch (e) {
-      log(`/status 失败:${msg(e)}`);
-    }
     await fetchLlmBalance().catch(() => null);
   }
   // 每 10 分钟清一次译名队列(队列空则零成本;球员名靠它补齐,不能等每小时)

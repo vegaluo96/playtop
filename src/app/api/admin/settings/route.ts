@@ -10,15 +10,16 @@ import { chatComplete, fetchLlmBalance, readLlmBalance } from "@/server/llm/clie
 import { kvGet, kvSet } from "@/server/af/store";
 import { checkApi, checkReadonly, formatReport, summarize } from "@/server/selfcheck";
 import { llmStats } from "@/server/llm/report";
+import { parseJsonSafe } from "@/server/platform/safe-json";
+
+type LastSelftest = { at?: number; ok?: number; empty?: number; error?: number; skipped?: number; total?: number; reachable?: number } | null;
 
 export async function GET() {
   const admin = await currentAdmin();
   if (!admin) return NextResponse.json({ ok: false }, { status: 401 });
   const members = db().prepare("SELECT email, role, status FROM admins ORDER BY created_at").all();
   const llmBalance = readLlmBalance();
-  const lastSelftestRaw = JSON.parse(kvGet("last_selftest") || "null") as
-    | { at?: number; ok?: number; empty?: number; error?: number; skipped?: number; total?: number; reachable?: number }
-    | null;
+  const lastSelftestRaw = parseJsonSafe<LastSelftest>(kvGet("last_selftest"), null);
   const lastSelftest = lastSelftestRaw
     ? (() => {
         const ok = Number(lastSelftestRaw.ok) || 0;
@@ -32,7 +33,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     role: admin.role,
-    af: { masked: maskKey(cfgAfKey()), connected: !!cfgAfKey(), status: JSON.parse(kvGet("af_status") || "null"), lastSelftest },
+    af: { masked: maskKey(cfgAfKey()), connected: !!cfgAfKey(), status: parseJsonSafe(kvGet("af_status"), null), lastSelftest },
     llm: {
       keyMasked: maskKey(cfgLlmKey()), balanceKeyMasked: maskKey(cfgLlmBalanceKey()),
       base: cfgLlmBase(), model: cfgLlmModel(), budget: cfgLlmDailyBudget(),
