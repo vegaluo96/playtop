@@ -33,10 +33,18 @@ const EMPTY_AF_TTL_MS = 30 * 60_000;
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 /* ── 指数走势:全序列 → 变盘点行 + 折线采样 ── */
-/** 序列跨天时时间标注带日期(纯 HH:mm 会显得「时间倒流」) */
+/** 序列首尾跨天?(跨天时间标注需带日期,纯 HH:mm 会显得「时间倒流」) */
+function spansDays(series: SnapRow[], tz: string): boolean {
+  return series.length > 1 && dateStr(series[0].captured_at, tz) !== dateStr(series[series.length - 1].captured_at, tz);
+}
+
+/** 跨天 → 「MM-DD 时间」,否则纯时间;fmt 取 hhmm 或 hhmmss */
+function spanFormatter(spanDay: boolean, tz: string, fmt: (at: number, tz: string) => string): (at: number) => string {
+  return (at) => (spanDay ? `${dateStr(at, tz).slice(5)} ${fmt(at, tz)}` : fmt(at, tz));
+}
+
 function tLabelOf(series: SnapRow[], tz: string): (at: number) => string {
-  const spanDay = series.length > 1 && dateStr(series[0].captured_at, tz) !== dateStr(series[series.length - 1].captured_at, tz);
-  return (at) => (spanDay ? `${dateStr(at, tz).slice(5)} ${hhmm(at, tz)}` : hhmm(at, tz));
+  return spanFormatter(spansDays(series, tz), tz, hhmm);
 }
 
 function hhmmss(utcMs: number, tz: string): string {
@@ -45,13 +53,13 @@ function hhmmss(utcMs: number, tz: string): string {
   return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
 }
 
+/** 同分钟标注重复时降到秒级,避免预览表多行同名 */
 function visibleTimeLabelOf(series: SnapRow[], visible: SnapRow[], tz: string): (at: number) => string {
   const base = tLabelOf(series, tz);
   const labels = visible.map((s) => base(s.captured_at));
   const hasDuplicateMinute = labels.some((label, i) => labels.indexOf(label) !== i);
   if (!hasDuplicateMinute) return base;
-  const spanDay = series.length > 1 && dateStr(series[0].captured_at, tz) !== dateStr(series[series.length - 1].captured_at, tz);
-  return (at) => (spanDay ? `${dateStr(at, tz).slice(5)} ${hhmmss(at, tz)}` : hhmmss(at, tz));
+  return spanFormatter(spansDays(series, tz), tz, hhmmss);
 }
 
 function latestQuoteRows(series: SnapRow[], max = 3): { row: SnapRow; index: number }[] {
@@ -59,10 +67,16 @@ function latestQuoteRows(series: SnapRow[], max = 3): { row: SnapRow; index: num
   return series.slice(start).map((row, i) => ({ row, index: start + i }));
 }
 
-export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
-  if (series.length === 0) return { rows: [], chart: [] };
+/** seriesRows/euRows 公共前导:取最近 max 帧 + 跨天/同分钟感知的时间标注器 */
+function selectWithLabel(series: SnapRow[], tz: string): { selected: { row: SnapRow; index: number }[]; tl: (at: number) => string } {
   const selected = latestQuoteRows(series);
   const tl = visibleTimeLabelOf(series, selected.map((r) => r.row), tz);
+  return { selected, tl };
+}
+
+export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
+  if (series.length === 0) return { rows: [], chart: [] };
+  const { selected, tl } = selectWithLabel(series, tz);
   const rows = selected.map(({ row: s, index }) => {
     const prev = index > 0 ? series[index - 1] : null;
     return {
@@ -84,8 +98,7 @@ export function seriesRows(series: SnapRow[], market: "ah" | "ou", tz: string) {
 }
 
 export function euRows(series: SnapRow[], tz: string) {
-  const selected = latestQuoteRows(series);
-  const tl = visibleTimeLabelOf(series, selected.map((r) => r.row), tz);
+  const { selected, tl } = selectWithLabel(series, tz);
   return selected.map(({ row: s }) => ({
     t: tl(s.captured_at),
     h: f2(s.h),

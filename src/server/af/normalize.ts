@@ -151,7 +151,10 @@ function parseAh(bet: AfBet, euHint: { h: number; a: number } | null, bm: AfBook
     return pairs;
   };
   const score = (pairs: AhPair[]) => {
-    const sane = pairs.filter((p) => pairMargin(p.decH, p.decA) >= MARGIN_LO && pairMargin(p.decH, p.decA) <= MARGIN_HI);
+    const sane = pairs.filter((p) => {
+      const m = pairMargin(p.decH, p.decA);
+      return m >= MARGIN_LO && m <= MARGIN_HI;
+    });
     const dev = sane.length > 0 ? sane.reduce((s, p) => s + Math.abs(pairMargin(p.decH, p.decA) - 1.06), 0) / sane.length : Infinity;
     return { sane, dev };
   };
