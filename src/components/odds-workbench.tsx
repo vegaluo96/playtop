@@ -208,7 +208,7 @@ export function OddsCompareMatrix({
       })}
       {isEu && euMeta && (
         <div style={{ padding: compact ? "8px 10px" : "9px 12px", borderTop: "1px solid var(--line)", color: "var(--fg-3)", fontSize: compact ? 10.5 : 11.5, lineHeight: 1.5 }}>
-          市场分歧 {euMeta.disp} · {euMeta.books} 家 · {euMeta.method}
+          市场分歧 主 {euMeta.disp?.h ?? "—"} / 平 {euMeta.disp?.d ?? "—"} / 客 {euMeta.disp?.a ?? "—"} · {euMeta.books} 家 · {euMeta.method}
         </div>
       )}
     </div>
