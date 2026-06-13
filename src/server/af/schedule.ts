@@ -27,6 +27,8 @@ export const TIERS: Tier[] = [
 ];
 /** 滚球档下标(临场两档 6/7 允许低至 5s) */
 export const LIVE_TIER = 7;
+/** 完场不是赛前档位;仅用于详情页/弹层高亮,不参与 worker 调度 */
+export const FINISHED_TIER = -1;
 
 /** 间隔毫秒 → 人话频率(后台「数据与模型监控」可调档,用户端展示必须与实际生效值同源) */
 export function fmtFreq(ms: number): string {
@@ -72,7 +74,7 @@ export function tierFor(kickoffUtcMs: number, nowMs: number, status: string): Ti
 export function freshLine(kickoffUtcMs: number, nowMs: number, status: string, intervals?: number[]): { idx: number; line: string; freq: string; intervalMs: number } {
   const iv = (i: number) => intervals?.[i] ?? TIERS[i].intervalMs;
   if (isLive(status)) return { idx: LIVE_TIER, line: `滚球数据 · ${fmtFreq(iv(LIVE_TIER))}刷新`, freq: fmtFreq(iv(LIVE_TIER)), intervalMs: iv(LIVE_TIER) };
-  if (isFinished(status)) return { idx: 0, line: "已完场 · 数据已固化", freq: "—", intervalMs: iv(0) };
+  if (isFinished(status)) return { idx: FINISHED_TIER, line: "已完场 · 数据已固化", freq: "—", intervalMs: iv(0) };
   const t = tierFor(kickoffUtcMs, nowMs, status);
   const mins = Math.max(0, Math.round((kickoffUtcMs - nowMs) / M));
   const label = mins >= 60 ? `${Math.round(mins / 6) / 10} 小时` : `${mins} 分钟`;

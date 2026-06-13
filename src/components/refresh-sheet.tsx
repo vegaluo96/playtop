@@ -5,7 +5,7 @@
  * (/api/health intervals)。按「赛前 → 滚球 → 完场」分组成阶梯,越临近开球节点越亮;
  * 从详情页打开时高亮该场当前所处档位并标「当前」。
  */
-import { fmtFreq, LIVE_TIER, TIERS } from "@/server/af/schedule";
+import { FINISHED_TIER, fmtFreq, LIVE_TIER, TIERS } from "@/server/af/schedule";
 import { useTierIntervals } from "./live";
 import { Sheet } from "./ui";
 
@@ -57,12 +57,15 @@ export function RefreshRules({ activeIdx, intervals }: { activeIdx: number | nul
       )}
 
       {groupTitle("完场")}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 9, background: activeIdx === FINISHED_TIER ? "var(--selected-bg)" : "transparent" }}>
         <span style={{ width: 14, display: "flex", justifyContent: "center", flexShrink: 0 }}>
           <span style={{ fontSize: 11, color: "var(--green)", fontWeight: 800 }}>✓</span>
         </span>
-        <span style={{ flex: 1, fontSize: 13, fontWeight: 650, color: "var(--fg-mid)" }}>已完场</span>
-        <span className="mono" style={{ fontSize: 12, fontWeight: 800, color: "var(--fg-2)" }}>不再刷新</span>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 650, color: activeIdx === FINISHED_TIER ? "var(--gold)" : "var(--fg-mid)" }}>
+          已完场
+          {activeIdx === FINISHED_TIER && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--gold)", border: "1px solid var(--selected-border-strong)", borderRadius: 4, padding: "1px 6px", marginLeft: 7, verticalAlign: 1 }}>当前</span>}
+        </span>
+        <span className="mono" style={{ fontSize: 12, fontWeight: 800, color: activeIdx === FINISHED_TIER ? "var(--gold)" : "var(--fg-2)" }}>不再刷新</span>
       </div>
 
       <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginTop: 8, lineHeight: 1.7, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>

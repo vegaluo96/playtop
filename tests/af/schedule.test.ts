@@ -1,6 +1,6 @@
 /** 抓取分层(设计稿对接注释逐字口径) */
 import { describe, expect, it } from "vitest";
-import { fmtFreq, freshLine, mustForce, tierFor, tierFreqText } from "../../src/server/af/schedule";
+import { FINISHED_TIER, fmtFreq, freshLine, mustForce, tierFor, tierFreqText } from "../../src/server/af/schedule";
 
 const M = 60_000;
 const now = Date.parse("2026-06-11T12:00:00Z");
@@ -39,6 +39,7 @@ describe("freshLine(详情页提示行)", () => {
   it("滚球/完场/赛前各有文案", () => {
     expect(freshLine(ko(-10), now, "1H").line).toContain("滚球");
     expect(freshLine(ko(-200), now, "FT").line).toContain("完场");
+    expect(freshLine(ko(-200), now, "FT").idx).toBe(FINISHED_TIER);
     expect(freshLine(ko(45), now, "NS").line).toContain("距开赛约 45 分钟");
   });
 
