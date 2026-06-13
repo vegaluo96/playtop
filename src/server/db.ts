@@ -4,8 +4,8 @@
  * 表分两域:平台账务(users/ledger/unlocks…)与数据层归档(fixtures_cache/odds_*…)。
  */
 import { DatabaseSync } from "node:sqlite";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname, isAbsolute, resolve } from "node:path";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -330,9 +330,27 @@ function dataMigrations(d: DatabaseSync): void {
 
 let _db: DatabaseSync | null = null;
 
+function resolveDbPath(rawPath: string): string {
+  if (rawPath === ":memory:" || isAbsolute(rawPath)) return rawPath;
+  const cwd = process.cwd();
+  const cwdNorm = cwd.replace(/\\/g, "/");
+  const candidates: string[] = [];
+  const pwd = process.env.PWD;
+
+  if (pwd && pwd !== cwd && !pwd.replace(/\\/g, "/").endsWith("/.next/standalone")) {
+    candidates.push(resolve(pwd, rawPath));
+  }
+  if (cwdNorm.endsWith("/.next/standalone")) {
+    candidates.push(resolve(cwd, "..", "..", rawPath));
+  }
+  candidates.push(resolve(cwd, rawPath));
+
+  return candidates.find((p) => existsSync(p)) ?? candidates[0] ?? rawPath;
+}
+
 export function db(): DatabaseSync {
   if (_db) return _db;
-  const path = process.env.PLAYTOP_DB || "data/playtop.db";
+  const path = resolveDbPath(process.env.PLAYTOP_DB || "data/playtop.db");
   if (path !== ":memory:") {
     try {
       mkdirSync(dirname(path), { recursive: true });
