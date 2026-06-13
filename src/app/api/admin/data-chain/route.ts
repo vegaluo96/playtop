@@ -11,6 +11,11 @@ import { parseExtraMarkets } from "@/server/af/markets";
 import { liveStats, timelineView } from "@/server/views/detail-tech";
 import { lineupsView } from "@/server/views/detail-lineups";
 import { synthEventsOf } from "@/server/af/events-synth";
+import type { Panorama } from "@/server/af/panorama";
+import { buildReportSummary } from "@/server/views/report";
+import { buildReportSignals } from "@/server/views/report-signals";
+import { readCachedPolymarketSignal } from "@/server/external/polymarket";
+import { buildReportSourceCoverage, sourceCoverageNeedsRebuild } from "@/server/views/source-coverage";
 
 type StepStatus = "PASS" | "WARN" | "FAIL" | "OPEN";
 
@@ -231,6 +236,22 @@ function buildDiagnostic(fixtureId: number) {
   const predCount = countRow("SELECT COUNT(*) n, MAX(captured_at) m FROM predictions_snapshots WHERE fixture_id = ?", fixtureId);
   const reportVersions = countRow("SELECT COUNT(*) n, MAX(gen_at) m FROM report_versions WHERE fixture_id = ?", fixtureId);
   const reportCache = countRow("SELECT COUNT(*) n, MAX(gen_at) m FROM report_cache WHERE fixture_id = ?", fixtureId);
+  const injuriesBox = parseJson<{ at?: number; data?: unknown[] } | null>(kvGet(`fx:${fixtureId}:injuries`), null);
+  const localPanorama: Panorama = {
+    fixture: fx,
+    bundle: payload as Record<string, unknown>,
+    odds: reportOverview.odds,
+    marketOverview: reportOverview,
+    movements: [],
+    prediction: prediction as Record<string, unknown> | null,
+    injuries: Array.isArray(injuriesBox?.data) ? injuriesBox.data : [],
+    deep: null,
+  };
+  const localPs = buildReportSummary(localPanorama);
+  const cachedMarket = readCachedPolymarketSignal(fx.home_name, fx.away_name, fx.fixture_id) ?? { status: "skipped" as const, note: "尚未请求 Polymarket 缓存" };
+  const localSignals = buildReportSignals(localPs, localPanorama.odds, cachedMarket, localPanorama);
+  const reportGeneratedAt = reportVersions.m ?? reportCache.m ?? null;
+  const sourceCoverage = buildReportSourceCoverage(localPanorama, localSignals, { reportGeneratedAt });
   const diagnostics = db()
     .prepare(
       `SELECT source, endpoint, error_type, error_reason, severity, created_at
@@ -482,6 +503,8 @@ function buildDiagnostic(fixtureId: number) {
       cache: reportCache,
       cutoffAt,
       cutoffQuality: reportOverview.dataQualityScore,
+      sourceCoverage,
+      needsRebuild: sourceCoverageNeedsRebuild(sourceCoverage),
     },
     diagnostics: diagIssues,
   };

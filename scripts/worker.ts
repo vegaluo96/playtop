@@ -385,6 +385,15 @@ async function tickFixture(fxId: number, now: number): Promise<void> {
         log(`predictions 已归档:${f.home_name} vs ${f.away_name}`);
       }
     } catch (e) {
+      recordDiagnosticIssue({
+        endpoint: "predictions",
+        fixtureId: fxId,
+        rawValue: e instanceof Error ? e.message : String(e),
+        parsedValue: { fixture: fxId },
+        errorType: "PREDICTIONS_FETCH_FAILED",
+        errorReason: "AF /predictions 抓取请求失败;保留现有快照并等待下个调度窗口重试",
+        severity: "error",
+      });
       log(`predictions ${fxId} 失败:${msg(e)}`);
     }
   }

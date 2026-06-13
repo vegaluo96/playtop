@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ABtn, ACard, fmtT } from "./ui";
 
 type StepStatus = "PASS" | "WARN" | "FAIL" | "OPEN";
+type SourceCoverageStatus = "used" | "missing" | "failed" | "stale" | "pendingReview";
 
 interface Evidence {
   k: string;
@@ -42,6 +43,19 @@ interface MarketDiag {
   warnings?: string[];
 }
 
+interface SourceCoverageItem {
+  key: string;
+  label: string;
+  status: SourceCoverageStatus;
+  lastFetchedAt: number | null;
+  dataVersion: string;
+  missingReason?: string;
+  failReason?: string;
+  confidence: number;
+  usedInReport: boolean;
+  detail?: Record<string, unknown>;
+}
+
 interface DataChainDiag {
   fixture: {
     fixtureId: number;
@@ -75,7 +89,15 @@ interface DataChainDiag {
   storage: { snapshots: Record<string, { n: number; books?: number; m: number | null }>; liveSnapshots: Record<string, { n: number; m: number | null }>; details: Record<string, number> };
   main: { selectedReasons: string[]; warnings: string[]; markets: Record<"ah" | "ou" | "eu", MarketDiag> };
   view: { statsRows: number; timelineRows: number; lineupsReady: boolean; extraMarkets: string[]; predictionReady: boolean };
-  report: { predictions: { n: number; m: number | null }; versions: { n: number; m: number | null }; cache: { n: number; m: number | null }; cutoffAt: number; cutoffQuality: number };
+  report: {
+    predictions: { n: number; m: number | null };
+    versions: { n: number; m: number | null };
+    cache: { n: number; m: number | null };
+    cutoffAt: number;
+    cutoffQuality: number;
+    sourceCoverage: Record<string, SourceCoverageItem>;
+    needsRebuild: boolean;
+  };
   diagnostics: { status: StepStatus; text: string; at: number }[];
 }
 
@@ -208,6 +230,60 @@ function MarketLine({ name, market }: { name: string; market?: MarketDiag }) {
       <span style={{ minWidth: 0, fontSize: 11.5, color: "var(--fg-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{market?.reason || market?.warnings?.[0] || "暂无主线"}</span>
       <span className="mono" style={{ textAlign: "right", color: "var(--fg-3)", fontSize: 11 }}>{market?.selectedBooks ?? 0} books</span>
     </div>
+  );
+}
+
+const sourceStatusStyle: Record<SourceCoverageStatus, { fg: string; bg: string; bd: string; label: string; step: StepStatus }> = {
+  used: { fg: "var(--green)", bg: "var(--success-bg)", bd: "var(--success-border)", label: "used", step: "PASS" },
+  missing: { fg: "var(--fg-3)", bg: "var(--inset)", bd: "var(--line)", label: "missing", step: "OPEN" },
+  failed: { fg: "var(--red)", bg: "var(--danger-bg)", bd: "var(--danger-border)", label: "failed", step: "FAIL" },
+  stale: { fg: "var(--warn)", bg: "var(--warn-bg)", bd: "var(--warn-border)", label: "stale", step: "WARN" },
+  pendingReview: { fg: "var(--warn)", bg: "var(--warn-bg)", bd: "var(--warn-border)", label: "review", step: "WARN" },
+};
+
+function SourceStatusPill({ status }: { status: SourceCoverageStatus }) {
+  const s = sourceStatusStyle[status];
+  return (
+    <span className="mono" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 74, height: 22, borderRadius: 7, border: `1px solid ${s.bd}`, background: s.bg, color: s.fg, fontSize: 10.5, fontWeight: 900 }}>
+      {s.label}
+    </span>
+  );
+}
+
+function shortJson(v: unknown): string {
+  if (v == null) return "—";
+  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return String(v);
+  try {
+    const text = JSON.stringify(v);
+    return text.length > 170 ? `${text.slice(0, 170)}...` : text;
+  } catch {
+    return "—";
+  }
+}
+
+function SourceCoveragePanel({ coverage, needsRebuild }: { coverage: Record<string, SourceCoverageItem>; needsRebuild: boolean }) {
+  const rows = Object.values(coverage);
+  if (rows.length === 0) return null;
+  return (
+    <ACard title={needsRebuild ? "预测输入源覆盖 · 需要重算" : "预测输入源覆盖"} pad={false}>
+      <div style={{ display: "grid", gridTemplateColumns: "120px 82px 82px 100px 1.45fr 1.2fr", gap: 10, padding: "9px 14px", borderBottom: "1px solid var(--line)", color: "var(--fg-3)", fontSize: 11 }}>
+        <span>来源</span><span>状态</span><span>拟合</span><span>更新时间</span><span>原因/说明</span><span>候选/版本</span>
+      </div>
+      {rows.map((s) => (
+        <div key={s.key} style={{ display: "grid", gridTemplateColumns: "120px 82px 82px 100px 1.45fr 1.2fr", gap: 10, alignItems: "center", padding: "11px 14px", borderBottom: "1px solid var(--line-soft)", fontSize: 12 }}>
+          <span style={{ fontWeight: 900 }}>{s.label}</span>
+          <SourceStatusPill status={s.status} />
+          <span style={{ color: s.usedInReport ? "var(--green)" : "var(--fg-3)", fontWeight: 800 }}>{s.usedInReport ? "参与" : "未参与"}</span>
+          <span className="mono" style={{ color: "var(--fg-3)", fontSize: 11 }}>{fmtT(s.lastFetchedAt)}</span>
+          <span style={{ color: s.failReason ? "var(--red)" : s.missingReason ? "var(--fg-3)" : "var(--fg-2)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {s.failReason || s.missingReason || `置信度 ${s.confidence}`}
+          </span>
+          <span className="mono" title={shortJson(s.detail)} style={{ minWidth: 0, color: "var(--fg-3)", fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {s.key === "polymarket" ? shortJson(s.detail?.selectedMarket ?? s.detail?.candidates) : s.dataVersion}
+          </span>
+        </div>
+      ))}
+    </ACard>
   );
 }
 
@@ -394,6 +470,8 @@ export function DataChainView({ fixtureId }: { fixtureId?: number | null }) {
               )}
             </ACard>
           </div>
+
+          <SourceCoveragePanel coverage={diag.report.sourceCoverage} needsRebuild={diag.report.needsRebuild} />
 
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
             <ACard title="parser 重放">

@@ -28,14 +28,14 @@ describe("AI 报告量化方向", () => {
   it("概率壳数据不当成可用概率", () => {
     const shell = ps({ pH: 33, pD: 33, pA: 33, winnerName: "", uoText: null, comparison: { 综合: { home: 0, away: 0 } } });
     expect(hasUsableProbability(shell)).toBe(false);
-    expect(publicProbability(shell)).toEqual({ pH: 0, pD: 0, pA: 0, probReady: false });
+    expect(publicProbability(shell)).toEqual({ pH: null, pD: null, pA: null, probReady: false });
 
     const derivedShell = ps({ pH: 33, pD: 33, pA: 33, winnerName: "A", uoText: "小于 2.25 球", comparison: { 综合: { home: 0, away: 0 } }, derived: true });
-    expect(publicProbability(derivedShell)).toEqual({ pH: 0, pD: 0, pA: 0, probReady: false });
+    expect(publicProbability(derivedShell)).toEqual({ pH: null, pD: null, pA: null, probReady: false });
     expect(publicComparison(derivedShell).comparisonReady).toBe(false);
 
     const zeroSideShell = ps({ pH: 50, pD: 50, pA: 0, winnerName: "A", uoText: "大于 2 球", derived: true });
-    expect(publicProbability(zeroSideShell)).toEqual({ pH: 0, pD: 0, pA: 0, probReady: false });
+    expect(publicProbability(zeroSideShell)).toEqual({ pH: null, pD: null, pA: null, probReady: false });
   });
 
   it("派生方向不冒充完整概率摘要", () => {

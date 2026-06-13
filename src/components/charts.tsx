@@ -83,8 +83,8 @@ export function Legend({ items }: { items: { color: string; label: string }[] })
 }
 
 /** 主平客概率条 */
-export function ProbBar({ pH, pD, pA, empty = false }: { pH: number; pD: number; pA: number; empty?: boolean }) {
-  const ready = !empty && pH + pD + pA > 0;
+export function ProbBar({ pH, pD, pA, empty = false }: { pH: number | null; pD: number | null; pA: number | null; empty?: boolean }) {
+  const ready = !empty && pH != null && pD != null && pA != null && pH + pD + pA > 0;
   if (!ready) {
     return (
       <div style={{ marginBottom: 9 }}>

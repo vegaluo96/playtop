@@ -86,10 +86,11 @@ function polyProbe(fixtureId: number): SourceProbe {
   const row = db().prepare("SELECT v FROM kv WHERE k LIKE ? ORDER BY k DESC LIMIT 1").get(`poly:fx:${fixtureId}:%`) as
     | { v: string }
     | undefined;
-  const box = parseKvBox<{ status?: string; note?: string }>(row?.v ?? null);
+  const box = parseKvBox<{ status?: string; note?: string; matchScore?: number; candidates?: unknown[] }>(row?.v ?? null);
   if (!box) return source("skipped", "Polymarket", "尚未请求或未命中逐场缓存");
   const status = box.data?.status ?? "unknown";
-  if (status === "ok") return source("ok", "Polymarket", box.data?.note ?? "已命中公开预测市场", 1, box.at);
+  if (status === "ok") return source("ok", "Polymarket", `${box.data?.note ?? "已命中公开预测市场"}${box.data?.matchScore == null ? "" : ` · matchScore ${box.data.matchScore}`}`, 1, box.at);
+  if (status === "pendingReview") return source("warn", "Polymarket", `${box.data?.note ?? "候选市场待确认"} · 候选 ${box.data?.candidates?.length ?? 0}`, 0, box.at);
   if (status === "error") return source("warn", "Polymarket", box.data?.note ?? "增强源请求异常", 0, box.at);
   return source("missing", "Polymarket", box.data?.note ?? "暂无本场可精确匹配市场", 0, box.at);
 }

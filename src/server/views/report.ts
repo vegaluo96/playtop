@@ -99,7 +99,7 @@ export function buildReport(p: Panorama, signals?: ReportSignals): { ps: PredSum
     }
     ps2.push(`近 ${h2h.length} 次交锋,${nameZh(fx.home_name)} 取胜 ${myWins} 次,大球(>2.5)出现 ${big} 次。`);
   }
-  if (ps2.length === 0) ps2.push("暂无官方近况与交锋数据。");
+  if (ps2.length === 0) ps2.push("暂无近况与交锋数据。");
   secs.push({ h: "状态与盘路", ps: ps2 });
 
   // ── 进球模型 ──

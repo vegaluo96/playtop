@@ -7,7 +7,7 @@ type AhSide = "home" | "away";
 type OuSide = "over" | "under";
 
 export interface PublicMarketSignal {
-  status: "ok" | "missing" | "error" | "skipped";
+  status: "ok" | "missing" | "error" | "skipped" | "pendingReview";
   note: string;
   url?: string;
   source?: string;
@@ -16,6 +16,25 @@ export interface PublicMarketSignal {
   awayProb?: number | null;
   side?: AhSide | null;
   capturedAt?: number;
+  queries?: string[];
+  matchScore?: number;
+  marketType?: "matchWinner" | "advancement" | "outright" | "totalGoals" | "unknown";
+  selectedMarket?: {
+    title: string;
+    slug?: string;
+    url?: string;
+    marketType: PublicMarketSignal["marketType"];
+    matchScore: number;
+  } | null;
+  candidates?: {
+    title: string;
+    slug?: string;
+    url?: string;
+    marketType: PublicMarketSignal["marketType"];
+    matchScore: number;
+    reason: string;
+  }[];
+  needsReview?: boolean;
 }
 
 export interface DirectionSignal {
@@ -256,7 +275,7 @@ function ahModelScore(ps: PredSummary | null, ah: SnapRow | null, eu: SnapRow | 
           -1,
           1,
         );
-  const poly = market.status === "ok" && market.side ? (market.side === "home" ? 0.45 : -0.45) : null;
+  const poly = market.status === "ok" && !market.needsReview && market.side ? (market.side === "home" ? 0.45 : -0.45) : null;
   return weightedScore([
     { label: "预测概率", baseWeight: 0.25, value: prob, note: "使用胜平负概率差与平局风险折减" },
     { label: "赛前亚盘指数", baseWeight: 0.18, value: odds, note: "使用开赛前主线与双侧水位" },
@@ -306,12 +325,12 @@ export function hasUsableProbability(ps: PredSummary | null): boolean {
   return true;
 }
 
-export function publicProbability(ps: PredSummary | null): { pH: number; pD: number; pA: number; probReady: boolean } {
+export function publicProbability(ps: PredSummary | null): { pH: number | null; pD: number | null; pA: number | null; probReady: boolean } {
   const probReady = hasUsableProbability(ps);
   return {
-    pH: probReady && ps ? ps.pH : 0,
-    pD: probReady && ps ? ps.pD : 0,
-    pA: probReady && ps ? ps.pA : 0,
+    pH: probReady && ps ? ps.pH : null,
+    pD: probReady && ps ? ps.pD : null,
+    pA: probReady && ps ? ps.pA : null,
     probReady,
   };
 }
@@ -356,7 +375,7 @@ export function buildReportSignals(
   const lineSide = ahSideFromLine(ah?.line ?? null);
   if (lineSide) ahVotes.push({ side: lineSide, weight: 0.75, source: "赛前亚盘主线" });
   if (ah && ah.h !== ah.a) ahVotes.push({ side: ah.h < ah.a ? "home" : "away", weight: 0.75, source: "赛前亚盘水位" });
-  if (market.status === "ok" && market.side) ahVotes.push({ side: market.side, weight: 0.75, source: "Polymarket 公开市场" });
+  if (market.status === "ok" && !market.needsReview && market.side) ahVotes.push({ side: market.side, weight: 0.75, source: "Polymarket 公开市场" });
   const ahPick = chooseSide(ahVotes);
   const ahScore = ahModelScore(ps, ah, eu, market, panorama);
 

@@ -72,6 +72,32 @@ describe("Polymarket public-search parser", () => {
     expect(signal.status).toBe("missing");
   });
 
+  it("候选语义不是单场胜平负时进入人工确认,不参与自动拟合", () => {
+    const signal = __polymarketForTest.pickMarket([
+      {
+        title: "Canada vs. Bosnia-Herzegovina",
+        slug: "canada-bosnia-advance-2026-06-12",
+        active: true,
+        closed: false,
+        archived: false,
+        markets: [
+          {
+            question: "Will Canada advance to the next round?",
+            outcomes: "[\"Yes\",\"No\"]",
+            outcomePrices: "[\"0.52\",\"0.48\"]",
+            active: true,
+            closed: false,
+          },
+        ],
+      },
+    ], "Canada", "Bosnia & Herzegovina");
+
+    expect(signal.status).toBe("pendingReview");
+    expect(signal.needsReview).toBe(true);
+    expect(signal.marketType).toBe("advancement");
+    expect(signal.matchScore).toBeGreaterThanOrEqual(48);
+  });
+
   it("搜索无结果时写入逐场诊断,避免 Polymarket missing 静默失败", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ events: [] }), { status: 200 })));
 
