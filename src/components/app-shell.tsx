@@ -6,9 +6,21 @@ import { useApp } from "./app-context";
 import { useIsDesktop } from "./use-viewport";
 import { ConsentBar } from "./consent-bar";
 
-/** 4 个 Tab 根路由显示底部导航;详情/报告/登录/二级页隐藏 */
+/** 5 个 Tab 根路由显示底部导航;详情/报告/登录/二级页隐藏 */
 const TABS = [
   { path: "/", label: () => t("navMatches"), icon: <path d="M3 5h14M3 10h14M3 15h8" /> },
+  {
+    path: "/data",
+    label: () => t("navData"),
+    icon: (
+      <>
+        <path d="M4 16V9" />
+        <path d="M10 16V4" />
+        <path d="M16 16v-6" />
+        <path d="M3 16h14" />
+      </>
+    ),
+  },
   { path: "/moves", label: () => t("navMoves"), icon: <path d="M2 11h3l2.5-6 4 11 2.5-6H18" /> },
   {
     path: "/predictions",
@@ -74,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           style={{
             flexShrink: 0,
             display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr 1fr",
+            gridTemplateColumns: "repeat(5, 1fr)",
             borderTop: "1px solid var(--line)",
             background: "var(--card)",
             paddingBottom: "max(6px, env(safe-area-inset-bottom))",
@@ -99,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                   {tab.icon}
                 </svg>
-                <span style={{ fontSize: 12, fontWeight: 750 }}>{tab.label()}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 750 }}>{tab.label()}</span>
               </div>
             );
           })}

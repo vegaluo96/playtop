@@ -14,6 +14,7 @@ const zh = {
   sloganLong: "让球指数 · 大小指数 · 胜平负指数 · 专业行情终端",
   navMatches: "赛事",
   navMoves: "异动",
+  navData: "数据",
   navPred: "报告",
   navMine: "我",
   refreshRule: "⟳ 数据刷新规则 ›",
@@ -56,6 +57,7 @@ const packs: Partial<Record<Lang, Partial<Record<DictKey, string>>>> = {
   English: {
     navMatches: "Matches",
     navMoves: "Moves",
+    navData: "Data",
     navPred: "Reports",
     navMine: "Me",
   },
