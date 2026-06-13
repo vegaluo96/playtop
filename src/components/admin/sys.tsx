@@ -150,6 +150,8 @@ export function DataMonView() {
   }, [load]);
   if (!v) return <div style={{ color: "var(--fg-3)", fontSize: 12, padding: 40, textAlign: "center" }}>加载中…</div>;
   const statusColor = (s: string) => (s === "正常" ? "var(--green)" : s === "慢" ? "var(--gold)" : "var(--red)");
+  const intervalText = (ms: number) => (ms >= 3_600_000 ? `巡检 / ${Math.round(ms / 3_600_000)}h` : ms < 60_000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60_000)} min`);
+  const emergency = v.emergencyState ?? { manual: v.emergency, auto: false, active: v.emergency, pct: null };
   const shortUrl = (url: string) => {
     try {
       const u = new URL(url);
@@ -247,27 +249,30 @@ export function DataMonView() {
             }} />}
           >
             {v.intervals.map((t: V) => (
-              <div key={t.label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line-soft)" }}>
+              <div key={t.label} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "6px 0", borderBottom: "1px solid var(--line-soft)" }}>
                 <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>{t.label}</span>
-                <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: t.ms <= 60_000 ? "var(--gold)" : undefined }}>
-                  {t.ms >= 3_600_000 ? `巡检 / ${Math.round(t.ms / 3_600_000)}h` : t.ms < 60_000 ? `${Math.round(t.ms / 1000)} s` : `${Math.round(t.ms / 60_000)} min`}
+                <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: (t.effectiveMs ?? t.ms) <= 60_000 ? "var(--gold)" : undefined, textAlign: "right" }}>
+                  {intervalText(t.ms)}
+                  {t.effectiveMs != null && t.effectiveMs !== t.ms && <span style={{ color: "var(--red)" }}> → {intervalText(t.effectiveMs)}</span>}
                 </span>
               </div>
             ))}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0 0" }}>
-              <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>紧急降频模式(配额 &gt;85% 自动)</span>
+              <span style={{ fontSize: 11.5, color: "var(--fg-2)" }}>紧急降频模式(手动或配额 &gt;85% 自动)</span>
               <span
                 onClick={async () => {
-                  if (!await aConfirm(`紧急降频 → ${v.emergency ? "关" : "开"}(全档位 ×2)`)) return;
-                  await post("/api/admin/monitor", { action: "emergency", on: !v.emergency });
+                  if (!await aConfirm(`手动紧急降频 → ${emergency.manual ? "关" : "开"}(全档位 ×2; 自动触发不受此开关影响)`)) return;
+                  await post("/api/admin/monitor", { action: "emergency", on: !emergency.manual });
                   void load();
                 }}
-                style={{ fontSize: 11, fontWeight: 800, cursor: "pointer", color: v.emergency ? "var(--red)" : "var(--fg-3)", border: "1px solid var(--line)", borderRadius: 999, padding: "2px 10px" }}
+                style={{ fontSize: 11, fontWeight: 800, cursor: "pointer", color: emergency.active ? "var(--red)" : "var(--fg-3)", border: "1px solid var(--line)", borderRadius: 999, padding: "2px 10px" }}
               >
-                {v.emergency ? "开" : "关"}
+                {emergency.manual ? "手动开" : emergency.auto ? "自动生效" : "关"}
               </span>
             </div>
-            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>改动即时下发调度器并写审计;滚球两档可低至 5s(注意配额与书商更新节奏),其余档下限 1 min</div>
+            <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 8 }}>
+              {emergency.active ? `当前实际全档位 ×2${emergency.auto && emergency.pct != null ? ` · AF 已用 ${emergency.pct}%` : ""}` : "未触发;AF 日配额超过 85% 时自动生效"}。改动即时下发调度器并写审计;滚球两档可低至 5s,其余档下限 1 min
+            </div>
           </ACard>
           <ACard title="AI 报告服务" right={<span style={{ fontSize: 11, fontWeight: 700, color: v.llm.configured ? "var(--green)" : "var(--fg-3)" }}>{v.llm.configured ? "运行正常" : "模板模式"}</span>}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>

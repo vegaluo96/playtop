@@ -4,7 +4,7 @@
 import { ahText, dateStr, f2, hhmm, maskBookmaker, ouText, parseTzOffset } from "@/lib/format";
 import { leagueZh, roundZh } from "@/lib/leagues";
 import { freshLine, isFinished, isLive } from "../af/schedule";
-import { cfgTierIntervals } from "../platform/config";
+import { cfgEffectiveTierIntervals } from "../platform/config";
 import { normalizeLiveOddsItem } from "../af/normalize";
 import { liveOddsSeriesByMarket } from "../af/live-store";
 import { isDisplayableLiveEuTriplet, isDisplayableLiveSnapshot } from "../af/odds-quality";
@@ -573,7 +573,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       ht: fx.status === "HT",
       kickoff: fx.kickoff_utc,
       season: fx.season,
-      fresh: freshLine(fx.kickoff_utc, now, fx.status, cfgTierIntervals()),
+      fresh: freshLine(fx.kickoff_utc, now, fx.status, cfgEffectiveTierIntervals()),
     },
     summary: {
       ah: ahL ? { text: ahText(ahL.line ?? 0), w: `${f2(ahL.h)}/${f2(ahL.a)}`, chgAt: chgAtOf(ahAll) } : null,

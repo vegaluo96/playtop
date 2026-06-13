@@ -72,6 +72,40 @@ export function cfgTierIntervals(): number[] {
 }
 export const cfgEmergencyThrottle = () => num("emergency_throttle", 0) === 1;
 
+export interface AfQuotaStatus {
+  current?: number | null;
+  limit?: number | null;
+}
+
+function quotaStatus(input?: AfQuotaStatus | null): AfQuotaStatus | null {
+  if (input) return input;
+  try {
+    return JSON.parse(kvGet("af_status") || "null") as AfQuotaStatus | null;
+  } catch {
+    return null;
+  }
+}
+
+export function cfgEmergencyThrottleState(input?: AfQuotaStatus | null) {
+  const manual = cfgEmergencyThrottle();
+  const st = quotaStatus(input);
+  const current = Number(st?.current);
+  const limit = Number(st?.limit);
+  const pct = Number.isFinite(current) && Number.isFinite(limit) && limit > 0 ? current / limit : null;
+  const auto = pct != null && pct > 0.85;
+  return {
+    manual,
+    auto,
+    active: manual || auto,
+    pct: pct == null ? null : Math.round(pct * 1000) / 10,
+  };
+}
+
+export function cfgEffectiveTierIntervals(input?: AfQuotaStatus | null): number[] {
+  const base = cfgTierIntervals();
+  return cfgEmergencyThrottleState(input).active ? base.map((ms) => ms * 2) : base;
+}
+
 /* ── 密钥(系统设置页;仅掩码回显)── */
 export const cfgAfKey = () => cfgGetRaw("af_key") || process.env.API_FOOTBALL_KEY?.trim() || null;
 export const cfgLlmKey = () => cfgGetRaw("llm_key") || process.env.LLM_API_KEY?.trim() || null;

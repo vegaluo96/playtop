@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { fixturesBetween, kvGet } from "@/server/af/store";
 import { isLive } from "@/server/af/schedule";
-import { cfgTierIntervals } from "@/server/platform/config";
+import { cfgEffectiveTierIntervals } from "@/server/platform/config";
 
 export async function GET() {
   const raw = kvGet("worker_heartbeat");
@@ -17,6 +17,6 @@ export async function GET() {
     now,
     workerAt: raw ? Number(raw) : null,
     liveNow,
-    intervals: cfgTierIntervals(),
+    intervals: cfgEffectiveTierIntervals(),
   });
 }

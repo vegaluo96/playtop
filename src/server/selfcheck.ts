@@ -8,7 +8,7 @@ import { afGet } from "./af/client";
 import { archiveOdds, fixturesBetween, hasPrediction, kvGet, kvSet, latestPrediction, mainOddsSnapshot } from "./af/store";
 import { normalizeOddsItem, pairMargin } from "./af/normalize";
 import { tierFor } from "./af/schedule";
-import { cfgAfKey, cfgFirstBonusOn, cfgLlmKey, cfgRechargeMaintenance, cfgRechargeTiers, cfgTierIntervals, cfgUnlockPrice } from "./platform/config";
+import { cfgAfKey, cfgEffectiveTierIntervals, cfgFirstBonusOn, cfgLlmKey, cfgRechargeMaintenance, cfgRechargeTiers, cfgUnlockPrice } from "./platform/config";
 import { audit, ensureAdminSeed, listAudit } from "./admin/auth";
 import { chatComplete } from "./llm/client";
 import { demoRechargeEnabled } from "./platform/wallet";
@@ -94,7 +94,7 @@ export async function checkReadonly(opts: { skipNetwork?: boolean; now?: number 
   if (pending.length === 0) {
     rows.push(row("L1 抓取", "指数快照新鲜度", "skip", "今日无在售场次"));
   } else {
-    const densest = Math.min(...pending.map((f) => cfgTierIntervals()[tierFor(f.kickoff_utc, now, f.status).idx]));
+    const densest = Math.min(...pending.map((f) => cfgEffectiveTierIntervals()[tierFor(f.kickoff_utc, now, f.status).idx]));
     const lastSnap = (d.prepare("SELECT MAX(captured_at) m FROM odds_snapshots").get() as { m: number | null }).m ?? 0;
     const limit = Math.max(2 * densest, 15 * 60_000);
     rows.push(

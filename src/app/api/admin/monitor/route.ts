@@ -4,7 +4,7 @@ import { db, tx } from "@/server/db";
 import { audit, canWrite, currentAdmin } from "@/server/admin/auth";
 import { requireSameOrigin } from "@/server/platform/rate-limit";
 import { TIERS } from "@/server/af/schedule";
-import { cfgEmergencyThrottle, cfgSet, cfgTierIntervals } from "@/server/platform/config";
+import { cfgEffectiveTierIntervals, cfgEmergencyThrottle, cfgEmergencyThrottleState, cfgSet, cfgTierIntervals } from "@/server/platform/config";
 import { recentMovements, kvGet, mainOddsDecision } from "@/server/af/store";
 import { llmStats } from "@/server/llm/report";
 import { hhmm } from "@/lib/format";
@@ -76,11 +76,23 @@ export async function GET() {
     });
   }
 
+  const af = (() => {
+    try {
+      return JSON.parse(kvGet("af_status") || "null");
+    } catch {
+      return null;
+    }
+  })();
+  const baseIntervals = cfgTierIntervals();
+  const effectiveIntervals = cfgEffectiveTierIntervals(af);
+  const emergencyState = cfgEmergencyThrottleState(af);
+
   return NextResponse.json({
     ok: true, eps, externalEndpoints: await probeExternalEndpoints(), snaps, rawAudit, snapGap: gap, extraMarkets, marketDecision,
-    intervals: TIERS.map((t, i) => ({ label: t.label, ms: cfgTierIntervals()[i] })),
+    intervals: TIERS.map((t, i) => ({ label: t.label, ms: baseIntervals[i], effectiveMs: effectiveIntervals[i] })),
     emergency: cfgEmergencyThrottle(),
-    af: JSON.parse(kvGet("af_status") || "null"),
+    emergencyState,
+    af,
     llm: { ...llmStats(), balance: readLlmBalance()?.usd ?? null },
     diagnostics: recentDiagnosticIssues(12),
     diagnosticSummary: diagnosticIssueSummary(),

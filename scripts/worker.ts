@@ -1,14 +1,14 @@
 /**
  * 数据抓取 worker(独立进程:npm run worker)。
  * 按「距开赛时间」分层轮询(src/server/af/schedule.ts),所有端点共享本调度器:
- *   /fixtures(日表 6h;滚球窗口 live=联赛ids 每 1min;单场 bundle 滚球期每 1min)
+ *   /fixtures(日表 6h;滚球窗口 live=联赛ids / 单场 bundle 按后台滚球档)
  *   /odds?fixture= 随分层,每次快照落库,相邻快照 diff 生成异动
- *   /odds/live      仅滚球期每 1min(落 kv)
+ *   /odds/live      仅滚球期按后台滚球档(可至 5s,紧急降频时 ×2)落 kv
  *   /predictions    开盘抓 1 次;开赛前 1h 复抓 1 次
  *   /fixtures/lineups T-60min 起每 5min(拿到首发即停)
  *   /fixtures/events|statistics|lineups|players 滚球期独立端点补抓并合并到 fixture payload
  *   完场 → 模型战绩结算;每日选定 1 场免费分析
- * 配额保护:相邻出网调用间隔 AF_DELAY_MS(默认 300ms),叠加 client 层 2s 同 URL 防抖。
+ * 配额保护:相邻出网调用间隔 AF_DELAY_MS(默认 300ms),叠加 client 层 2s 同 URL 防抖与紧急降频。
  */
 import { loadEnvFile } from "../src/server/env-file";
 loadEnvFile();
@@ -28,7 +28,7 @@ import {
   settleFixture,
   upsertFixture,
 } from "../src/server/af/store";
-import { cfgEmergencyThrottle, cfgFollowedIds, cfgTierIntervals } from "../src/server/platform/config";
+import { cfgEffectiveTierIntervals, cfgFollowedIds } from "../src/server/platform/config";
 import { dailyReadonlyCheck } from "../src/server/selfcheck";
 import { fetchLlmBalance } from "../src/server/llm/client";
 import { archiveLiveOdds, pruneLiveData } from "../src/server/af/live-store";
@@ -52,13 +52,7 @@ function FOLLOWED(): number[] {
 
 /** 有效抓取间隔:后台可调分层 + 紧急降频(手动开关或配额>85% 自动,×2) */
 function effIntervalMs(tierIdx: number): number {
-  const base = cfgTierIntervals()[tierIdx];
-  let throttle = cfgEmergencyThrottle();
-  try {
-    const st = JSON.parse(kvGet("af_status") || "{}") as { current?: number; limit?: number };
-    if (st.limit && st.current && st.current / st.limit > 0.85) throttle = true;
-  } catch { /* ignore */ }
-  return throttle ? base * 2 : base;
+  return cfgEffectiveTierIntervals()[tierIdx];
 }
 
 /** 端点健康上报(后台「数据与模型监控」) */
@@ -415,7 +409,7 @@ async function main(): Promise<void> {
         await cycle();
         lastLive = Date.now();
       } else {
-        const liveIv = Math.max(5_000, cfgTierIntervals()[LIVE_TIER] ?? 60_000);
+        const liveIv = Math.max(5_000, effIntervalMs(LIVE_TIER) ?? 60_000);
         if (now - lastLive >= liveIv) {
           lastLive = now;
           await liveFast(now);
