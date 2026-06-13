@@ -87,3 +87,33 @@ export function recentDiagnosticIssues(limit = 40): {
       parsed_value: string;
     }[];
 }
+
+export function diagnosticIssueSummary(since = Date.now() - 24 * 3_600_000): {
+  byType: { error_type: string; severity: string; n: number; last_at: number }[];
+  byFixture: { fixture_id: number | null; n: number; last_at: number }[];
+  total: number;
+} {
+  const d = db();
+  const total = (d.prepare("SELECT COUNT(*) n FROM diagnostic_issues WHERE created_at >= ?").get(since) as { n: number } | undefined)?.n ?? 0;
+  const byType = d
+    .prepare(
+      `SELECT error_type, severity, COUNT(*) n, MAX(created_at) last_at
+       FROM diagnostic_issues
+       WHERE created_at >= ?
+       GROUP BY error_type, severity
+       ORDER BY n DESC, last_at DESC
+       LIMIT 8`,
+    )
+    .all(since) as { error_type: string; severity: string; n: number; last_at: number }[];
+  const byFixture = d
+    .prepare(
+      `SELECT fixture_id, COUNT(*) n, MAX(created_at) last_at
+       FROM diagnostic_issues
+       WHERE created_at >= ?
+       GROUP BY fixture_id
+       ORDER BY n DESC, last_at DESC
+       LIMIT 8`,
+    )
+    .all(since) as { fixture_id: number | null; n: number; last_at: number }[];
+  return { byType, byFixture, total };
+}

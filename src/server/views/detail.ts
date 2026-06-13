@@ -22,6 +22,7 @@ import type { SnapRow } from "../af/store";
 import { halfStats, liveStats, timelineView } from "./detail-tech";
 import { lineupsView, type LineupsView } from "./detail-lineups";
 import { publicImageUrl, teamLogoFromFixturePayload } from "./team-assets";
+import type { MarketOverview, MarketOverviewMarket } from "../markets/overview";
 
 export { timelineView } from "./detail-tech";
 
@@ -37,6 +38,53 @@ function dig(obj: unknown, ...path: (string | number)[]): unknown {
   return cur;
 }
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+function publicMarketReason(market: MarketOverviewMarket): string {
+  const source = market.source;
+  if (!source) return market.reason;
+  const line = source.line == null ? "无盘口线" : source.line;
+  return `共识线 ${line}:覆盖 ${market.selectedBooks}/${market.books} 家,质量 ${market.qualityScore}`;
+}
+
+function publicMarketOverview(overview: MarketOverview | undefined) {
+  if (!overview) return null;
+  return {
+    fixtureId: overview.fixtureId,
+    phase: overview.phase,
+    cutoffAt: overview.cutoffAt,
+    dataQualityScore: overview.dataQualityScore,
+    lastUpdated: overview.lastUpdated,
+    markets: {
+      ah: {
+        qualityScore: overview.markets.ah.qualityScore,
+        books: overview.markets.ah.books,
+        selectedBooks: overview.markets.ah.selectedBooks,
+        reason: publicMarketReason(overview.markets.ah),
+        warnings: overview.markets.ah.warnings,
+      },
+      ou: {
+        qualityScore: overview.markets.ou.qualityScore,
+        books: overview.markets.ou.books,
+        selectedBooks: overview.markets.ou.selectedBooks,
+        reason: publicMarketReason(overview.markets.ou),
+        warnings: overview.markets.ou.warnings,
+      },
+      eu: {
+        qualityScore: overview.markets.eu.qualityScore,
+        books: overview.markets.eu.books,
+        selectedBooks: overview.markets.eu.selectedBooks,
+        reason: `胜平负完整报价 ${overview.markets.eu.selectedBooks}/${overview.markets.eu.books} 家,质量 ${overview.markets.eu.qualityScore}`,
+        warnings: overview.markets.eu.warnings,
+      },
+    },
+    selectedReasons: {
+      ah: publicMarketReason(overview.markets.ah),
+      ou: publicMarketReason(overview.markets.ou),
+      eu: `胜平负完整报价 ${overview.markets.eu.selectedBooks}/${overview.markets.eu.books} 家`,
+    },
+    diagnosticWarnings: overview.diagnosticWarnings,
+  };
+}
 
 /* ── 指数走势:全序列 → 变盘点行 + 折线采样 ── */
 /** 序列跨天时时间标注带日期(纯 HH:mm 会显得「时间倒流」) */
@@ -569,6 +617,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       eu: euL ? { w: `${f2(euL.h)}/${f2(euL.d ?? 0)}/${f2(euL.a)}`, chgAt: chgAtOf(euAll) } : null,
       oddsAt: Math.max(ahL?.captured_at ?? 0, ouL?.captured_at ?? 0, euL?.captured_at ?? 0) || null,
     },
+    marketOverview: publicMarketOverview(p.marketOverview),
     liveOdds,
     odds: {
       ah, ou, eu: euRows(euAll, tz),

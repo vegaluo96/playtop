@@ -24,6 +24,7 @@ import {
   settleFixture,
   upsertFixture,
 } from "../../src/server/af/store";
+import { diagnosticIssueSummary } from "../../src/server/af/diagnostics";
 
 function afFixture(id: number, opts: { status?: string; gh?: number; ga?: number } = {}) {
   return {
@@ -196,6 +197,10 @@ describe("odds 归档与异动", () => {
       { endpoint: string; fixture_id: number; bookmaker_id: number; bet_id: number; error_type: string }[];
     expect(issues.some((i) => i.endpoint === "odds" && i.bet_id === 1 && i.error_type === "ODDS_OUT_OF_RANGE")).toBe(true);
     expect(issues.some((i) => i.endpoint === "odds" && i.bet_id === 4 && i.error_type === "LINE_INVALID")).toBe(true);
+    const summary = diagnosticIssueSummary(Date.now() - 60_000);
+    expect(summary.total).toBeGreaterThanOrEqual(2);
+    expect(summary.byType.some((i) => i.error_type === "ODDS_OUT_OF_RANGE")).toBe(true);
+    expect(summary.byFixture.some((i) => i.fixture_id === 208)).toBe(true);
   });
 
   it("主盘按共识盘口+主流书商优先,不被最新离群书商带偏", () => {

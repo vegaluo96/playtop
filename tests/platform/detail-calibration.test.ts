@@ -36,7 +36,8 @@ vi.mock("../../src/server/af/catalog", () => ({
   }),
 }));
 
-import { _resetDbForTest } from "../../src/server/db";
+import { _resetDbForTest, db } from "../../src/server/db";
+import { marketOverview } from "../../src/server/markets/overview";
 import { detailView } from "../../src/server/views/detail";
 import type { Panorama } from "../../src/server/af/panorama";
 
@@ -72,6 +73,29 @@ function basePanorama(): Panorama {
 }
 
 describe("external calibration fixes", () => {
+  it("exposes public MarketOverview without leaking raw bookmaker names", async () => {
+    const p = basePanorama();
+    db()
+      .prepare("INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)")
+      .run(p.fixture.fixture_id, 8, "Bet365", "ah", 0.5, 0.88, 0.98, null, 1000);
+    db()
+      .prepare("INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)")
+      .run(p.fixture.fixture_id, 4, "平博", "ou", 2.5, 0.9, 0.96, null, 1100);
+    db()
+      .prepare("INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)")
+      .run(p.fixture.fixture_id, 8, "Bet365", "eu", null, 1.9, 3.4, 4.2, 1200);
+    p.marketOverview = marketOverview(p.fixture.fixture_id);
+    p.odds = p.marketOverview.odds;
+
+    const view = await detailView(p, "UTC+8", { deep: false });
+
+    expect(view.marketOverview).not.toBeNull();
+    expect(view.marketOverview!.dataQualityScore).toBeGreaterThanOrEqual(70);
+    expect(view.marketOverview!.selectedReasons.ah).toContain("覆盖");
+    expect(JSON.stringify(view.marketOverview)).not.toContain("Bet365");
+    expect(JSON.stringify(view.marketOverview)).not.toContain("平博");
+  });
+
   it("filters standings to the shared group when provider also returns a generic group", async () => {
     const view = await detailView(basePanorama(), "UTC+8", { deep: false });
     const table = view.tech.standings.table;

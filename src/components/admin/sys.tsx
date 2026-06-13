@@ -260,6 +260,28 @@ export function DataMonView() {
             ))}
           </ACard>
           <ACard title="盘口适配诊断">
+            {v.diagnosticSummary && (
+              <div style={{ marginBottom: 10, display: "grid", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--inset)", borderRadius: 8, padding: "7px 9px" }}>
+                  <span style={{ fontSize: 11, color: "var(--fg-3)" }}>近 24h 拦截</span>
+                  <span className="mono" style={{ fontSize: 12, fontWeight: 800 }}>{v.diagnosticSummary.total ?? 0}</span>
+                </div>
+                {(v.diagnosticSummary.byType ?? []).slice(0, 3).map((x: V) => (
+                  <div key={`${x.error_type}-${x.severity}`} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 10.5, color: "var(--fg-3)" }}>
+                    <span style={{ width: 48, color: x.severity === "error" ? "var(--red)" : x.severity === "warn" ? "var(--gold)" : "var(--fg-3)", fontWeight: 800 }}>{x.severity}</span>
+                    <span className="mono" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.error_type}</span>
+                    <span className="mono" style={{ fontWeight: 800 }}>{x.n}</span>
+                  </div>
+                ))}
+                {(v.diagnosticSummary.byFixture ?? []).slice(0, 3).map((x: V) => (
+                  <div key={`fx-${x.fixture_id ?? "none"}`} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 10.5, color: "var(--fg-3)" }}>
+                    <span>fixture</span>
+                    <span className="mono" style={{ flex: 1 }}>{x.fixture_id ?? "—"}</span>
+                    <span className="mono" style={{ fontWeight: 800 }}>{x.n}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             {(v.diagnostics ?? []).length === 0 && <div style={{ fontSize: 11.5, color: "var(--fg-3)" }}>暂无拦截记录</div>}
             {(v.diagnostics ?? []).map((d: V) => (
               <div key={d.issue_id} style={{ padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>

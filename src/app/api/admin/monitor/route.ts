@@ -12,7 +12,7 @@ import { ahText, ouText, f2 } from "@/lib/format";
 import { latestOddsRaw, fixturesBetween } from "@/server/af/store";
 import { parseExtraMarkets } from "@/server/af/markets";
 import { readLlmBalance } from "@/server/llm/client";
-import { recentDiagnosticIssues } from "@/server/af/diagnostics";
+import { diagnosticIssueSummary, recentDiagnosticIssues } from "@/server/af/diagnostics";
 
 export async function GET() {
   if (!(await currentAdmin())) return NextResponse.json({ ok: false }, { status: 401 });
@@ -82,6 +82,7 @@ export async function GET() {
     af: JSON.parse(kvGet("af_status") || "null"),
     llm: { ...llmStats(), balance: readLlmBalance()?.usd ?? null },
     diagnostics: recentDiagnosticIssues(12),
+    diagnosticSummary: diagnosticIssueSummary(),
     alerts,
   });
 }
