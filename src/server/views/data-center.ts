@@ -54,7 +54,7 @@ async function resolveSeason(leagueId: number): Promise<{ season: number; source
 async function standingsGroups(leagueId: number, season: number) {
   const groups = await kvCached<unknown[]>(
     `data:${leagueId}:${season}:standings`,
-    6 * H,
+    30 * 60_000, // 积分榜赛中(尤其世界杯)逐场变化,30min 缓存避免「过期」观感(原 6h 太久)
     async () => {
       const r = await runAfEndpoint("standings", { league: String(leagueId), season: String(season) });
       return arr(dig(arr(r.response)[0], "league", "standings"));
@@ -113,7 +113,7 @@ function playerBoardRow(item: unknown, index: number) {
 async function playerBoard(leagueId: number, season: number, kind: "players.topscorers" | "players.topassists") {
   const rows = await kvCached<unknown[]>(
     `data:${leagueId}:${season}:${kind}`,
-    24 * H,
+    3 * H, // 射手/助攻榜随比赛日更新,3h 缓存(原 24h 太久,赛中观感过期)
     async () => {
       const r = await runAfEndpoint(kind, { league: String(leagueId), season: String(season) });
       return arr(r.response);

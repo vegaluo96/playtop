@@ -58,16 +58,13 @@ function shiftedDateLabel(offsetDays: number, tz: string): string {
   return `${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")} 周${WEEK[d.getUTCDay()]}`;
 }
 
-/** 距开赛倒计时:>=1天显示天+时,>=1时显示时+分,否则分钟;已到点显示即将开赛 */
+/** 距开赛倒计时数值(>=1天:天+时;>=1时:时+分;否则分钟)。"距开赛"标签由调用方放最右。 */
 function kickoffCountdown(kickoffMs: number): string {
-  const ms = kickoffMs - Date.now();
-  if (ms <= 0) return "即将开赛";
-  const totalMin = Math.floor(ms / 60_000);
+  const totalMin = Math.max(0, Math.floor((kickoffMs - Date.now()) / 60_000));
   const d = Math.floor(totalMin / 1440);
   const h = Math.floor((totalMin % 1440) / 60);
   const mi = totalMin % 60;
-  const t = d >= 1 ? `${d}天${h}小时` : h >= 1 ? `${h}小时${mi}分` : `${mi}分`;
-  return `距开赛 ${t}`;
+  return d >= 1 ? `${d}天${h}小时` : h >= 1 ? `${h}小时${mi}分` : `${mi}分`;
 }
 
 export default function MatchesRoute() {
@@ -176,8 +173,13 @@ function MobileMatchesPage() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, minWidth: 0 }}>
             {m.live || m.finished ? (
               exLine ? <span className="mono" style={{ maxWidth: 168, fontSize: 11.5, color: "var(--fg-3)", fontWeight: 650, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{exLine}</span> : null
+            ) : m.kickoff > Date.now() ? (
+              <span style={{ display: "flex", alignItems: "baseline", gap: 4, flexShrink: 0, whiteSpace: "nowrap" }}>
+                <span className="mono" style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 800 }}>{kickoffCountdown(m.kickoff)}</span>
+                <span style={{ fontSize: 10.5, color: "var(--fg-4)", fontWeight: 650 }}>距开赛</span>
+              </span>
             ) : (
-              <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)", fontWeight: 750, whiteSpace: "nowrap", flexShrink: 0 }}>{kickoffCountdown(m.kickoff)}</span>
+              <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-3)", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>即将开赛</span>
             )}
           </div>
         </div>
