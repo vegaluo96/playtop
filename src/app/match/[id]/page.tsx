@@ -42,6 +42,17 @@ function euSummary(s: V | null | undefined): MarketCellData | null {
   return [h, d, a].every(Number.isFinite) ? { h, d, a, chgAt: s.chgAt } : null;
 }
 
+/** 详情积分榜聚焦两队及上下邻近行(完整表见数据页);表很短时全显示 */
+function focusStandings(table: V[]): V[] {
+  if (!Array.isArray(table) || table.length <= 6) return table ?? [];
+  const keep = new Set<number>();
+  table.forEach((r, i) => {
+    if (r.hl) { keep.add(i - 1); keep.add(i); keep.add(i + 1); }
+  });
+  const rows = table.filter((_, i) => keep.has(i));
+  return rows.length > 0 ? rows : table;
+}
+
 /** 一级导航 4 组(390px 一屏放下):指数(走势/对比/玩法)| 赛况 | 人员(阵容+情报)| 深度(深挖+报告) */
 const TABS: [string, string][] = [
   ["odds", "指数"], ["match", "赛况"], ["squad", "人员"], ["deep", "深度"],
@@ -432,17 +443,17 @@ function MobileMatchDetail({ id }: { id: string }) {
               ))}
             </Card>
 
-            <SectionTitle title="积分榜" right="两队高亮" />
+            <SectionTitle title="积分榜" right="两队及邻近 · 完整见数据页" />
             <Card style={{ overflow: "hidden" }}>
-              {(v.tech.standings?.table ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>暂无积分榜数据</div>}
-              {(v.tech.standings?.table ?? []).length > 0 && (
+              {focusStandings(v.tech.standings?.table ?? []).length === 0 && <div style={{ padding: 14, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>暂无积分榜数据</div>}
+              {focusStandings(v.tech.standings?.table ?? []).length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 30px 64px 36px 36px", padding: "7px 12px", borderBottom: "1px solid var(--line)" }}>
                   {["#", "球队", "赛", "胜/平/负", "净胜", "积分"].map((hd, i) => (
                     <span key={hd} style={{ fontSize: 11, color: "var(--fg-3)", textAlign: i >= 2 ? "center" : "left" }}>{hd}</span>
                   ))}
                 </div>
               )}
-              {(v.tech.standings?.table ?? []).map((r: V) => (
+              {focusStandings(v.tech.standings?.table ?? []).map((r: V) => (
                 <div key={`${r.grp}-${r.rk}-${r.team}`} style={{ display: "grid", gridTemplateColumns: "28px 1fr 30px 64px 36px 36px", padding: "8px 12px", alignItems: "center", borderBottom: "1px solid var(--line-soft)", background: r.hl ? "var(--selected-bg-soft)" : "transparent" }}>
                   <span className="mono" style={{ fontSize: 11, fontWeight: 800, color: r.hl ? "var(--gold)" : "var(--fg-3)" }}>{r.rk}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
@@ -534,25 +545,6 @@ function MobileMatchDetail({ id }: { id: string }) {
                   </Card>
                 </>
               )}
-
-              <SectionTitle title="联赛榜单" right="各榜前 5 · 点击看球员" />
-              {(deepV.lb ?? []).length === 0 && (
-                <Card style={{ padding: "12px 14px", marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>榜单数据积累中</div>
-                </Card>
-              )}
-              {deepV.lb?.map((b: V) => (
-                <Card key={b.tag} style={{ padding: "8px 14px", marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: b.tagC, marginBottom: 4 }}>{b.tag}</div>
-                  {(b.rows ?? []).map((r: V) => (
-                    <div key={r.rk} onClick={() => r.pid && setPlayer({ id: r.pid, name: r.name, season: h.season })} style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 0", borderBottom: r.rk < (b.rows?.length ?? 0) ? "1px solid var(--line-soft)" : "none", cursor: r.pid ? "pointer" : "default" }}>
-                      <span className="mono" style={{ width: 16, fontSize: 11.5, fontWeight: 800, color: r.rk === 1 ? "var(--gold)" : "var(--fg-3)" }}>{r.rk}</span>
-                      <span style={{ flex: 1, fontSize: 12, fontWeight: 700, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--fg-3)" }}>{r.team}</span></span>
-                      <span className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>{r.v}</span>
-                    </div>
-                  ))}
-                </Card>
-              ))}
 
               {deepV.venue?.name && deepV.venue.name !== "—" && (<>
               <SectionTitle title="球场因素" />

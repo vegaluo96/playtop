@@ -13,15 +13,14 @@ export const OU_TEXT: Record<string, string> = {
   "3.75": "三半/四", "4": "四球", "4.25": "四/四半", "4.5": "四球半",
 };
 
-/** 让球指数 → 中文(负让球加「受」前缀) */
+/** 让球盘口 → 数字(标准化:正=主让,负=受让,0=平手;全站统一用数字,不再中文盘口名) */
 export function ahText(line: number): string {
-  const t = AH_TEXT[String(Math.abs(line))] ?? String(Math.abs(line));
-  return (line < 0 ? "受" : "") + t;
+  return String(Math.round(line * 100) / 100);
 }
 
-/** 大小指数 → 中文 */
+/** 大小盘口 → 数字(标准化:与角球/罚牌等「更多」玩法一致,统一数字) */
 export function ouText(line: number): string {
-  return OU_TEXT[String(line)] ?? String(line);
+  return String(Math.round(line * 100) / 100);
 }
 
 export function f2(v: number): string {

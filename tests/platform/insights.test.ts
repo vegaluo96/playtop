@@ -50,7 +50,7 @@ describe("盘路分类", () => {
     const r = teamRoad(100, NOW);
     expect(r.ah.rows.map((x) => x.res)).toEqual(["赢", "赢半", "赢"]); // 最近在前
     expect(r.ah.rows[0].ha).toBe("客");
-    expect(r.ah.rows[0].line).toBe("受半球"); // 客队视角受让
+    expect(r.ah.rows[0].line).toBe("-0.5"); // 客队视角受让(负=受让)
     expect(r.ah.agg).toMatchObject({ n: 3, win: 3, lose: 0, push: 0, rate: 100, streak: "连赢3" });
     expect(r.ou.rows[0].res).toBe("小");
   });
@@ -68,7 +68,7 @@ describe("盘路分类", () => {
     const r = teamRoad(100, NOW);
 
     expect(r.ah.rows).toHaveLength(1);
-    expect(r.ah.rows[0]).toMatchObject({ line: "平半", res: "赢" });
+    expect(r.ah.rows[0]).toMatchObject({ line: "0.25", res: "赢" });
   });
 
   it("完场详情页盘路纳入当前比赛,避免刚完场仍为空", async () => {
@@ -79,9 +79,9 @@ describe("盘路分类", () => {
     const fx = db().prepare("SELECT * FROM fixtures_cache WHERE fixture_id=8").get() as unknown as FixtureRow;
     const ins = await insightsView(fx);
 
-    expect(ins.road.home.ah.rows[0]).toMatchObject({ opp: "T200", ha: "主", score: "1-0", line: "半球", res: "赢" });
-    expect(ins.road.away.ah.rows[0]).toMatchObject({ opp: "T100", ha: "客", score: "1-0", line: "受半球", res: "输" });
-    expect(ins.road.home.ou.rows[0]).toMatchObject({ line: "两球半", res: "小" });
+    expect(ins.road.home.ah.rows[0]).toMatchObject({ opp: "T200", ha: "主", score: "1-0", line: "0.5", res: "赢" });
+    expect(ins.road.away.ah.rows[0]).toMatchObject({ opp: "T100", ha: "客", score: "1-0", line: "-0.5", res: "输" });
+    expect(ins.road.home.ou.rows[0]).toMatchObject({ line: "2.5", res: "小" });
   });
 });
 

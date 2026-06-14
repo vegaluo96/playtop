@@ -77,7 +77,7 @@ describe("AI 报告量化方向", () => {
       ou: [{ fixture_id: 1, bookmaker_id: 8, bookmaker: "Bet365", market: "ou", line: 2, h: 0.84, a: 1.04, d: null, captured_at: 1000 }],
     });
 
-    expect(sig.ou.text).toBe("大于 两球");
+    expect(sig.ou.text).toBe("大于 2 球");
   });
 
   it("没有真实信号时保持 OPEN,不硬给方向", () => {

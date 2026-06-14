@@ -44,7 +44,7 @@ describe("quoteHistory", () => {
     expect(v.rows[0].chg).toBe(true); // 0.75 → 0.25 变盘
     expect(v.rows[1].chg).toBe(true); // 0.5 → 0.75 变盘
     expect(v.rows[2].chg).toBe(false); // 首帧不算变盘
-    expect(v.rows[2].text).toBe("半球");
+    expect(v.rows[2].text).toBe("0.5");
     expect(v.src).toBe("主流共识");
   });
 

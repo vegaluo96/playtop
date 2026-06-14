@@ -125,13 +125,13 @@ describe("external calibration fixes", () => {
     expect(view.comp.ah[0]).toMatchObject({
       co: "实时盘",
       bid: null,
-      iText: "半球",
+      iText: "0.5",
       iW: "0.88 / 0.98",
-      nText: "平手",
+      nText: "0",
       nW: "0.99 / 0.86",
       live: true,
     });
-    expect(view.comp.ah[1]).toMatchObject({ co: "Be***5", bid: 8, nText: "半一" });
+    expect(view.comp.ah[1]).toMatchObject({ co: "Be***5", bid: 8, nText: "0.75" });
   });
 
   it("filters standings to the shared group when provider also returns a generic group", async () => {
