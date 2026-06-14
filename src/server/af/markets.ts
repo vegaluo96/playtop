@@ -1,10 +1,12 @@
 /**
  * 扩展玩法解析(/odds 的 bets 全集早已随 odds_raw 落库,此处读时解析,零额外抓取):
- * 双重机会 / 平局退款 / 零封制胜 / 双方进球 / 单双 / 波胆 / 单队进球大小(主/客)/
- * 半场胜平负 / 下半场胜平负 / 进球最多半场 / 半全场 / 半场让球 / 半场大小 / 角球 / 罚牌。
+ * 双重机会 / 平局退款 / 零封制胜 / 双方进球 / 单双 / 波胆 / 单队进球大小(主/客)/ 赛果+双方进球 /
+ * 半场胜平负 / 下半场胜平负 / 进球最多半场 / 半全场 / 半场让球 / 半场大小 / 角球 / 罚牌 /
+ * 任意时间进球 / 首位进球者(球员盘,值为球员名,走 nameZh 汉化)。
  * AF 提供的标准玩法尽量全接;每个玩法独立挑书商(Bet365 → 平博 → 首家),不混合两家报价。
  */
 import { isValidDecimalOdd } from "./odds-quality";
+import { nameZh } from "../views/names";
 
 interface AfVal {
   value: string | number;
@@ -36,6 +38,7 @@ export interface ExtraMarket {
 const VAL_ZH: Record<string, string> = {
   Home: "主", Draw: "平", Away: "客", Yes: "是", No: "否", Odd: "单", Even: "双", Over: "大", Under: "小",
   Equal: "持平", "1st Half": "上半场", "2nd Half": "下半场", "First Half": "上半场", "Second Half": "下半场",
+  "Home/Yes": "主胜/进球", "Home/No": "主胜/0封", "Draw/Yes": "平局/进球", "Draw/No": "平局/0封", "Away/Yes": "客胜/进球", "Away/No": "客胜/0封",
   "Home/Draw": "主或平", "Home/Away": "主或客", "Draw/Away": "平或客",
   "Home/Home": "主/主", "Home/Draw ": "主/平", "Draw/Home": "平/主", "Draw/Draw": "平/平",
   "Draw/Away ": "平/客", "Away/Home": "客/主", "Away/Draw": "客/平", "Away/Away": "客/客",
@@ -66,6 +69,7 @@ interface Pick {
   max?: number;
   sortByOdd?: boolean;
   withHandicap?: boolean;
+  player?: boolean; // 球员盘:value 为球员名,走 nameZh(player) 汉化
 }
 
 const PICKS: Pick[] = [
@@ -75,6 +79,9 @@ const PICKS: Pick[] = [
   { key: "btts", name: "双方进球", re: /^both teams score$|^both teams to score$/i, exclude: /half/i },
   { key: "oddeven", name: "总进球单双", re: /^odd\/even$/i, exclude: /half/i },
   { key: "exact", name: "波胆(正确比分)", re: /^exact score$|^correct score$/i, exclude: /half/i, max: 9, sortByOdd: true },
+  { key: "resBtts", name: "赛果/双方进球", re: /result.*both teams|both teams.*result|1x2.*both teams/i, max: 6 },
+  { key: "scorer", name: "任意时间进球", re: /anytime goal.?scorer|goal.?scorer anytime|^anytime scorer$|^to score$/i, player: true, sortByOdd: true, max: 12 },
+  { key: "firstScorer", name: "首位进球者", re: /first goal.?scorer|^1st goal.?scorer|^first scorer$/i, player: true, sortByOdd: true, max: 12 },
   { key: "totalHome", name: "主队进球大小", re: /^total - home$/i, withHandicap: true, max: 6 },
   { key: "totalAway", name: "客队进球大小", re: /^total - away$/i, withHandicap: true, max: 6 },
   { key: "fh1x2", name: "半场胜平负", re: /^first half winner$/i },
@@ -112,7 +119,7 @@ export function parseExtraMarkets(item: unknown): ExtraMarket[] {
     if (p.sortByOdd) vals.sort((a, b) => parseFloat(a.odd) - parseFloat(b.odd));
     if (p.max) vals = vals.slice(0, p.max);
     const rows: ExtraRow[] = vals.map((v) => {
-      const base = zh(String(v.value), p.key === "htft");
+      const base = p.player ? nameZh(String(v.value), "player") : zh(String(v.value), p.key === "htft");
       const hc = v.handicap != null && v.handicap !== "" ? ` ${v.handicap}` : "";
       // "Over 2.5" 这类 value 自带盘口时不重复拼 handicap
       const label = p.withHandicap && hc && !/\d/.test(base) ? `${base}${hc}` : base;
