@@ -95,7 +95,7 @@ describe("normalizeOddsItem", () => {
         name: "Bet365",
         bets: [
           { id: 1, name: "Match Winner", values: [
-            { value: "Home", odd: "51" }, { value: "Draw", odd: "5" }, { value: "Away", odd: "1.14" },
+            { value: "Home", odd: "300" }, { value: "Draw", odd: "5" }, { value: "Away", odd: "1.14" },
           ] },
           { id: 4, name: "Asian Handicap", values: [
             { value: "Home -0.3", odd: "1.90" }, { value: "Away +0.3", odd: "1.96" },

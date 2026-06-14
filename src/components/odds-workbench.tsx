@@ -15,8 +15,8 @@ export type OddsMarketKey = "ah" | "eu" | "ou" | "road";
 
 export const ODDS_MARKET_TABS: { key: OddsMarketKey; label: string }[] = [
   { key: "ah", label: "让球" },
-  { key: "eu", label: "欧指" },
   { key: "ou", label: "进球数" },
+  { key: "eu", label: "欧指" },
   { key: "road", label: "更多" },
 ];
 

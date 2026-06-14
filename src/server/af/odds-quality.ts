@@ -3,6 +3,8 @@
 export const LIVE_EU_DISPLAY_MAX_ODD = 20;
 export const MIN_DECIMAL_ODD = 1.01;
 export const MAX_DECIMAL_ODD = 30;
+/** 胜平负弱旅赔率可达三位数(强弱悬殊的世界杯小组赛等),比主盘水位放宽;靠保证金门禁兜底防垃圾 */
+export const EU_MAX_ODD = 151;
 
 export function isFulltimeResultMarketName(name: string): boolean {
   const normalized = name.trim().toLowerCase();
@@ -33,8 +35,13 @@ export function isValidDecimalOdd(odd: number): boolean {
   return Number.isFinite(odd) && odd >= MIN_DECIMAL_ODD && odd <= MAX_DECIMAL_ODD;
 }
 
+function isValidEuOdd(o: number): boolean {
+  return Number.isFinite(o) && o >= MIN_DECIMAL_ODD && o <= EU_MAX_ODD;
+}
+
 export function isValidEuTriplet(h: number, d: number | null | undefined, a: number): boolean {
-  if (!isValidDecimalOdd(h) || !isValidDecimalOdd(d ?? NaN) || !isValidDecimalOdd(a)) return false;
+  // 胜平负各腿放宽到 EU_MAX_ODD(弱旅高赔合法);仍由保证金门禁过滤异常三元组
+  if (!isValidEuOdd(h) || !isValidEuOdd(d ?? NaN) || !isValidEuOdd(a)) return false;
   const margin = euMargin(h, d as number, a);
   return margin >= 1.0 && margin <= 1.25;
 }
