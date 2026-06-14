@@ -149,15 +149,10 @@ function MobileDataPage() {
     setTeamFocus({ group, teamId: row.teamId, team: row.team, logo: row.logo, stats: row, matches: teamMatches(row.teamId, row.team) });
   }, [teamMatches]);
 
-  const SEASON_SRC: Record<string, string> = { official: "官方", cache: "归档", inferred: "推断" };
-  // 头部 meta 只放「不在下方联赛 chips / tab 里出现」的信息:赛季 + 来源
-  const headerMeta = view ? `${view.season} 赛季 · ${SEASON_SRC[view.seasonSource] ?? "—"}` : "加载中";
-
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <PageHeader
         title="数据"
-        meta={headerMeta}
         right={<GlobalSearch />}
       />
 

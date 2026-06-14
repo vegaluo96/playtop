@@ -11,7 +11,7 @@ import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
 import { Chip, FeedState, Sheet } from "@/components/ui";
 import { hhmm, parseTzOffset } from "@/lib/format";
-import { LEAGUES, leagueColor, leagueZh } from "@/lib/leagues";
+import { LEAGUES, leagueZh } from "@/lib/leagues";
 import { Flash, useUnifiedPoll } from "@/components/live";
 import { MarketCell, type MarketCellData } from "@/components/market-cell";
 import { useIsDesktop } from "@/components/use-viewport";
@@ -149,16 +149,19 @@ function MobileMatchesPage() {
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 8, alignItems: "start", marginBottom: 7 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, whiteSpace: "nowrap" }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(m.leagueId), flexShrink: 0 }} />
+              {/* 去掉重复的联赛色点 / 质量绿点;状态仅在滚球时显示,其余用小标签框区分类型 */}
               <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 650, whiteSpace: "nowrap", flexShrink: 0 }}>{leagueZh(m.leagueId, m.leagueName)}</span>
               <span className="mono" style={{ fontSize: 12, color: "var(--fg-3)", whiteSpace: "nowrap", flexShrink: 0 }}>{hhmm(m.kickoff, prefs.tz)}</span>
-              {m.q != null && <span title="赛前数据质量分(与详情同口径)" style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: m.q >= 85 ? "var(--green)" : m.q >= 70 ? "var(--gold)" : "var(--red)" }} />}
-              {m.live && (
+              {m.live ? (
                 <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "var(--red)", fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0 }}>
                   <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)", flexShrink: 0 }} />
                   {m.ht ? "中场" : m.elapsed != null ? `${m.elapsed}'` : "LIVE"}
                 </span>
-              )}
+              ) : m.finished ? (
+                <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: "var(--fg-3)", border: "1px solid var(--line)", borderRadius: 4, padding: "1px 5px", lineHeight: 1.3 }}>完场</span>
+              ) : m.free ? (
+                <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: "var(--gold)", border: "1px solid var(--selected-border)", background: "var(--selected-bg-soft)", borderRadius: 4, padding: "1px 5px", lineHeight: 1.3 }}>免费</span>
+              ) : null}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, minWidth: 0 }}>
@@ -202,8 +205,7 @@ function MobileMatchesPage() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <AnnouncementBar />
       <PageHeader
-        title="赛事"
-        meta={`${rows.length} 场${liveCount ? ` · ${liveCount} 滚球` : ""}`}
+        title="足球天空"
         {...beat}
         right={<GlobalSearch />}
       />

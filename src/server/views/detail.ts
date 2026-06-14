@@ -561,7 +561,7 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
   const compMap = (list: Panorama["odds"]["compareAh"], market: "ah" | "ou") => {
     const rows = list.map((c) => ({
       co: maskBookmaker(c.bookmaker),
-      bid: c.last.bookmaker_id, // 点行查看该公司完整历史报价
+      bid: c.last.bookmaker_id, // 点行查看该书商完整历史报价
       iText: market === "ah" ? ahText(c.first.line ?? 0) : ouText(c.first.line ?? 0),
       iW: `${f2(c.first.h)} / ${f2(c.first.a)}`,
       nText: market === "ah" ? ahText(c.last.line ?? 0) : ouText(c.last.line ?? 0),

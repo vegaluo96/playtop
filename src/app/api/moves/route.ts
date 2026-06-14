@@ -73,7 +73,7 @@ function buildMoveRow(m: Movement, i: number, ctx: { tz: string; loggedIn: boole
       league: leagueZh(m.league_id, m.league_name),
       leagueId: m.league_id,
       mk: isEu ? "胜平负" : isAh ? "让球" : "大小",
-      mkFull: isEu ? "胜平负(滚球)" : isAh ? "让球指数" : "大小指数(进球数)",
+      mkFull: isEu ? "胜平负" : isAh ? "让球" : "大小",
       live: liveMove,
       bk: liveMove ? m.bookmaker : maskBookmaker(m.bookmaker),
       type: m.type,

@@ -20,7 +20,7 @@ export interface QuoteRow {
 }
 
 /**
- * @param bookmakerId 指定书商:对比行点入,只看该公司的赛前序列(滚球帧无书商维度,不并入)
+ * @param bookmakerId 指定书商:对比行点入,只看该书商的赛前序列(滚球帧无书商维度,不并入)
  */
 export function quoteHistory(fixtureId: number, market: "ah" | "ou" | "eu", tz: string, bookmakerId?: number) {
   const fx = fixtureById(fixtureId);

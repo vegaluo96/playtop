@@ -150,7 +150,7 @@ export function euDispersion(lasts: { h: number; d: number | null; a: number }[]
   return {
     books: ok.length,
     disp: { h: sd("h"), d: sd("d"), a: sd("a") },
-    method: `离散度 = 各家公司胜平负报价标准差(${ok.length} 家);数值越大代表市场分歧越大。`,
+    method: `离散度 = 各家书商胜平负报价标准差(${ok.length} 家);数值越大代表市场分歧越大。`,
   };
 }
 

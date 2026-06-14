@@ -238,10 +238,10 @@ export function CenterPane({
             {liveOddsStrip}
             <div style={{ display: "grid", gridTemplateColumns: "minmax(420px,1.25fr) minmax(320px,0.75fr)", gap: 14, alignItems: "start" }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 850, margin: "0 2px 8px" }}>让球指数 · {h.finished ? "初始 / 终盘" : "初始 / 即时"}</div>
+                <div style={{ fontSize: 12, fontWeight: 850, margin: "0 2px 8px" }}>让球 · {h.finished ? "初始 / 终盘" : "初始 / 即时"}</div>
                 <OddsCompareMatrix market="ah" rows={v.comp.ah} finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ah", bid: c.bid, co: c.co })} />
               </div>
-              <OddsTrendPanel market="ah" title="让球指数走势" data={v.odds.ah} index={v.odds.index?.ah} kickoff={h.kickoff} tz={tz} onHistory={() => setHistory({ id: h.id, mk: "ah" })} />
+              <OddsTrendPanel market="ah" title="让球走势" data={v.odds.ah} index={v.odds.index?.ah} kickoff={h.kickoff} tz={tz} onHistory={() => setHistory({ id: h.id, mk: "ah" })} />
             </div>
           </>
         )}
@@ -251,7 +251,7 @@ export function CenterPane({
             {liveOddsStrip}
             <div style={{ display: "grid", gridTemplateColumns: "minmax(420px,1.25fr) minmax(320px,0.75fr)", gap: 14, alignItems: "start" }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 850, margin: "0 2px 8px" }}>欧指 · 主胜 / 平局 / 客胜</div>
+                <div style={{ fontSize: 12, fontWeight: 850, margin: "0 2px 8px" }}>胜平负 · 主胜 / 平局 / 客胜</div>
                 <OddsCompareMatrix market="eu" rows={v.comp.eu} euMeta={v.comp.euMeta} finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "eu", bid: c.bid, co: c.co })} />
               </div>
               <OddsEuTrendPanel rows={v.odds.eu} index={v.odds.index?.eu} kickoff={h.kickoff} tz={tz} onHistory={() => setHistory({ id: h.id, mk: "eu" })} />
@@ -264,10 +264,10 @@ export function CenterPane({
             {liveOddsStrip}
             <div style={{ display: "grid", gridTemplateColumns: "minmax(420px,1.25fr) minmax(320px,0.75fr)", gap: 14, alignItems: "start" }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 850, margin: "0 2px 8px" }}>进球数 · 大球 / 总进球 / 小球</div>
+                <div style={{ fontSize: 12, fontWeight: 850, margin: "0 2px 8px" }}>大小 · 大球 / 总进球 / 小球</div>
                 <OddsCompareMatrix market="ou" rows={v.comp.ou} finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ou", bid: c.bid, co: c.co })} />
               </div>
-              <OddsTrendPanel market="ou" title="进球数走势" data={v.odds.ou} index={v.odds.index?.ou} kickoff={h.kickoff} tz={tz} onHistory={() => setHistory({ id: h.id, mk: "ou" })} />
+              <OddsTrendPanel market="ou" title="大小走势" data={v.odds.ou} index={v.odds.index?.ou} kickoff={h.kickoff} tz={tz} onHistory={() => setHistory({ id: h.id, mk: "ou" })} />
             </div>
           </>
         )}
@@ -299,7 +299,7 @@ export function CenterPane({
             <div style={{ marginTop: 10 }}>
               <CornersRefNote cr={v.insights?.cornersRef} home={h.home} away={h.away} />
             </div>
-            {(v.markets ?? []).length > 0 && <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 2px 0" }}>玩法指数为胜平负原值,来自单一公司当帧报价;仅供数据参考。</div>}
+            {(v.markets ?? []).length > 0 && <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "10px 2px 0" }}>玩法指数为胜平负原值,来自单一书商当帧报价;仅供数据参考。</div>}
           </>
         )}
 

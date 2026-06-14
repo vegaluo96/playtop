@@ -207,9 +207,8 @@ function MobileMatchDetail({ id }: { id: string }) {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 16px 4px", minHeight: 40, boxSizing: "border-box" }}>
         <button type="button" onClick={() => router.back()} aria-label="返回" style={{ width: 38, height: 38, border: "1px solid var(--line)", borderRadius: 999, background: "var(--card)", color: "var(--fg-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 22, lineHeight: 1, flexShrink: 0 }}>‹</button>
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <div style={{ fontSize: 10.5, color: "var(--fg-3)", fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>比赛详情</div>
-          <div style={{ marginTop: 3, fontSize: 12, color: "var(--fg-2)", fontWeight: 750, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.league} · {h.round}</div>
+        <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, color: "var(--fg-2)", fontWeight: 750, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.league} · {h.round}</div>
         </div>
         <button type="button" onClick={openShare} aria-label="分享" style={{ width: 38, height: 38, border: "1px solid var(--line)", borderRadius: 999, background: "var(--card)", color: "var(--fg-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
           <ShareIcon />
@@ -280,16 +279,16 @@ function MobileMatchDetail({ id }: { id: string }) {
         {tab === "odds" && oddsSub === "ah" && (
           <>
             {liveOddsStrip}
-            <SectionTitle title="让球指数" right={h.finished ? "初始 / 终盘" : "初始 / 即时"} />
+            <SectionTitle title="让球" right={h.finished ? "初始 / 终盘" : "初始 / 即时"} />
             <OddsCompareMatrix market="ah" rows={v.comp.ah} compact finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ah", bid: c.bid, co: c.co })} />
-            <OddsTrendPanel market="ah" title="让球指数走势" data={v.odds.ah} index={v.odds.index?.ah} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "ah" })} />
+            <OddsTrendPanel market="ah" title="让球走势" data={v.odds.ah} index={v.odds.index?.ah} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "ah" })} />
           </>
         )}
 
         {tab === "odds" && oddsSub === "eu" && (
           <>
             {liveOddsStrip}
-            <SectionTitle title="欧指" right="主胜 / 平局 / 客胜" />
+            <SectionTitle title="胜平负" right="主胜 / 平局 / 客胜" />
             <OddsCompareMatrix market="eu" rows={v.comp.eu} euMeta={v.comp.euMeta} compact finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "eu", bid: c.bid, co: c.co })} />
             <OddsEuTrendPanel rows={v.odds.eu} index={v.odds.index?.eu} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "eu" })} />
           </>
@@ -298,9 +297,9 @@ function MobileMatchDetail({ id }: { id: string }) {
         {tab === "odds" && oddsSub === "ou" && (
           <>
             {liveOddsStrip}
-            <SectionTitle title="进球数" right="大球 / 总进球 / 小球" />
+            <SectionTitle title="大小" right="大球 / 总进球 / 小球" />
             <OddsCompareMatrix market="ou" rows={v.comp.ou} compact finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ou", bid: c.bid, co: c.co })} />
-            <OddsTrendPanel market="ou" title="进球数走势" data={v.odds.ou} index={v.odds.index?.ou} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "ou" })} />
+            <OddsTrendPanel market="ou" title="大小走势" data={v.odds.ou} index={v.odds.index?.ou} kickoff={h.kickoff} tz={prefs.tz} compact onHistory={() => setHistory({ id: h.id, mk: "ou" })} />
           </>
         )}
 
@@ -328,7 +327,7 @@ function MobileMatchDetail({ id }: { id: string }) {
               </Card>
             ))}
             <CornersRefNote cr={v.insights?.cornersRef} home={h.home} away={h.away} />
-            {(v.markets ?? []).length > 0 && <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "6px 4px 0", lineHeight: 1.6 }}>玩法指数为胜平负原值,来自单一公司当帧报价;仅供数据参考。</div>}
+            {(v.markets ?? []).length > 0 && <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "6px 4px 0", lineHeight: 1.6 }}>玩法指数为胜平负原值,来自单一书商当帧报价;仅供数据参考。</div>}
           </>
         )}
 

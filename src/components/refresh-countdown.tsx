@@ -7,8 +7,6 @@ type FreshLike = {
   line?: string | null;
   intervalMs?: number | null;
 };
-/** 临近档(≤30 分钟,含滚球)才做秒级倒计时;远期只显示"距开赛 X · 每 N 刷新" */
-const COUNTDOWN_FROM_TIER = 5;
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");
@@ -41,15 +39,16 @@ export function useRefreshCountdown(args: {
 
   return useMemo(() => {
     if (finished) return "已完场 · 数据已固化";
-    // 远期比赛不做秒级倒计时(会显示十几小时、且随抓取跳动),只显示"距开赛 X · 每 N 刷新"
-    const idx = Number(fresh?.idx);
-    if (Number.isFinite(idx) && idx < COUNTDOWN_FROM_TIER) return fresh?.line ?? "等待刷新";
+    // 把「每 N 刷新」改成活的倒计时:保留「距开赛 X」前缀(取 fresh.line 第一段),
+    // 后半段换成到下次抓取的秒级倒计时(以最近一次抓取/请求为锚点 + 刷新间隔)。
     const interval = Number(fresh?.intervalMs);
-    if (!Number.isFinite(interval) || interval <= 0) return fresh?.line ?? "等待刷新";
     const anchor = Number.isFinite(Number(oddsAt)) ? Number(oddsAt) : Number.isFinite(Number(fallbackAt)) ? Number(fallbackAt) : mountedAt;
-    if (!Number.isFinite(anchor) || anchor <= 0) return "等待刷新";
-    return `下次刷新 ${countdownText(anchor + interval - now)}`;
-  }, [fallbackAt, finished, fresh?.intervalMs, mountedAt, now, oddsAt]);
+    const hasCountdown = Number.isFinite(interval) && interval > 0 && Number.isFinite(anchor) && anchor > 0;
+    if (!hasCountdown) return fresh?.line ?? "等待刷新";
+    const cd = `下次刷新 ${countdownText(anchor + interval - now)}`;
+    const prefix = (fresh?.line ?? "").split(" · ")[0]?.trim();
+    return prefix && /开赛|距/.test(prefix) ? `${prefix} · ${cd}` : cd;
+  }, [fallbackAt, finished, fresh?.line, fresh?.intervalMs, mountedAt, now, oddsAt]);
 }
 
 export function RefreshCountdownText(args: {

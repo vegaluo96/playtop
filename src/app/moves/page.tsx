@@ -23,7 +23,6 @@ import {
   moveTypeStyle,
   moveValueFromStyle,
   moveValueToStyle,
-  moveWaterValueStyle,
 } from "@/components/move-styles";
 
 import type { MoveRow } from "@/app/api/moves/route";
@@ -72,7 +71,6 @@ function MobileMovesPage() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <PageHeader
         title="异动"
-        meta={`${rows.length} 条`}
         {...beat}
         right={<GlobalSearch />}
       />
@@ -99,22 +97,20 @@ function MobileMovesPage() {
                 <span style={movePillStyle("danger")}>急变</span>
               )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              {f.live && <span style={movePillStyle("live")}>滚球</span>}
-              <span style={movePillStyle("neutral")}>{f.mk}</span>
-              {f.bk && !f.live && <span style={movePillStyle("muted")}>{f.bk}</span>}
-              <span style={moveTypeStyle(f.type, false, f.direction)}>{f.type}</span>
-              <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={moveValueFromStyle} />
-              <span style={moveArrowStyle(f.type, false, f.direction)}>→</span>
-              <MarketValue v={f.masked ? "●●" : f.to} className="" small dim={!!f.masked} style={f.masked ? moveValueFromStyle : moveValueToStyle(f.type, f.direction)} />
-            </div>
-            {(f.type === "升盘" || f.type === "降盘") && (
-              // 让球/大小变盘:第二行补「水位」变化(与第一行的盘口线变化是两个维度,不重复)。
-              // 「水位」类盘口本身就是水位变化,第一行已展示,不再重复一行;原右侧 delta 注脚与 from→to 同义,移除。
-              <div style={{ display: "flex", marginTop: 6 }}>
-                <MarketValue v={f.masked ? "●●" : f.water} small dim={!!f.masked} style={f.masked ? { justifyContent: "flex-start" } : moveWaterValueStyle(f.waterDirection)} />
+            {/* 固定单行:左侧 滚球/盘口/类型/书商(可截断),右侧 from→to;不再因类型多/少一行,所有卡片等高 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1, overflow: "hidden" }}>
+                {f.live && <span style={movePillStyle("live")}>滚球</span>}
+                <span style={movePillStyle("neutral")}>{f.mk}</span>
+                <span style={moveTypeStyle(f.type, false, f.direction)}>{f.type}</span>
+                {f.bk && !f.live && <span style={movePillStyle("muted", false, 88)}>{f.bk}</span>}
               </div>
-            )}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={moveValueFromStyle} />
+                <span style={moveArrowStyle(f.type, false, f.direction)}>→</span>
+                <MarketValue v={f.masked ? "●●" : f.to} className="" small dim={!!f.masked} style={f.masked ? moveValueFromStyle : moveValueToStyle(f.type, f.direction)} />
+              </div>
+            </div>
           </div>
         ))}
         {!loggedIn && rows.length > 0 && (

@@ -110,7 +110,7 @@ export function mergeComposite(pre: { points: IndexPoint[]; books: number }, liv
   }
   const method =
     market === "eu"
-      ? `综合指数 = ${pre.books} 家书商去水主胜概率中位数;滚球段为实时盘直读。指数为本站计算值,非任何单一公司报价。`
-      : `综合指数 = ${pre.books} 家书商共识主指数线(指数线中位数)下的主侧净水中位数;滚球段为实时盘直读。指数为本站计算值,非任何单一公司报价。`;
+      ? `综合指数 = ${pre.books} 家书商去水主胜概率中位数;滚球段为实时盘直读。指数为本站计算值,非任何单一书商报价。`
+      : `综合指数 = ${pre.books} 家书商共识主指数线(指数线中位数)下的主侧净水中位数;滚球段为实时盘直读。指数为本站计算值,非任何单一书商报价。`;
   return { points, markers, method, books: pre.books };
 }

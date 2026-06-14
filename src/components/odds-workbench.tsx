@@ -1,6 +1,6 @@
 "use client";
 
-/** 指数工作台:公司初始/即时对照 + 最新走势摘要。只展示平台整理后的标准盘口。 */
+/** 指数工作台:书商初始/即时对照 + 最新走势摘要。只展示平台整理后的标准盘口。 */
 import type { CSSProperties, ReactNode } from "react";
 import { IndexChart } from "@/components/index-chart";
 import { MarketValue } from "@/components/market-cell";
@@ -15,15 +15,15 @@ export type OddsMarketKey = "ah" | "eu" | "ou" | "road";
 
 export const ODDS_MARKET_TABS: { key: OddsMarketKey; label: string }[] = [
   { key: "ah", label: "让球" },
-  { key: "ou", label: "进球数" },
-  { key: "eu", label: "欧指" },
+  { key: "ou", label: "大小" },
+  { key: "eu", label: "胜平负" },
   { key: "road", label: "更多" },
 ];
 
 const marketName: Record<Exclude<OddsMarketKey, "road">, string> = {
-  ah: "让球指数",
-  eu: "欧指",
-  ou: "进球数",
+  ah: "让球",
+  eu: "胜平负",
+  ou: "大小",
 };
 
 function splitQuote(raw: unknown, size: number): string[] {
@@ -162,7 +162,7 @@ export function OddsCompareMatrix({
   return (
     <div style={panelStyle(compact)}>
       <div style={{ display: "grid", gridTemplateColumns: grid, background: "var(--inset)", borderBottom: "1px solid var(--line)" }}>
-        <Cell muted style={{ gridRow: "1 / 3", display: "flex", alignItems: "center", justifyContent: "center", fontSize: compact ? 11 : 12, fontWeight: 850 }}>公司</Cell>
+        <Cell muted style={{ gridRow: "1 / 3", display: "flex", alignItems: "center", justifyContent: "center", fontSize: compact ? 11 : 12, fontWeight: 850 }}>书商</Cell>
         <Cell muted style={{ gridColumn: "2 / 5", padding: "7px 0 2px", fontSize: compact ? 11 : 12, fontWeight: 850 }}>初始</Cell>
         <Cell muted style={{ gridColumn: "5 / 8", padding: "7px 0 2px", fontSize: compact ? 11 : 12, fontWeight: 850 }}>{finished ? "终盘" : "即时"}</Cell>
         <span />
@@ -278,7 +278,7 @@ export function OddsEuTrendPanel({
   return (
     <div style={{ marginTop: compact ? 10 : 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "0 2px 8px" }}>
-        <span style={{ fontSize: compact ? 12 : 13, fontWeight: 850 }}>欧指走势</span>
+        <span style={{ fontSize: compact ? 12 : 13, fontWeight: 850 }}>胜平负走势</span>
         <span style={{ fontSize: compact ? 10.5 : 11.5, color: "var(--fg-3)" }}>最新 3 条</span>
       </div>
       <div style={panelStyle(compact)}>
