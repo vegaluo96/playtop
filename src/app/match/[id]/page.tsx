@@ -570,9 +570,9 @@ function MobileMatchDetail({ id }: { id: string }) {
               </Card>
               </>)}
 
+              {(deepV.scorers ?? []).length > 0 && (<>
               <SectionTitle title="射手依赖度" />
               <Card style={{ padding: "6px 14px" }}>
-                {(deepV.scorers ?? []).length === 0 && <div style={{ padding: 10, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>榜单暂无数据</div>}
                 {deepV.scorers?.map((s: V) => (
                   <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: s.side === "h" ? "var(--home)" : "var(--team-away)" }} />
@@ -595,10 +595,11 @@ function MobileMatchDetail({ id }: { id: string }) {
                 ))}
                 <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "8px 0", lineHeight: 1.6 }}>依赖度越高,该射手缺阵或哑火对大小指数与让球指数的冲击越大。</div>
               </Card>
+              </>)}
 
+              {(deepV.ratings ?? []).length > 0 && (<>
               <SectionTitle title="赛季场均评分 · 关键球员" />
               <Card style={{ padding: "4px 14px 6px" }}>
-                {(deepV.ratings ?? []).length === 0 && <div style={{ padding: 10, fontSize: 11, color: "var(--fg-3)", textAlign: "center" }}>评分暂无数据</div>}
                 {deepV.ratings?.map((r: V) => {
                   const bc = r.r >= 8 ? ["var(--selected-bg-strong)", "var(--gold)"] : r.r >= 7 ? ["var(--success-bg)", "var(--green)"] : ["var(--neutral-bg)", "var(--fg-3)"];
                   return (
@@ -612,7 +613,9 @@ function MobileMatchDetail({ id }: { id: string }) {
                 })}
                 <div style={{ fontSize: 11, color: "var(--fg-3)", padding: "8px 0", lineHeight: 1.6 }}>开赛后切换为全员实时评分。</div>
               </Card>
+              </>)}
 
+              {((deepV.coaches?.length ?? 0) + (deepV.transfers?.length ?? 0) + (deepV.depth?.length ?? 0)) > 0 && (<>
               <SectionTitle title="教练 · 转会 · 阵容深度" />
               <Card style={{ padding: "6px 14px" }}>
                 {deepV.coaches?.map((c: V) => (
@@ -639,10 +642,11 @@ function MobileMatchDetail({ id }: { id: string }) {
                 ))}
                 <div style={{ height: 6 }} />
               </Card>
+              </>)}
 
+              {(deepV.motiv ?? []).length > 0 && (<>
               <SectionTitle title="教练荣誉" />
               <Card style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 7 }}>
-                {(deepV.motiv ?? []).length === 0 && <span style={{ fontSize: 11, color: "var(--fg-3)" }}>暂无荣誉数据</span>}
                 {deepV.motiv?.map((x: string) => (
                   <div key={x} style={{ display: "flex", gap: 6, fontSize: 11, color: "var(--fg-2)", lineHeight: 1.6 }}>
                     <span style={{ color: "var(--gold)" }}>·</span>
@@ -650,6 +654,14 @@ function MobileMatchDetail({ id }: { id: string }) {
                   </div>
                 ))}
               </Card>
+              </>)}
+
+              {!deepV.seasonPanel?.home && !deepV.seasonPanel?.away && !(deepV.venue?.name && deepV.venue.name !== "—") &&
+                (deepV.scorers ?? []).length === 0 && (deepV.ratings ?? []).length === 0 &&
+                ((deepV.coaches?.length ?? 0) + (deepV.transfers?.length ?? 0) + (deepV.depth?.length ?? 0)) === 0 &&
+                (deepV.motiv ?? []).length === 0 && (
+                  <EmptyBox title="深挖数据暂无" sub={"球场/射手/评分/教练等深度数据开盘前后陆续补齐\n概率报告与指数仍可正常查看"} />
+                )}
             </>
           ) : (
             <div style={{ textAlign: "center", color: "var(--fg-3)", fontSize: 12, padding: "48px 0" }}>深挖数据加载中…</div>

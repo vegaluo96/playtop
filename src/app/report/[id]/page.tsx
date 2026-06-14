@@ -153,12 +153,19 @@ function MobileReportPage({ id }: { id: string }) {
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {(v.model.inputs ?? []).map((x: V) => (
-                <div key={x.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, color: x.status === "used" ? "var(--fg-2)" : "var(--fg-3)" }}>
+              {(v.model.inputs ?? []).filter((x: V) => x.status === "used").map((x: V) => (
+                <div key={x.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, color: "var(--fg-2)" }}>
                   <span style={{ flex: 1 }}>{x.label}</span>
-                  <span className="mono">{x.status === "used" ? `${x.weight}%` : "未参与"}</span>
+                  <span className="mono">{x.weight}%</span>
                 </div>
               ))}
+              {(() => {
+                // 未参与维度折叠为一行,主列表只列实际计入项(去重)
+                const missing = [...new Set((v.model.inputs ?? []).filter((x: V) => x.status !== "used").map((x: V) => x.label as string))];
+                return missing.length > 0 ? (
+                  <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2, lineHeight: 1.5 }}>未计入(暂无真实来源):{missing.join("、")}</div>
+                ) : null;
+              })()}
             </div>
           </Card>
         )}

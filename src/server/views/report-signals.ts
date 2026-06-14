@@ -375,12 +375,15 @@ export function publicComparison(ps: PredSummary | null): PublicComparison {
 export function publicReportAdvice(ps: PredSummary | null, signals: ReportSignals): { advice: string | null; summaryReady: boolean } {
   if (!ps) return { advice: null, summaryReady: false };
   if (signals.ah.status === "open" && signals.ou.status === "open") return { advice: null, summaryReady: false };
-  const parts = [
-    signals.ah.status === "ok" ? `亚盘:${signals.ah.text}` : null,
-    signals.ou.status === "ok" ? `大小:${signals.ou.text}` : null,
-  ].filter(Boolean);
+  // 摘要给「更高层一句话」:取信号更强(|score| 更大)的一侧作主导方向 + 置信 + 模型覆盖,
+  // 不再罗列与下方「亚盘方向 / 大小方向」卡逐字相同的两项(消除重复)。
+  const ahMag = signals.ah.status === "ok" ? Math.abs(signals.model.ahScore ?? 0) : -1;
+  const ouMag = signals.ou.status === "ok" ? Math.abs(signals.model.ouScore ?? 0) : -1;
+  const primary = ouMag > ahMag ? signals.ou : signals.ah;
+  const mag = Math.abs((ouMag > ahMag ? signals.model.ouScore : signals.model.ahScore) ?? 0);
+  const conf = mag >= 40 ? "高置信" : mag >= 18 ? "中等置信" : "低置信";
   const prefix = hasUsableProbability(ps) ? "综合方向" : "赛前指数方向";
-  return { advice: `${prefix}:${parts.join(";")}`, summaryReady: true };
+  return { advice: `${prefix}:${primary.text} · ${conf} · 模型覆盖 ${signals.model.coverage}%`, summaryReady: true };
 }
 
 export function buildReportSignals(
