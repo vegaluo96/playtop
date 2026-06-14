@@ -239,7 +239,7 @@ export function CenterPane({
             <div style={{ display: "grid", gridTemplateColumns: "minmax(420px,1.25fr) minmax(320px,0.75fr)", gap: 14, alignItems: "start" }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 850, margin: "0 2px 8px" }}>让球 · {h.finished ? "初始 / 终盘" : "初始 / 即时"}</div>
-                <OddsCompareMatrix market="ah" rows={v.comp.ah} finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ah", bid: c.bid, co: c.co })} />
+                <OddsCompareMatrix market="ah" rows={v.comp.ah} meta={v.comp.ahMeta} finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ah", bid: c.bid, co: c.co })} />
               </div>
               <OddsTrendPanel market="ah" title="让球走势" data={v.odds.ah} index={v.odds.index?.ah} kickoff={h.kickoff} tz={tz} onHistory={() => setHistory({ id: h.id, mk: "ah" })} />
             </div>
@@ -252,7 +252,7 @@ export function CenterPane({
             <div style={{ display: "grid", gridTemplateColumns: "minmax(420px,1.25fr) minmax(320px,0.75fr)", gap: 14, alignItems: "start" }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 850, margin: "0 2px 8px" }}>胜平负 · 主胜 / 平局 / 客胜</div>
-                <OddsCompareMatrix market="eu" rows={v.comp.eu} euMeta={v.comp.euMeta} finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "eu", bid: c.bid, co: c.co })} />
+                <OddsCompareMatrix market="eu" rows={v.comp.eu} meta={v.comp.euMeta} finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "eu", bid: c.bid, co: c.co })} />
               </div>
               <OddsEuTrendPanel rows={v.odds.eu} index={v.odds.index?.eu} kickoff={h.kickoff} tz={tz} onHistory={() => setHistory({ id: h.id, mk: "eu" })} />
             </div>
@@ -265,7 +265,7 @@ export function CenterPane({
             <div style={{ display: "grid", gridTemplateColumns: "minmax(420px,1.25fr) minmax(320px,0.75fr)", gap: 14, alignItems: "start" }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 850, margin: "0 2px 8px" }}>大小 · 大球 / 总进球 / 小球</div>
-                <OddsCompareMatrix market="ou" rows={v.comp.ou} finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ou", bid: c.bid, co: c.co })} />
+                <OddsCompareMatrix market="ou" rows={v.comp.ou} meta={v.comp.ouMeta} finished={h.finished} onHistory={(c) => c.bid && setHistory({ id: h.id, mk: "ou", bid: c.bid, co: c.co })} />
               </div>
               <OddsTrendPanel market="ou" title="大小走势" data={v.odds.ou} index={v.odds.index?.ou} kickoff={h.kickoff} tz={tz} onHistory={() => setHistory({ id: h.id, mk: "ou" })} />
             </div>

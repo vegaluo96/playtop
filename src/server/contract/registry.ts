@@ -110,7 +110,7 @@ export const USER_ROUTE_CONTRACT: RouteContract[] = [
     route: "/match/[id]",
     fields: ["ok", "header", "summary", "marketOverview", "liveOdds", "odds", "comp", "tech", "markets", "weather", "insights", "lineups", "intel", "deep", "loggedIn", "unlocked", "price"],
     // odds.index 为综合指数派生展示序列(IdxData: points/method/books),非 §5 信封值,豁免 envelope
-    fitted: ["summary", "marketOverview", "odds.index", "comp.euMeta", "comp.trend", "insights"],
+    fitted: ["summary", "marketOverview", "odds.index", "comp.ahMeta", "comp.ouMeta", "comp.euMeta", "comp.trend", "insights"],
     lockedNull: ["deep"], // deep=1 才有
     viewModels: ["detailView", "publicMarketOverview", "compositePre/Live", "seriesRows", "insightsView"],
   },

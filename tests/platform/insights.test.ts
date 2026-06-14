@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 process.env.PLAYTOP_DB = ":memory:";
 
 import { db, _resetDbForTest } from "../../src/server/db";
-import { ahResult, euDispersion, insightsView, lineTrend, ouResult, payoutRate, teamRoad } from "../../src/server/views/insights";
+import { ahResult, euDispersion, insightsView, lineTrend, marketDispersion, ouResult, payoutRate, teamRoad } from "../../src/server/views/insights";
 import type { FixtureRow } from "../../src/server/af/store";
 
 beforeEach(() => _resetDbForTest());
@@ -93,9 +93,26 @@ describe("离散度/升降盘/返还率", () => {
       { h: 2.6, d: 3.3, a: 3.0 }, // 主胜定价明显偏高的一家
     ])!;
     expect(m.books).toBe(3);
-    expect(m.disp.h).toBeGreaterThan(m.disp.d); // 主胜分歧大于平局
+    expect(m.disp.h).toBeGreaterThan(m.disp.d!); // 主胜分歧大于平局
     expect(m.method).toContain("离散度");
     expect(euDispersion([{ h: 2, d: 3.4, a: 3.6 }])).toBeNull(); // 归档样本未达阈值
+  });
+
+  it("marketDispersion(让球/大小):只对共识线上书商求净水标准差,披露离群家数", () => {
+    const m = marketDispersion(
+      [
+        { line: 0.5, h: 0.9, a: 0.9 },
+        { line: 0.5, h: 0.92, a: 0.88 },
+        { line: 0.5, h: 0.85, a: 0.95 }, // 共识线 0.5,水位有分歧
+        { line: 0.75, h: 1.0, a: 0.8 }, // 不在共识线
+      ],
+      "ah",
+    )!;
+    expect(m.books).toBe(3); // 仅共识线 0.5 上的 3 家计入
+    expect(m.disp.h).toBeGreaterThan(0); // 有分歧
+    expect(m.dispText).toContain("主");
+    expect(m.method).toContain("不在共识线"); // 披露 1 家离群
+    expect(marketDispersion([{ line: 2.5, h: 0.9, a: 0.9 }], "ou")).toBeNull(); // 样本不足
   });
 
   it("lineTrend 统计升降持平;payoutRate 双向/三向", () => {

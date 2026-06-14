@@ -15,7 +15,7 @@ import { kvCached, kvGet, latestOddsRaw } from "../af/store";
 import { parseExtraMarkets } from "../af/markets";
 import { synthEventsOf } from "../af/events-synth";
 import { matchWeather } from "../platform/weather";
-import { euDispersion, insightsView, lineTrend, payoutRate } from "./insights";
+import { euDispersion, insightsView, lineTrend, marketDispersion, payoutRate } from "./insights";
 import { runAfEndpoint } from "../af/catalog";
 import type { Panorama } from "../af/panorama";
 import { formZh, predSummary } from "./common";
@@ -573,8 +573,10 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
     const liveRow = liveCompRow(market, firstOf(market === "ah" ? p.odds.ah : p.odds.ou) ?? list[0]?.first ?? null);
     return liveRow ? [liveRow, ...rows] : rows;
   };
-  // ② 胜平负离散度(≥3 家才有共识意义);④ 升降盘方向 + 返还率首末对照
+  // ② 市场分歧/离散度(≥3 家才有共识意义):让球/大小取共识线上净水标准差,胜平负取三价标准差
   const euMeta = euDispersion(p.odds.compareEu.map((c) => c.last));
+  const ahMeta = marketDispersion(p.odds.compareAh.map((c) => c.last), "ah");
+  const ouMeta = marketDispersion(p.odds.compareOu.map((c) => c.last), "ou");
   const compEuRows = p.odds.compareEu.map((c) => ({
     co: maskBookmaker(c.bookmaker),
     bid: c.last.bookmaker_id,
@@ -638,7 +640,9 @@ export async function detailView(p: Panorama, tz: string, opts: { deep: boolean 
       ah: compMap(p.odds.compareAh, "ah"),
       ou: compMap(p.odds.compareOu, "ou"),
       eu: compEu,
-      euMeta: euMeta ? { books: euMeta.books, disp: euMeta.disp, method: euMeta.method } : null,
+      ahMeta,
+      ouMeta,
+      euMeta,
       trend: { ah: trendOf(p.odds.compareAh, ahAll), ou: trendOf(p.odds.compareOu, ouAll) },
     },
     tech: {

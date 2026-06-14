@@ -142,14 +142,15 @@ export function DesktopOddsSegmentedTabs({ value, onChange }: { value: OddsMarke
 export function OddsCompareMatrix({
   market,
   rows,
-  euMeta,
+  meta,
   compact = false,
   finished = false,
   onHistory,
 }: {
   market: "ah" | "ou" | "eu";
   rows: V[];
-  euMeta?: V | null;
+  /** 市场分歧/离散度(三盘统一结构 { books, dispText, method }) */
+  meta?: V | null;
   compact?: boolean;
   finished?: boolean;
   onHistory: (row: V) => void;
@@ -205,9 +206,9 @@ export function OddsCompareMatrix({
           </div>
         );
       })}
-      {isEu && euMeta && (
+      {meta && (
         <div style={{ padding: compact ? "8px 10px" : "9px 12px", borderTop: "1px solid var(--line)", color: "var(--fg-3)", fontSize: compact ? 10.5 : 11.5, lineHeight: 1.5 }}>
-          市场分歧 主 {euMeta.disp?.h ?? "—"} / 平 {euMeta.disp?.d ?? "—"} / 客 {euMeta.disp?.a ?? "—"} · {euMeta.books} 家 · {euMeta.method}
+          市场分歧 {meta.dispText} · {meta.books} 家 · {meta.method}
         </div>
       )}
     </div>

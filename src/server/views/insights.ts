@@ -132,25 +132,59 @@ export function teamRoad(teamId: number | null, beforeUtc: number, n = 10, inclu
 
 /* ── ② 胜平负离散度(纯函数,detail 即时盘调用)── */
 
-export interface EuDispersion {
+/** 市场分歧(离散度)统一结构:三个盘口共用,前端只渲染 dispText/books/method。 */
+export interface MarketDispersion {
   books: number;
-  /** 各结果报价标准差(市场分歧度;越大各家分歧越大) */
-  disp: { h: number; d: number; a: number };
+  /** 各分项标准差原值(胜平负含 d;让球/大小只有 h/a) */
+  disp: { h: number; a: number; d?: number };
+  /** 已格式化的分项标准差文案(如「主 0.007 / 平 3.214 / 客 9.713」) */
+  dispText: string;
   method: string;
 }
 
-export function euDispersion(lasts: { h: number; d: number | null; a: number }[]): EuDispersion | null {
+function stdev(vals: number[]): number {
+  const m = vals.reduce((a, b) => a + b, 0) / vals.length;
+  return Math.round(Math.sqrt(vals.reduce((s, v) => s + (v - m) ** 2, 0) / vals.length) * 1000) / 1000;
+}
+
+export function euDispersion(lasts: { h: number; d: number | null; a: number }[]): MarketDispersion | null {
   const ok = lasts.filter((l) => l.h > 1 && (l.d ?? 0) > 1 && l.a > 1);
   if (ok.length < 3) return null; // 样本太少,共识无意义
-  const sd = (k: "h" | "d" | "a") => {
-    const vals = ok.map((l) => (k === "d" ? l.d! : l[k]));
-    const m = vals.reduce((a, b) => a + b, 0) / vals.length;
-    return Math.round(Math.sqrt(vals.reduce((s, v) => s + (v - m) ** 2, 0) / vals.length) * 1000) / 1000;
-  };
+  const sd = (k: "h" | "d" | "a") => stdev(ok.map((l) => (k === "d" ? l.d! : l[k])));
+  const disp = { h: sd("h"), d: sd("d"), a: sd("a") };
   return {
     books: ok.length,
-    disp: { h: sd("h"), d: sd("d"), a: sd("a") },
+    disp,
+    dispText: `主 ${disp.h} / 平 ${disp.d} / 客 ${disp.a}`,
     method: `离散度 = 各家书商胜平负报价标准差(${ok.length} 家);数值越大代表市场分歧越大。`,
+  };
+}
+
+/**
+ * 让球/大小离散度:书商各报各的盘口线,直接对全体水位求标准差会混线失真。
+ * 故先取「共识主线」(众数,并列取中位),只对在共识线上的书商求主/客(大/小)净水标准差,
+ * 并披露有几家不在共识线上 —— 同线比同线,口径与胜平负一致。
+ */
+export function marketDispersion(lasts: { line: number | null; h: number; a: number }[], market: "ah" | "ou"): MarketDispersion | null {
+  const valid = lasts.filter((l) => l.line != null && l.h > 0 && l.a > 0);
+  if (valid.length < 3) return null;
+  const counts = new Map<number, number>();
+  for (const l of valid) counts.set(l.line!, (counts.get(l.line!) ?? 0) + 1);
+  const maxCount = Math.max(...counts.values());
+  const modes = [...counts.entries()].filter(([, c]) => c === maxCount).map(([ln]) => ln).sort((a, b) => a - b);
+  const consensusLine = modes[Math.floor((modes.length - 1) / 2)];
+  const onLine = valid.filter((l) => l.line === consensusLine);
+  if (onLine.length < 3) return null; // 共识线样本太少,口径无意义
+  const offLine = valid.length - onLine.length;
+  const sideH = market === "ah" ? "主" : "大";
+  const sideA = market === "ah" ? "客" : "小";
+  const lineLabel = market === "ah" ? ahText(consensusLine) : ouText(consensusLine);
+  const disp = { h: stdev(onLine.map((l) => l.h)), a: stdev(onLine.map((l) => l.a)) };
+  return {
+    books: onLine.length,
+    disp,
+    dispText: `${sideH} ${disp.h} / ${sideA} ${disp.a}`,
+    method: `离散度 = 共识线 ${lineLabel} 上各家净水标准差(${onLine.length} 家${offLine > 0 ? `,另 ${offLine} 家不在共识线` : ""});数值越大代表市场分歧越大。`,
   };
 }
 
