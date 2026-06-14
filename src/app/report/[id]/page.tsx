@@ -14,6 +14,7 @@ import { leagueColor } from "@/lib/leagues";
 import { useIsDesktop } from "@/components/use-viewport";
 import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { SITE_HOST } from "@/lib/site";
+import type { ReportResponse } from "@/app/api/report/[id]/route";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type V = any;
@@ -26,7 +27,7 @@ export default function ReportRoute({ params }: { params: Promise<{ id: string }
 }
 
 function MobileReportPage({ id }: { id: string }) {
-  const [v, setV] = useState<V | null>(null);
+  const [v, setV] = useState<ReportResponse | null>(null);
   const [share, setShare] = useState<ShareData | null>(null);
   const { prefs, me } = useApp();
   const router = useRouter();
@@ -92,10 +93,10 @@ function MobileReportPage({ id }: { id: string }) {
           </div>
           {!v.locked && v.directions && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
-              {[
+              {([
                 ["亚盘方向", v.directions.ah, v.model?.ahScore],
                 ["大小方向", v.directions.ou, v.model?.ouScore],
-              ].map(([label, sig, score]) => (
+              ] as const).map(([label, sig, score]) => (
                 <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "8px 9px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
                     <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>{label as string}</span>
@@ -200,8 +201,8 @@ function MobileReportPage({ id }: { id: string }) {
               ))}
             </div>
             {(() => {
-              const cur = (v.versions ?? []).find((x: V) => x.ver === v.ver);
-              return cur?.changed?.length > 0 ? (
+              const cur = (v.versions ?? []).find((x) => x.ver === v.ver);
+              return cur && cur.changed && cur.changed.length > 0 ? (
                 <div style={{ fontSize: 11.5, color: "var(--fg-1)", marginTop: 6 }}>本版更新:{cur.changed.join(" · ")}</div>
               ) : null;
             })()}

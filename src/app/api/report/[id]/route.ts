@@ -15,6 +15,45 @@ import { isUnlocked } from "@/server/platform/wallet";
 import { publicMarketOverview } from "@/server/markets/overview";
 import { buildReportSourceCoverage, publicSourceCoverage, sourceCoverageNeedsRebuild } from "@/server/views/source-coverage";
 
+type Prob = ReturnType<typeof publicProbability>;
+type Comp = ReturnType<typeof publicComparison>;
+type Advice = ReturnType<typeof publicReportAdvice>;
+type Signals = ReturnType<typeof buildReportSignals>;
+type Versions = ReturnType<typeof listReportVersions>;
+
+/** /api/report/[id] 成功响应契约(const body: ReportResponse 编译期校验,前端复用,杜绝漂移) */
+export interface ReportResponse {
+  ok: true;
+  id: number;
+  match: string;
+  league: string;
+  leagueId: number;
+  time: string;
+  pH: Prob["pH"]; pD: Prob["pD"]; pA: Prob["pA"];
+  probReady: Prob["probReady"];
+  comparison: Comp["comparison"];
+  comparisonReady: Comp["comparisonReady"];
+  homeName: string;
+  awayName: string;
+  advice: Advice["advice"] | null;
+  summaryReady: boolean;
+  directions: { ah: Signals["ah"]; ou: Signals["ou"] } | null;
+  model: Signals["model"] | null;
+  market: Signals["market"] | null;
+  marketOverview: ReturnType<typeof publicMarketOverview>;
+  sourceCoverage: ReturnType<typeof publicSourceCoverage>;
+  sourceCoverageNeedsRebuild: boolean;
+  fittingScope: "fullReport" | "preview";
+  sections: ReturnType<typeof buildReport>["secs"];
+  genBy: string;
+  versions: { ver: number; genAt: number; changed: Versions[number]["changed"] }[];
+  ver: number | null;
+  lockedFinal: boolean;
+  locked: boolean;
+  loggedIn: boolean;
+  price: number;
+}
+
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const fid = Number(id);
@@ -71,7 +110,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const advice = publicReportAdvice(ps, signals);
   const coverage = buildReportSourceCoverage(p, signals, { reportGeneratedAt });
   const publicCoverage = publicSourceCoverage(coverage);
-  return NextResponse.json({
+  const body: ReportResponse = {
     ok: true,
     id: fid,
     match: `${homeZh} vs ${awayZh}`,
@@ -101,5 +140,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     locked: !unlocked,
     loggedIn: !!user,
     price: cfgUnlockPrice(fx.kickoff_utc, Date.now()),
-  });
+  };
+  return NextResponse.json(body);
 }
