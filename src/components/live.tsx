@@ -59,13 +59,14 @@ export function Flash({ v, arrow = false, className, style, pulse, pulseDir }: {
     return () => clearTimeout(t);
   }, [v]);
   return (
-    <span className={className} style={{ display: "inline-flex", alignItems: "center", gap: 2, ...style }}>
+    <span className={className} style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center", ...style }}>
       <span key={fx?.key ?? "s"} className={fx ? (fx.dir > 0 ? "flash-up" : fx.dir < 0 ? "flash-down" : "flash-gold") : undefined} style={{ borderRadius: 3 }}>
         {v}
       </span>
       {arrow && (
         <span
-          style={{ fontSize: 11.5, width: 10, flexShrink: 0, color: fx && fx.dir > 0 ? "var(--up)" : "var(--down)", opacity: fx && fx.dir !== 0 ? 1 : 0, transition: "opacity .5s" }}
+          aria-hidden
+          style={{ position: "absolute", left: "100%", top: "50%", transform: "translateY(-50%)", marginLeft: 1, fontSize: 11.5, lineHeight: 1, color: fx && fx.dir > 0 ? "var(--up)" : "var(--down)", opacity: fx && fx.dir !== 0 ? 1 : 0, transition: "opacity .5s", pointerEvents: "none" }}
         >
           {fx && fx.dir < 0 ? "▼" : "▲"}
         </span>

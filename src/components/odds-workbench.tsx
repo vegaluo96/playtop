@@ -17,7 +17,7 @@ export const ODDS_MARKET_TABS: { key: OddsMarketKey; label: string }[] = [
   { key: "ah", label: "让球" },
   { key: "eu", label: "欧指" },
   { key: "ou", label: "进球数" },
-  { key: "road", label: "足彩指数" },
+  { key: "road", label: "更多" },
 ];
 
 const marketName: Record<Exclude<OddsMarketKey, "road">, string> = {
