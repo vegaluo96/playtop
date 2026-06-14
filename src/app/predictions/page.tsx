@@ -32,6 +32,7 @@ function MobilePredictionsPage() {
   const [recOpen, setRecOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [err, setErr] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(true);
   const { prefs } = useApp();
   const router = useRouter();
   const flow = useUnlockFlow(() => void load());
@@ -43,6 +44,7 @@ function MobilePredictionsPage() {
       if (j.ok) {
         setCards(j.cards);
         setRecord(j.record);
+        setLoggedIn(j.loggedIn);
       }
       setErr(false);
     } catch {
@@ -138,7 +140,7 @@ function MobilePredictionsPage() {
               ].map(([label, val, sig]) => (
                 <div key={label as string} style={{ background: "var(--inset)", borderRadius: 8, padding: "7px 6px", textAlign: "center" }}>
                   <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginBottom: 2 }}>{label as string}</div>
-                  <div style={{ fontSize: 12, fontWeight: 800 }}>{(val as string) ?? (p.locked ? "登录查看" : "积累中")}</div>
+                  <div style={{ fontSize: 12, fontWeight: 800 }}>{(val as string) ?? (p.locked ? (loggedIn ? "解锁查看" : "登录查看") : "积累中")}</div>
                   {!p.locked && (sig as V)?.sourceKind && <SourceBadge signal={sig as V} style={{ marginTop: 3 }} />}
                 </div>
               ))}

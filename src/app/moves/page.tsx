@@ -16,7 +16,6 @@ import {
   MOVE_FILTERS,
   moveArrowStyle,
   moveCardStyle,
-  moveNoteStyle,
   movePillStyle,
   moveTimeStyle,
   moveTitleStyle,
@@ -125,16 +124,19 @@ function MobileMovesPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               {f.live && <span style={movePillStyle("live")}>滚球</span>}
               <span style={movePillStyle("neutral")}>{f.mk}</span>
-              {f.bk && <span style={movePillStyle("muted")}>{f.bk}</span>}
+              {f.bk && !f.live && <span style={movePillStyle("muted")}>{f.bk}</span>}
               <span style={moveTypeStyle(f.type, false, f.direction)}>{f.type}</span>
               <MarketValue v={f.masked ? "●●" : f.from} className="" small dim={!!f.masked} style={moveValueFromStyle} />
               <span style={moveArrowStyle(f.type, false, f.direction)}>→</span>
               <MarketValue v={f.masked ? "●●" : f.to} className="" small dim={!!f.masked} style={f.masked ? moveValueFromStyle : moveValueToStyle(f.type, f.direction)} />
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
-              <MarketValue v={f.masked ? "●●" : f.water} small dim={!!f.masked} style={f.masked ? { justifyContent: "flex-start" } : moveWaterValueStyle(f.waterDirection)} />
-              <span style={moveNoteStyle(false)}>{f.note}</span>
-            </div>
+            {(f.type === "升盘" || f.type === "降盘") && (
+              // 让球/大小变盘:第二行补「水位」变化(与第一行的盘口线变化是两个维度,不重复)。
+              // 「水位」类盘口本身就是水位变化,第一行已展示,不再重复一行;原右侧 delta 注脚与 from→to 同义,移除。
+              <div style={{ display: "flex", marginTop: 6 }}>
+                <MarketValue v={f.masked ? "●●" : f.water} small dim={!!f.masked} style={f.masked ? { justifyContent: "flex-start" } : moveWaterValueStyle(f.waterDirection)} />
+              </div>
+            )}
           </div>
         ))}
         {!loggedIn && rows.length > 0 && (
