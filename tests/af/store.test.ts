@@ -211,8 +211,9 @@ describe("odds 归档与异动", () => {
     ins.run(202, 8, "Bet365", "ou", 2.25, 0.9, 0.95, null, 1000);
     ins.run(202, 4, "平博", "ou", 2.25, 0.92, 0.93, null, 1100);
     ins.run(202, 99, "10Bet", "ou", 2.5, 0.88, 0.9, null, 5000);
-    expect(mainOddsSnapshot(202, "ou")).toMatchObject({ bookmaker: "Bet365", line: 2.25 });
-    expect(oddsSeries(202, "ou").at(-1)).toMatchObject({ bookmaker: "Bet365", line: 2.25 });
+    // 共识线 2.25(2 家 > 1 家),水位取该线各家中位(0.9/0.92→0.91,0.95/0.93→0.94),不被 10Bet 的离群 2.5 带偏
+    expect(mainOddsSnapshot(202, "ou")).toMatchObject({ bookmaker: "主流共识", line: 2.25, h: 0.91, a: 0.94 });
+    expect(oddsSeries(202, "ou").at(-1)).toMatchObject({ bookmaker: "主流共识", line: 2.25, h: 0.91, a: 0.94 });
   });
 
   it("主盘选择先看盘口线覆盖数,覆盖数明显领先时不被少数主流书商带偏", () => {
@@ -230,7 +231,7 @@ describe("odds 归档与异动", () => {
     expect(mainOddsSnapshot(209, "ah")).toMatchObject({ line: 0.5 });
   });
 
-  it("主盘选择在覆盖数接近时使用主流书商权重", () => {
+  it("覆盖数较多的盘口线为共识线(中位),不被少数主流书商带偏", () => {
     upsertFixture(afFixture(210));
     const ins = db().prepare(
       "INSERT INTO odds_snapshots (fixture_id, bookmaker_id, bookmaker, market, line, h, a, d, captured_at) VALUES (?,?,?,?,?,?,?,?,?)",
@@ -242,7 +243,8 @@ describe("odds 归档与异动", () => {
       ins.run(210, 300 + i, book, "ou", 2.5, 0.9, 0.95, null, 2000 + i);
     });
 
-    expect(mainOddsSnapshot(210, "ou")).toMatchObject({ bookmaker: "Bet365", line: 2.5 });
+    // 10 家 2.25 vs 8 家 2.5 → 多数共识线 2.25;水位取该线各家中位 0.92/0.94
+    expect(mainOddsSnapshot(210, "ou")).toMatchObject({ bookmaker: "主流共识", line: 2.25, h: 0.92, a: 0.94 });
   });
 
   it("低质量非主流单源盘口不进入用户端主盘序列", () => {

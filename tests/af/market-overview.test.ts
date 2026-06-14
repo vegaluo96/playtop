@@ -35,9 +35,9 @@ describe("marketOverview", () => {
 
     const overview = marketOverview(1);
 
-    expect(overview.odds.ah.at(-1)).toMatchObject({ bookmaker: "Bet365", line: 0.5 });
-    expect(overview.odds.ou.at(-1)).toMatchObject({ bookmaker: "Bet365", line: 2.5 });
-    expect(overview.odds.eu.at(-1)).toMatchObject({ bookmaker: "Bet365", h: 1.8 });
+    expect(overview.odds.ah.at(-1)).toMatchObject({ bookmaker: "主流共识", line: 0.5, h: 0.89, a: 0.97 });
+    expect(overview.odds.ou.at(-1)).toMatchObject({ bookmaker: "主流共识", line: 2.5 });
+    expect(overview.odds.eu.at(-1)).toMatchObject({ bookmaker: "主流共识", h: 1.8 });
     expect(overview.odds.compareOu.some((row) => row.bookmaker === "BadBook")).toBe(false);
     expect(overview.dataQualityScore).toBeGreaterThanOrEqual(70);
     expect(overview.selectedReasons.ah).toContain("共识线");

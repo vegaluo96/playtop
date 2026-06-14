@@ -253,6 +253,48 @@ function qualityScore(args: { books: number; selectedBooks: number; primaryBooks
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
+function med(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : Math.round(((s[m - 1] + s[m]) / 2) * 100) / 100;
+}
+/** 共识盘口线取下中位(必须是真实存在的线值,不平均出 0.375 这类假盘) */
+function medLine(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.floor((s.length - 1) / 2)];
+}
+
+/**
+ * 主盘「主流共识」序列:按时间逐帧前推(各书商保留最新一帧),每个时点对各家取中位,
+ * 不锚定单一书商(与综合指数同口径;中位为计算值,书商标记「主流共识」)。
+ * ah/ou:每个时点先取各家盘口线中位为共识线,再对该线上各家水位取中位(自动剔除离群线);
+ * eu:直接对各家 h/d/a 取中位。
+ */
+function consensusSeries(validRows: SnapRow[], market: OddsMarket): SnapRow[] {
+  if (validRows.length === 0) return [];
+  const sorted = [...validRows].sort((a, b) => a.captured_at - b.captured_at);
+  const stamps = [...new Set(sorted.map((r) => r.captured_at))].sort((a, b) => a - b);
+  const latestByBook = new Map<string, SnapRow>();
+  const out: SnapRow[] = [];
+  let i = 0;
+  for (const t of stamps) {
+    while (i < sorted.length && sorted[i].captured_at <= t) {
+      latestByBook.set(sorted[i].bookmaker, sorted[i]);
+      i++;
+    }
+    const frames = [...latestByBook.values()];
+    if (market === "eu") {
+      out.push({ fixture_id: frames[0].fixture_id, bookmaker_id: 0, bookmaker: "主流共识", market, line: null, h: med(frames.map((f) => f.h)), a: med(frames.map((f) => f.a)), d: med(frames.map((f) => f.d ?? 0)), captured_at: t });
+    } else {
+      const cLine = medLine(frames.map((f) => f.line).filter((x): x is number => x != null));
+      const atLine = frames.filter((f) => f.line === cLine);
+      if (atLine.length === 0) continue;
+      out.push({ fixture_id: atLine[0].fixture_id, bookmaker_id: 0, bookmaker: "主流共识", market, line: cLine, h: med(atLine.map((f) => f.h)), a: med(atLine.map((f) => f.a)), d: null, captured_at: t });
+    }
+  }
+  return out;
+}
+
 /** 从某场某市场全量快照内选择主盘口,并返回可审计的选择原因。 */
 export function mainOddsDecisionFromRows(rows: SnapRow[], market: OddsMarket): MainOddsDecision {
   const empty = (reason = "暂无可用快照"): MainOddsDecision => ({
@@ -273,67 +315,44 @@ export function mainOddsDecisionFromRows(rows: SnapRow[], market: OddsMarket): M
   const latestRows = [...byBook.values()].map((list) => list[list.length - 1]).filter(Boolean);
   if (latestRows.length === 0) return empty();
   if (market === "eu") {
-    const sorted = [...latestRows].sort((x, y) => bookmakerRank(x.bookmaker) - bookmakerRank(y.bookmaker) || y.captured_at - x.captured_at);
-    const source = sorted[0] ?? null;
+    const series = consensusSeries(validRows, "eu");
+    const source = series[series.length - 1] ?? null;
     const primaryBooks = latestRows.filter((row) => bookmakerRank(row.bookmaker) <= 2).length;
     const q = qualityScore({ books: latestRows.length, selectedBooks: latestRows.length, primaryBooks, latestAt: source?.captured_at ?? null });
-    const warnings = latestRows.length < 3 ? ["胜平负样本少于 3 家,仅作单源参考"] : [];
+    const warnings = latestRows.length < 3 ? ["胜平负样本少于 3 家,共识取样有限"] : [];
     return {
       market,
-      rows: source ? byBook.get(source.bookmaker) ?? [] : [],
+      rows: series,
       source,
       books: latestRows.length,
       selectedBooks: latestRows.length,
       primaryBooks,
       qualityScore: q,
-      reason: source ? `胜平负无盘口线,按主流书商优先展示 ${source.bookmaker};共 ${latestRows.length} 家` : "胜平负暂无完整快照",
+      reason: source ? `胜平负无盘口线,取 ${latestRows.length} 家主流书商各结果赔率中位共识` : "胜平负暂无完整快照",
       warnings,
     };
   }
-  const lined = latestRows.filter((r) => r.line != null);
-  if (lined.length === 0) return empty("没有合法盘口线");
-  const byLine = new Map<number, SnapRow[]>();
-  for (const row of lined) {
-    const line = row.line as number;
-    const list = byLine.get(line) ?? [];
-    list.push(row);
-    byLine.set(line, list);
-  }
-  const scored = [...byLine.entries()].map(([line, list]) => {
-    const weights = list.reduce((sum, row) => sum + bookmakerWeight(row.bookmaker), 0);
-    const primary = list.filter((row) => bookmakerRank(row.bookmaker) <= 2).length;
-    const balance = list.reduce((sum, row) => sum + Math.abs(row.h - row.a), 0) / list.length;
-    const latest = Math.max(...list.map((row) => row.captured_at));
-    return { line, list, count: list.length, weights, primary, balance, latest };
-  });
-  const maxCount = Math.max(...scored.map((s) => s.count));
-  const closeWindow = Math.max(1, Math.ceil(maxCount * 0.25));
-  const candidates = scored.filter((s) => maxCount - s.count <= closeWindow);
-  candidates.sort(
-    (x, y) =>
-      y.primary - x.primary ||
-      y.weights - x.weights ||
-      y.count - x.count ||
-      x.balance - y.balance ||
-      y.latest - x.latest ||
-      Math.abs(x.line) - Math.abs(y.line),
-  );
-  const best = candidates[0] ?? null;
-  if (!best) return empty("没有可选主盘口");
-  const source = [...best.list].sort((x, y) => bookmakerRank(x.bookmaker) - bookmakerRank(y.bookmaker) || y.captured_at - x.captured_at)[0] ?? null;
-  const q = qualityScore({ books: latestRows.length, selectedBooks: best.count, primaryBooks: best.primary, latestAt: best.latest });
+  if (latestRows.every((r) => r.line == null)) return empty("没有合法盘口线");
+  // 共识盘口线 = 各家最新盘口线的中位(多数覆盖线胜出,自动剔除离群线);水位取该线上各家中位
+  const series = consensusSeries(validRows, market);
+  const source = series[series.length - 1] ?? null;
+  if (!source || source.line == null) return empty("没有可选主盘口");
+  const cLine = source.line;
+  const atLine = latestRows.filter((r) => r.line === cLine);
+  const primary = atLine.filter((r) => bookmakerRank(r.bookmaker) <= 2).length;
+  const q = qualityScore({ books: latestRows.length, selectedBooks: atLine.length, primaryBooks: primary, latestAt: source.captured_at });
   const warnings: string[] = [];
   if (q < 70) warnings.push("质量分低于展示阈值");
-  if (best.count < 3) warnings.push("同线覆盖少于 3 家");
+  if (atLine.length < 3) warnings.push("同线覆盖少于 3 家");
   return {
     market,
-    rows: source ? byBook.get(source.bookmaker) ?? [] : [],
+    rows: series,
     source,
     books: latestRows.length,
-    selectedBooks: best.count,
-    primaryBooks: best.primary,
+    selectedBooks: atLine.length,
+    primaryBooks: primary,
     qualityScore: q,
-    reason: `共识线 ${best.line}:覆盖 ${best.count}/${latestRows.length} 家,主流 ${best.primary} 家,展示源 ${source?.bookmaker ?? "—"}`,
+    reason: `共识线 ${cLine}:覆盖 ${atLine.length}/${latestRows.length} 家,主流 ${primary} 家,水位取各家中位`,
     warnings,
   };
 }

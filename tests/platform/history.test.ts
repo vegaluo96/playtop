@@ -45,7 +45,7 @@ describe("quoteHistory", () => {
     expect(v.rows[1].chg).toBe(true); // 0.5 → 0.75 变盘
     expect(v.rows[2].chg).toBe(false); // 首帧不算变盘
     expect(v.rows[2].text).toBe("半球");
-    expect(v.src).toBe("Be***5");
+    expect(v.src).toBe("主流共识");
   });
 
   it("未开赛不并滚球帧;比赛不存在返回 null;500 帧封顶", () => {

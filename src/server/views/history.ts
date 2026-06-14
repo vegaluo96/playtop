@@ -59,7 +59,7 @@ export function quoteHistory(fixtureId: number, market: "ah" | "ou" | "eu", tz: 
   rows.reverse(); // 最新在上
   return {
     n: all.length,
-    src: pre.length > 0 ? maskBookmaker(pre[0].bookmaker) : null,
+    src: pre.length > 0 ? (pre[0].bookmaker === "主流共识" ? "主流共识" : maskBookmaker(pre[0].bookmaker)) : null,
     startAt: all.length > 0 ? dateStr(all[0].captured_at, tz) : null,
     rows: rows.slice(0, 500),
   };
