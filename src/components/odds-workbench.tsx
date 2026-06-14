@@ -190,11 +190,8 @@ export function OddsCompareMatrix({
               cursor: row.bid ? "pointer" : "default",
             }}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, height: "100%", padding: compact ? "0 6px" : "0 8px", background: row.live ? "var(--danger-bg-soft)" : "var(--selected-bg-soft)", borderRight: "1px solid var(--line-soft)" }}>
-              <span style={{ width: compact ? 20 : 24, height: compact ? 20 : 24, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: row.live ? "var(--red)" : "var(--gold)", color: "var(--on-accent)", fontSize: compact ? 10 : 10.5, fontWeight: 900 }}>
-                {String(row.co ?? "?").slice(0, 1)}
-              </span>
-              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: compact ? 11 : 12, fontWeight: 800 }}>{row.co}</span>
+            <span style={{ display: "flex", alignItems: "center", minWidth: 0, height: "100%", padding: compact ? "0 8px" : "0 10px", background: row.live ? "var(--danger-bg-soft)" : "var(--selected-bg-soft)", borderRight: "1px solid var(--line-soft)" }}>
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: compact ? 11.5 : 12.5, fontWeight: 800 }}>{row.co}</span>
             </span>
             {initCells.map((v, i) => (
               <Cell key={`i-${i}`} muted={String(v) === "—"}>{v}</Cell>
