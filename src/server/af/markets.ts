@@ -1,7 +1,8 @@
 /**
  * 扩展玩法解析(/odds 的 bets 全集早已随 odds_raw 落库,此处读时解析,零额外抓取):
- * 半场胜平负 / 半全场 / 双重机会 / 双方进球 / 单双 / 波胆 / 半场让球 / 半场大小 / 角球 / 罚牌。
- * 每个玩法独立挑书商:Bet365 → 平博/Pinnacle → 第一家提供该玩法的;不混合两家报价。
+ * 双重机会 / 平局退款 / 零封制胜 / 双方进球 / 单双 / 波胆 / 单队进球大小(主/客)/
+ * 半场胜平负 / 下半场胜平负 / 进球最多半场 / 半全场 / 半场让球 / 半场大小 / 角球 / 罚牌。
+ * AF 提供的标准玩法尽量全接;每个玩法独立挑书商(Bet365 → 平博 → 首家),不混合两家报价。
  */
 import { isValidDecimalOdd } from "./odds-quality";
 
@@ -34,6 +35,7 @@ export interface ExtraMarket {
 
 const VAL_ZH: Record<string, string> = {
   Home: "主", Draw: "平", Away: "客", Yes: "是", No: "否", Odd: "单", Even: "双", Over: "大", Under: "小",
+  Equal: "持平", "1st Half": "上半场", "2nd Half": "下半场", "First Half": "上半场", "Second Half": "下半场",
   "Home/Draw": "主或平", "Home/Away": "主或客", "Draw/Away": "平或客",
   "Home/Home": "主/主", "Home/Draw ": "主/平", "Draw/Home": "平/主", "Draw/Draw": "平/平",
   "Draw/Away ": "平/客", "Away/Home": "客/主", "Away/Draw": "客/平", "Away/Away": "客/客",
@@ -67,12 +69,18 @@ interface Pick {
 }
 
 const PICKS: Pick[] = [
-  { key: "fh1x2", name: "半场胜平负", re: /^first half winner$/i },
-  { key: "htft", name: "半全场", re: /^ht\/ft double$|half ?time\/full ?time/i, max: 9 },
   { key: "double", name: "双重机会", re: /^double chance$/i, exclude: /half/i },
-  { key: "btts", name: "双方进球", re: /^both teams score$|^both teams to score$/i },
+  { key: "dnb", name: "平局退款", re: /^draw no bet$/i, exclude: /half/i },
+  { key: "win2nil", name: "零封制胜", re: /^win to nil$/i },
+  { key: "btts", name: "双方进球", re: /^both teams score$|^both teams to score$/i, exclude: /half/i },
   { key: "oddeven", name: "总进球单双", re: /^odd\/even$/i, exclude: /half/i },
   { key: "exact", name: "波胆(正确比分)", re: /^exact score$|^correct score$/i, exclude: /half/i, max: 9, sortByOdd: true },
+  { key: "totalHome", name: "主队进球大小", re: /^total - home$/i, withHandicap: true, max: 6 },
+  { key: "totalAway", name: "客队进球大小", re: /^total - away$/i, withHandicap: true, max: 6 },
+  { key: "fh1x2", name: "半场胜平负", re: /^first half winner$/i },
+  { key: "sh1x2", name: "下半场胜平负", re: /^second half winner$|^2nd half winner$/i },
+  { key: "highhalf", name: "进球最多半场", re: /^highest scoring half$/i },
+  { key: "htft", name: "半全场", re: /^ht\/ft double$|half ?time\/full ?time/i, max: 9 },
   { key: "fhah", name: "半场亚盘", re: /asian handicap.*first half|first half.*asian handicap/i, withHandicap: true, max: 6 },
   { key: "fhou", name: "半场大小", re: /(goals )?over\/under.*(first|1st) half|(first|1st) half.*over\/under/i, withHandicap: true, max: 6 },
   { key: "corners", name: "角球大小", re: /corners over under|total corners|corners over\/under/i, withHandicap: true, max: 6 },
