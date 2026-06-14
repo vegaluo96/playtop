@@ -72,7 +72,7 @@ function MobileMovesPage() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <PageHeader
         title="异动"
-        subtitle={`${filter} · ${rows.length} 条 · 指数/水位变化`}
+        meta={`${rows.length} 条`}
         {...beat}
         right={<GlobalSearch />}
       />

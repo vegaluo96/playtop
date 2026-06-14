@@ -66,7 +66,7 @@ function MobilePredictionsPage() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <PageHeader
         title="报告"
-        subtitle={`${filter} · ${cards.length} 份 · 已解锁 ${unlockedCount}`}
+        meta={`${cards.length} 份`}
         {...beat}
         right={<GlobalSearch />}
       />

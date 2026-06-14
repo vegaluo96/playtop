@@ -132,8 +132,6 @@ function MobileMatchesPage() {
     { k: "results", label: "赛果" },
     { k: "tmr", label: "明日" },
   ];
-  const activeDateLabel = dateChips.find((c) => c.k === day)?.label ?? pickedDate?.label ?? "日期";
-  const leagueScope = league === "all" ? "全部联赛" : leagueChips.find((l) => String(l.id) === league)?.zh ?? "当前联赛";
   const emptyText = day === "soon"
     ? "未来 24 小时暂无即将开赛的场次"
     : day === "results" || day.startsWith("p")
@@ -204,9 +202,8 @@ function MobileMatchesPage() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <AnnouncementBar />
       <PageHeader
-        kicker="足球终端"
         title="赛事"
-        subtitle={`${activeDateLabel} · ${leagueScope} · ${rows.length} 场`}
+        meta={`${rows.length} 场${liveCount ? ` · ${liveCount} 滚球` : ""}`}
         {...beat}
         right={<GlobalSearch />}
       />
