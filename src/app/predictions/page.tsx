@@ -1,11 +1,11 @@
 "use client";
 
 /** AI 报告 tab:历史回测横幅(详情弹层)+ 全部/已解锁筛选 + 轻量概率卡 → AI 报告 */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { PageHeader } from "@/components/page-header";
-import { SearchAction, type SearchItem } from "@/components/page-search";
+import { GlobalSearch } from "@/components/global-search";
 import { ProbBar } from "@/components/charts";
 import { SourceBadge, CoverageStrip } from "@/components/source-trust";
 import { useUnlockFlow } from "@/components/unlock-flow";
@@ -61,20 +61,6 @@ function MobilePredictionsPage() {
   const rate = record?.hitRate30 != null ? `${record.hitRate30}%` : "积累中";
   const yday = record && record.yesterday.total > 0 ? `${record.yesterday.hit}/${record.yesterday.total}` : "积累中";
   const streak = record?.streak ? `${record.streak} 连续命中` : "积累中";
-  const searchItems = useMemo<SearchItem[]>(
-    () =>
-      cards.map((p) => ({
-        id: p.id,
-        title: p.match,
-        subtitle: `${p.league} · ${p.time}`,
-        meta: p.locked ? "报告未解锁" : [p.ahText, p.uoText, p.goalsText].filter(Boolean).join(" · "),
-        badge: p.locked ? "待解锁" : "已解锁",
-        section: p.league,
-        keywords: [p.id, p.match, p.league, p.advice, p.ahText, p.uoText, p.goalsText],
-        onSelect: () => router.push(`/report/${p.id}`),
-      })),
-    [cards, router],
-  );
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
@@ -82,7 +68,7 @@ function MobilePredictionsPage() {
         title="报告"
         subtitle={`${filter} · ${cards.length} 份 · 已解锁 ${unlockedCount}`}
         {...beat}
-        right={<SearchAction title="搜索报告" placeholder="球队 / 联赛 / 报告状态 / 比赛 ID" hint={`${cards.length} 份可搜索`} scopeLabel={`${filter}报告`} emptyText="没有匹配的报告" examples={["比赛", "球队", "联赛", "已解锁", "待解锁"]} items={searchItems} />}
+        right={<GlobalSearch />}
       />
       <div style={{ display: "flex", gap: 8, padding: "0 12px 10px", flexShrink: 0 }}>
         {["全部", "已解锁"].map((l) => (

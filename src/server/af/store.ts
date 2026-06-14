@@ -9,6 +9,7 @@ import { isDisplayableSnapshot, LIVE_EU_DISPLAY_MAX_ODD } from "./odds-quality";
 import { ODDS_PARSER_VERSION, recordDiagnosticIssue } from "./diagnostics";
 import { isFinished } from "./schedule";
 import { ahText, ouText } from "@/lib/format";
+import { scoreSearchFields } from "@/lib/search";
 
 /* 书商中文名(界面用);未登记的保留原名 */
 const BOOKMAKER_ZH: [RegExp, string][] = [
@@ -908,4 +909,56 @@ export function kvCached<T>(key: string, ttlMs: number, fetcher: () => Promise<T
     kvSet(key, JSON.stringify({ at: Date.now(), data }));
     return data;
   });
+}
+
+/* ── 全局搜索:球员索引 ── */
+export interface PlayerIndexRow {
+  player_id: number;
+  name: string;
+  name_zh: string;
+  team_id: number | null;
+  team_name: string;
+  league_id: number;
+  season: number;
+}
+
+/** 顺带入库球员(数据页榜单/阵容抓取时调用);name_zh 由调用方先汉化好,避免 store→names 循环依赖。 */
+export function upsertPlayerIndex(
+  rows: { playerId: number; name: string; nameZh?: string; teamId?: number | null; teamName?: string; leagueId?: number; season?: number }[],
+): void {
+  const valid = rows.filter((r) => r.playerId && r.name);
+  if (valid.length === 0) return;
+  tx(() => {
+    const stmt = db().prepare(
+      `INSERT INTO player_index (player_id, name, name_zh, team_id, team_name, league_id, season, updated_at)
+       VALUES (?,?,?,?,?,?,?,?)
+       ON CONFLICT(player_id) DO UPDATE SET
+         name=excluded.name, name_zh=excluded.name_zh, team_id=excluded.team_id,
+         team_name=excluded.team_name, league_id=excluded.league_id, season=excluded.season, updated_at=excluded.updated_at`,
+    );
+    const now = Date.now();
+    for (const r of valid) {
+      stmt.run(r.playerId, r.name, r.nameZh ?? "", r.teamId ?? null, r.teamName ?? "", r.leagueId ?? 0, r.season ?? 0, now);
+    }
+  });
+}
+
+/** 全局搜索球员:按 中文译名 + 原名 + 所属队 打分,返回前 N。 */
+export function searchPlayerIndex(q: string, limit: number): PlayerIndexRow[] {
+  const rows = db()
+    .prepare("SELECT player_id, name, name_zh, team_id, team_name, league_id, season FROM player_index")
+    .all() as unknown as PlayerIndexRow[];
+  return rows
+    .map((r) => ({
+      r,
+      score: scoreSearchFields(q, [
+        { value: r.name_zh, weight: 4 },
+        { value: r.name, weight: 3 },
+        { value: r.team_name, weight: 1.2 },
+      ]),
+    }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((x) => x.r);
 }

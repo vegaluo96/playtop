@@ -1,14 +1,14 @@
 "use client";
 
 /** 指数异动监控:筛选 chips + 异动流 + 快照对比弹层;免注册前 3 条完整 */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { Chip, FeedState, GoldBtn, Sheet } from "@/components/ui";
 import { leagueColor } from "@/lib/leagues";
 import { useNewIds, useUnifiedPoll } from "@/components/live";
 import { PageHeader } from "@/components/page-header";
-import { SearchAction, type SearchItem } from "@/components/page-search";
+import { GlobalSearch } from "@/components/global-search";
 import { useIsDesktop } from "@/components/use-viewport";
 import { LazyTerminal } from "@/components/desktop/lazy-terminal";
 import { MarketValue } from "@/components/market-cell";
@@ -38,7 +38,6 @@ export default function MovesRoute() {
 function MobileMovesPage() {
   const [filter, setFilter] = useState("全部");
   const [rows, setRows] = useState<Move[]>([]);
-  const [searchRows, setSearchRows] = useState<Move[]>([]);
   const [loggedIn, setLoggedIn] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [err, setErr] = useState(false);
@@ -53,12 +52,6 @@ function MobileMovesPage() {
       if (j.ok) {
         setRows(j.rows);
         setLoggedIn(j.loggedIn);
-        if (filter === "全部") setSearchRows(j.rows);
-      }
-      if (filter !== "全部") {
-        const sr = await fetch(`/api/moves?type=${encodeURIComponent("全部")}&tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" });
-        const sj = await sr.json();
-        if (sj.ok) setSearchRows(sj.rows);
       }
       setErr(false);
     } catch {
@@ -75,28 +68,13 @@ function MobileMovesPage() {
 
   const freshIds = useNewIds(rows.map((r) => r.id));
 
-  const searchItems = useMemo<SearchItem[]>(
-    () =>
-      searchRows.map((f) => ({
-        id: f.id,
-        title: f.match,
-        subtitle: `${f.t} · ${f.mkFull ?? f.mk} · ${f.type}`,
-        meta: [f.bk, f.note].filter(Boolean).join(" · "),
-        badge: f.live ? "滚球" : f.sev ? "急变" : f.type,
-        section: f.live ? "滚球异动" : "赛前异动",
-        keywords: [f.fixtureId, f.match, f.league, f.mk, f.mkFull, f.bk, f.type, f.note, f.from, f.to, f.water, f.waterLabel],
-        onSelect: () => (f.masked ? router.push("/login") : setSel(f)),
-      })),
-    [searchRows, router],
-  );
-
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <PageHeader
         title="异动"
         subtitle={`${filter} · ${rows.length} 条 · 指数/水位变化`}
         {...beat}
-        right={<SearchAction title="搜索异动" placeholder="球队 / 盘口类型 / 异动类型 / 比赛 ID" hint={`${searchRows.length} 条可搜索`} scopeLabel="最近异动 · 全部类型" emptyText="没有匹配的异动记录" examples={["比赛", "球队", "让球 / 大小", "升盘 / 降水", "滚球"]} items={searchItems} />}
+        right={<GlobalSearch />}
       />
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px", overflowX: "auto", flexShrink: 0 }}>
         {MOVE_FILTERS.map((l) => (

@@ -4,7 +4,7 @@ import { leagueColor, leagueZh, roundZh } from "@/lib/leagues";
 import { db } from "../db";
 import { runAfEndpoint } from "../af/catalog";
 import { isFinished, isLive } from "../af/schedule";
-import { kvCached, type FixtureRow } from "../af/store";
+import { kvCached, upsertPlayerIndex, type FixtureRow } from "../af/store";
 import { cfgLeagues } from "../platform/config";
 import { nameZh } from "./names";
 import { publicImageUrl, teamLogoFromFixturePayload } from "./team-assets";
@@ -120,7 +120,24 @@ async function playerBoard(leagueId: number, season: number, kind: "players.tops
     },
     { emptyTtlMs: EMPTY_TTL_MS },
   ).catch(() => [] as unknown[]);
-  return rows.slice(0, 30).map(playerBoardRow);
+  const top = rows.slice(0, 30);
+  // 顺带把榜单球员写入 player_index,供全局搜索命中(译名在此处先汉化好,避免 store→names 循环依赖)
+  upsertPlayerIndex(
+    top.map((it) => {
+      const stat = arr(dig(it, "statistics"))[0];
+      const raw = String(dig(it, "player", "name") ?? "");
+      return {
+        playerId: Number(dig(it, "player", "id")) || 0,
+        name: raw,
+        nameZh: nameZh(raw, "player"),
+        teamId: Number(dig(stat, "team", "id")) || null,
+        teamName: nameZh(String(dig(stat, "team", "name") ?? "")),
+        leagueId,
+        season,
+      };
+    }),
+  );
+  return top.map(playerBoardRow);
 }
 
 function scheduleRows(leagueId: number, season: number, tz: string) {

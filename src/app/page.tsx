@@ -1,12 +1,12 @@
 "use client";
 
 /** 赛事列表(首页):日期/联赛筛选 + 三列等宽指数卡,免注册打码由服务端执行 */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { PageHeader } from "@/components/page-header";
-import { SearchAction, type SearchItem } from "@/components/page-search";
+import { GlobalSearch } from "@/components/global-search";
 import { TeamLogo } from "@/components/img";
 import { useSiteConfig } from "@/components/site-config";
 import { Chip, FeedState, Sheet } from "@/components/ui";
@@ -77,7 +77,6 @@ function MobileMatchesPage() {
   const [day, setDay] = useState("soon"); // 默认「即将」:滚球+未来24h,对齐球盘站
   const [league, setLeague] = useState("all");
   const [rows, setRows] = useState<Row[]>([]);
-  const [searchRows, setSearchRows] = useState<Row[]>([]);
   const [liveCount, setLiveCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [err, setErr] = useState(false);
@@ -95,12 +94,6 @@ function MobileMatchesPage() {
       if (j.ok) {
         setRows(j.rows);
         setLiveCount(j.liveCount);
-        if (league === "all") setSearchRows(j.rows);
-      }
-      if (league !== "all") {
-        const sr = await fetch(`/api/matches?day=${day}&league=all&tz=${encodeURIComponent(prefs.tz)}`, { cache: "no-store" });
-        const sj = await sr.json();
-        if (sj.ok) setSearchRows(sj.rows);
       }
       setErr(false);
     } catch {
@@ -207,31 +200,6 @@ function MobileMatchesPage() {
     );
   };
 
-  const searchItems = useMemo<SearchItem[]>(
-    () =>
-      searchRows.map((m) => {
-        const leagueLabel = leagueZh(m.leagueId, m.leagueName);
-        const markets = [
-          m.ah ? `让球 ${m.ah.text}` : null,
-          m.ou ? `大小 ${m.ou.text}` : null,
-          m.eu ? "胜平负" : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
-        return {
-          id: m.id,
-          title: `${m.home} vs ${m.away}`,
-          subtitle: `${leagueLabel} · ${hhmm(m.kickoff, prefs.tz)}`,
-          meta: markets || (m.live ? "滚球中" : "指数积累中"),
-          badge: m.live ? "滚球" : m.free ? "免费报告" : undefined,
-          section: leagueLabel,
-          keywords: [m.id, m.home, m.away, m.homeId, m.awayId, m.leagueName, leagueLabel, markets],
-          onSelect: () => (m.masked ? router.push("/login") : router.push(`/match/${m.id}`)),
-        };
-      }),
-    [searchRows, prefs.tz, router],
-  );
-
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <AnnouncementBar />
@@ -240,7 +208,7 @@ function MobileMatchesPage() {
         title="赛事"
         subtitle={`${activeDateLabel} · ${leagueScope} · ${rows.length} 场`}
         {...beat}
-        right={<SearchAction title="搜索赛事" placeholder="球队 / 联赛 / 盘口 / 比赛 ID" hint={`${searchRows.length} 场可搜索`} scopeLabel={`${activeDateLabel} · 全部联赛`} emptyText="当前日期没有匹配赛事" examples={["比赛", "球队", "联赛", "让球 / 大小", "比赛 ID"]} items={searchItems} />}
+        right={<GlobalSearch />}
       />
 
       <div style={{ display: "flex", gap: 8, padding: "6px 16px 8px", flexShrink: 0 }}>

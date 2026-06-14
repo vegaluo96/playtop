@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
-import { SearchAction, type SearchItem } from "@/components/page-search";
+import { GlobalSearch } from "@/components/global-search";
 import { TeamLogo, PlayerAvatar } from "@/components/img";
 import { Chip, EmptyBox, Sheet, SheetTitle } from "@/components/ui";
 import { PlayerSheet, type PlayerTarget } from "@/components/player-sheet";
@@ -111,7 +111,12 @@ function MobileDataPage() {
   const [loaded, setLoaded] = useState(false);
   const [teamFocus, setTeamFocus] = useState<TeamFocus | null>(null);
   const [player, setPlayer] = useState<PlayerTarget | null>(null);
-  const [targetRound, setTargetRound] = useState<string | null>(null);
+
+  // 全局搜索点联赛 → /data?league=ID:进页时读一次 URL 预选联赛(无 useSearchParams,避免 Suspense 约束)
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get("league"));
+    if (id) setLeague(id);
+  }, []);
 
   useEffect(() => {
     if (leagueTabs.length && !leagueTabs.some((l) => l.id === league)) setLeague(firstLeague);
@@ -144,83 +149,6 @@ function MobileDataPage() {
     setTeamFocus({ group, teamId: row.teamId, team: row.team, logo: row.logo, stats: row, matches: teamMatches(row.teamId, row.team) });
   }, [teamMatches]);
 
-  const searchItems = useMemo<SearchItem[]>(() => {
-    if (!view) return [];
-    const groupItems = view.standings.map((group) => {
-      const ids = new Set(group.rows.map((r) => r.teamId).filter((id): id is number => id != null));
-      const teams = group.rows.map((r) => r.team);
-      const matchCount = view.schedule.filter((m) => (m.homeId != null && ids.has(m.homeId)) || (m.awayId != null && ids.has(m.awayId)) || teams.includes(m.home) || teams.includes(m.away)).length;
-      return {
-        id: `grp:${group.group}`,
-        title: group.group,
-        subtitle: `${view.league.zh} · 积分榜`,
-        meta: `${group.rows.length} 队 · ${matchCount} 场关联赛程`,
-        badge: "小组",
-        section: "积分榜",
-        onSelect: () => setTab("standings"),
-        keywords: [group.group, ...teams],
-      };
-    });
-    const standings = view.standings.flatMap((group) =>
-      group.rows.map((r) => ({
-        id: `st:${group.group}:${r.teamId ?? r.rank}`,
-        title: r.team,
-        subtitle: `${view.league.zh} · ${group.group}`,
-        meta: `${r.points} 分 · ${r.win}胜${r.draw}平${r.lose}负`,
-        badge: "积分",
-        section: "积分榜",
-        onSelect: () => openTeam(group.group, r),
-        keywords: [r.team, r.points, r.goals, r.note, r.form],
-      })),
-    );
-    const scorers = view.scorers.map((r) => ({
-      id: `g:${r.playerId ?? r.rank}`,
-      title: r.player,
-      subtitle: r.team,
-      meta: `${r.goals} 球${r.penalty ? ` · 点球 ${r.penalty}` : ""}`,
-      badge: "射手",
-      section: "射手榜",
-      onSelect: r.playerId ? () => setPlayer({ id: r.playerId!, name: r.player, season: view.season }) : undefined,
-      keywords: [r.player, r.team, r.goals, r.penalty],
-    }));
-    const assists = view.assists.map((r) => ({
-      id: `a:${r.playerId ?? r.rank}`,
-      title: r.player,
-      subtitle: r.team,
-      meta: `${r.assists} 助攻`,
-      badge: "助攻",
-      section: "助攻榜",
-      onSelect: r.playerId ? () => setPlayer({ id: r.playerId!, name: r.player, season: view.season }) : undefined,
-      keywords: [r.player, r.team, r.assists],
-    }));
-    const schedule = view.schedule.map((r) => ({
-      id: `fx:${r.id}`,
-      title: `${r.home} vs ${r.away}`,
-      subtitle: `${r.date} ${r.time} · ${r.round}`,
-      meta: `${r.score} · ${r.status}`,
-      badge: r.live ? "进行中" : r.finished ? "赛果" : "赛程",
-      section: "赛程",
-      href: `/match/${r.id}`,
-      keywords: [r.id, r.home, r.away, r.round, r.status, r.score],
-    }));
-    const roundItems = [...new Set(view.schedule.map((r) => r.round))].map((round) => {
-      const roundRows = view.schedule.filter((r) => r.round === round);
-      return {
-        id: `round:${round}`,
-        title: round,
-        subtitle: `${view.league.zh} · 赛程`,
-        meta: `${roundRows.length} 场`,
-        badge: "轮次",
-        section: "赛程",
-        onSelect: () => {
-          setTab("schedule");
-          setTargetRound(round);
-        },
-        keywords: [round, ...roundRows.flatMap((r) => [r.home, r.away, r.date, r.time])],
-      };
-    });
-    return [...groupItems, ...standings, ...scorers, ...assists, ...roundItems, ...schedule];
-  }, [openTeam, view]);
   const activeTabLabel = TABS.find((t) => t.key === tab)?.label ?? "数据";
   const SEASON_SRC: Record<string, string> = { official: "官方", cache: "归档", inferred: "推断" };
   const dataScope = view ? `${view.league.zh} · ${view.season} 赛季(${SEASON_SRC[view.seasonSource] ?? "—"}) · ${activeTabLabel}` : "数据加载中";
@@ -230,7 +158,7 @@ function MobileDataPage() {
       <PageHeader
         title="数据"
         subtitle={dataScope}
-        right={<SearchAction title="搜索数据" placeholder="球队 / 球员 / 小组 / 轮次 / 赛程" hint={`${searchItems.length} 条可搜索`} scopeLabel={dataScope} emptyText="没有匹配的数据" examples={["球队", "球员", "小组", "赛程", "轮次"]} items={searchItems} />}
+        right={<GlobalSearch />}
       />
 
       <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 10px", flexShrink: 0 }}>
@@ -279,7 +207,7 @@ function MobileDataPage() {
         {loaded && view && tab === "standings" && <Standings groups={view.standings} onOpenTeam={openTeam} />}
         {loaded && view && tab === "scorers" && <PlayerBoard rows={view.scorers} value="goals" season={view.season} onOpenPlayer={setPlayer} onOpenTeam={(row) => setTeamFocus({ group: "球员所属球队", teamId: row.teamId, team: row.team, logo: row.teamLogo, matches: teamMatches(row.teamId, row.team) })} />}
         {loaded && view && tab === "assists" && <PlayerBoard rows={view.assists} value="assists" season={view.season} onOpenPlayer={setPlayer} onOpenTeam={(row) => setTeamFocus({ group: "球员所属球队", teamId: row.teamId, team: row.team, logo: row.teamLogo, matches: teamMatches(row.teamId, row.team) })} />}
-        {loaded && view && tab === "schedule" && <Schedule rows={view.schedule} targetRound={targetRound} onOpen={(id) => router.push(`/match/${id}`)} />}
+        {loaded && view && tab === "schedule" && <Schedule rows={view.schedule} onOpen={(id) => router.push(`/match/${id}`)} />}
       </div>
       <TeamSheet focus={teamFocus} onClose={() => setTeamFocus(null)} onOpenMatch={(id) => router.push(`/match/${id}`)} />
       <PlayerSheet target={player} onClose={() => setPlayer(null)} />

@@ -231,6 +231,17 @@ CREATE TABLE IF NOT EXISTS kv (
   k TEXT PRIMARY KEY,
   v TEXT NOT NULL
 );
+-- 全局搜索球员索引(由数据页榜单/阵容抓取顺带入库,供 /api/search 球员命中)
+CREATE TABLE IF NOT EXISTS player_index (
+  player_id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  name_zh TEXT NOT NULL DEFAULT '',
+  team_id INTEGER,
+  team_name TEXT NOT NULL DEFAULT '',
+  league_id INTEGER NOT NULL DEFAULT 0,
+  season INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
 
 -- ── 管理后台 ──
 CREATE TABLE IF NOT EXISTS admins (

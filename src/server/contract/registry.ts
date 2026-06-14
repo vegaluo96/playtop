@@ -150,6 +150,14 @@ export const USER_ROUTE_CONTRACT: RouteContract[] = [
     viewModels: ["dataCenterView"],
   },
   {
+    // 全局搜索:跨 比赛/联赛/球员 的统一查询,仅返回展示用译名+跳转所需 id,无拟合值
+    route: "/search",
+    fields: ["ok", "matches", "leagues", "players"],
+    fitted: [],
+    lockedNull: [],
+    viewModels: ["fixturesBetween", "searchPlayerIndex", "cfgLeagues"],
+  },
+  {
     route: "/player/[id]",
     fields: ["ok", "id", "name", "age", "nationality", "height", "weight", "injured", "stats", "seasons", "careerTeams", "sidelined"],
     fitted: [],
