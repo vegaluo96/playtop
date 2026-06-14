@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
       homeLogo: teamLogoFromFixturePayload(f.payload, "home"),
       awayLogo: teamLogoFromFixturePayload(f.payload, "away"),
       moved: !masked && (movedMap.get(f.fixture_id) ?? false),
-      ex: live && !masked ? liveExtras(f.payload) : null,
+      ex: (live || fin) && !masked ? liveExtras(f.payload) : null, // 滚球+完场都给角球/红牌/半场,卡片右上展示
       masked,
       free: freeSet.has(f.fixture_id),
       unlocked,

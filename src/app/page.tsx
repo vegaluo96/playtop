@@ -58,6 +58,18 @@ function shiftedDateLabel(offsetDays: number, tz: string): string {
   return `${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")} 周${WEEK[d.getUTCDay()]}`;
 }
 
+/** 距开赛倒计时:>=1天显示天+时,>=1时显示时+分,否则分钟;已到点显示即将开赛 */
+function kickoffCountdown(kickoffMs: number): string {
+  const ms = kickoffMs - Date.now();
+  if (ms <= 0) return "即将开赛";
+  const totalMin = Math.floor(ms / 60_000);
+  const d = Math.floor(totalMin / 1440);
+  const h = Math.floor((totalMin % 1440) / 60);
+  const mi = totalMin % 60;
+  const t = d >= 1 ? `${d}天${h}小时` : h >= 1 ? `${h}小时${mi}分` : `${mi}分`;
+  return `距开赛 ${t}`;
+}
+
 export default function MatchesRoute() {
   const isDesktop = useIsDesktop();
   if (isDesktop == null) return null;
@@ -104,6 +116,12 @@ function MobileMatchesPage() {
   useEffect(() => {
     void load(); // 切日期/联赛立即刷新
   }, [load]);
+  // 距开赛倒计时每 30s 走字(轮询之外的轻量计时,仅驱动重渲染)
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((x) => x + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
   // 四菜单统一节奏:平台有滚球 3s(交易所级跳动,只渲染真实变化),否则 10s;后台 tab 暂停
   const beat = useUnifiedPoll(load);
 
@@ -146,6 +164,7 @@ function MobileMatchesPage() {
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: leagueColor(m.leagueId), flexShrink: 0 }} />
               <span style={{ fontSize: 12, color: "var(--fg-2)", fontWeight: 650, whiteSpace: "nowrap", flexShrink: 0 }}>{leagueZh(m.leagueId, m.leagueName)}</span>
               <span className="mono" style={{ fontSize: 12, color: "var(--fg-3)", whiteSpace: "nowrap", flexShrink: 0 }}>{hhmm(m.kickoff, prefs.tz)}</span>
+              {m.q != null && <span title="赛前数据质量分(与详情同口径)" style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: m.q >= 85 ? "var(--green)" : m.q >= 70 ? "var(--gold)" : "var(--red)" }} />}
               {m.live && (
                 <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "var(--red)", fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0 }}>
                   <span className="livepulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)", flexShrink: 0 }} />
@@ -155,12 +174,10 @@ function MobileMatchesPage() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, minWidth: 0 }}>
-            {exLine && <span className="mono" style={{ maxWidth: 150, fontSize: 11.5, color: "var(--fg-3)", fontWeight: 650, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{exLine}</span>}
-            {m.q != null && (
-              <span title="赛前数据质量分(与详情同口径)" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--fg-3)", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: m.q >= 85 ? "var(--green)" : m.q >= 70 ? "var(--gold)" : "var(--red)" }} />
-                数据 {m.q}
-              </span>
+            {m.live || m.finished ? (
+              exLine ? <span className="mono" style={{ maxWidth: 168, fontSize: 11.5, color: "var(--fg-3)", fontWeight: 650, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{exLine}</span> : null
+            ) : (
+              <span className="mono" style={{ fontSize: 11.5, color: "var(--fg-2)", fontWeight: 750, whiteSpace: "nowrap", flexShrink: 0 }}>{kickoffCountdown(m.kickoff)}</span>
             )}
           </div>
         </div>
