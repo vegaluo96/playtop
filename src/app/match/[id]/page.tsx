@@ -7,10 +7,10 @@ import { useApp } from "@/components/app-context";
 import { RefreshSheet } from "@/components/refresh-sheet";
 import { ShareSheet, type ShareData } from "@/components/share-sheet";
 import { Card, Chip, EmptyBox, SectionTitle, ShareIcon } from "@/components/ui";
-import { dayLabel, hhmm } from "@/lib/format";
+import { dayLabel, f2, hhmm } from "@/lib/format";
 
 import { Flash, usePoll } from "@/components/live";
-import { MarketCell, MarketValue, type MarketCellData } from "@/components/market-cell";
+import { MarketValue, type MarketCellData } from "@/components/market-cell";
 import { RefreshCountdownText } from "@/components/refresh-countdown";
 import { useIsDesktop } from "@/components/use-viewport";
 import { LazyTerminal } from "@/components/desktop/lazy-terminal";
@@ -205,7 +205,7 @@ function MobileMatchDetail({ id }: { id: string }) {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px 8px", minHeight: 54, boxSizing: "border-box" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 16px 4px", minHeight: 40, boxSizing: "border-box" }}>
         <button type="button" onClick={() => router.back()} aria-label="返回" style={{ width: 38, height: 38, border: "1px solid var(--line)", borderRadius: 999, background: "var(--card)", color: "var(--fg-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 22, lineHeight: 1, flexShrink: 0 }}>‹</button>
         <div style={{ flex: 1, textAlign: "center" }}>
           <div style={{ fontSize: 10.5, color: "var(--fg-3)", fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>比赛详情</div>
@@ -216,7 +216,7 @@ function MobileMatchDetail({ id }: { id: string }) {
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center", padding: "2px 16px 10px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center", padding: "0 16px 6px" }}>
         <div style={{ textAlign: "right", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
             <span style={{ fontSize: 16, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.home}</span>
@@ -241,20 +241,25 @@ function MobileMatchDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, padding: "0 14px 10px" }}>
+      {/* 概览卡:压缩为单行(主水 · 盘口 · 客水),给指数表留更多空间;完整三行见下方百家对比 */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, padding: "0 14px 8px" }}>
         {[
-          { label: "让球", kind: "ah" as const, cell: pairSummary(v.summary.ah) },
-          { label: "大小", kind: "ou" as const, cell: pairSummary(v.summary.ou) },
-          { label: "胜平负", kind: "eu" as const, cell: euSummary(v.summary.eu) },
-        ].map(({ label, kind, cell }) => (
-          <Card key={label} style={{ borderRadius: 8, padding: "6px 2px", textAlign: "center" }}>
-            <div style={{ fontSize: 11, color: "var(--fg-3)", marginBottom: 2 }}>{label}</div>
-            <MarketCell kind={kind} cell={cell} style={{ background: "transparent", padding: 0 }} />
+          { label: "让球", cell: pairSummary(v.summary.ah), mid: (c: MarketCellData) => c.text ?? "—" },
+          { label: "大小", cell: pairSummary(v.summary.ou), mid: (c: MarketCellData) => c.text ?? "—" },
+          { label: "胜平负", cell: euSummary(v.summary.eu), mid: (c: MarketCellData) => (c.d != null ? f2(c.d) : "—") },
+        ].map(({ label, cell, mid }) => (
+          <Card key={label} style={{ borderRadius: 8, padding: "5px 4px", textAlign: "center" }}>
+            <div style={{ fontSize: 10.5, color: "var(--fg-3)", marginBottom: 3 }}>{label}</div>
+            <div className="mono" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontSize: 13.5, fontWeight: 800, whiteSpace: "nowrap" }}>
+              <span>{cell?.h != null ? f2(cell.h) : "—"}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-3)" }}>{cell ? mid(cell) : "—"}</span>
+              <span>{cell?.a != null ? f2(cell.a) : "—"}</span>
+            </div>
           </Card>
         ))}
       </div>
 
-      <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 8px", cursor: "pointer" }}>
+      <div onClick={() => setRfOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 16px 6px", cursor: "pointer" }}>
         <span style={{ fontSize: 11, color: "var(--fg-3)", whiteSpace: "nowrap" }}>
           <RefreshCountdownText finished={h.finished} fresh={h.fresh} oddsAt={v.summary.oddsAt} fallbackAt={lastAt} />
         </span>
