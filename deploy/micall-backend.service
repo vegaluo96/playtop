@@ -1,0 +1,30 @@
+# MiCall 实时信令服务器 —— systemd 常驻（前台 run-server 的生产化）。
+# 安装：
+#   sudo cp ~/micall.ai/deploy/micall-backend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now micall-backend
+#   systemctl status micall-backend         # 看是否 running
+#   journalctl -u micall-backend -f          # 看日志
+#
+# 假设仓库在 /home/admin/micall.ai（按实际用户/路径改 User 与 WorkingDirectory）。
+
+[Unit]
+Description=MiCall realtime signaling server
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=/home/admin/micall.ai/backend
+Environment=PYTHONPATH=src
+# 真实密钥（铁律2）：写进 config/micall.env（不入库），形如：
+#   MICALL_LLM_FAST_ENDPOINT=https://api.apiyi.com/v1/chat/completions
+#   MICALL_LLM_FAST_API_KEY=sk-xxx
+#   MICALL_TTS_API_KEY=...   等。文件缺失也不报错（前缀 -）。
+EnvironmentFile=-/home/admin/micall.ai/backend/config/micall.env
+ExecStart=/usr/bin/python3 -m micall.cli run-server
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

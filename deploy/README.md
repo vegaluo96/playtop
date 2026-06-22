@@ -129,3 +129,39 @@ server {
   **别填真实生产密钥**。
 - 后端就绪后：给 admin 配 `VITE_API_BASE`、放开 `micall-admin.conf` 里的 `/admin/` 反代，
   密钥即改为存服务端、读取打码，浏览器不再留明文（CLAUDE.md 铁律2）。
+
+---
+
+## 后端实时信令服务（让前端从 Mock 切到真实后端）
+
+后端骨架在 `backend/`（详见 `backend/README.md`）。生产化三步：
+
+**1) 依赖 + systemd 常驻**（别用前台 `run-server`，关终端就停）
+```bash
+cd ~/micall.ai && git pull origin main
+cd backend && pip3 install -r requirements.txt   # 或：sudo apt install -y python3-websockets
+sudo cp ~/micall.ai/deploy/micall-backend.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now micall-backend
+systemctl status micall-backend        # running 即可（监听 127.0.0.1:8787，仅本地）
+journalctl -u micall-backend -f         # 看日志
+```
+
+**2) nginx 反代 wss**（前端是 https，浏览器禁止 https 页面连 ws://，必须加密 wss://）
+最新 `deploy/nginx/micall.conf` 已含 `location /realtime/signal` → `127.0.0.1:8787`。
+把它合并进你服务器上**实际生效的 443 server 块**（certbot 生成的那个），然后：
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+> 无需放行 8787：后端只监听本地，外网只经 443 的 wss 反代进来，更安全。
+
+**3) 前端切真实信令**
+```bash
+cd ~/micall.ai/frontend
+echo 'VITE_SIGNALING_URL=wss://zsky.com/realtime/signal' > .env.production
+npm run build && sudo cp -r dist/* /var/www/micall/
+```
+打开 zsky.com 发起通话即走真实后端（当前是 stub 编排，接入密钥后即真实对话）。
+
+**接真实供应商密钥（铁律2）**：在 `backend/config/micall.env` 写各节点 endpoint/key
+（见 `deploy/micall-backend.service` 注释），`sudo systemctl restart micall-backend`，
+再 `PYTHONPATH=src python3 -m micall.cli spike` 实测 TTFT（地基生死验证）。
