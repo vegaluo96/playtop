@@ -156,7 +156,7 @@
         <sc-if value="{{ showText }}" hint-placeholder-val="{{ false }}">
         <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:0 36px;">
           <sc-for list="{{ lines }}" as="line" hint-placeholder-count="2">
-            <div style="font-size:21px;line-height:1.5;letter-spacing:.3px;color:{{ line.color }};transition:color .4s ease;text-wrap:pretty;">{{ line.text }}</div>
+            <div style="align-self:{{ line.align }};max-width:84%;font-size:21px;line-height:1.5;letter-spacing:.3px;color:{{ line.color }};transition:color .4s ease;text-wrap:pretty;">{{ line.text }}</div>
           </sc-for>
           <sc-if value="{{ showTextHint }}" hint-placeholder-val="{{ false }}">
             <div style="font-size:16px;color:var(--dim);letter-spacing:.4px;">{{ textHint }}</div>

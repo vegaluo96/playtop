@@ -418,9 +418,11 @@ export class MiCallLogic {
         break;
       case "subtitle":
         if (ev.role === "ai") {
-          this.setState((s) => ({ subtitle: ev.text, lines: [...s.lines, ev.text].slice(-6) }));
+          this.setState((s) => ({ subtitle: ev.text, lines: [...s.lines, { role: "ai", text: ev.text }].slice(-8) }));
+        } else if (ev.role === "user" && !ev.partial) {
+          // 文字模式要看到自己说的话：用户最终识别结果也进转写（partial 不进，避免半句刷屏）。
+          this.setState((s) => ({ lines: [...s.lines, { role: "user", text: ev.text }].slice(-8) }));
         }
-        // user partial subtitles have no dedicated UI in the prototype.
         break;
       case "emotion":
         // Stored for the looping-video layer (影像 crossfade). The prototype's
@@ -508,10 +510,14 @@ export class MiCallLogic {
     else if (p === "thinking") textHint = "正在思考";
     else if (p === "ended") textHint = "明天也别硬撑。";
     const showTextHint = textHint !== "";
-    const displayLines = (this.state.lines || []).map((t: string, idx: number, arr: string[]) => ({
-      text: t,
-      color: idx === arr.length - 1 ? "var(--fg)" : "var(--dim)",
-    }));
+    const displayLines = (this.state.lines || []).map((m: any, idx: number, arr: any[]) => {
+      const isUser = m && m.role === "user";
+      return {
+        text: typeof m === "string" ? m : m.text,   // 兼容旧的纯字符串
+        align: isUser ? "flex-end" : "flex-start",   // 我说的右对齐、TA 说的左对齐
+        color: isUser ? "#6E5CFF" : (idx === arr.length - 1 ? "var(--fg)" : "var(--dim)"),
+      };
+    });
 
     if (!this._charsBuilt) { this.buildChars(); this._charsBuilt = true; }
     const char = this.chars[this.state.charIndex % this.chars.length];

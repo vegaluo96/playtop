@@ -66,6 +66,21 @@ def _first_sentence_end(s: str) -> int:
     return -1
 
 
+def _split_sentences(s: str) -> list[str]:
+    """按句末标点切成短句（保留标点）。用于字幕逐句下发，避免一长段撑开屏幕。"""
+    out: list[str] = []
+    cur = ""
+    for ch in s:
+        cur += ch
+        if ch in _SENTENCE_END:
+            if cur.strip():
+                out.append(cur.strip())
+            cur = ""
+    if cur.strip():
+        out.append(cur.strip())
+    return out
+
+
 class CallSession:
     def __init__(
         self,
@@ -316,7 +331,9 @@ class CallSession:
         spoken = _strip_actions(sentence)   # 去掉（轻声笑）这类舞台提示，别让 TTS 念出来
         if not spoken:
             return  # 整句都是括号动作/旁白：不发音、不进上下文
-        await self._emit(ServerEvent.subtitle("ai", spoken))
+        # 字幕逐句下发（短行，不撑屏）；音频整段一次合成（句间不断气）。
+        for seg in _split_sentences(spoken):
+            await self._emit(ServerEvent.subtitle("ai", seg))
         self._ai_said += spoken  # 记入回声基准（这句即将在前端播放，可能回灌麦克风）
         audio_bytes = 0
         async for chunk in self.tts.synthesize(

@@ -11,7 +11,13 @@ from __future__ import annotations
 
 import re
 
-_PREFIX = re.compile(r"^\s*\[emotion:\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\]\s*")
+# 容错匹配开头的情绪标签：模型常把 key 写成 emotion/mood/feeling/情绪/心情，tag 可中可英。
+# 之前只认 [emotion:...]，模型吐 [mood:tender] 就漏过 → 被念出来/显示出来（用户实测）。
+_PREFIX = re.compile(
+    r"^\s*[\[【(（]\s*(?:emotion|mood|feeling|情绪|心情|语气)\s*[:：]\s*"
+    r"([a-zA-Z_一-鿿][\w一-鿿]*)\s*[\]】)）]\s*",
+    re.IGNORECASE,
+)
 DEFAULT_EMOTION = "neutral"
 
 
@@ -24,12 +30,10 @@ def split_emotion(text: str, default: str = DEFAULT_EMOTION) -> tuple[str, str]:
 
 
 class EmotionStripper:
-    """流式版：逐 token 喂入，先攒够开头的 `[emotion:tag]` 再放行后续文本。
+    """流式版：逐 token 喂入，先攒够开头的情绪标签（[emotion:tag]/[mood:tag]…）再放行后续文本。
 
     task B 边流式生成边切句，需要在首个 token 起就把标签剥掉，避免标签混进 TTS 文本。
     """
-
-    _MARK = "[emotion:"
 
     def __init__(self, default: str = DEFAULT_EMOTION) -> None:
         self.tag = default
@@ -55,12 +59,13 @@ class EmotionStripper:
                 self._lstrip_pending = True
                 return ""
             return rest
-        # 判断 buf 是否仍可能是标签前缀；不可能则判定无标签，整体透传。
+        # 还可能是标签：以 [/【/( 开头、还没遇到闭括号、且不太长 → 继续缓冲等闭括号。
         head = self._buf.lstrip()
-        if head and not (self._MARK.startswith(head[: len(self._MARK)]) or head.startswith(self._MARK)):
-            self._resolved = True
-            return self._buf
-        return ""
+        if head and head[0] in "[【(（" and not any(c in head for c in "]】)）") and len(head) < 28:
+            return ""
+        # 不是标签（或格式不符）→ 整体透传。
+        self._resolved = True
+        return self._buf
 
     def flush(self) -> str:
         """流结束时取出尚在缓冲、未识别为标签的残留文本。"""
