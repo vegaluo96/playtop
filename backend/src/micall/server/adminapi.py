@@ -170,6 +170,24 @@ def test_section(section: str, sec: dict) -> dict:
         return {"ok": False, "error": str(e)[:300]}
 
 
+def login(payload: dict) -> tuple[int, dict]:
+    """后台登录：校验账号密码，成功发 token（前端后续带 Authorization 访问配置 API）。
+
+    账号取 MICALL_ADMIN_USER（默认 admin）。密码取 MICALL_ADMIN_PASSWORD：
+      • 已设 → 必须匹配；
+      • 未设 → 放行（真正门禁靠 nginx Basic Auth，此登录仅 UX 层）。
+    token 取 MICALL_ADMIN_TOKEN（设了则配置 API 也校验它，形成完整应用级鉴权），否则 "ok"。
+    """
+    user = os.environ.get("MICALL_ADMIN_USER", "admin").strip()
+    pw = os.environ.get("MICALL_ADMIN_PASSWORD", "")
+    token = os.environ.get("MICALL_ADMIN_TOKEN", "").strip() or "ok"
+    u = str((payload or {}).get("username", "")).strip()
+    p = str((payload or {}).get("password", ""))
+    if u != user or (pw and p != pw):
+        return 401, {"ok": False, "error": "账号或密码错误"}
+    return 200, {"ok": True, "token": token}
+
+
 def _authorized(headers) -> bool:
     want = os.environ.get("MICALL_ADMIN_TOKEN", "").strip()
     if not want:
@@ -233,9 +251,13 @@ class _Handler(BaseHTTPRequestHandler):
         self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
+        route = self._route()
+        if route == "/admin/login":                 # 登录本身不需 token（它负责发 token）
+            code, obj = login(self._body())
+            return self._json(code, obj)
         if not _authorized(self.headers):
             return self._json(401, {"error": "unauthorized"})
-        if self._route() == "/admin/api-config/test":
+        if route == "/admin/api-config/test":
             b = self._body()
             return self._json(200, test_section(b.get("section", ""), b.get("config", {}) or {}))
         self._json(404, {"error": "not found"})

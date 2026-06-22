@@ -148,9 +148,13 @@ cd ~/micall.ai/admin
 echo 'VITE_API_BASE=https://admin.zsky.com' > .env.production
 npm run build && sudo cp -r dist/* /var/www/micall-admin/
 ```
-之后打开 `admin.zsky.com →「接口配置」`，填好 TTS/LLM/ASR 的 endpoint+key，点**保存**、点**测试**。
-（同源 + Basic Auth 自动保护这条 API；后端只听本地，外网只经 nginx 进来。可选 `MICALL_ADMIN_TOKEN`
-环境变量再加一层 Bearer 鉴权。）
+打开 `admin.zsky.com` 先过 nginx Basic Auth，再到 admin 自带登录页：
+- **账号** `admin`（可改 `MICALL_ADMIN_USER`）。
+- **密码**：未设 `MICALL_ADMIN_PASSWORD` 时任意密码放行（真门禁是 Basic Auth）；设了就必须匹配。
+- 想要应用级 Bearer 鉴权：设 `MICALL_ADMIN_TOKEN`，登录成功即发该 token，配置 API 随后校验。
+
+进去后到「接口配置」，填好 TTS/LLM/ASR 的 endpoint+key，点**保存**、点**测试**。
+（nginx 把整个 `/admin/`（login + api-config + test）反代到后端 8788；后端只听本地，外网只经 nginx。）
 
 > 仍想用命令行也行：`micall.env` 的环境变量依然有效（被网页配置覆盖）。两者择一即可。
 
