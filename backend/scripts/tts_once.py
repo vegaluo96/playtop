@@ -28,13 +28,24 @@ async def main() -> None:
     print(f"provider={type(tts).__name__}  model={node.params.get('model')}  voice={voice!r}")
     print(f"text={text!r}")
 
+    import time
+
+    t0 = time.perf_counter()
+    first_ms: float | None = None
     buf = bytearray()
     async for chunk in tts.synthesize(text, voice_id=voice, emotion=""):
+        if first_ms is None:
+            first_ms = (time.perf_counter() - t0) * 1000
         buf += chunk
+    total_ms = (time.perf_counter() - t0) * 1000
 
     Path(out).write_bytes(bytes(buf))
-    print(f"\n✅ 已写 {out}（{len(buf)} bytes）。下载到本地试听。"
-          if buf else "\n⚠ 没拿到音频，看上面的报错。")
+    if buf:
+        print(f"\n✅ 已写 {out}（{len(buf)} bytes）。下载到本地试听。")
+        print(f"   ⏱ 首音频块 {first_ms:.0f}ms · 整句合成 {total_ms:.0f}ms · 文本 {len(text)} 字")
+        print("   （当前是非流式=整段一次返回，首块≈整句；真实通话用流式 TTS，首块会低很多）")
+    else:
+        print("\n⚠ 没拿到音频，看上面的报错。")
 
 
 if __name__ == "__main__":
