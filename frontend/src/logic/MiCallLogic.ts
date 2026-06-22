@@ -314,7 +314,10 @@ export class MiCallLogic {
   private async acquireMic(): Promise<boolean> {
     if (this.micStream) return true;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        // AEC 抑回声（防回声误打断）；NS 抑噪、AGC 归一化音量 → 上行 VAD 阈值更稳、AI 说话期麦克风近静音不上行省 ASR。
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
       this.micStream = stream;
       this.applyMuteToTracks();
       return true;
