@@ -53,19 +53,32 @@ class MiniMaxTTS(TTSProvider):
                     detail = (await resp.aread()).decode("utf-8", "ignore")[:400]
                     raise RuntimeError(f"HTTP {resp.status_code} · {detail}")
                 got = False
+                last_resp = None
+                tail: list[str] = []
                 async for line in resp.aiter_lines():
-                    if not line or not line.startswith("data:"):
+                    if not line:
                         continue
+                    # 兼容非 SSE 的错误响应：data: 开头取负载，否则整行当 JSON 试。
+                    payload = line[5:] if line.startswith("data:") else line
                     try:
-                        evt = json.loads(line[5:])
+                        evt = json.loads(payload)
                     except ValueError:
+                        tail.append(line[:200])
                         continue
                     chunk = (evt.get("data") or {}).get("audio", "")
                     if chunk:
                         got = True
                         yield bytes.fromhex(chunk)
-                    br = evt.get("base_resp") or {}
-                    code = br.get("status_code")
-                    if code not in (0, None) and not got:
-                        # voice id 不存在 / 余额 / 鉴权等：未出过音频就报错带出原因。
-                        raise RuntimeError(f"MiniMax base_resp · {br}")
+                    br = evt.get("base_resp")
+                    if br:
+                        last_resp = br
+                        code = br.get("status_code")
+                        if code not in (0, None) and not got:
+                            # voice id 不存在 / 余额 / 鉴权 / token not match group 等：报错带出原因。
+                            raise RuntimeError(f"MiniMax base_resp · {br}")
+                if not got:
+                    # 没出过音频也别静默：把能拿到的原因抛出来（国内/国际 GroupId-key 不配对最常见）。
+                    reason = last_resp or " ".join(tail)[:400] or (
+                        "无音频且无错误体——检查 endpoint 是否国内 t2a_v2、GroupId 是否拼在 query、"
+                        "国内域名要配国内账号的 key")
+                    raise RuntimeError(f"MiniMax 未返回音频 · {reason}")

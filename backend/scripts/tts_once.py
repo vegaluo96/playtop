@@ -33,10 +33,15 @@ async def main() -> None:
     t0 = time.perf_counter()
     first_ms: float | None = None
     buf = bytearray()
-    async for chunk in tts.synthesize(text, voice_id=voice, emotion=""):
-        if first_ms is None:
-            first_ms = (time.perf_counter() - t0) * 1000
-        buf += chunk
+    try:
+        async for chunk in tts.synthesize(text, voice_id=voice, emotion=""):
+            if first_ms is None:
+                first_ms = (time.perf_counter() - t0) * 1000
+            buf += chunk
+    except Exception as e:
+        print(f"\n⚠ TTS 失败：{e}")
+        print(f"   （未写 {out}，保留原文件）")
+        return
     total_ms = (time.perf_counter() - t0) * 1000
 
     if buf:
