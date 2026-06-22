@@ -39,14 +39,20 @@ def make_asr(node: NodeConfig) -> ASRProvider:
     return StubASR()
 
 
-def make_realtime_asr(node: NodeConfig):
-    """真·实时流式 ASR（WS 原生协议）。只需 api_key + ws_endpoint；endpoint(HTTP) 可空。
-
-    暂未接入编排（先经 scripts/asr_stream_once.py 联调锁协议），故独立于 make_asr。
+def make_realtime_asr(node: NodeConfig, *, on_event=None):
+    """真·实时流式 ASR，按 realtime_model 自动选协议：
+      • qwen*（qwen3-asr-flash-realtime，国际站可用）→ OpenAI-Realtime 协议（/api-ws/v1/realtime）
+      • 其它（paraformer-realtime-*，主要北京区）→ DashScope run-task 协议（/api-ws/v1/inference）
+    WS 主机按区域从 ASR 的 HTTP endpoint 推断（通用区域端点，非专属域名）。
     """
+    model = node.params.get("realtime_model", "qwen3-asr-flash-realtime")
+    if model.startswith("qwen"):
+        from .qwen_realtime_asr import QwenRealtimeASR
+
+        return QwenRealtimeASR(node, on_event=on_event)
     from .realtime_asr import RealtimeBailianASR
 
-    return RealtimeBailianASR(node)
+    return RealtimeBailianASR(node, on_event=on_event)
 
 
 __all__ = [

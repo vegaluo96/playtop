@@ -1,18 +1,17 @@
-"""实时流式 ASR 联调 —— 把一个音频文件按 100ms 帧「实时」喂给 DashScope 流式 ASR，
-打印中间/最终结果 + 关键时延（首个中间结果、end-of-turn 判句）。先跑 --debug 看原始事件锁协议。
+"""实时流式 ASR 联调 —— 把音频文件按 100ms 帧「实时」喂给流式 ASR，打印中间/最终结果。
 
-与 asr_once.py（整段录音识别 HTTP）不同：这条走 WebSocket 原生协议，边说边出字，
-内置静音判句即 end-of-turn —— 真实通话「用户说完→AI 多快开始想」就由它决定。
+按 realtime_model 自动选协议（make_realtime_asr）：
+  • qwen3-asr-flash-realtime（国际站默认）→ OpenAI-Realtime 协议
+  • paraformer-realtime-*（北京区）→ run-task 协议
+endpoint/key 取配置（micall.env / 后台「接口配置」），WS 主机按区域自动推断。
 
-依赖：websockets；ffmpeg（把任意音频转 pcm16/16k/mono，模拟麦克风上行帧）。
+依赖：websockets；ffmpeg（任意音频转 pcm16/16k/mono，模拟麦克风）。
 用法：
   cd backend; set -a; . config/micall.env; set +a
-  # 没有 sample.mp3 先合一个：PYTHONPATH=src python3 scripts/tts_once.py "你好，我今天心情还不错。" sample.mp3
   PYTHONPATH=src python3 scripts/asr_stream_once.py sample.mp3 --debug --realtime
-默认连新加坡区通用端点；账号若是业务空间专属域名，用 --ws 覆盖：
-  PYTHONPATH=src python3 scripts/asr_stream_once.py sample.mp3 --debug \
-    --ws wss://ws-你的工作空间.ap-southeast-1.maas.aliyuncs.com/api-ws/v1/inference/
-鉴权用 MICALL_ASR_API_KEY（与文件识别同一个国际站 key）。
+  # 换模型/端点联调：
+  PYTHONPATH=src python3 scripts/asr_stream_once.py sample.mp3 --debug --realtime --model paraformer-realtime-v1
+  PYTHONPATH=src python3 scripts/asr_stream_once.py sample.mp3 --debug --ws wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime
 """
 import argparse
 import asyncio
@@ -24,12 +23,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from micall.config import NodeConfig  # noqa: E402
-from micall.providers.realtime_asr import DEFAULT_WS_INTL, RealtimeBailianASR  # noqa: E402
+from micall.config import load_config  # noqa: E402
+from micall.providers import make_realtime_asr  # noqa: E402
 
 SR = 16000
 FRAME_MS = 100
-FRAME_BYTES = SR * 2 * FRAME_MS // 1000  # 16k×2字节×0.1s = 3200
+FRAME_BYTES = SR * 2 * FRAME_MS // 1000  # 3200
 
 
 def _pcm16_mono_16k(path: str) -> bytes:
@@ -46,16 +45,12 @@ def _pcm16_mono_16k(path: str) -> bytes:
 async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("audio", nargs="?", default="sample.mp3")
-    ap.add_argument("--ws", default=os.environ.get("MICALL_ASR_WS_ENDPOINT", DEFAULT_WS_INTL))
-    ap.add_argument("--model", default="paraformer-realtime-v2")
+    ap.add_argument("--ws", default="", help="覆盖 WS 端点（默认按区域+协议推断）")
+    ap.add_argument("--model", default="qwen3-asr-flash-realtime", help="实时模型名（决定协议）")
     ap.add_argument("--debug", action="store_true", help="打印每个原始服务端事件（锁协议）")
-    ap.add_argument("--realtime", action="store_true",
-                    help="逐帧 sleep 100ms 模拟真实语速（更贴近线上判句行为）")
+    ap.add_argument("--realtime", action="store_true", help="逐帧 sleep 100ms 模拟真实语速")
     args = ap.parse_args()
 
-    key = os.environ.get("MICALL_ASR_API_KEY", "")
-    if not key:
-        raise SystemExit("没有 MICALL_ASR_API_KEY。先：set -a; . config/micall.env; set +a")
     if not Path(args.audio).exists():
         raise SystemExit(f"找不到 {args.audio}。先用 tts_once 合一个 sample.mp3。")
     if Path(args.audio).stat().st_size == 0:
@@ -63,23 +58,27 @@ async def main() -> None:
 
     pcm = _pcm16_mono_16k(args.audio)
     nframes = (len(pcm) + FRAME_BYTES - 1) // FRAME_BYTES
-    print(f"WS={args.ws}  model={args.model}")
-    print(f"音频→pcm16/16k/mono：{len(pcm)} bytes ≈ {len(pcm) / (SR * 2):.1f}s · "
-          f"{nframes} 帧×{FRAME_MS}ms · realtime={args.realtime}\n")
 
-    node = NodeConfig(
-        name="asr", provider="bailian_realtime", endpoint="", api_key=key,
-        params={"ws_endpoint": args.ws, "realtime_model": args.model, "sample_rate": SR},
-    )
-    t0 = time.perf_counter()
+    cfg = load_config()
+    node = cfg.node("asr")
+    if not node.api_key.strip():
+        raise SystemExit("ASR 未配 key。先 set -a; . config/micall.env; set +a（或后台「接口配置」填）。")
+    node.params["realtime_model"] = args.model
+    node.params["sample_rate"] = SR
+    if args.ws:
+        node.params["ws_endpoint"] = args.ws
 
     def on_event(evt: dict) -> None:
         if args.debug:
-            ev = (evt.get("header") or {}).get("event", "?")
             import json as _j
-            print(f"  «{ev}» {_j.dumps(evt, ensure_ascii=False)[:240]}")
+            et = evt.get("type") or (evt.get("header") or {}).get("event", "?")
+            print(f"  «{et}» {_j.dumps(evt, ensure_ascii=False)[:240]}")
 
-    asr = RealtimeBailianASR(node, on_event=on_event)
+    asr = make_realtime_asr(node, on_event=on_event)
+    print(f"provider={type(asr).__name__}  model={args.model}")
+    print(f"WS={asr.ws_url}")
+    print(f"音频→pcm16/16k/mono：{len(pcm)} bytes ≈ {len(pcm) / (SR * 2):.1f}s · "
+          f"{nframes} 帧×{FRAME_MS}ms · realtime={args.realtime}\n")
 
     async def _frames():
         for i in range(nframes):
@@ -87,6 +86,7 @@ async def main() -> None:
             if args.realtime:
                 await asyncio.sleep(FRAME_MS / 1000)
 
+    t0 = time.perf_counter()
     first_partial: float | None = None
     finals: list[str] = []
     last_partial = ""
@@ -98,21 +98,20 @@ async def main() -> None:
             if is_final:
                 finals.append(text)
                 print(f"  [final  {now:6.0f}ms] {text}")
-            else:
-                last_partial = text
-                if args.debug:
-                    print(f"  [partial {now:6.0f}ms] {text}")
+                break  # 单句联调：收到最终结果即收尾（连续模式由编排长跑）
+            last_partial = text
+            if args.debug:
+                print(f"  [partial {now:6.0f}ms] {text}")
     except Exception as e:
         print(f"\n⚠ 失败：{e!r}")
-        print("  排查：① 该 key/区是否开通流式 ASR（paraformer-realtime-v2）"
-              "② 专属域名要用 --ws ③ 看上面 --debug 的 task-failed 原因。")
+        print("  排查：① 模型名是否本区可用（看上面 --debug 的 task-failed/error）"
+              "② --model 换 qwen3-asr-flash-realtime / paraformer-realtime-v1 ③ --ws 覆盖端点。")
         return
 
-    end_ms = (time.perf_counter() - t0) * 1000
     print(f"\n📝 最终：{' '.join(finals) or last_partial!r}")
     if first_partial is not None:
-        print(f"⏱ 首个中间结果 {first_partial:.0f}ms · 全程 {end_ms:.0f}ms")
-    print("（--realtime 下「全程」≈ 音频时长 + 尾段判句；真实通话关心的是用户停顿后多快出 final。）")
+        print(f"⏱ 首个结果 {first_partial:.0f}ms")
+    print("（真实通话关心的是用户停顿后多快出 final；这里单句验证协议+识别正确性。）")
 
 
 if __name__ == "__main__":

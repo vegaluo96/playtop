@@ -28,6 +28,19 @@ from .base import ASRProvider
 DEFAULT_WS_INTL = "wss://dashscope-intl.aliyuncs.com/api-ws/v1/inference/"
 
 
+def region_ws_base(http_endpoint: str) -> str:
+    """从 ASR 的 HTTP endpoint 推断**区域通用** WS 主机（不是业务空间专属域名）。
+
+    实测：实时 WS（api-ws）在通用区域端点 dashscope-intl 上鉴权通过；专属 MaaS 域名
+    （ws-xxxx.ap-southeast-1.maas.aliyuncs.com）未必有 api-ws。故按区域取通用主机。
+    """
+    from urllib.parse import urlparse
+
+    host = (urlparse(http_endpoint or "").netloc or "").lower()
+    intl = (not host) or ("intl" in host) or ("ap-southeast" in host) or (".maas." in host)
+    return "wss://dashscope-intl.aliyuncs.com" if intl else "wss://dashscope.aliyuncs.com"
+
+
 class RealtimeBailianASR(ASRProvider):
     def __init__(self, node: NodeConfig, *, on_event: Callable[[dict], None] | None = None) -> None:
         if not node.api_key.strip():
@@ -45,10 +58,7 @@ class RealtimeBailianASR(ASRProvider):
 
     @staticmethod
     def _derive_ws(http_endpoint: str) -> str:
-        from urllib.parse import urlparse
-
-        host = urlparse(http_endpoint or "").netloc
-        return f"wss://{host}/api-ws/v1/inference/" if host else DEFAULT_WS_INTL
+        return region_ws_base(http_endpoint) + "/api-ws/v1/inference/"
 
     def _run_task(self, task_id: str) -> str:
         return json.dumps({
