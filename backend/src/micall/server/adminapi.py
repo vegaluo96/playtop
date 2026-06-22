@@ -176,11 +176,14 @@ def login(payload: dict) -> tuple[int, dict]:
     账号取 MICALL_ADMIN_USER（默认 admin）。密码取 MICALL_ADMIN_PASSWORD：
       • 已设 → 必须匹配；
       • 未设 → 放行（真正门禁靠 nginx Basic Auth，此登录仅 UX 层）。
-    token 取 MICALL_ADMIN_TOKEN（设了则配置 API 也校验它，形成完整应用级鉴权），否则 "ok"。
+    token 取 MICALL_ADMIN_TOKEN（设了则配置 API 也校验它，形成完整应用级鉴权），否则 "dev"。
+    返回 "dev" 是关键：前端识别到 "dev" 就**不发 Authorization: Bearer**，从而不顶掉浏览器
+    自动携带的 Basic Auth 凭据（否则 nginx 收到 Bearer 而非 Basic → 401 → 反复弹密码框）。
+    要用应用级 Bearer 鉴权时设 MICALL_ADMIN_TOKEN，并在 nginx 的 /admin/ 关掉 auth_basic 以免冲突。
     """
     user = os.environ.get("MICALL_ADMIN_USER", "admin").strip()
     pw = os.environ.get("MICALL_ADMIN_PASSWORD", "")
-    token = os.environ.get("MICALL_ADMIN_TOKEN", "").strip() or "ok"
+    token = os.environ.get("MICALL_ADMIN_TOKEN", "").strip() or "dev"
     u = str((payload or {}).get("username", "")).strip()
     p = str((payload or {}).get("password", ""))
     if u != user or (pw and p != pw):
