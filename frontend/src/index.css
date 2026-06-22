@@ -107,10 +107,43 @@ body {
     display: flex !important;
     align-items: center !important;
   }
-  /* 底部滚动列表（场景/角色/账单… 的 .nobar）留出余量，最后一项不贴底被遮挡。
-     无 !important，已自带内边距的 .nobar（如角色详情）保持原值。 */
+  /* ── 弹窗底部「白条」根治（产品方变更）─────────────────────────────────
+     病因：底部弹窗（.dcx-sheet）容器原本是为「无安全区」的贝壳预览设计的，自带
+     22–30px 底部留白；真机底部还有 home-indicator 安全区(env)，含滚动列表的弹窗
+     里 .nobar 又各自再留一份白 —— 容器留白 + 列表留白 + 安全区三者叠加，在每个
+     弹窗底部堆出一条又厚又死的近白色横条（--sheet 是近白）。
+     根治：安全区只由「最底层的那一个元素」负责一次，各弹窗底距统一，绝不叠加。 */
+
+  /* a) 含内部滚动列表的弹窗（角色/场景/账单/详情/条款/隐私/联系…）：容器底距清零，
+        统一交给滚动列表负责「安全区 + 16px」，最后一项不被 home indicator 遮挡。 */
+  .dcx-sheet:has(> .nobar) {
+    padding-bottom: 0 !important;
+  }
+  .dcx-sheet > .nobar {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* b) 纯内容弹窗（语言/设置/邀请/充值/更多/登录/改密…，无滚动列表）：容器自身
+        统一负责「安全区 + 18px」，告别每个弹窗各写一个 22/24/26/28/30 的杂乱底距。 */
+  .dcx-sheet:not(:has(.nobar)) {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* c) 两侧抽屉同理：菜单抽屉无滚动列表→容器负责；历史抽屉有→列表负责，互不叠加。 */
+  .dcx-drawer-left,
+  .dcx-drawer-right:not(:has(> .nobar)) {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+  .dcx-drawer-right:has(> .nobar) {
+    padding-bottom: 0 !important;
+  }
+  .dcx-drawer-right > .nobar {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* d) 弹窗之外的滚动列表（主屏/桌面侧栏）：各自含安全区一次（兜底，无 !important）。 */
   .nobar {
-    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
   }
 }
 
