@@ -380,11 +380,7 @@
         <div onClick="{{ charDetailClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.24);backdrop-filter:blur(9px) saturate(1.08);-webkit-backdrop-filter:blur(9px) saturate(1.08);z-index:10;animation:backdropIn .3s ease;"></div>
         <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 0 0;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 6px;flex:none;"></div>
-          <div onClick="{{ charDetail.favToggle }}" style="position:absolute;top:18px;right:20px;z-index:2;line-height:0;cursor:pointer;padding:6px;" style-active="transform:scale(.85)">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="{{ charDetail.favFill }}" stroke="{{ charDetail.favStroke }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="transition:all .2s ease;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          </div>
-          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 20px 28px;">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <div style="flex:none;padding:0 20px 4px;display:flex;flex-direction:column;align-items:center;gap:12px;">
               <div style="width:96px;height:96px;border-radius:50%;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ charDetail.hueFilter }};box-shadow:0 10px 26px rgba(0,0,0,.18);"></div>
               <div style="display:flex;align-items:center;gap:10px;">
                 <span style="font-size:23px;font-weight:700;color:var(--fg);letter-spacing:.5px;">{{ charDetail.name }}</span>
@@ -397,6 +393,11 @@
                 </sc-for>
               </div>
             </div>
+          <div onClick="{{ charDetail.favToggle }}" style="position:absolute;top:18px;right:20px;z-index:2;line-height:0;cursor:pointer;padding:6px;" style-active="transform:scale(.85)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="{{ charDetail.favFill }}" stroke="{{ charDetail.favStroke }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="transition:all .2s ease;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 20px 28px;">
+            
 
             <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
               <div onClick="{{ charDetail.previewVoice }}" style="display:flex;align-items:center;gap:12px;cursor:pointer;" style-active="transform:scale(.99)">

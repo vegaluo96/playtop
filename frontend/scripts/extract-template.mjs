@@ -47,5 +47,20 @@ template = template.replaceAll(
   '<div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;',
 );
 
+// 角色详情：把头部（头像/名字/标签）做成固定头部，下方资料区独立滚动（用户：这部分固定住）。
+// 把头部 column 从滚动列表 .nobar 内提到其外、当 flex:none 固定块；收藏 ♥ 仍绝对定位贴在
+// 弹窗右上，正好落在固定头部上，且与滚动区里的「生成」分属固定层/滚动层，从此不再打架。
+// 移出 .nobar 后头部失去其左右内边距，这里补回 padding:0 20px 4px。生产专属修正，不动原型。
+template = template.replace(
+  /(<div onClick="\{\{ charDetail\.favToggle \}\}"[\s\S]*?<\/div>)\s*(<div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 20px 28px;">)\s*([\s\S]*?)(?=\s*<div style="border-top:1px solid var\(--line\);margin-top:18px;padding-top:16px;">)/,
+  (_m, heart, nobarOpen, headerCol) => {
+    const fixedHeader = headerCol.replace(
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:12px;">',
+      '<div style="flex:none;padding:0 20px 4px;display:flex;flex-direction:column;align-items:center;gap:12px;">',
+    );
+    return `${fixedHeader}\n          ${heart}\n          ${nobarOpen}\n            `;
+  },
+);
+
 writeFileSync(OUT, template, "utf8");
 console.log(`Wrote ${OUT} (${template.split("\n").length} lines) from prototype.`);
