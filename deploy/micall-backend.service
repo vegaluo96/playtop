@@ -24,7 +24,8 @@ Environment=PYTHONPATH=/home/admin/micall.ai/backend/src
 #   MICALL_LLM_FAST_API_KEY=sk-xxx
 #   MICALL_TTS_API_KEY=...   等。文件缺失也不报错（前缀 -）。
 EnvironmentFile=-/home/admin/micall.ai/backend/config/micall.env
-ExecStart=/usr/bin/python3 -m micall.cli run-server
+# 用自定位启动脚本，彻底免除 PYTHONPATH/cwd 导致的 No module named 'micall'。
+ExecStart=/usr/bin/python3 /home/admin/micall.ai/backend/run_server.py
 Restart=on-failure
 RestartSec=3
 
