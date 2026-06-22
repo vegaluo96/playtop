@@ -115,17 +115,25 @@ class CallSession:
     # ── task A：实时 ASR 感知（partial 回显 / final 触发一轮 / 开口即打断 §1.4-1.5）──
     async def _listen_loop(self) -> None:
         last_final = ""
+        flushed = False  # 本次用户开口是否已让前端停播（每句一次，防刷）
         try:
             async for text, is_final in self._asr_rt.stream(self._mic_frames()):
                 t = (text or "").strip()
                 if not t or self.sm.phase in (Phase.IDLE, Phase.ENDED):
                     continue
                 if not is_final:
-                    # 中间结果回显；只有实质内容才当打断（避免噪声/语气词误打断起循环）。
-                    if self.sm.phase in (Phase.THINKING, Phase.SPEAKING) and len(t) >= 2:
-                        await self.interrupt()
+                    # 用户开口（首个实质中间结果）→ 立刻打断：停后端生成 + 让前端停播。
+                    # 关键：后端可能已把整句音频发完、状态回 listening，但前端还在播缓冲，
+                    # 所以即便不在 speaking 也要发 interrupted 去 flush，否则"打断无效"。
+                    if len(t) >= 2 and not flushed:
+                        flushed = True
+                        if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
+                            await self.interrupt()
+                        else:
+                            await self._emit(ServerEvent.interrupted())
                     await self._emit(ServerEvent.subtitle("user", t, partial=True))
                     continue
+                flushed = False  # 这句说完，下一句重新允许打断
                 # 最终结果门控：太短（多半是噪声/静音误识别）或与上一句重复 → 丢弃，
                 # 否则会"自说自话"刷屏（§1.4 end-of-turn 需要的是真说完，不是任何声响）。
                 if len(t) < 2 or t == last_final:
