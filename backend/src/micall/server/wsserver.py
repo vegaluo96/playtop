@@ -17,6 +17,7 @@ from typing import Any
 from ..config import Config, resolve_voice
 from ..context import CharacterRuntime, ContextAssembler
 from ..memory import InMemoryRepository, MemoryRepository
+from ..offline import UnderstandingEngine
 from ..protocol import ServerEvent, parse_client_message
 from ..providers import make_llm, make_tts
 from ..session import CallSession
@@ -49,6 +50,27 @@ class SignalingServer:
         self.config = config
         self.repo = repo or InMemoryRepository()
         self.characters = _load_characters()
+        # 离线理解引擎（§3.3）用慢脑（llm_slow，未配置则 stub）。会话结束后台触发，不碰实时路径。
+        self.understanding = UnderstandingEngine(make_llm(config.node("llm_slow")), self.repo)
+        self._bg_tasks: set[asyncio.Task] = set()
+
+    def _schedule_understanding(self, session: "CallSession") -> None:
+        """通话结束 → 后台跑离线理解（写事实层 + 修正画像 + 生成下次策略）。fire-and-forget。"""
+        if not session or not session.history:
+            return
+        history = list(session.history)
+        char = session.character_id
+
+        async def run() -> None:
+            try:
+                await self.understanding.process_call(_ANON, char, history)
+                log.info("离线理解完成 char=%s", char)
+            except Exception as e:  # 离线失败不影响任何实时路径
+                log.warning("离线理解失败：%r", e)
+
+        task = asyncio.create_task(run())
+        self._bg_tasks.add(task)               # 存引用防 GC
+        task.add_done_callback(self._bg_tasks.discard)
 
     def _character(self, character_id: str | None) -> CharacterRuntime:
         if character_id and character_id in self.characters:
@@ -120,6 +142,7 @@ class SignalingServer:
                 elif msg.type == "end_call":
                     if session:
                         await session.end()
+                        self._schedule_understanding(session)
                         session = None
                 elif msg.type == "text_input":
                     if session and msg.text:
@@ -135,6 +158,7 @@ class SignalingServer:
         finally:
             if session:
                 await session.end(emit_ended=False)
+                self._schedule_understanding(session)
 
 
 async def serve_forever(config: Config) -> None:
