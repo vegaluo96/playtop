@@ -6,6 +6,7 @@ endpoint/key 全配置（铁律2）。endpoint 形如 https://api.minimax.chat/v
 """
 from __future__ import annotations
 
+import json
 from typing import AsyncIterator
 
 from ..config import NodeConfig
@@ -29,11 +30,12 @@ class MiniMaxTTS(TTSProvider):
     async def synthesize(
         self, text: str, *, voice_id: str, emotion: str = "", sample_rate: int = 24000
     ) -> AsyncIterator[bytes]:  # pragma: no cover （需真实网络/密钥）
+        """句子级流式合成：stream=true，按 SSE 收 hex 音频块，首块一出即可下行（§1.7）。"""
         vid = voice_id or self.node.params.get("default_voice", "")
         body: dict = {
             "model": self.model,
             "text": text,
-            "stream": False,
+            "stream": True,
             "voice_setting": {"voice_id": vid, "speed": 1.0, "vol": 1.0, "pitch": 0},
             "audio_setting": {"sample_rate": sample_rate, "format": "mp3", "channel": 1},
         }
@@ -44,12 +46,26 @@ class MiniMaxTTS(TTSProvider):
             "Content-Type": "application/json",
         }
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0)) as client:
-            resp = await client.post(self.node.endpoint, headers=headers, json=body)
-            if resp.status_code >= 400:
-                raise RuntimeError(f"HTTP {resp.status_code} · {resp.text[:400]}")
-            data = resp.json()
-            audio_hex = (data.get("data") or {}).get("audio", "")
-            if not audio_hex:
-                # MiniMax 失败时把 base_resp 带出来便于排查（如 invalid voice_id / 余额）。
-                raise RuntimeError(f"无音频返回 · {str(data)[:400]}")
-            yield bytes.fromhex(audio_hex)
+            async with client.stream(
+                "POST", self.node.endpoint, headers=headers, json=body
+            ) as resp:
+                if resp.status_code >= 400:
+                    detail = (await resp.aread()).decode("utf-8", "ignore")[:400]
+                    raise RuntimeError(f"HTTP {resp.status_code} · {detail}")
+                got = False
+                async for line in resp.aiter_lines():
+                    if not line or not line.startswith("data:"):
+                        continue
+                    try:
+                        evt = json.loads(line[5:])
+                    except ValueError:
+                        continue
+                    chunk = (evt.get("data") or {}).get("audio", "")
+                    if chunk:
+                        got = True
+                        yield bytes.fromhex(chunk)
+                    br = evt.get("base_resp") or {}
+                    code = br.get("status_code")
+                    if code not in (0, None) and not got:
+                        # voice id 不存在 / 余额 / 鉴权等：未出过音频就报错带出原因。
+                        raise RuntimeError(f"MiniMax base_resp · {br}")

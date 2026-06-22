@@ -6,12 +6,12 @@
   "nodes": {
     "asr":       { "provider": "bailian_qwen3_asr", "endpoint": "", "api_key": "", "model": "qwen3-asr-flash-2026-02-10", "language": "zh", "realtime": true },
     "llm_fast":  { "provider": "deepseek", "endpoint": "https://api.deepseek.com/v1/chat/completions", "api_key": "", "model": "deepseek-chat", "temperature": 0.8, "reply_max_tokens": 256, "realtime": true },
-    "tts":       { "provider": "minimax", "endpoint": "", "api_key": "", "model": "speech-2.8-turbo", "default_voice": "female-shaonv-01", "sample_rate": 24000, "realtime": true },
+    "tts":       { "provider": "minimax", "endpoint": "", "api_key": "", "model": "speech-2.8-turbo", "default_voice": "female-shaonv", "sample_rate": 24000, "realtime": true },
     "llm_slow":  { "provider": "apiyi_qwen_long", "endpoint": "", "api_key": "", "model": "Qwen-Long", "max_context": 32000, "realtime": false },
     "embedding": { "provider": "bailian_embedding", "endpoint": "", "api_key": "", "model": "text-embedding-v3", "vector_db": "pgvector", "top_k": 5, "realtime": false }
   },
 
-  "global_defaults": { "tts_model": "speech-2.8-turbo", "default_voice": "female-shaonv-01", "memory_depth": 5, "reply_max_tokens": 256 },
+  "global_defaults": { "tts_model": "speech-2.8-turbo", "default_voice": "female-shaonv", "memory_depth": 5, "reply_max_tokens": 256 },
 
   "billing": { "free_seconds_on_register": 3600, "low_minutes_threshold_seconds": 60 },
 
