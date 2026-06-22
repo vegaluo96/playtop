@@ -1,0 +1,20 @@
+{
+  "name": "micall-asset-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MiCall 资产管线轨：角色 spec、prompt 派生、三级配置覆盖、导入校验闸门、导入导出",
+  "type": "module",
+  "bin": {
+    "micall-assets": "src/cli.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx scripts/test.tsx",
+    "cli": "tsx src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.22.4",
+    "typescript": "^5.6.3"
+  }
+}

@@ -18,6 +18,7 @@ prototype/                    DC 原型（视觉/交互/文案的唯一真相，
   support.js                  DC 运行时
 frontend/                     ✅ 用户端 H5 生产前端（前端复刻轨）—— 见 frontend/README.md
 admin/                        ✅ 运营管理端（11 tab）—— 见 admin/README.md
+asset-pipeline/               ✅ 资产管线轨（角色 spec/校验/导入导出）—— 见 asset-pipeline/README.md
 ```
 
 ## 三轨进度
@@ -27,7 +28,7 @@ admin/                        ✅ 运营管理端（11 tab）—— 见 admin/RE
 | 轨道 | 说明 | 状态 |
 |---|---|---|
 | **前端复刻轨**（确定性） | `AI Call.dc.html` → 生产 React，mock 换服务端信令 | ✅ 已落地（`frontend/`） |
-| 资产管线轨 | 角色 spec、生成工作流、导入导出校验 | ⬜ 待开发 |
+| 资产管线轨 | 角色 spec、生成工作流、导入导出校验 | ✅ 已落地（`asset-pipeline/`） |
 | 后端四层防线轨 | 实时管线 / 单轮质量 / 记忆人格 / 自主演进 | ⬜ 待开发（第一步：尺度一延迟 spike） |
 | Admin 后台（11 tab） | `MiCall Admin.dc.html` → 运营管理端 | ✅ 已落地（`admin/`） |
 
