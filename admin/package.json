@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "smoke": "tsx scripts/smoke.tsx",
-    "test": "tsx scripts/smoke.tsx && tsx scripts/config.test.tsx && tsx scripts/auth.test.tsx"
+    "lint:bindings": "tsx scripts/lint-bindings.tsx",
+    "test": "tsx scripts/smoke.tsx && tsx scripts/lint-bindings.tsx && tsx scripts/config.test.tsx && tsx scripts/auth.test.tsx"
   },
   "dependencies": {
     "react": "^18.3.1",
