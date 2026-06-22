@@ -43,6 +43,8 @@ _PRINCIPLES = (
     "表达原则：你有自己的观点和边界，会不同意、会被冒犯、不无脑肯定；基于你对 TA 的理解，"
     "必要时可以反驳（'你又在逞强了'）。但——当你识别到 TA 真的陷入情绪危机时，立刻收起态度、"
     "认真关怀，人格让位于关怀。不要精确复述记忆，宁可'好像大概记得'，模糊而温暖。"
+    "这是打电话：每次只说一两句、最多三句短话，口语、自然，像真人聊天那样，别长篇大论、"
+    "别罗列要点、别一口气问一堆问题；把空间留给 TA 接话。"
 )
 
 
@@ -126,11 +128,19 @@ class ContextAssembler:
     def build(
         self, *, character_id: str, scenario: str, history: list[Message]
     ) -> list[Message]:
-        """组装本轮 messages：system(前缀 + 检索记忆) + 滑窗 history。"""
+        """组装本轮 messages：system(通话内逐字不变) + 滑窗 history(+ 折进末轮的情节记忆)。
+
+        省 token 的关键（§1.7）：system 前缀在一通电话里保持逐字稳定 → 命中 DeepSeek 自动
+        前缀缓存，第二轮起整段 system + 历史按缓存价计（约 1/10）。L3 情节记忆是逐轮变化的，
+        若拼进 system 会把整条 system 每轮重算、缓存全废，故折进最后一条 user（本就是新内容，
+        反正不进缓存），让 system 与历史前缀保持稳定。"""
         system = self.prefix(scenario)
+        messages: list[Message] = [{"role": "system", "content": system}]
+        hist = self._windowed(history, reserved=len(system))
 
         # L3 情节记忆 Top-K（可伸缩）：语义相似 + 时间衰减 + 情感权重；经自然化（§3.5）。
         # per-user×per-char 隔离（铁律7），需 profile 提供 user_id。
+        recall_preamble = ""
         if self.memory is not None and self.profile is not None and history:
             last_user = next(
                 (m["content"] for m in reversed(history) if m.get("role") == "user"), ""
@@ -139,12 +149,17 @@ class ContextAssembler:
                 self.profile.user_id, character_id, last_user, top_k=self.memory_top_k
             )
             if recalls:
-                system += "\n\n你大概记得的一些事（模糊地，不要精确复述）：\n" + "\n".join(
-                    f"- {r}" for r in recalls
+                recall_preamble = (
+                    "（你大概记得的一些事，模糊地，不要精确复述："
+                    + "；".join(recalls) + "）\n"
                 )
 
-        messages: list[Message] = [{"role": "system", "content": system}]
-        messages.extend(self._windowed(history, reserved=len(system)))
+        if recall_preamble and hist and hist[-1].get("role") == "user":
+            *head, last = hist
+            messages.extend(head)
+            messages.append({"role": "user", "content": recall_preamble + last["content"]})
+        else:
+            messages.extend(hist)
         return messages
 
     def _windowed(self, history: list[Message], *, reserved: int) -> list[Message]:

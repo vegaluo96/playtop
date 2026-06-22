@@ -71,7 +71,10 @@ class TestAssembler(unittest.TestCase):
         a = ContextAssembler(self._char(), profile=prof, memory=r)
         msgs = a.build(character_id="lin_wan", scenario="",
                        history=[{"role": "user", "content": "我家猫"}])
-        self.assertIn("团子", msgs[0]["content"])      # L3 情节记忆注入
+        # L3 情节记忆折进末轮 user（而非 system）：保持 system 前缀稳定以命中 DeepSeek 前缀缓存。
+        self.assertNotIn("团子", msgs[0]["content"])   # 不进 system → 前缀逐轮稳定
+        self.assertIn("团子", msgs[-1]["content"])      # 折进最后一条 user
+        self.assertIn("我家猫", msgs[-1]["content"])    # 原 user 内容保留
 
 
 if __name__ == "__main__":
