@@ -22,7 +22,10 @@ def make_llm(node: NodeConfig) -> LLMProvider:
 def make_tts(node: NodeConfig) -> TTSProvider:
     if not node.configured:
         return StubTTS()
-    # 真实：MiniMax 官方直连流式（emotion + voice_id）。骨架未接，回退 stub。
+    if node.provider in ("minimax", "minimax_tts"):
+        from .minimax_tts import MiniMaxTTS
+
+        return MiniMaxTTS(node)
     return StubTTS()
 
 
