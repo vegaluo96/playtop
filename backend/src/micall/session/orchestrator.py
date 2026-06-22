@@ -366,6 +366,8 @@ class CallSession:
         # 真实：触发离线理解引擎 worker（§3.3）回写事实层 + 更新画像。接入点：
         #   schedule_offline_understanding(self.character_id, user_id, self.history)
 
-    def _trim_history(self, max_turns: int = 12) -> None:
+    def _trim_history(self, max_turns: int = 30) -> None:
+        # 通话内滑窗。12 条（6 轮）太短，长通话里会忘掉前面聊的 → 越聊越没头绪；放到 30 条（约 15 轮），
+        # 配合 system 前缀缓存，多出的历史多走缓存价，连贯性明显好。assembler 还会按 budget_chars 再裁。
         if len(self.history) > max_turns:
             self.history = self.history[-max_turns:]

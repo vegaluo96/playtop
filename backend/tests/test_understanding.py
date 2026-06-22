@@ -55,6 +55,19 @@ class TestMerge(unittest.TestCase):
         self.assertEqual(p.relationship.open_threads, ["面试结果"])
         self.assertEqual(p.next_strategy, "开场先接面试线头")
 
+    def test_merge_dedups_and_caps_insights(self):
+        p = UserProfile("u", "c")
+        # 同一洞察反复出现 → 不重复堆叠，只更新置信度。
+        for c in (0.5, 0.7, 0.9):
+            merge_profile(p, {"insights": [{"insight": "需要被听见", "confidence": c}]})
+        same = [i for i in p.personality_model if i.insight == "需要被听见"]
+        self.assertEqual(len(same), 1)
+        self.assertEqual(same[0].confidence, 0.9)
+        # 不同洞察无限灌 → 截到上限，不会无限膨胀。
+        for i in range(40):
+            merge_profile(p, {"insights": [{"insight": f"洞察{i}"}]})
+        self.assertLessEqual(len(p.personality_model), 20)
+
     def test_merge_ignores_empty(self):
         p = UserProfile("u", "c")
         p.next_strategy = "原策略"

@@ -65,17 +65,25 @@ def parse_profile_update(raw: str) -> dict[str, Any]:
         return {}
 
 
+_MAX_INSIGHTS = 20  # 画像洞察上限：无限堆叠会把人设块撑爆、稀释模型注意力 → 跨通话越聊越笨。
+
+
 def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
-    """把模型产出合并进画像：洞察累积（可带置信度修正）、假设替换、关系/策略更新。"""
+    """把模型产出合并进画像：洞察去重累积（同条更新置信度，不重复堆叠）、假设替换、关系/策略更新。"""
     for ins in update.get("insights", []) or []:
         if isinstance(ins, dict) and ins.get("insight"):
-            profile.personality_model.append(
-                Insight(
-                    insight=str(ins["insight"]),
-                    confidence=float(ins.get("confidence", 0.5)),
-                    evidence=str(ins.get("evidence", "")),
-                )
-            )
+            text = str(ins["insight"])
+            conf = float(ins.get("confidence", 0.5))
+            evid = str(ins.get("evidence", ""))
+            existing = next((i for i in profile.personality_model if i.insight == text), None)
+            if existing:  # 同一洞察已有 → 更新置信度/证据，不重复堆叠
+                existing.confidence = conf
+                if evid:
+                    existing.evidence = evid
+            else:
+                profile.personality_model.append(Insight(insight=text, confidence=conf, evidence=evid))
+    if len(profile.personality_model) > _MAX_INSIGHTS:  # 只留最近 N 条，防画像无限膨胀
+        profile.personality_model = profile.personality_model[-_MAX_INSIGHTS:]
     hyps = update.get("hypotheses")
     if hyps:
         profile.open_hypotheses = [
