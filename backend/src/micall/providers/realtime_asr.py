@@ -33,13 +33,22 @@ class RealtimeBailianASR(ASRProvider):
         if not node.api_key.strip():
             raise RuntimeError(f"节点 {node.name} 未配置 api_key（铁律2）")
         self.api_key = node.api_key
-        self.ws_url = node.params.get("ws_endpoint") or DEFAULT_WS_INTL
+        # WS 端点：显式 ws_endpoint 优先；否则从 HTTP endpoint 主机推导（自动适配
+        # 业务空间专属域名 ws-xxxx.ap-southeast-1.maas.aliyuncs.com，key 绑该主机）。
+        self.ws_url = node.params.get("ws_endpoint") or self._derive_ws(node.endpoint)
         self.model = node.params.get("realtime_model", "paraformer-realtime-v2")
         self.sample_rate = int(node.params.get("sample_rate", 16000))
         self.audio_format = node.params.get("audio_format", "pcm")
         self.language_hints = node.params.get("language_hints", ["zh", "en"])
         self.max_sentence_silence = int(node.params.get("max_sentence_silence", 800))
         self._on_event = on_event  # 调试钩子：每个原始服务端事件回调一次（联调锁协议用）
+
+    @staticmethod
+    def _derive_ws(http_endpoint: str) -> str:
+        from urllib.parse import urlparse
+
+        host = urlparse(http_endpoint or "").netloc
+        return f"wss://{host}/api-ws/v1/inference/" if host else DEFAULT_WS_INTL
 
     def _run_task(self, task_id: str) -> str:
         return json.dumps({

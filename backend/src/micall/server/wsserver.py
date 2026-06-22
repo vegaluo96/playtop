@@ -94,7 +94,7 @@ class SignalingServer:
     def _make_realtime_asr(self):
         """实时流式 ASR（task A）。需 api_key + ws_endpoint；缺则 None → 退文字模式。"""
         node = self.config.node("asr")
-        if not (node.api_key.strip() and node.params.get("ws_endpoint")):
+        if not (node.api_key.strip() and (node.endpoint.strip() or node.params.get("ws_endpoint"))):
             return None
         try:
             return make_realtime_asr(node)
