@@ -95,6 +95,14 @@ def load_config(path: str | Path | None = None) -> Config:
     if override:
         raw = _deep_merge(raw, _load_json(override))
     raw = _apply_env_secrets(raw)
+    # 后台「接口配置」网页写入的覆盖（最高优先级）：网页配的 > micall.env > default.json。
+    # 只含运营实际填过的非空字段，缺省项仍回退 env/default（见 server/adminapi.py）。
+    admin_overrides = _REPO_DEFAULT.parent / "admin_overrides.json"
+    if path is None and admin_overrides.exists():
+        try:
+            raw = _deep_merge(raw, _load_json(admin_overrides))
+        except (ValueError, OSError):
+            pass
 
     nodes: dict[str, NodeConfig] = {}
     for key in NODE_KEYS:

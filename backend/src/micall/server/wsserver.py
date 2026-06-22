@@ -14,7 +14,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from ..config import Config, resolve_voice
+from ..config import Config, load_config, resolve_voice
 from ..context import CharacterRuntime, ContextAssembler
 from ..memory import InMemoryRepository, MemoryRepository
 from ..offline import UnderstandingEngine
@@ -71,6 +71,13 @@ class SignalingServer:
         task = asyncio.create_task(run())
         self._bg_tasks.add(task)               # 存引用防 GC
         task.add_done_callback(self._bg_tasks.discard)
+
+    def _reload_config(self) -> None:
+        """每通电话前重载配置：后台网页改了 endpoint/key，下一通即生效（不必重启服务）。"""
+        try:
+            self.config = load_config()
+        except Exception as e:  # 配置文件临时损坏：沿用上一次可用配置
+            log.warning("配置重载失败，沿用旧配置：%r", e)
 
     def _character(self, character_id: str | None) -> CharacterRuntime:
         if character_id and character_id in self.characters:
@@ -129,6 +136,7 @@ class SignalingServer:
                 if msg.type == "start_call":
                     if session:
                         await session.end(emit_ended=False)
+                    self._reload_config()  # 拾取后台「接口配置」最新改动（无需重启）
                     session = self._make_session(
                         emit=emit, character_id=msg.character_id, scenario=msg.scenario
                     )
@@ -136,6 +144,7 @@ class SignalingServer:
                 elif msg.type == "switch_character":
                     if session:
                         await session.end(emit_ended=False)  # 切角色 = 结束 + 新建（docs/03 §3）
+                    self._reload_config()
                     session = self._make_session(
                         emit=emit, character_id=msg.character_id, scenario=msg.scenario
                     )
@@ -169,6 +178,16 @@ async def serve_forever(config: Config) -> None:
     host = config.server.get("ws_host", "0.0.0.0")
     port = int(config.server.get("ws_port", 8787))
     path = config.server.get("path", "/realtime/signal")
+    # 后台「接口配置」HTTP API（本地监听，nginx 反代 /admin/api-config）。
+    admin_host = config.server.get("admin_host", "127.0.0.1")
+    admin_port = int(config.server.get("admin_port", 8788))
+    try:
+        from .adminapi import run_admin_http
+
+        run_admin_http(admin_host, admin_port)
+        print(f"[micall] 后台配置 API http://{admin_host}:{admin_port}/admin/api-config")
+    except Exception as e:  # 配置 API 起不来不影响通话主链路
+        log.warning("后台配置 API 启动失败：%r", e)
     print(f"[micall] 信令服务器监听 ws://{host}:{port}{path}")
     async with serve(server.handle, host, port):
         await asyncio.Future()  # run forever

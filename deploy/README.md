@@ -123,12 +123,36 @@ server {
 
 ---
 
-## 关于「接口配置」里的密钥
+## 在后台网页里配「接口配置」（不用再 SSH 改 micall.env）
 
-- 现在没后端：后台「接口配置」的 endpoint/key **暂存浏览器 localStorage**，仅供联调，
-  **别填真实生产密钥**。
-- 后端就绪后：给 admin 配 `VITE_API_BASE`、放开 `micall-admin.conf` 里的 `/admin/` 反代，
-  密钥即改为存服务端、读取打码，浏览器不再留明文（CLAUDE.md 铁律2）。
+后端已带一个本地配置 API（`backend/src/micall/server/adminapi.py`，随信令服务一起起，
+监听 `127.0.0.1:8788`）。运营在 `admin.zsky.com →「接口配置」`网页上填 endpoint/key/模型 →
+**保存**写到服务端 `config/admin_overrides.json`（gitignored），**测试**按钮真发一次请求验连通
+（1004/2049 这类 key 错误会直接显示出来）。下一通电话即生效，**无需重启**。
+
+优先级：**网页配的 > micall.env 环境变量 > default.json**（铁律2，密钥存服务端、读取打码）。
+
+启用三步：
+```bash
+# 1) 后端拉新代码 + 重启（重启后会多监听一个 127.0.0.1:8788 的配置 API）
+cd ~/micall.ai && git pull origin main
+sudo systemctl restart micall-backend
+journalctl -u micall-backend -n 5    # 应看到「后台配置 API http://127.0.0.1:8788/admin/api-config」
+
+# 2) nginx 放开 /admin/api-config 反代（micall-admin.conf 已含，覆盖后 reload）
+sudo cp ~/micall.ai/deploy/nginx/micall-admin.conf /etc/nginx/sites-available/micall-admin
+sudo nginx -t && sudo systemctl reload nginx
+
+# 3) admin 指向同源 API 并重新构建
+cd ~/micall.ai/admin
+echo 'VITE_API_BASE=https://admin.zsky.com' > .env.production
+npm run build && sudo cp -r dist/* /var/www/micall-admin/
+```
+之后打开 `admin.zsky.com →「接口配置」`，填好 TTS/LLM/ASR 的 endpoint+key，点**保存**、点**测试**。
+（同源 + Basic Auth 自动保护这条 API；后端只听本地，外网只经 nginx 进来。可选 `MICALL_ADMIN_TOKEN`
+环境变量再加一层 Bearer 鉴权。）
+
+> 仍想用命令行也行：`micall.env` 的环境变量依然有效（被网页配置覆盖）。两者择一即可。
 
 ---
 

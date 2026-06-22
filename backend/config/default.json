@@ -1,7 +1,7 @@
 {
   "_comment": "占位配置（铁律2：endpoint/key 全配置化）。真实密钥经 MICALL_CONFIG 文件或 MICALL_<NODE>_API_KEY 环境变量注入，绝不入库。节点与 Admin「接口配置」5 节点一致（docs/02 §7.9）。",
 
-  "server": { "ws_host": "0.0.0.0", "ws_port": 8787, "path": "/realtime/signal" },
+  "server": { "ws_host": "0.0.0.0", "ws_port": 8787, "path": "/realtime/signal", "admin_host": "127.0.0.1", "admin_port": 8788 },
 
   "nodes": {
     "asr":       { "provider": "bailian_qwen3_asr", "endpoint": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions", "api_key": "", "model": "qwen3-asr-flash", "language": "zh", "realtime": true, "ws_endpoint": "wss://dashscope-intl.aliyuncs.com/api-ws/v1/inference/", "realtime_model": "paraformer-realtime-v2", "_comment": "OpenAI 兼容模式 chat/completions + input_audio(base64) 整段录音识别。实测香港→北京区整段 p50 3465ms🔴、新加坡区 675ms🟢（≈5x）→ 用新加坡区。账号若给业务空间专属域名，endpoint 形如 https://ws-xxxx.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions，与 key 一并经 micall.env 注入（国际站独立账号，key 不与国内通用）。边说边出字的实时流式后续走 WS 协议另接。" },

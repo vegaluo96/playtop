@@ -9,3 +9,5 @@ config/secret.json
 config/*.local.json
 config/*.env
 config/micall.env
+# 后台「接口配置」网页写入的真实密钥（铁律2：永不入库）
+config/admin_overrides.json
