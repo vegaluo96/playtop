@@ -39,7 +39,7 @@ class ApiyiLLM(LLMProvider):
             raise RuntimeError(f"节点 {node.name} 未配置 endpoint/api_key（铁律2）")
         self._node = node
         self._endpoint = _chat_endpoint(node.endpoint)
-        self._model = node.params.get("model", "DeepSeek-V4-Flash")
+        self._model = node.params.get("model", "deepseek-chat")
 
     async def stream(
         self, messages: Sequence[Message], *, temperature: float = 0.8, max_tokens: int = 256

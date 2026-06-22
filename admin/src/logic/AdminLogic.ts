@@ -49,7 +49,7 @@ export class AdminLogic {
     testVoice: "v1", testChar: "c1", testText: "今天工作压力好大，感觉有点撑不住。", testStage: 0, testRunning: false, testMs: {}, testReply: "", testAsr: "", apiStatus: {},
     apiCfg: {
       asr: { provider: "阿里云", endpoint: "https://nls-gateway.aliyuncs.com/stream/v1/asr", key: "sk-ali-••••••a3f9", model: "paraformer-realtime-v2", lang: "中文 / 自动" },
-      fast: { provider: "DeepSeek", endpoint: "https://api.deepseek.com/v1/chat/completions", key: "sk-ds-••••••7c2d", model: "deepseek-v4-flash", temp: "0.8", maxTokens: "256" },
+      fast: { provider: "DeepSeek", endpoint: "https://api.deepseek.com/v1/chat/completions", key: "sk-ds-••••••7c2d", model: "deepseek-chat", temp: "0.8", maxTokens: "256" },
       tts: { provider: "MiniMax", endpoint: "https://api.minimax.chat/v1/t2a_v2", key: "sk-mm-••••••9e1b", model: "speech-02-turbo", voiceId: "female-shaonv-01", sampleRate: "24000 Hz" },
       memory: { provider: "通义千问", endpoint: "https://dashscope.aliyuncs.com/api/v1/services/aigc", key: "sk-qw-••••••2f8c", model: "qwen-long", maxContext: "1,000,000 tokens" },
       embed: { provider: "阿里云", endpoint: "https://dashscope.aliyuncs.com/api/v1/embeddings", key: "sk-emb-••••••b1d4", model: "text-embedding-v3", vectorDB: "Milvus", topK: "5" },
@@ -151,7 +151,7 @@ export class AdminLogic {
     ];
     this.apiSections = [
       { key: "asr", name: "ASR · 语音识别", chain: "快链路", desc: "实时把用户语音转写为文字 · 默认 Qwen3-ASR-Flash（阿里百炼）", icon: "M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8", req: "快 · 低延迟 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "lang", label: "识别语言" }] },
-      { key: "fast", name: "LLM · 快脑（通话中）", chain: "快链路", desc: "通话中实时生成简短回复 · 默认 DeepSeek-V4-Flash（先经 apiyi，endpoint 可配，卡了切直连）", icon: "M13 2L3 14h7l-1 8 10-12h-7l1-8z", req: "快 · 短 · 低延迟 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "temp", label: "温度" }, { k: "maxTokens", label: "回复上限 Token" }] },
+      { key: "fast", name: "LLM · 快脑（通话中）", chain: "快链路", desc: "通话中实时生成简短回复 · 默认 deepseek-chat（DeepSeek 直连；直连模型只认 deepseek-chat/deepseek-reasoner）", icon: "M13 2L3 14h7l-1 8 10-12h-7l1-8z", req: "快 · 短 · 低延迟 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "temp", label: "温度" }, { k: "maxTokens", label: "回复上限 Token" }] },
       { key: "tts", name: "TTS · 语音合成", chain: "快链路", desc: "合成角色语音，voice_id 决定音色 · 默认 MiniMax TTS（官方直连，支持 emotion）", icon: "M11 5 6 9H3v6h3l5 4V5zM15.5 9a4.5 4.5 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11", req: "快 · 自然 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "voiceId", label: "默认 voice_id" }, { k: "sampleRate", label: "采样率" }] },
       { key: "memory", name: "LLM · 长记忆脑（通话后）", chain: "慢链路", desc: "通话后总结、提取长期记忆、生成开场白 · 默认 qwen-max（经 apiyi，可在「模型」改 qwen-plus 等；离线不要求快）", icon: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20", req: "准 · 稳 · 长上下文（不要求快）", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型（如 qwen-max / qwen-plus）" }, { k: "maxContext", label: "最大上下文" }] },
       { key: "embed", name: "Embedding · 记忆检索", chain: "慢链路", desc: "向量化记忆并快速检索相关片段 · 存储 Postgres + pgvector", icon: "M21 5c0 1.66-4 3-9 3S3 6.66 3 5s4-3 9-3 9 1.34 9 3zM3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5M3 12c0 1.66 4 3 9 3s9-1.34 9-3", req: "快检索 · 高召回", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "vectorDB", label: "向量数据库" }, { k: "topK", label: "检索 Top-K" }] },
@@ -419,7 +419,7 @@ export class AdminLogic {
     }; });
     const stC: Record<string, any> = { "正常": { c: "#1FA971", b: "rgba(31,169,113,.1)" }, "未配置": { c: "#878B95", b: "#F0F0F3" }, "延迟高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "成本高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "异常": { c: "#E0594F", b: "rgba(224,89,79,.1)" }, "备用中": { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } };
     const stp = (st: string) => { const x = stC[st] || stC["正常"]; return { status: st, stColor: x.c, stBg: x.b }; };
-    const linkFlow = [{ label: "用户语音", a: "#9AA0AC" }, { label: "Qwen3-ASR-Flash", a: "#2E7BFF" }, { label: "记忆检索", a: "#9AA0AC" }, { label: "DeepSeek-V4-Flash", a: "#6E5CFF" }, { label: "MiniMax TTS", a: "#E0594F" }, { label: "Seedance 表情", a: "#9277F5" }, { label: "用户听到", a: "#1FA971" }, { label: "Qwen-Long 记忆整理", a: "#1FA971" }];
+    const linkFlow = [{ label: "用户语音", a: "#9AA0AC" }, { label: "Qwen3-ASR-Flash", a: "#2E7BFF" }, { label: "记忆检索", a: "#9AA0AC" }, { label: "deepseek-chat", a: "#6E5CFF" }, { label: "MiniMax TTS", a: "#E0594F" }, { label: "Seedance 表情", a: "#9277F5" }, { label: "用户听到", a: "#1FA971" }, { label: "Qwen-Long 记忆整理", a: "#1FA971" }];
     const healthKpis = [
       { label: "整体健康", value: "正常", sub: "6 / 6 节点在线", vc: "#1FA971" },
       { label: "首句响应", value: "1.4s", sub: "目标 < 1.8s", vc: "#16161A" },
@@ -447,7 +447,7 @@ export class AdminLogic {
     ].map((m) => ({ ...m, typeColor: memTypeC[m.type] || "#878B95", typeBg: (memTypeC[m.type] || "#878B95") + "1a", wColor: m.written ? "#1FA971" : "#E0954F", wBg: m.written ? "rgba(31,169,113,.1)" : "rgba(224,149,79,.12)", wLabel: m.written ? "已写入" : "待写入" }));
     const fallbackRows = [
       { kind: "ASR", primary: "阿里云", backups: "火山 ASR · ElevenLabs Scribe", cond: "连续失败 3 次 / 延迟 > 2s / 错误率 > 5%" },
-      { kind: "LLM 快脑", primary: "DeepSeek-V4-Flash", backups: "Qwen Flash · 豆包", cond: "超时 / 连续失败 / 成本超阈值" },
+      { kind: "LLM 快脑", primary: "deepseek-chat", backups: "Qwen Flash · 豆包", cond: "超时 / 连续失败 / 成本超阈值" },
       { kind: "TTS", primary: "MiniMax speech-2.8-turbo", backups: "阿里 Qwen-TTS · ElevenLabs", cond: "超时 / 延迟超阈值 / 手动切换" },
       { kind: "表情视频", primary: "Seedance 预生成库", backups: "回退 idle_normal → 静态头像", cond: "video_state 缺失 / 视频加载失败" },
       { kind: "记忆总结", primary: "Qwen-Long", backups: "保存 transcript 后台重试", cond: "总结失败 / 超时" },
