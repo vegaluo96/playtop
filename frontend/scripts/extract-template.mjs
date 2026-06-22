@@ -73,5 +73,17 @@ template = template.replace(
   (m) => `<sc-if value="{{ edgeVisible }}">\n      ${m}\n      </sc-if>`,
 );
 
+// 性能：中间球的 4 个色斑（blur(15-16px) + mix-blend-mode:screen）原本各自做 scale/translate
+// 持续动画 —— 尺寸变化让模糊每帧重新 rasterize，是球里最贵的一档 GPU 开销。停掉各色斑自身
+// 动画（保留静态色斑 + 整体缓慢旋转 fieldAnim + 中心辉光/光晕/calling 波纹），球仍是缓转的
+// 彩色发光球，开销大降。角色视频上线后这整块会被视频取代。
+template = template.replace(/animation:blob[A-D] [\d.]+s ease-in-out infinite;/g, "");
+// 停用后 blobA–D 的 keyframes 成为死 CSS，一并删除（各为单行）。
+template = template
+  .replace(/\s*@keyframes blobA\{[^\n]*\}/, "")
+  .replace(/\s*@keyframes blobB\{[^\n]*\}/, "")
+  .replace(/\s*@keyframes blobC\{[^\n]*\}/, "")
+  .replace(/\s*@keyframes blobD\{[^\n]*\}/, "");
+
 writeFileSync(OUT, template, "utf8");
 console.log(`Wrote ${OUT} (${template.split("\n").length} lines) from prototype.`);
