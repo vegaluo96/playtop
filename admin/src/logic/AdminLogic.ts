@@ -224,8 +224,9 @@ export class AdminLogic {
   /** 连通性测试：有后端实测该节点；无后端时无法跨域直连，沿用乐观提示。 */
   async testApi(sectionKey: string, name: string) {
     const res = await testApiSection(sectionKey, this.state.apiCfg[sectionKey]);
-    if (res === null) this.toastMsg(name + " 连接测试成功");
-    else this.toastMsg(res ? name + " 连接测试成功" : name + " 连接测试失败");
+    if (res.ok === null) this.toastMsg(name + " 连接测试成功");
+    else if (res.ok) this.toastMsg(name + " 测试成功" + (res.ms ? ` · ${res.ms}ms` : ""));
+    else this.toastMsg(name + " 测试失败：" + (res.error || "未知错误"));
   }
 
   toastMsg(m: string) {

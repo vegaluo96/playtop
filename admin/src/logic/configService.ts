@@ -81,10 +81,13 @@ export async function saveApiConfig(cfg: ApiConfig): Promise<boolean> {
   }
 }
 
-/** 连通性测试。有后端则让后端实测该节点；无后端时本地无法跨域直连，返回 null（未知）。 */
-export async function testApiSection(sectionKey: string, cfg: Record<string, string>): Promise<boolean | null> {
+/** 连通性测试结果：ok=null 表示无后端（未知）；失败时 error 带出后端真因（1004/2049 等）。 */
+export type TestResult = { ok: boolean | null; error?: string; ms?: number; note?: string };
+
+/** 连通性测试。有后端则让后端实测该节点；无后端时本地无法跨域直连，返回 ok=null（未知）。 */
+export async function testApiSection(sectionKey: string, cfg: Record<string, string>): Promise<TestResult> {
   const b = base();
-  if (!b) return null;
+  if (!b) return { ok: null };
   try {
     const r = await fetch(`${b}/admin/api-config/test`, {
       method: "POST",
@@ -92,10 +95,10 @@ export async function testApiSection(sectionKey: string, cfg: Record<string, str
       credentials: "include",
       body: JSON.stringify({ section: sectionKey, config: cfg }),
     });
-    if (!r.ok) return false;
-    const data = await r.json().catch(() => ({}));
-    return data && typeof data.ok === "boolean" ? data.ok : true;
+    if (!r.ok) return { ok: false, error: `HTTP ${r.status}` };
+    const data = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; ms?: number; note?: string };
+    return { ok: typeof data.ok === "boolean" ? data.ok : true, error: data.error, ms: data.ms, note: data.note };
   } catch {
-    return false;
+    return { ok: false, error: "无法连接服务器" };
   }
 }
