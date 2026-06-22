@@ -46,7 +46,7 @@
     "voice_brief": "温柔偏轻的年轻女声，语速稍慢，尾音柔和，带气声感，亲近但不甜腻，像深夜电台主播",
     "reference_audio_url": "",
     "minimax_params": { "model": "speech-02-turbo", "default_emotion": "gentle" },
-    "voice_id": "female-shaonv-01",
+    "voice_id": "female-shaonv",
     "emotion_map": {
       "idle": "neutral",
       "listening": "neutral",
