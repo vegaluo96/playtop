@@ -62,6 +62,7 @@ class CallSession:
         voice_id: str,
         audio_emit: AudioEmit | None = None,
         realtime_asr: ASRProvider | None = None,
+        embedder=None,
     ) -> None:
         self.config = config
         self._emit_raw = emit
@@ -69,6 +70,7 @@ class CallSession:
         self.llm = llm
         self.tts = tts
         self._asr_rt = realtime_asr        # 实时流式 ASR（task A 感知）；None=文字模式
+        self._embedder = embedder          # 记忆检索向量化（Embedding 节点）；None=关键词召回
         self.assembler = assembler
         self.character_id = character_id
         self.scenario = scenario
@@ -198,6 +200,16 @@ class CallSession:
         async with self._turn_lock:
             await self._generate_turn(text)
 
+    async def _embed_query(self, text: str) -> list[float] | None:
+        """把本轮用户话向量化用于情节记忆余弦召回。仅配了 Embedding 节点时；失败不影响通话。"""
+        if self._embedder is None or not (text or "").strip():
+            return None
+        try:
+            return await self._embedder.embed_one(text)
+        except Exception as e:  # 网络/鉴权/超时：静默退回关键词召回，不拖累实时路径。
+            log.warning("query 向量化失败，退关键词召回：%r", e)
+            return None
+
     async def _generate_turn(self, user_text: str) -> None:
         self._interrupt.clear()
         self._ai_said = ""  # 新一轮：清空回声基准（上一轮 AI 文本已无需再防）
@@ -207,8 +219,10 @@ class CallSession:
         self.sm.to(Phase.THINKING)
         await self._emit(ServerEvent.state(Phase.THINKING.value))
 
+        qvec = await self._embed_query(user_text)  # 配了 Embedding 节点才算；失败/未配 → None（退关键词）
         messages = self.assembler.build(
-            character_id=self.character_id, scenario=self.scenario, history=self.history
+            character_id=self.character_id, scenario=self.scenario, history=self.history,
+            query_vector=qvec,
         )
         stripper = EmotionStripper()
         spoke: list[str] = []   # 实际播出的句子（ack 边界 → 进上下文，§1.5）

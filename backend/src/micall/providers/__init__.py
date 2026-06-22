@@ -12,11 +12,27 @@ from .stub import StubASR, StubLLM, StubTTS
 def make_llm(node: NodeConfig) -> LLMProvider:
     if not node.configured:
         return StubLLM()
-    if node.provider in ("apiyi_deepseek", "apiyi", "deepseek", "openai"):
+    # apiyi/直连均走 OpenAI 兼容 SSE（ApiyiLLM）。慢脑 Qwen-Long（apiyi_qwen_long）同协议，
+    # 只是 model 名不同（从 node.params.model 取）——之前漏了它，长记忆脑被静默退化成 stub。
+    if node.provider in (
+        "apiyi_deepseek", "apiyi", "deepseek", "openai",
+        "apiyi_qwen_long", "qwen_long", "qwen", "dashscope_llm",
+    ):
         from .apiyi_llm import ApiyiLLM
 
         return ApiyiLLM(node)
     return StubLLM()
+
+
+def make_embedding(node: NodeConfig):
+    """记忆检索向量化（Embedding 节点）。未配置/未知 provider → None（仓储退关键词召回）。"""
+    if not node.configured:
+        return None
+    if node.provider in ("bailian_embedding", "dashscope_embedding", "openai_embedding", "openai"):
+        from .bailian_embedding import BailianEmbedding
+
+        return BailianEmbedding(node)
+    return None
 
 
 def make_tts(node: NodeConfig) -> TTSProvider:
@@ -58,5 +74,5 @@ def make_realtime_asr(node: NodeConfig, *, on_event=None):
 __all__ = [
     "ASRProvider", "LLMProvider", "TTSProvider",
     "StubASR", "StubLLM", "StubTTS",
-    "make_asr", "make_llm", "make_tts", "make_realtime_asr",
+    "make_asr", "make_llm", "make_tts", "make_realtime_asr", "make_embedding",
 ]

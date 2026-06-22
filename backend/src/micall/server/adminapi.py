@@ -138,6 +138,21 @@ async def _ping_tts(node: NodeConfig) -> dict:
     return {"ok": True, "ms": int((time.perf_counter() - t0) * 1000)}
 
 
+async def _ping_embed(node: NodeConfig) -> dict:
+    import time
+
+    from ..providers import make_embedding
+
+    emb = make_embedding(node)
+    if emb is None:
+        return {"ok": False, "error": "该 provider 暂不支持向量化（试 bailian_embedding）"}
+    t0 = time.perf_counter()
+    vec = await emb.embed_one("你好")
+    if not vec:
+        return {"ok": False, "error": "未返回向量，检查 endpoint/model（应为 .../compatible-mode/v1/embeddings）"}
+    return {"ok": True, "ms": int((time.perf_counter() - t0) * 1000), "note": f"维度 {len(vec)}"}
+
+
 def test_section(section: str, sec: dict) -> dict:
     import asyncio
 
@@ -165,7 +180,9 @@ def test_section(section: str, sec: dict) -> dict:
             return asyncio.run(_ping_llm(node))
         if node_key == "tts":
             return asyncio.run(_ping_tts(node))
-        return {"ok": True, "note": "已填 endpoint/key（ASR/Embedding 未做真实连通）"}
+        if node_key == "embedding":
+            return asyncio.run(_ping_embed(node))
+        return {"ok": True, "note": "已填 endpoint/key（ASR 未做真实连通）"}
     except Exception as e:  # 鉴权/网络/模型名等，原样回带便于排错
         return {"ok": False, "error": str(e)[:300]}
 

@@ -19,7 +19,7 @@ from ..context import CharacterRuntime, ContextAssembler
 from ..memory import InMemoryRepository, MemoryRepository
 from ..offline import UnderstandingEngine
 from ..protocol import ServerEvent, parse_client_message
-from ..providers import make_llm, make_realtime_asr, make_tts
+from ..providers import make_embedding, make_llm, make_realtime_asr, make_tts
 from ..session import CallSession
 
 log = logging.getLogger("micall.signal")
@@ -50,8 +50,8 @@ class SignalingServer:
         self.config = config
         self.repo = repo or InMemoryRepository()
         self.characters = _load_characters()
-        # 离线理解引擎（§3.3）用慢脑（llm_slow，未配置则 stub）。会话结束后台触发，不碰实时路径。
-        self.understanding = UnderstandingEngine(make_llm(config.node("llm_slow")), self.repo)
+        # 离线理解引擎（§3.3）每次会话结束按当前配置新建（慢脑 llm_slow + 向量化 embedding），
+        # 这样 admin 改了「接口配置」即时生效；后台触发，不碰实时路径。
         self._bg_tasks: set[asyncio.Task] = set()
 
     def _schedule_understanding(self, session: "CallSession") -> None:
@@ -60,10 +60,16 @@ class SignalingServer:
             return
         history = list(session.history)
         char = session.character_id
+        # 当前配置新建：慢脑（apiyi/Qwen-Long，未配则 stub）+ 向量化（Embedding，未配则 None 退关键词）。
+        engine = UnderstandingEngine(
+            make_llm(self.config.node("llm_slow")),
+            self.repo,
+            embedder=make_embedding(self.config.node("embedding")),
+        )
 
         async def run() -> None:
             try:
-                await self.understanding.process_call(_ANON, char, history)
+                await engine.process_call(_ANON, char, history)
                 log.info("离线理解完成 char=%s", char)
             except Exception as e:  # 离线失败不影响任何实时路径
                 log.warning("离线理解失败：%r", e)
@@ -123,6 +129,7 @@ class SignalingServer:
             llm=make_llm(self.config.node("llm_fast")),
             tts=make_tts(self.config.node("tts")),
             realtime_asr=self._make_realtime_asr(),
+            embedder=make_embedding(self.config.node("embedding")),
             assembler=assembler,
             character_id=char.character_id,
             scenario=scenario or "",

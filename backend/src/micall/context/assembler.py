@@ -127,7 +127,8 @@ class ContextAssembler:
         return "\n\n".join(p for p in parts if p)
 
     def build(
-        self, *, character_id: str, scenario: str, history: list[Message]
+        self, *, character_id: str, scenario: str, history: list[Message],
+        query_vector: list[float] | None = None,
     ) -> list[Message]:
         """组装本轮 messages：system(通话内逐字不变) + 滑窗 history(+ 折进末轮的情节记忆)。
 
@@ -146,9 +147,16 @@ class ContextAssembler:
             last_user = next(
                 (m["content"] for m in reversed(history) if m.get("role") == "user"), ""
             )
-            recalls = self.memory.recall(
-                self.profile.user_id, character_id, last_user, top_k=self.memory_top_k
-            )
+            # 配了 Embedding 节点（query_vector 由编排层算好传入）→ 余弦语义召回；否则关键词近似。
+            if query_vector:
+                recalls = self.memory.recall_vec(
+                    self.profile.user_id, character_id, query_vector,
+                    query=last_user, top_k=self.memory_top_k,
+                )
+            else:
+                recalls = self.memory.recall(
+                    self.profile.user_id, character_id, last_user, top_k=self.memory_top_k
+                )
             if recalls:
                 recall_preamble = (
                     "（你大概记得的一些事，模糊地，不要精确复述："

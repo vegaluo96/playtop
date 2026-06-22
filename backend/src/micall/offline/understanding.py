@@ -12,10 +12,13 @@ LLM 则走完整画像更新。真实部署由消息队列触发（§6 离线任
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Sequence
 
 from ..context.models import Hypothesis, Insight, UserProfile
 from ..providers.base import LLMProvider
+
+log = logging.getLogger("micall.understanding")
 
 Message = dict
 
@@ -99,10 +102,11 @@ def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
 
 
 class UnderstandingEngine:
-    def __init__(self, llm: LLMProvider, repo: Any, *, max_tokens: int = 1024) -> None:
+    def __init__(self, llm: LLMProvider, repo: Any, *, max_tokens: int = 1024, embedder=None) -> None:
         self.llm = llm
         self.repo = repo
         self.max_tokens = max_tokens
+        self.embedder = embedder  # 配了 Embedding 节点：事实入库时一并向量化（供余弦召回）
 
     async def _run_llm(self, messages: list[Message]) -> str:
         chunks: list[str] = []
@@ -110,21 +114,39 @@ class UnderstandingEngine:
             chunks.append(tok)
         return "".join(chunks)
 
+    async def _vectors(self, texts: list[str]) -> list[list[float] | None]:
+        """批量向量化事实（慢链路，离线跑，延迟无所谓）。未配 Embedding/失败 → 全 None（退关键词召回）。"""
+        if self.embedder is None or not texts:
+            return [None] * len(texts)
+        try:
+            vecs = await self.embedder.embed(texts)
+            if len(vecs) == len(texts):
+                return vecs  # type: ignore[return-value]
+            log.warning("embedding 返回数(%d)与事实数(%d)不符，退关键词召回", len(vecs), len(texts))
+        except Exception as e:  # 网络/鉴权/模型名：离线失败不影响任何实时路径。
+            log.warning("事实向量化失败，退关键词召回：%r", e)
+        return [None] * len(texts)
+
     async def process_call(
         self, user_id: str, character_id: str, history: Sequence[Message]
     ) -> UserProfile:
-        """通话结束后跑一遍：写事实层 + 更新理解层。返回更新后的画像。"""
-        # 1. 事实层（只增）
-        for fact in extract_facts(history):
-            self.repo.add_fact(user_id, character_id, fact)
-
-        # 2. 理解层（推断与修正）
+        """通话结束后跑一遍：写事实层（含向量化）+ 更新理解层。返回更新后的画像。"""
+        # 1. 理解层（推断与修正）—— 先跑慢脑，顺带拿到模型抽取的 new_facts。
         profile = self.repo.get_profile(user_id, character_id)
         raw = await self._run_llm(build_understanding_prompt(profile, history))
         update = parse_profile_update(raw)
+
+        # 2. 事实层（只增）：用户原话 + 模型抽取的新事实，去重保序后批量向量化入库。
+        facts = list(extract_facts(history))
         for f in update.get("new_facts", []) or []:
             if isinstance(f, str) and f.strip():
-                self.repo.add_fact(user_id, character_id, f.strip())
+                facts.append(f.strip())
+        seen: set[str] = set()
+        uniq = [f for f in facts if not (f in seen or seen.add(f))]
+        vectors = await self._vectors(uniq)
+        for text, vec in zip(uniq, vectors):
+            self.repo.add_fact(user_id, character_id, text, vector=vec)
+
         merged = merge_profile(profile, update)
         self.repo.save_profile(merged)
         return merged

@@ -9,19 +9,44 @@
 """
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 
 from ..context.models import AutonomousState, UserProfile
 
 
+def _cosine(a: list[float], b: list[float]) -> float:
+    """余弦相似度；维度不一致/零向量 → 0。"""
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = na = nb = 0.0
+    for x, y in zip(a, b):
+        dot += x * y
+        na += x * x
+        nb += y * y
+    if na <= 0 or nb <= 0:
+        return 0.0
+    return dot / math.sqrt(na * nb)
+
+
 class MemoryRepository(ABC):
     # ── 事实层 ──
     @abstractmethod
-    def add_fact(self, user_id: str, character_id: str, text: str, *, emotion_weight: float = 1.0) -> None: ...
+    def add_fact(
+        self, user_id: str, character_id: str, text: str, *,
+        emotion_weight: float = 1.0, vector: list[float] | None = None,
+    ) -> None: ...
 
     @abstractmethod
     def recall(self, user_id: str, character_id: str, query: str, *, top_k: int = 5) -> list[str]:
-        """情节检索（语义相似 + 时间衰减 + 情感权重）。返回原始片段，注入前由 assembler 自然化（§3.5）。"""
+        """情节检索（关键词近似；无向量时的兜底）。返回原始片段，注入前由 assembler 自然化（§3.5）。"""
+
+    def recall_vec(
+        self, user_id: str, character_id: str, query_vector: list[float], *,
+        query: str = "", top_k: int = 5,
+    ) -> list[str]:
+        """向量检索（余弦相似 × 情感权重 × 新近）。默认实现回退关键词 recall（子类可覆写）。"""
+        return self.recall(user_id, character_id, query, top_k=top_k)
 
     # ── 理解层 ──
     @abstractmethod
@@ -46,16 +71,21 @@ class MemoryRepository(ABC):
 
 
 class InMemoryRepository(MemoryRepository):
-    """字典实现。recall 用字符重叠近似语义相似（骨架/测试）；真实走 pgvector 余弦。"""
+    """字典实现。配了 Embedding 节点则按余弦相似召回（recall_vec），否则字符重叠近似（recall）。
+    真实部署换 PgRepository（pgvector 余弦 + 持久化）。"""
 
     def __init__(self) -> None:
-        self._facts: dict[tuple[str, str], list[tuple[str, float]]] = {}
+        # 每条事实：(text, emotion_weight, vector|None)
+        self._facts: dict[tuple[str, str], list[tuple[str, float, list[float] | None]]] = {}
         self._profiles: dict[tuple[str, str], UserProfile] = {}
         self._voices: dict[tuple[str, str], str] = {}
         self._autonomous: dict[str, AutonomousState] = {}
 
-    def add_fact(self, user_id: str, character_id: str, text: str, *, emotion_weight: float = 1.0) -> None:
-        self._facts.setdefault((user_id, character_id), []).append((text, emotion_weight))
+    def add_fact(
+        self, user_id: str, character_id: str, text: str, *,
+        emotion_weight: float = 1.0, vector: list[float] | None = None,
+    ) -> None:
+        self._facts.setdefault((user_id, character_id), []).append((text, emotion_weight, vector))
 
     def recall(self, user_id: str, character_id: str, query: str, *, top_k: int = 5) -> list[str]:
         items = self._facts.get((user_id, character_id), [])
@@ -65,8 +95,28 @@ class InMemoryRepository(MemoryRepository):
         # 近似分 = 字符重叠 × 情感权重 × 越近越重（list 末尾更新，给递增的新近加成）。
         scored = [
             (len(q & set(text)) * weight * (1 + i / max(1, len(items))), text)
-            for i, (text, weight) in enumerate(items)
+            for i, (text, weight, _v) in enumerate(items)
         ]
+        scored.sort(key=lambda s: s[0], reverse=True)
+        return [text for score, text in scored[:top_k] if score > 0]
+
+    def recall_vec(
+        self, user_id: str, character_id: str, query_vector: list[float], *,
+        query: str = "", top_k: int = 5,
+    ) -> list[str]:
+        items = self._facts.get((user_id, character_id), [])
+        if not items or not query_vector:
+            return self.recall(user_id, character_id, query, top_k=top_k)
+        n = len(items)
+        scored: list[tuple[float, str]] = []
+        any_vec = False
+        for i, (text, weight, vec) in enumerate(items):
+            if vec:
+                any_vec = True
+                # 余弦相似 × 情感权重 × 新近加成（末尾更近）。
+                scored.append((_cosine(query_vector, vec) * weight * (1 + i / max(1, n)), text))
+        if not any_vec:  # 库里还没有向量（旧数据/未向量化）→ 退关键词。
+            return self.recall(user_id, character_id, query, top_k=top_k)
         scored.sort(key=lambda s: s[0], reverse=True)
         return [text for score, text in scored[:top_k] if score > 0]
 
