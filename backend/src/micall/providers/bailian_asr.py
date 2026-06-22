@@ -93,9 +93,12 @@ class BailianASR(ASRProvider):
                     except (KeyError, IndexError, ValueError):
                         continue
                     seg = _delta_text(delta)
-                    if seg:
-                        text += seg
-                        yield text, False
+                    if not seg:
+                        continue
+                    # 兼容两种流式语义：增量 delta（拼接）与累计整段（每次重发全文，替换）。
+                    # 累计式时新块以已得文本为前缀 → 直接替换，避免拼成两遍。
+                    text = seg if seg.startswith(text) else text + seg
+                    yield text, False
         yield text, True
 
     async def stream(
