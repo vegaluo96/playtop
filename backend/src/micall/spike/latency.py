@@ -59,9 +59,18 @@ def _measure_once(node: NodeConfig, messages: list[dict], max_tokens: int) -> tu
     return (ttft if ttft is not None else total), total
 
 
-def run_spike(config: Config, node_key: str = "llm_fast", prompt_tokens: int = 2000, rounds: int = 5) -> None:
+def run_spike(
+    config: Config,
+    node_key: str = "llm_fast",
+    prompt_tokens: int = 2000,
+    rounds: int = 5,
+    model: str | None = None,
+) -> None:
     node = config.node(node_key)
-    print(f"=== MiCall 延迟 spike · 节点 {node_key}（{node.provider or 'unset'}）===")
+    if model:
+        node.params["model"] = model  # 命令行临时覆盖模型名（横向对比选最快），不改配置
+    print(f"=== MiCall 延迟 spike · 节点 {node_key}（{node.provider or 'unset'}）· "
+          f"模型 {node.params.get('model') or '?'} ===")
     print(f"长 prompt ≈ {prompt_tokens} tokens × {rounds} 轮\n")
 
     if not node.configured:

@@ -69,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--node", default="llm_fast")
     sp.add_argument("--prompt-tokens", type=int, default=2000)
     sp.add_argument("--rounds", type=int, default=5)
+    sp.add_argument("--model", default=None, help="临时覆盖模型名（横向对比不同模型）")
     sub.add_parser("selfcheck", help="报告配置 + 节点状态")
     sub.add_parser("initdb", help="应用/打印 schema.sql")
     args = ap.parse_args(argv)
@@ -89,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "spike":
         from .spike import run_spike
 
-        run_spike(config, args.node, args.prompt_tokens, args.rounds)
+        run_spike(config, args.node, args.prompt_tokens, args.rounds, model=args.model)
         return 0
     if args.cmd == "selfcheck":
         return _selfcheck(config)
