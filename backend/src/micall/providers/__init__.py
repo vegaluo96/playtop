@@ -28,7 +28,11 @@ def make_embedding(node: NodeConfig):
     """记忆检索向量化（Embedding 节点）。未配置/未知 provider → None（仓储退关键词召回）。"""
     if not node.configured:
         return None
-    if node.provider in ("bailian_embedding", "dashscope_embedding", "openai_embedding", "openai"):
+    # 都是 OpenAI 兼容 /embeddings（{model,input}+Bearer）：百炼直连、apiyi 聚合、OpenAI 同一套。
+    if node.provider in (
+        "bailian_embedding", "dashscope_embedding", "openai_embedding", "openai",
+        "apiyi_embedding", "apiyi",
+    ):
         from .bailian_embedding import BailianEmbedding
 
         return BailianEmbedding(node)
