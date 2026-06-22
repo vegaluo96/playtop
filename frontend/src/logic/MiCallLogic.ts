@@ -40,6 +40,7 @@ interface Char {
   desc: string;
   traits: string[];
   bio: string;
+  id?: string; // 出厂角色对应后端 spec 的 character_id（asset-pipeline/characters/*.json）；省略则回退 "c"+idx
 }
 interface ScenarioDef {
   key: string;
@@ -58,11 +59,11 @@ export class MiCallLogic {
 
   // ── instance data (ported verbatim) ──────────────────────────────────────
   chars: Char[] = [
-    { name: "林晚", hue: 0, desc: "温柔的深夜倾听者", traits: ["温柔", "耐心", "共情"], bio: "深夜电台主播出身，习惯在安静里听人把话说完。不急着给建议，也不评判——只是陪着你。" },
-    { name: "江野", hue: 135, desc: "理性可靠的陪伴", traits: ["理性", "冷静", "务实"], bio: "话不多，但每句都在点上。适合在你思绪乱成一团时，帮你一条条理清楚。" },
-    { name: "夏鸣", hue: 60, desc: "元气满满的朋友", traits: ["元气", "幽默", "直率"], bio: "走到哪儿都自带阳光，三两句就能把气氛点亮。心情低落时，找他准没错。" },
-    { name: "顾辞", hue: 225, desc: "沉静睿智的对话者", traits: ["沉静", "睿智", "文艺"], bio: "读过很多书，喜欢慢慢聊。和他说话，像在深夜翻开一本旧书。" },
-    { name: "苏窈", hue: 300, desc: "俏皮灵动的伙伴", traits: ["俏皮", "灵动", "好奇"], bio: "鬼马精灵，脑洞奇大。跟她聊天，你永远猜不到她下一句会说什么。" },
+    { name: "林晚", hue: 0, desc: "温柔的深夜倾听者", traits: ["温柔", "耐心", "共情"], bio: "深夜电台主播出身，习惯在安静里听人把话说完。不急着给建议，也不评判——只是陪着你。", id: "lin_wan" },
+    { name: "江野", hue: 135, desc: "理性可靠的陪伴", traits: ["理性", "冷静", "务实"], bio: "话不多，但每句都在点上。适合在你思绪乱成一团时，帮你一条条理清楚。", id: "jiang_ye" },
+    { name: "夏鸣", hue: 60, desc: "元气满满的朋友", traits: ["元气", "幽默", "直率"], bio: "走到哪儿都自带阳光，三两句就能把气氛点亮。心情低落时，找他准没错。", id: "xia_ming" },
+    { name: "顾辞", hue: 225, desc: "沉静睿智的对话者", traits: ["沉静", "睿智", "文艺"], bio: "读过很多书，喜欢慢慢聊。和他说话，像在深夜翻开一本旧书。", id: "gu_ci" },
+    { name: "苏窈", hue: 300, desc: "俏皮灵动的伙伴", traits: ["俏皮", "灵动", "好奇"], bio: "鬼马精灵，脑洞奇大。跟她聊天，你永远猜不到她下一句会说什么。", id: "su_yao" },
   ];
   private _charsBuilt = false;
   private _scenesBuilt = false;
@@ -276,7 +277,7 @@ export class MiCallLogic {
   private isConnected() {
     return ["listening", "thinking", "speaking"].includes(this.state.phase);
   }
-  private characterId(idx: number) { return "c" + idx; }
+  private characterId(idx: number) { return this.chars[idx]?.id ?? "c" + idx; }
   private currentScenarioKey() { return this.state.scenario || "chat"; }
 
   private ensureSignaling(): SignalingClient {

@@ -117,6 +117,10 @@ class ContextAssembler:
             parts.append(_profile_block(self.profile))
         if scenario:
             parts.append(f"当前情境：{scenario}（情境只定空间/由头，画面与背景固定不变）。")
+        # 角色级实时口吻微调（spec.runtime_overrides.realtime_prompt_extra）：让同一套原则下各角色口吻有别。
+        extra = (self.character.runtime_overrides or {}).get("realtime_prompt_extra")
+        if extra:
+            parts.append(f"本角色口吻提示：{extra}")
         return "\n\n".join(p for p in parts if p)
 
     def build(
