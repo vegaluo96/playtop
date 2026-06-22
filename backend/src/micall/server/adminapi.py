@@ -262,6 +262,9 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(401, {"error": "unauthorized"})
         if self._route() == "/admin/api-config":
             return self._json(200, read_config_for_admin())
+        if self._route() == "/admin/characters":
+            from .characters_admin import read_characters_for_admin
+            return self._json(200, {"characters": read_characters_for_admin()})
         self._json(404, {"error": "not found"})
 
     def do_PUT(self) -> None:
@@ -273,6 +276,13 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": True})
             except Exception as e:
                 return self._json(500, {"ok": False, "error": str(e)[:200]})
+        if self._route() == "/admin/characters":
+            try:
+                from .characters_admin import write_character_from_admin
+                write_character_from_admin(self._body())
+                return self._json(200, {"ok": True})
+            except Exception as e:
+                return self._json(400, {"ok": False, "error": str(e)[:200]})
         self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:

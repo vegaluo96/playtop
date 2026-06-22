@@ -81,6 +81,42 @@ export async function saveApiConfig(cfg: ApiConfig): Promise<boolean> {
   }
 }
 
+// ── 后台「角色管理」：出厂角色 spec 的可编辑字段（人设/说话风格/喜好/音色）持久化 ──
+export type CharEdit = Record<string, string>;
+
+/** 读取出厂角色（含后台覆盖）的可编辑字段；无后端 → null（页面用内置 mock）。 */
+export async function loadCharacters(): Promise<CharEdit[] | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/characters`, { credentials: "include", headers: authHeaders() });
+    if (r.ok) {
+      const data = (await r.json()) as { characters?: CharEdit[] };
+      return data.characters || [];
+    }
+  } catch {
+    /* 网络/后端不可用：用内置 mock，不阻塞 */
+  }
+  return null;
+}
+
+/** 保存某角色改动（白名单字段，需带 id）；无后端时乐观返回 true（演示用）。 */
+export async function saveCharacter(payload: CharEdit): Promise<boolean> {
+  const b = base();
+  if (!b) return true;
+  try {
+    const r = await fetch(`${b}/admin/characters`, {
+      method: "PUT",
+      headers: authHeaders(true),
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** 连通性测试结果：ok=null 表示无后端（未知）；失败时 error 带出后端真因（1004/2049 等）。 */
 export type TestResult = { ok: boolean | null; error?: string; ms?: number; note?: string };
 

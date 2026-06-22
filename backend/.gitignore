@@ -11,3 +11,5 @@ config/*.env
 config/micall.env
 # 后台「接口配置」网页写入的真实密钥（铁律2：永不入库）
 config/admin_overrides.json
+# 后台「角色管理」网页写入的角色覆盖（运营级，按部署，不入库）
+config/character_overrides.json

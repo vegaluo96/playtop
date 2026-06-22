@@ -10,7 +10,7 @@
 // change required.
 
 import type { Vals } from "../dc/resolve";
-import { loadApiConfig, saveApiConfig, testApiSection } from "./configService";
+import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -45,7 +45,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", sceneTab: "rec", charBio: "", replyDraft: "", toast: "", banned: {}, sceneStatus: {}, ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, adminOff: {}, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", exprOpen: null, exprOff: {}, charOff: {}, ioOpen: false, ioMode: "export",
+    section: "dashboard", detail: null, query: "", userFilter: "all", sceneTab: "rec", charBio: "", charEdit: {}, replyDraft: "", toast: "", banned: {}, sceneStatus: {}, ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, adminOff: {}, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", exprOpen: null, exprOff: {}, charOff: {}, ioOpen: false, ioMode: "export",
     testVoice: "v1", testChar: "c1", testText: "今天工作压力好大，感觉有点撑不住。", testStage: 0, testRunning: false, testMs: {}, testReply: "", testAsr: "",
     apiCfg: {
       asr: { provider: "阿里云", endpoint: "https://nls-gateway.aliyuncs.com/stream/v1/asr", key: "sk-ali-••••••a3f9", model: "paraformer-realtime-v2", lang: "中文 / 自动" },
@@ -60,11 +60,11 @@ export class AdminLogic {
     this.props = props || {};
     const uG = { a: "linear-gradient(140deg,#A78BFF,#6E5CFF)", b: "linear-gradient(140deg,#FF8FC8,#FF4FA0)", c: "linear-gradient(140deg,#5BE0A0,#1FA971)", d: "linear-gradient(140deg,#6FC8FF,#2E7BFF)", e: "linear-gradient(140deg,#FFB36B,#F5821F)" };
     this.chars = [
-      { id: "c1", name: "林晚", desc: "温柔的深夜倾听者", hue: 0, gender: "女", age: 18, height: 156, weight: 44, birthday: "2006年1月1日", nationality: "中国", race: "东亚人", traits: ["温柔", "耐心", "共情"], tags: ["治愈系", "深夜", "倾听", "温柔"], slogan: "今天也辛苦了，想聊点什么都可以。", likes: "安静的深夜、认真听你说话、下雨天、一杯热可可", dislikes: "被敷衍、嘈杂的人群、冷场", bio: "深夜电台主播出身，习惯在安静里听人把话说完。不急着给建议，也不轻易打断，只是稳稳地陪着你。", calls: "24.1k", customVoices: 312, favs: "9,840", status: "上线" },
-      { id: "c2", name: "江野", desc: "理性可靠的陪伴", hue: 135, gender: "男", age: 21, height: 161, weight: 47, birthday: "2005年2月8日", nationality: "日本", race: "欧裔", traits: ["理性", "冷静", "务实"], tags: ["理性", "高冷", "成熟", "陪伴"], slogan: "有什么想不通的，说来听听。", likes: "清晰的逻辑、长跑、黑咖啡、安静", dislikes: "拖延、含糊其辞、无意义的争论", bio: "话不多，但每句都在点上。适合在你思绪乱成一团时，帮你一条条理清楚，再陪你走下一步。", calls: "15.3k", customVoices: 156, favs: "6,210", status: "上线" },
-      { id: "c3", name: "夏鸣", desc: "元气满满的朋友", hue: 60, gender: "女", age: 24, height: 166, weight: 50, birthday: "2004年3月15日", nationality: "美国", race: "混血", traits: ["元气", "幽默", "直率"], tags: ["元气", "俏皮", "邻家", "温柔"], slogan: "嘿！今天有什么好玩的事？", likes: "阳光、音乐、冷笑话、奶茶", dislikes: "冷场、emo、被无视", bio: "走到哪儿都自带阳光，三两句就能把气氛点亮。心情低落时，找他准没错。", calls: "18.7k", customVoices: 204, favs: "7,530", status: "上线" },
-      { id: "c4", name: "顾辞", desc: "沉静睿智的对话者", hue: 225, gender: "男", age: 27, height: 171, weight: 53, birthday: "2003年4月22日", nationality: "英国", race: "东亚人", traits: ["沉静", "睿智", "文艺"], tags: ["文艺", "知性", "沉静", "学长"], slogan: "夜深了，来聊聊书，或者别的？", likes: "旧书、爵士乐、独处、一壶红茶", dislikes: "喧闹、肤浅、敷衍", bio: "读过很多书，喜欢慢慢聊。和他说话，像在深夜翻开一本旧书，安静又有回味。", calls: "11.9k", customVoices: 98, favs: "5,180", status: "上线" },
-      { id: "c5", name: "苏窈", desc: "俏皮灵动的伙伴", hue: 300, gender: "女", age: 30, height: 176, weight: 56, birthday: "2002年5月2日", nationality: "法国", race: "东亚人", traits: ["俏皮", "灵动", "好奇"], tags: ["俏皮", "灵动", "古灵精怪", "御姐"], slogan: "猜猜我今天又想到了什么？", likes: "新鲜事、恶作剧、甜点、惊喜", dislikes: "无聊、套路、被说教", bio: "鬼马精灵，脑洞奇大。跟她聊天，你永远猜不到她下一句会说什么。", calls: "9.2k", customVoices: 87, favs: "4,360", status: "上线" },
+      { id: "c1", cid: "lin_wan", speaking_style: "", voiceId: "", name: "林晚", desc: "温柔的深夜倾听者", hue: 0, gender: "女", age: 18, height: 156, weight: 44, birthday: "2006年1月1日", nationality: "中国", race: "东亚人", traits: ["温柔", "耐心", "共情"], tags: ["治愈系", "深夜", "倾听", "温柔"], slogan: "今天也辛苦了，想聊点什么都可以。", likes: "安静的深夜、认真听你说话、下雨天、一杯热可可", dislikes: "被敷衍、嘈杂的人群、冷场", bio: "深夜电台主播出身，习惯在安静里听人把话说完。不急着给建议，也不轻易打断，只是稳稳地陪着你。", calls: "24.1k", customVoices: 312, favs: "9,840", status: "上线" },
+      { id: "c2", cid: "jiang_ye", speaking_style: "", voiceId: "", name: "江野", desc: "理性可靠的陪伴", hue: 135, gender: "男", age: 21, height: 161, weight: 47, birthday: "2005年2月8日", nationality: "日本", race: "欧裔", traits: ["理性", "冷静", "务实"], tags: ["理性", "高冷", "成熟", "陪伴"], slogan: "有什么想不通的，说来听听。", likes: "清晰的逻辑、长跑、黑咖啡、安静", dislikes: "拖延、含糊其辞、无意义的争论", bio: "话不多，但每句都在点上。适合在你思绪乱成一团时，帮你一条条理清楚，再陪你走下一步。", calls: "15.3k", customVoices: 156, favs: "6,210", status: "上线" },
+      { id: "c3", cid: "xia_ming", speaking_style: "", voiceId: "", name: "夏鸣", desc: "元气满满的朋友", hue: 60, gender: "女", age: 24, height: 166, weight: 50, birthday: "2004年3月15日", nationality: "美国", race: "混血", traits: ["元气", "幽默", "直率"], tags: ["元气", "俏皮", "邻家", "温柔"], slogan: "嘿！今天有什么好玩的事？", likes: "阳光、音乐、冷笑话、奶茶", dislikes: "冷场、emo、被无视", bio: "走到哪儿都自带阳光，三两句就能把气氛点亮。心情低落时，找他准没错。", calls: "18.7k", customVoices: 204, favs: "7,530", status: "上线" },
+      { id: "c4", cid: "gu_ci", speaking_style: "", voiceId: "", name: "顾辞", desc: "沉静睿智的对话者", hue: 225, gender: "男", age: 27, height: 171, weight: 53, birthday: "2003年4月22日", nationality: "英国", race: "东亚人", traits: ["沉静", "睿智", "文艺"], tags: ["文艺", "知性", "沉静", "学长"], slogan: "夜深了，来聊聊书，或者别的？", likes: "旧书、爵士乐、独处、一壶红茶", dislikes: "喧闹、肤浅、敷衍", bio: "读过很多书，喜欢慢慢聊。和他说话，像在深夜翻开一本旧书，安静又有回味。", calls: "11.9k", customVoices: 98, favs: "5,180", status: "上线" },
+      { id: "c5", cid: "su_yao", speaking_style: "", voiceId: "", name: "苏窈", desc: "俏皮灵动的伙伴", hue: 300, gender: "女", age: 30, height: 176, weight: 56, birthday: "2002年5月2日", nationality: "法国", race: "东亚人", traits: ["俏皮", "灵动", "好奇"], tags: ["俏皮", "灵动", "古灵精怪", "御姐"], slogan: "猜猜我今天又想到了什么？", likes: "新鲜事、恶作剧、甜点、惊喜", dislikes: "无聊、套路、被说教", bio: "鬼马精灵，脑洞奇大。跟她聊天，你永远猜不到她下一句会说什么。", calls: "9.2k", customVoices: 87, favs: "4,360", status: "上线" },
     ];
     this.hueOf = {};
     this.chars.forEach((c) => (this.hueOf[c.name] = "hue-rotate(" + c.hue + "deg)"));
@@ -207,12 +207,34 @@ export class AdminLogic {
   /** Load any persisted 接口配置 over the built-in defaults (铁律2). */
   async componentDidMount() {
     const loaded = await loadApiConfig();
-    if (!loaded) return;
-    this.setState((p) => {
-      const merged: any = { ...p.apiCfg };
-      for (const k of Object.keys(loaded)) merged[k] = { ...(p.apiCfg[k] || {}), ...loaded[k] };
-      return { apiCfg: merged };
-    });
+    if (loaded) {
+      this.setState((p) => {
+        const merged: any = { ...p.apiCfg };
+        for (const k of Object.keys(loaded)) merged[k] = { ...(p.apiCfg[k] || {}), ...loaded[k] };
+        return { apiCfg: merged };
+      });
+    }
+    // 出厂角色的可编辑字段（含后台覆盖）从后端拉真实值覆盖内置 mock。
+    const chars = await loadCharacters();
+    if (chars) {
+      for (const row of chars) {
+        const c = this.chars.find((x) => x.cid === row.id);
+        if (!c) continue;
+        if (row.name) c.name = row.name;
+        if (row.tagline) c.desc = row.tagline;
+        if (row.traits) c.traits = this._splitList(row.traits);
+        if (row.background_story) c.bio = row.background_story;
+        if (row.likes != null) c.likes = row.likes;
+        if (row.dislikes != null) c.dislikes = row.dislikes;
+        c.speaking_style = row.speaking_style || "";
+        c.voiceId = row.voice_id || "";
+      }
+      this.setState({}); // 用真实角色数据重渲染
+    }
+  }
+
+  _splitList(s: string): string[] {
+    return String(s || "").split(/[、,，;；\n]+/).map((x) => x.trim()).filter(Boolean);
   }
 
   /** 保存接口配置：有后端走 REST（密钥存服务端），无后端落 localStorage。 */
@@ -239,9 +261,42 @@ export class AdminLogic {
   }
   open(type: string, id: string) {
     const ns: any = { detail: { type, id } };
-    if (type === "char") ns.charBio = this.chars.find((c) => c.id === id).bio;
+    if (type === "char") {
+      const c = this.chars.find((x) => x.id === id);
+      ns.charBio = c.bio;
+      ns.charEdit = {  // 把可编辑字段摊进编辑态（列表型 join 成串便于输入）
+        name: c.name || "", tagline: c.desc || "",
+        traits: Array.isArray(c.traits) ? c.traits.join("、") : (c.traits || ""),
+        speaking_style: c.speaking_style || "", background_story: c.bio || "",
+        likes: c.likes || "", dislikes: c.dislikes || "", voice_id: c.voiceId || "",
+      };
+    }
     if (type === "ticket") ns.replyDraft = "";
     this.setState(ns);
+  }
+
+  setCe(k: string, v: string) {
+    this.setState((p) => ({ charEdit: { ...p.charEdit, [k]: v } }));
+  }
+
+  /** 保存角色人设到后端（写回 spec overrides，下一通生效）；同步更新本地展示。 */
+  async saveChar() {
+    const d = this.state.detail;
+    if (!d || d.type !== "char") return;
+    const c = this.chars.find((x) => x.id === d.id);
+    if (!c || !c.cid) { this.toastMsg("该角色未关联后端，无法保存"); return; }
+    const e: any = this.state.charEdit || {};
+    const ok = await saveCharacter({
+      id: c.cid, name: e.name, tagline: e.tagline, traits: e.traits,
+      speaking_style: e.speaking_style, background_story: e.background_story,
+      likes: e.likes, dislikes: e.dislikes, voice_id: e.voice_id,
+    });
+    if (ok) {  // 本地同步，列表/详情立即反映
+      c.name = e.name; c.desc = e.tagline; c.traits = this._splitList(e.traits);
+      c.bio = e.background_story; c.likes = e.likes; c.dislikes = e.dislikes;
+      c.speaking_style = e.speaking_style; c.voiceId = e.voice_id;
+    }
+    this.toastMsg(ok ? "角色已保存，下一通通话生效" : "保存失败，检查后端连接");
   }
   setCfg(sk: string, fk: string, v: string) {
     this.setState((p) => ({ apiCfg: { ...p.apiCfg, [sk]: { ...p.apiCfg[sk], [fk]: v } } }));
@@ -493,7 +548,7 @@ export class AdminLogic {
     } else if (d && d.type === "char") {
       const c = this.chars.find((x) => x.id === d.id);
       dChar = { ...c, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: c.gender === "女" ? "#FF6FA5" : "#5B8DEF", ...((st: string) => st === "上线" ? { stColor: "#1FA971", stBg: "rgba(31,169,113,.1)" } : { stColor: "#878B95", stBg: "#F0F0F3" })(c.status) };
-      detailTitle = "角色编辑"; charBioLen = (s.charBio || "").length;
+      detailTitle = "角色编辑"; charBioLen = ((s.charEdit as any).background_story || "").length;
       dCharExpr = this.expressions.map((e) => { const ok = d.id + "_" + e.key; const off = !!s.exprOff[ok]; return { name: e.name, emoji: e.emoji, key: e.key, status: off ? "停用" : "启用", stColor: off ? "#878B95" : "#1FA971", stBg: off ? "#F0F0F3" : "rgba(31,169,113,.1)", toggle: () => { this.setState((p) => ({ exprOff: { ...p.exprOff, [ok]: !p.exprOff[ok] } })); }, preview: () => this.toastMsg("预览「" + e.name + "」表情…") }; });
     } else if (d && d.type === "call") {
       const c = this.calls.find((x) => x.id === d.id);
@@ -561,7 +616,15 @@ export class AdminLogic {
       detailOpen: !!d, closeDetail: () => this.setState({ detail: null }), detailTitle,
       dUser, dChar, dCall, dTicket, dCharExpr,
       banLabel, banColor, banBg, toggleBan: () => { const id = d.id; this.setState((p) => ({ banned: { ...p.banned, [id]: !p.banned[id] } })); this.toastMsg(s.banned[d.id] ? "已解除封禁" : "已封禁该用户"); },
-      charBio: s.charBio, charBioLen, onCharBio: (e: any) => this.setState({ charBio: e.target.value }), saveChar: () => this.toastMsg("角色人设已保存"),
+      charBioLen, saveChar: () => this.saveChar(),
+      ceName: (s.charEdit as any).name || "", onCeName: (e: any) => this.setCe("name", e.target.value),
+      ceTagline: (s.charEdit as any).tagline || "", onCeTagline: (e: any) => this.setCe("tagline", e.target.value),
+      ceTraits: (s.charEdit as any).traits || "", onCeTraits: (e: any) => this.setCe("traits", e.target.value),
+      ceStyle: (s.charEdit as any).speaking_style || "", onCeStyle: (e: any) => this.setCe("speaking_style", e.target.value),
+      ceLikes: (s.charEdit as any).likes || "", onCeLikes: (e: any) => this.setCe("likes", e.target.value),
+      ceDislikes: (s.charEdit as any).dislikes || "", onCeDislikes: (e: any) => this.setCe("dislikes", e.target.value),
+      ceVoice: (s.charEdit as any).voice_id || "", onCeVoice: (e: any) => this.setCe("voice_id", e.target.value),
+      ceBio: (s.charEdit as any).background_story || "", onCeBio: (e: any) => this.setCe("background_story", e.target.value),
       replyDraft: s.replyDraft, onReplyDraft: (e: any) => this.setState({ replyDraft: e.target.value }), ticketNeedsReply,
       sendReply: () => { const v = (s.replyDraft || "").trim(); if (!v) { this.toastMsg("请输入回复内容"); return; } const id = d.id; this.setState((p) => ({ ticketReplies: { ...p.ticketReplies, [id]: v }, replyDraft: "" })); this.toastMsg("回复已发送"); },
       toast: s.toast,

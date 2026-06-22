@@ -817,31 +817,50 @@
           </sc-for>
         </div>
 
-        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 10px;">性格</div>
-        <div style="display:flex;gap:7px;flex-wrap:wrap;">
-          <sc-for list="{{ dChar.traits }}" as="tr" hint-placeholder-count="3">
-            <span style="font-size:12.5px;font-weight:500;color:#6E5CFF;background:rgba(110,92,255,.09);border-radius:8px;padding:5px 12px;">{{ tr }}</span>
-          </sc-for>
+        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 10px;">人设编辑 · 保存后下一通通话生效</div>
+        <div style="display:flex;flex-direction:column;gap:13px;">
+          <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">角色名</div>
+            <input value="{{ ceName }}" onInput="{{ onCeName }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">一句话简介</div>
+            <input value="{{ ceTagline }}" onInput="{{ onCeTagline }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">性格（顿号分隔，如：温柔、耐心、共情）</div>
+            <input value="{{ ceTraits }}" onInput="{{ onCeTraits }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">说话风格</div>
+            <textarea value="{{ ceStyle }}" onInput="{{ onCeStyle }}" style="width:100%;box-sizing:border-box;min-height:64px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">喜欢（顿号分隔）</div>
+              <input value="{{ ceLikes }}" onInput="{{ onCeLikes }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+            </div>
+            <div>
+              <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">不喜欢（顿号分隔）</div>
+              <input value="{{ ceDislikes }}" onInput="{{ onCeDislikes }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">默认音色 voice_id（MiniMax 系统音色，如 female-shaonv）</div>
+            <input value="{{ ceVoice }}" onInput="{{ onCeVoice }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:ui-monospace,monospace;color:#16161A;outline:none;background:#FAFAFB;" />
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+              <span style="font-size:11.5px;color:#9A9DA7;">背景故事</span>
+              <span style="font-size:11.5px;color:#A8ABB5;">{{ charBioLen }} 字</span>
+            </div>
+            <textarea value="{{ ceBio }}" onInput="{{ onCeBio }}" style="width:100%;box-sizing:border-box;min-height:96px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:13px 15px;font-size:13.5px;line-height:1.7;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
+          </div>
         </div>
 
-        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 9px;">开场白</div>
-        <div style="font-size:13.5px;color:#3A3D47;line-height:1.6;background:#FAFAFB;border-radius:11px;padding:12px 15px;text-wrap:pretty;">{{ dChar.slogan }}</div>
-
-        <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 9px;">
-          <span style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;">背景故事</span>
-          <span style="font-size:12px;color:#A8ABB5;">{{ charBioLen }} 字</span>
-        </div>
-        <textarea value="{{ charBio }}" onInput="{{ onCharBio }}" style="width:100%;min-height:110px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:13px 15px;font-size:13.5px;line-height:1.7;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
-          <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">喜欢</div><div style="font-size:13px;font-weight:500;margin-top:3px;line-height:1.5;">{{ dChar.likes }}</div></div>
-          <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">不喜欢</div><div style="font-size:13px;font-weight:500;margin-top:3px;line-height:1.5;">{{ dChar.dislikes }}</div></div>
-        </div>
-
-        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 10px;">音色与数据</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">默认音色</div><div style="font-size:14px;font-weight:600;margin-top:3px;">原本音色</div></div>
-          <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">自定义匹配次数</div><div style="font-size:14px;font-weight:600;margin-top:3px;">{{ dChar.customVoices }} 个</div></div>
+        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 10px;">数据</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">自定义匹配</div><div style="font-size:14px;font-weight:600;margin-top:3px;">{{ dChar.customVoices }} 个</div></div>
           <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">累计通话</div><div style="font-size:14px;font-weight:600;margin-top:3px;">{{ dChar.calls }} 次</div></div>
           <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">被收藏</div><div style="font-size:14px;font-weight:600;margin-top:3px;">{{ dChar.favs }} 次</div></div>
         </div>

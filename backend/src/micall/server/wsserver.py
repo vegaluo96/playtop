@@ -31,17 +31,15 @@ _ANON = "anon"            # 骨架无鉴权；真实从登录态取 user_id
 
 
 def _load_characters() -> dict[str, CharacterRuntime]:
-    """加载资产管线产出的出厂角色 spec（铁律7：出厂、全用户共享）。"""
+    """加载出厂角色 spec + 后台「角色管理」覆盖（铁律7：出厂、全用户共享）。
+    effective_specs 合并 character_overrides.json，运营在后台改完下一通即生效。"""
+    from .characters_admin import effective_specs
+
     out: dict[str, CharacterRuntime] = {}
-    if _CHARACTERS_DIR.is_dir():
-        for p in sorted(_CHARACTERS_DIR.glob("*.json")):
-            try:
-                spec = json.loads(p.read_text(encoding="utf-8"))
-            except (ValueError, OSError):
-                continue
-            c = CharacterRuntime.from_spec(spec)
-            if c.character_id:
-                out[c.character_id] = c
+    for spec in effective_specs().values():
+        c = CharacterRuntime.from_spec(spec)
+        if c.character_id:
+            out[c.character_id] = c
     return out
 
 
@@ -79,11 +77,15 @@ class SignalingServer:
         task.add_done_callback(self._bg_tasks.discard)
 
     def _reload_config(self) -> None:
-        """每通电话前重载配置：后台网页改了 endpoint/key，下一通即生效（不必重启服务）。"""
+        """每通电话前重载配置 + 角色：后台网页改了 endpoint/key 或角色人设，下一通即生效（不必重启）。"""
         try:
             self.config = load_config()
         except Exception as e:  # 配置文件临时损坏：沿用上一次可用配置
             log.warning("配置重载失败，沿用旧配置：%r", e)
+        try:
+            self.characters = _load_characters()  # 拾取后台「角色管理」最新改动
+        except Exception as e:
+            log.warning("角色重载失败，沿用旧角色：%r", e)
 
     def _character(self, character_id: str | None) -> CharacterRuntime:
         if character_id and character_id in self.characters:
