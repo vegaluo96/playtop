@@ -249,6 +249,26 @@ export class MiCallLogic {
     return { favOpen: false, langOpen: false, settingsOpen: false, charDetailOpen: false, charOpen: false, scenarioOpen: false, billsOpen: false, inviteOpen: false, rechargeOpen: false, historyOpen: false, contactOpen: false, termsOpen: false, privacyOpen: false, moreOpen: false, authOpen: false, pwResetOpen: false };
   }
 
+  // ── 手势驱动（侧栏滑入/滑出、底部弹窗下滑关闭）；纯 state 操作，零视觉/DOM 改动 ──
+  // 供 useGestures 在 touchend 判定后调用，等价于点击对应的开/关，复用既有 setState 语义。
+  gestureSnapshot() {
+    const s = this.state;
+    const sheetOpen =
+      s.favOpen || s.langOpen || s.settingsOpen || s.charDetailOpen || s.charOpen ||
+      s.scenarioOpen || s.billsOpen || s.inviteOpen || s.rechargeOpen || s.contactOpen ||
+      s.termsOpen || s.privacyOpen || s.moreOpen || s.authOpen || s.pwResetOpen;
+    // 中心模态/对话框（权限、呼叫失败、时长耗尽、切换确认、删除确认…）期间不接管手势。
+    const modal =
+      s.permOpen || s.callFailed || s.outOfMins || s.pendingSwitch || s.pendingVoiceDel ||
+      s.logoutConfirmOpen || s.resetOpen;
+    return { menuOpen: !!s.menuOpen, historyOpen: !!s.historyOpen, sheetOpen: !!sheetOpen, modal: !!modal };
+  }
+  openMenu() { if (!this.state.menuOpen) this.setState({ menuOpen: true, historyOpen: false }); }
+  openHistory() { if (!this.state.historyOpen) this.setState({ historyOpen: true, menuOpen: false }); }
+  closeMenu() { if (this.state.menuOpen) this.setState({ menuOpen: false }); }
+  closeHistory() { if (this.state.historyOpen) this.setState({ historyOpen: false }); }
+  closeTopSheet() { this.setState(this.sheets()); }
+
   // ── realtime call flow (signaling-driven) ─────────────────────────────────
   private isConnected() {
     return ["listening", "thinking", "speaking"].includes(this.state.phase);
