@@ -67,6 +67,7 @@ export class AudioPlayer {
   private ctx: AudioContext | null = null;
   private playhead = 0;
   private sources = new Set<AudioBufferSourceNode>();
+  private logged = false;
 
   /** 必须在用户手势（点接听）里调一次，iOS 才允许出声。 */
   resume(): void {
@@ -77,19 +78,28 @@ export class AudioPlayer {
   play(frame: ArrayBuffer): void {
     this.resume();
     if (!this.ctx || frame.byteLength < 2) return;
-    const pcm = new Int16Array(frame);
-    const f32 = new Float32Array(pcm.length);
-    for (let i = 0; i < pcm.length; i++) f32[i] = pcm[i] / 0x8000;
-    const buf = this.ctx.createBuffer(1, f32.length, TTS_RATE);
-    buf.getChannelData(0).set(f32);
-    const node = this.ctx.createBufferSource();
-    node.buffer = buf;
-    node.connect(this.ctx.destination);
-    const start = Math.max(this.ctx.currentTime + 0.02, this.playhead);
-    node.start(start);
-    this.playhead = start + buf.duration;
-    this.sources.add(node);
-    node.onended = () => this.sources.delete(node);
+    if (!this.logged) {
+      this.logged = true;
+      console.info("[micall] 收到下行 TTS 音频，开始播放（首帧", frame.byteLength, "bytes）");
+    }
+    try {
+      const n = frame.byteLength >> 1; // 偶数对齐：丢弃可能的半个样本，避免构造异常
+      const pcm = new Int16Array(frame, 0, n);
+      const f32 = new Float32Array(n);
+      for (let i = 0; i < n; i++) f32[i] = pcm[i] / 0x8000;
+      const buf = this.ctx.createBuffer(1, n, TTS_RATE);
+      buf.getChannelData(0).set(f32);
+      const node = this.ctx.createBufferSource();
+      node.buffer = buf;
+      node.connect(this.ctx.destination);
+      const start = Math.max(this.ctx.currentTime + 0.02, this.playhead);
+      node.start(start);
+      this.playhead = start + buf.duration;
+      this.sources.add(node);
+      node.onended = () => this.sources.delete(node);
+    } catch (e) {
+      console.warn("[micall] 播放音频块失败", e);
+    }
   }
 
   /** 打断/挂断：停掉所有排队中的音频。 */

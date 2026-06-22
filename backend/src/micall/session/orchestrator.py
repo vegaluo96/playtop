@@ -114,17 +114,27 @@ class CallSession:
 
     # ── task A：实时 ASR 感知（partial 回显 / final 触发一轮 / 开口即打断 §1.4-1.5）──
     async def _listen_loop(self) -> None:
+        last_final = ""
         try:
             async for text, is_final in self._asr_rt.stream(self._mic_frames()):
-                if not text or self.sm.phase in (Phase.IDLE, Phase.ENDED):
+                t = (text or "").strip()
+                if not t or self.sm.phase in (Phase.IDLE, Phase.ENDED):
                     continue
-                # 用户在 AI 思考/发声时开口 → 打断（barge-in）。
+                if not is_final:
+                    # 中间结果回显；只有实质内容才当打断（避免噪声/语气词误打断起循环）。
+                    if self.sm.phase in (Phase.THINKING, Phase.SPEAKING) and len(t) >= 2:
+                        await self.interrupt()
+                    await self._emit(ServerEvent.subtitle("user", t, partial=True))
+                    continue
+                # 最终结果门控：太短（多半是噪声/静音误识别）或与上一句重复 → 丢弃，
+                # 否则会"自说自话"刷屏（§1.4 end-of-turn 需要的是真说完，不是任何声响）。
+                if len(t) < 2 or t == last_final:
+                    continue
+                last_final = t
+                log.info("⟵ 用户说完：%r", t)
                 if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
                     await self.interrupt()
-                if is_final:
-                    await self._begin_turn(text)          # end-of-turn → 起新一轮
-                else:
-                    await self._emit(ServerEvent.subtitle("user", text, partial=True))
+                await self._begin_turn(t)
         except asyncio.CancelledError:
             raise
         except Exception as e:  # ASR 断流/协议异常：不拖垮整通电话，退回可由文字驱动
@@ -221,6 +231,7 @@ class CallSession:
     async def _speak(self, sentence: str, spoke: list[str]) -> None:
         """task C：一句的流式发声。有 audio_emit 则把音频块二进制下行；骨架仅计时长。"""
         await self._emit(ServerEvent.subtitle("ai", sentence))
+        audio_bytes = 0
         async for chunk in self.tts.synthesize(
             sentence, voice_id=self.voice_id, emotion=self.emotion_tag
         ):
@@ -228,6 +239,9 @@ class CallSession:
                 return  # 熔断：停下行 + 丢弃后续（清 tts_queue 的等价）
             if self._audio_emit is not None and chunk:
                 await self._audio_emit(chunk)  # 真实下行：TTS 音频帧 → 前端播放
+                audio_bytes += len(chunk)
+        if self._audio_emit is not None:
+            log.info("⟶ 句音频 %d bytes（voice=%s）", audio_bytes, self.voice_id)
         spoke.append(sentence)  # 整句播完 → ack 边界
 
     # ── 打断（§1.5：停下行 → 清队列 → cancel → 半截话进上下文 → 回 listening）──
