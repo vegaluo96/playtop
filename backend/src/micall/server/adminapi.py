@@ -311,6 +311,9 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(200, {"characters": read_characters_for_admin()})
         if self._route() == "/admin/cost-config":
             return self._json(200, read_cost_for_admin())
+        if self._route() == "/admin/default-character":
+            from .characters_admin import load_default_character
+            return self._json(200, {"id": load_default_character()})
         # ── 看板真实数据（P4）：未注入仓储则返回空，前端退回演示数据 ──
         if self._route() == "/admin/stats":
             if _REPO is None:
@@ -370,6 +373,10 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": True})
             except Exception as e:
                 return self._json(500, {"ok": False, "error": str(e)[:200]})
+        if self._route() == "/admin/default-character":
+            from .characters_admin import set_default_character
+            ok = set_default_character((self._body().get("id") or "").strip())
+            return self._json(200 if ok else 400, {"ok": ok, "error": None if ok else "未知或已删除的角色"})
         self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:

@@ -20,10 +20,11 @@
   "database": { "dsn": "", "_comment": "postgresql://user:pass@host:5432/micall（真实部署经环境注入）" },
 
   "cost": {
-    "_comment": "成本估算单价（按各节点实际用量×单价，写 usage_log 供后台成本看板真实聚合）。按你实际供应商价格调整；中文约 2 字/token。",
+    "_comment": "成本估算单价（按各节点实际用量×单价，写 usage_log 供后台成本看板真实聚合）。后台「成本与限流」可改，改完下一通即生效。以下为 2026-06 各供应商真实参考价（USD），按你实际套餐/汇率微调；中文约 2 字/token。",
+    "_sources": "llm_fast=DeepSeek V4 Flash 输入$0.14/M+输出$0.28/M(api-docs.deepseek.com)→混合≈$0.0002/1k；llm_slow=Qwen-Max 输入¥2.4/M+输出¥9.6/M(阿里云百炼)→混合≈$0.0008/1k；embedding=text-embedding-v4 ¥0.6/M(阿里云百炼)≈$0.00008/1k；tts=MiniMax speech-2.8-turbo 约$0.025/1k字(中文按2字符计，以 MiniMax 控制台为准)；asr=Qwen3-ASR-Flash $0.00192/分钟(阿里云百炼)。",
     "chars_per_token": 2,
-    "usd_per_1k_tokens": { "llm_fast": 0.002, "llm_slow": 0.01, "embedding": 0.0001 },
-    "usd_per_1k_chars_tts": 0.02,
-    "usd_per_minute_asr": 0.006
+    "usd_per_1k_tokens": { "llm_fast": 0.0002, "llm_slow": 0.0008, "embedding": 0.00008 },
+    "usd_per_1k_chars_tts": 0.025,
+    "usd_per_minute_asr": 0.00192
   }
 }

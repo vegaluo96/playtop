@@ -21,6 +21,7 @@ _CHARACTERS_DIR = _REPO_ROOT / "asset-pipeline" / "characters"
 CHAR_OVERRIDES_PATH = _REPO_DEFAULT.parent / "character_overrides.json"
 CUSTOM_CHARS_PATH = _REPO_DEFAULT.parent / "custom_characters.json"   # 运营新建的角色（全 spec）
 DELETED_CHARS_PATH = _REPO_DEFAULT.parent / "deleted_characters.json"  # 被隐藏/删除的角色 id
+DEFAULT_CHAR_PATH = _REPO_DEFAULT.parent / "default_character.json"   # 运营设定的默认角色 id（用户端进来先选它）
 
 _LIST_SEP = re.compile(r"[、,，;；\n]+")
 
@@ -186,6 +187,27 @@ def create_character(payload: dict) -> str:
     return cid
 
 
+def load_default_character() -> str:
+    """运营设定的默认角色 id；未设或已失效（被删/改名/不存在）→ 回退第一个生效角色。"""
+    specs = effective_specs()
+    if not specs:
+        return ""
+    d = _load_json_file(DEFAULT_CHAR_PATH, {})
+    cid = d.get("id") if isinstance(d, dict) else ""
+    if cid and cid in specs:
+        return cid
+    return "lin_wan" if "lin_wan" in specs else next(iter(specs.keys()))  # 未设：回退产品主角林晚，否则第一个
+
+
+def set_default_character(cid: str) -> bool:
+    """设默认角色：只允许设成「生效中」的角色（出厂/运营新建、未被删除）。"""
+    cid = str(cid or "").strip()
+    if cid not in effective_specs():
+        return False
+    _save_json_file(DEFAULT_CHAR_PATH, {"id": cid})
+    return True
+
+
 def delete_character(cid: str) -> bool:
     """删除角色：自定义角色直接删除其 spec；出厂角色加入隐藏名单（不动只读资产）。"""
     cid = str(cid or "").strip()
@@ -227,8 +249,10 @@ async def generate_character(prompt: str, llm) -> dict:
 
 # ── 用户端公开角色列表（GET /api/characters）──
 def public_characters() -> list[dict]:
-    """给用户端 App 的角色卡列表（剔除已删除，含运营新建）。hue 由前端按 id 配色。"""
+    """给用户端 App 的角色卡列表（剔除已删除，含运营新建）。hue 由前端按 id 配色。
+    标注并把「默认角色」排到第一位——用户端进来先选它（运营在后台「角色管理」可改默认）。"""
     out: list[dict] = []
+    default_id = load_default_character()
     for cid, s in effective_specs().items():
         ident = s.get("identity", {}) or {}
         persona = s.get("persona", {}) or {}
@@ -236,5 +260,7 @@ def public_characters() -> list[dict]:
             "id": cid, "name": ident.get("name", ""), "desc": ident.get("tagline", ""),
             "traits": persona.get("core_traits", []) or [],
             "bio": persona.get("background_story", ""),
+            "default": cid == default_id,
         })
+    out.sort(key=lambda c: 0 if c.get("default") else 1)  # stable：默认排首位，其余保持原序
     return out

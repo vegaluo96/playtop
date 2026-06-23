@@ -180,6 +180,27 @@ export async function saveCostConfig(cfg: Record<string, any>): Promise<boolean>
   return false;
 }
 
+/** 读取当前默认角色 id（用户端进来先选它）。无后端 → null。 */
+export async function loadDefaultCharacter(): Promise<string | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/default-character`, { credentials: "include", headers: authHeaders() });
+    if (r.ok) { const d = await r.json(); return (d && d.id) || ""; }
+  } catch { /* noop */ }
+  return null;
+}
+/** 设默认角色。返回是否成功。改完用户端下次进来即先选它。 */
+export async function saveDefaultCharacter(id: string): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/default-character`, { method: "PUT", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ id }) });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
+}
+
 /** 删除兑换码。返回是否成功。 */
 export async function deleteRedeemCode(code: string): Promise<boolean> {
   const b = base();

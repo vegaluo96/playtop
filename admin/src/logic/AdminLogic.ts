@@ -14,6 +14,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
          loadRedeemCodes, createRedeemCode, deleteRedeemCode,
          createCharacter, deleteCharacter, generateCharacter,
+         loadDefaultCharacter, saveDefaultCharacter,
          loadCostConfig, saveCostConfig, usingBackend } from "./configService";
 
 export interface AdminProps {
@@ -51,6 +52,7 @@ export class AdminLogic {
   realSceneCalls: any = null;   // 接后端后的各场景通话数（null = 用演示）
   realInviteStats: any = null;  // 接后端后的邀请 KPI（null = 用演示）
   redeemCodes: any[] = [];      // 兑换码列表（后台「订单充值」）
+  defaultCharId = "";           // 当前默认角色 cid（用户端进来先选它）
 
   private _t: Timer | undefined;
   private _tt: Timer[] = [];
@@ -59,7 +61,7 @@ export class AdminLogic {
     section: "dashboard", detail: null, query: "", userFilter: "all", sceneTab: "rec", charBio: "", charEdit: {}, replyDraft: "", toast: "", banned: {}, sceneStatus: {}, ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, adminOff: {}, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", exprOpen: null, exprOff: {}, charOff: {}, ioOpen: false, ioMode: "export",
     testVoice: "v1", testChar: "c1", testText: "今天工作压力好大，感觉有点撑不住。", testStage: 0, testRunning: false, testMs: {}, testReply: "", testAsr: "", apiStatus: {},
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
-    costCfg: { chars_per_token: "2", llm_fast: "0.002", llm_slow: "0.01", embedding: "0.0001", tts: "0.02", asr: "0.006" },
+    costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
     apiCfg: {
       // 这些只是「无后端」时的兜底默认；接了后端会被真实配置覆盖。值与 backend/config/default.json 对齐，
       // 避免再出现 DeepSeek-V4-Flash 这类虚名误导。key 留空（不放假占位），由运营填、后端打码回显。
@@ -186,7 +188,20 @@ export class AdminLogic {
       }
       this.setState({}); // 用真实角色数据重渲染
     }
+    const dc = await loadDefaultCharacter();   // 当前默认角色（用户端进来先选它）
+    if (dc != null) { this.defaultCharId = dc; this.setState({}); }
     await this.loadRealData();   // 看板 KPI/用户/通话/订单接 DB（接了后端才覆盖演示数据）
+  }
+
+  /** 设默认角色：用户端下次进来先选它（后端落 default_character.json，下一次拉角色即生效）。 */
+  async setDefaultChar(cid: string) {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    if (!cid) return;
+    const ok = await saveDefaultCharacter(cid);
+    if (!ok) { this.toastMsg("设置失败"); return; }
+    this.defaultCharId = cid;
+    this.setState({});
+    this.toastMsg("已设为默认角色（用户端进来先选它）");
   }
 
   setCost(k: string, v: string) { this.setState((p) => ({ costCfg: { ...(p as any).costCfg, [k]: v } })); }
@@ -649,6 +664,10 @@ export class AdminLogic {
     const charMatched: Record<string, number> = { c1: 230, c2: 96, c3: 142, c4: 61, c5: 58 };
     const charsView = this.chars.filter((c) => !q || (c.name + c.desc + c.bio).toLowerCase().includes(q)).map((c) => ({ ...c, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: genderColor(c.gender),
       voiceId: voiceIdMap[c.id] || "default", voiceMatched: this.realStats ? "—" : (charMatched[c.id] || 0) + " 次匹配", playVoice: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.toastMsg("音色试听功能开发中"); },
+      // 默认角色：用户端进来先选它。当前为默认显徽标；非默认给「设为默认」按钮。
+      isDefault: !!c.cid && c.cid === this.defaultCharId,
+      notDefault: !(!!c.cid && c.cid === this.defaultCharId),
+      setDefault: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.setDefaultChar(c.cid || c.id); },
       status: s.charOff[c.id] ? "已下架" : c.status,
       // NB: stColor/stBg are set by the trailing status-based spread below
       // (it unconditionally overwrites), matching the prototype's exact output.

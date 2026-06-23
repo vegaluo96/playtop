@@ -208,7 +208,7 @@
                 <div style="display:flex;align-items:center;gap:13px;">
                   <div style="width:46px;height:46px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};box-shadow:0 4px 12px rgba(0,0,0,.12);"></div>
                   <div style="flex:1;min-width:0;">
-                    <div style="display:flex;align-items:center;gap:7px;"><span style="font-size:15px;font-weight:600;">{{ c.name }}</span><span style="font-size:11px;font-weight:600;color:{{ c.genderColor }};background:rgba(0,0,0,.04);border-radius:6px;padding:1px 7px;">{{ c.genderAge }}</span></div>
+                    <div style="display:flex;align-items:center;gap:7px;"><span style="font-size:15px;font-weight:600;">{{ c.name }}</span><span style="font-size:11px;font-weight:600;color:{{ c.genderColor }};background:rgba(0,0,0,.04);border-radius:6px;padding:1px 7px;">{{ c.genderAge }}</span><sc-if value="{{ c.isDefault }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:600;color:#6E5CFF;background:rgba(110,92,255,.12);border-radius:6px;padding:1px 7px;">默认</span></sc-if></div>
                     <div style="font-size:12.5px;color:#9A9DA7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">{{ c.desc }}</div>
                   </div>
                   <span style="font-size:11.5px;font-weight:600;color:{{ c.stColor }};background:{{ c.stBg }};border-radius:7px;padding:2px 8px;">{{ c.status }}</span>
@@ -230,6 +230,12 @@
                     <span style="font-size:12px;color:#878B95;">通话 <b style="color:#16161A;font-variant-numeric:tabular-nums;">{{ c.calls }}</b></span>
                     <span style="font-size:12px;color:#878B95;">被收藏 <b style="color:#16161A;font-variant-numeric:tabular-nums;">{{ c.favs }}</b></span>
                     <span style="flex:1;"></span>
+                    <sc-if value="{{ c.notDefault }}" hint-placeholder-val="{{ true }}">
+                      <div onClick="{{ c.setDefault }}" style="font-size:11.5px;font-weight:600;color:#6E5CFF;background:rgba(110,92,255,.09);border-radius:8px;padding:5px 12px;cursor:pointer;" style-active="transform:scale(.95)">设为默认</div>
+                    </sc-if>
+                    <sc-if value="{{ c.isDefault }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-size:11.5px;font-weight:600;color:#9A9DA7;background:#F2F2F5;border-radius:8px;padding:5px 12px;">当前默认</div>
+                    </sc-if>
                     <div onClick="{{ c.offToggle }}" style="font-size:11.5px;font-weight:600;color:{{ c.offColor }};background:{{ c.offBg }};border-radius:8px;padding:5px 12px;cursor:pointer;" style-active="transform:scale(.95)">{{ c.offLabel }}</div>
                   </div>
                 </div>

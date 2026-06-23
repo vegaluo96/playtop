@@ -159,7 +159,10 @@ export class MiCallLogic {
       hue: HUE[c.id] ?? ((i * 47) % 360),
     }));
     this._charsBuilt = true;
-    if (this.state.charIndex >= this.chars.length) this.state.charIndex = 0;
+    // 默认角色（运营在后台设、后端把它标 default 并排首位）：进来先选它。
+    const di = list.findIndex((c: any) => c && c.default);
+    if (di >= 0) this.state.charIndex = di;
+    else if (this.state.charIndex >= this.chars.length) this.state.charIndex = 0;
     this.notify();
   }
 
