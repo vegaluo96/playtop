@@ -6,9 +6,14 @@
 # 信令服务器（WebSocket）。骨架的 server 层用它。
 websockets>=12.0
 
+# Provider 真实 HTTP 调用（apiyi / 百炼 / MiniMax）。
+httpx>=0.27
+
+# Postgres 持久化（配了 database.dsn 才用；未装/未配则回退内存仓储）。
+# pgvector 用裸 SQL 的 ::vector 转换，无需额外 python 包。
+psycopg[binary,pool]>=3.1
+
 # —— 以下为真实接入时启用（骨架用 stub + 标准库，不强制安装）——
-# httpx>=0.27            # provider 真实 HTTP 调用（apiyi / 百炼 / MiniMax）
-# asyncpg>=0.29          # Postgres 连接（事实层 + 理解层）
-# pgvector>=0.3          # 向量检索
+# pipecat-ai>=0.0.40     # 实时编排框架（WebRTC + VAD + ASR/LLM/TTS 流式串接 + 打断）
 # pipecat-ai>=0.0.40     # 实时编排框架（WebRTC + VAD + ASR/LLM/TTS 流式串接 + 打断）
 #   或 livekit-agents    # 备选实时编排框架

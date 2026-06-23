@@ -16,7 +16,7 @@ from typing import Any
 
 from ..config import Config, load_config, resolve_voice
 from ..context import CharacterRuntime, ContextAssembler
-from ..memory import InMemoryRepository, MemoryRepository
+from ..memory import MemoryRepository, make_repository
 from ..offline import UnderstandingEngine
 from ..protocol import ServerEvent, parse_client_message
 from ..providers import make_embedding, make_llm, make_realtime_asr, make_tts
@@ -46,8 +46,14 @@ def _load_characters() -> dict[str, CharacterRuntime]:
 class SignalingServer:
     def __init__(self, config: Config, repo: MemoryRepository | None = None) -> None:
         self.config = config
-        self.repo = repo or InMemoryRepository()
+        self.repo = repo or make_repository(config)   # 配了 database.dsn → Postgres 持久化，否则内存
         self.characters = _load_characters()
+        # 出厂角色写入存储（facts/profile 的 FK 前置）；内存实现为 no-op。
+        try:
+            from .characters_admin import effective_specs
+            self.repo.seed_characters(effective_specs())
+        except Exception as e:
+            log.warning("角色 seed 失败：%r", e)
         # 离线理解引擎（§3.3）每次会话结束按当前配置新建（慢脑 llm_slow + 向量化 embedding），
         # 这样 admin 改了「接口配置」即时生效；后台触发，不碰实时路径。
         self._bg_tasks: set[asyncio.Task] = set()

@@ -21,9 +21,20 @@ CREATE TABLE IF NOT EXISTS characters (
 CREATE TABLE IF NOT EXISTS users (
     user_id            TEXT PRIMARY KEY,
     email              TEXT UNIQUE,
-    remaining_seconds  INTEGER NOT NULL DEFAULT 0,  -- 服务端权威计费余额（§5）
+    password_hash      TEXT NOT NULL DEFAULT '',     -- 注册/登录（pbkdf2，见 auth.py）；游客留空
+    display_name       TEXT NOT NULL DEFAULT '',
+    remaining_seconds  INTEGER NOT NULL DEFAULT 0,   -- 服务端权威计费余额（§5）
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- 登录会话（token → user_id）。前端带 Authorization: Bearer <token> 访问个人接口。
+CREATE TABLE IF NOT EXISTS sessions (
+    token       TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(user_id),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions (user_id);
 
 -- ─────────────────── 事实层（客观、只增、可检索 · pgvector）───────────────────
 CREATE TABLE IF NOT EXISTS facts (
@@ -79,3 +90,21 @@ CREATE TABLE IF NOT EXISTS billing_ledger (
     reason        TEXT NOT NULL,                   -- call / recharge / invite_reward / register_gift
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ───────────────────────── 充值订单（支付）─────────────────────────
+-- 真实支付接入时由网关回调把 status 置 paid 并写 billing_ledger（+seconds）。
+CREATE TABLE IF NOT EXISTS orders (
+    order_id     TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL REFERENCES users(user_id),
+    plan         TEXT NOT NULL,                    -- 套餐标识
+    amount_cents INTEGER NOT NULL,                 -- 金额（分）
+    seconds      INTEGER NOT NULL,                 -- 到账时长
+    status       TEXT NOT NULL DEFAULT 'pending',  -- pending / paid / failed / refunded
+    provider     TEXT NOT NULL DEFAULT '',         -- alipay / wechat / stripe …
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    paid_at      TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS orders_user_idx ON orders (user_id, created_at DESC);
+
+-- facts.embedding 的维度必须等于所配 Embedding 模型的输出维度（后台「测试连接」会显示维度）；
+-- text-embedding-v4 / v3 默认 1024。换了模型/维度需 ALTER 该列并重建索引（旧向量作废）。

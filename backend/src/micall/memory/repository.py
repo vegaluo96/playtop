@@ -56,6 +56,12 @@ class MemoryRepository(ABC):
         """忘记这段关系：清空该 user×char 的事实层 + 理解层（画像/关系/策略）。前端「重置记忆」。
         不动出厂角色定义与用户自定义音色。子类按存储实现。"""
 
+    def seed_characters(self, specs: dict) -> None:
+        """把出厂角色写入存储（facts/profile 的 FK 前置）。内存实现无需，DB 实现覆写。"""
+
+    def ensure_user(self, user_id: str, **kw) -> None:
+        """确保用户行存在（FK 前置）。内存实现无需，DB 实现覆写。"""
+
     # ── 理解层 ──
     @abstractmethod
     def get_profile(self, user_id: str, character_id: str) -> UserProfile: ...
