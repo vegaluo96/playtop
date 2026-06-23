@@ -44,6 +44,7 @@ export class AdminLogic {
   notifs: any[];
   realStats: any = null;        // 接后端后的首页 KPI（null = 用演示数据）
   realTopChars: any[] | null = null;  // 接后端后的热门角色排名
+  realTrends: any = null;       // 接后端后的通话量趋势（null = 用演示）
   redeemCodes: any[] = [];      // 兑换码列表（后台「订单充值」）
 
   private _t: Timer | undefined;
@@ -262,7 +263,11 @@ export class AdminLogic {
       loadDashboard(), loadUsers(), loadCalls(), loadOrders(), loadTickets(), loadInvites(), loadRedeemCodes(),
     ]);
     if (codes) this.redeemCodes = codes;
-    if (dash) { this.realStats = dash.stats; this.realTopChars = dash.top_characters || []; }
+    if (dash) {
+      this.realStats = dash.stats; this.realTopChars = dash.top_characters || [];
+      if (dash.trends) this.realTrends = dash.trends;
+      if (dash.char_calls) for (const c of this.chars) { const n = dash.char_calls[c.cid] ?? dash.char_calls[c.id]; if (n != null) c.calls = String(n); }
+    }
     const GRADS = ["linear-gradient(140deg,#A78BFF,#6E5CFF)", "linear-gradient(140deg,#FF8FC8,#FF4FA0)",
                    "linear-gradient(140deg,#5BE0A0,#1FA971)", "linear-gradient(140deg,#6FC8FF,#2E7BFF)",
                    "linear-gradient(140deg,#FFB36B,#F5821F)"];
@@ -567,13 +572,18 @@ export class AdminLogic {
       { label: "总通话时长", value: "8,640h", delta: "+6.1%", up: true, note: "本月累计" },
       { label: "本月收入", value: "$48,920", delta: "+9.7%", up: true, note: "会员订阅" },
     ]).map((k) => ({ ...k, deltaColor: k.up ? "#1FA971" : "#E0594F", deltaBg: k.up ? "rgba(31,169,113,.1)" : "rgba(224,89,79,.1)" }));
-    const trendSets: Record<string, any> = {
-      today: { title: "今日通话量（按小时）", data: [{ day: "0时", v: 120 }, { day: "4时", v: 60 }, { day: "8时", v: 280 }, { day: "12时", v: 430 }, { day: "16时", v: 520 }, { day: "20时", v: 790 }, { day: "现在", v: 540 }] },
-      "7d": { title: "近 7 日通话量", data: [{ day: "周一", v: 2480 }, { day: "周二", v: 2710 }, { day: "周三", v: 2390 }, { day: "周四", v: 2950 }, { day: "周五", v: 3180 }, { day: "周六", v: 3620 }, { day: "周日", v: 3219 }] },
-      "30d": { title: "近 30 日通话量（按周）", data: [{ day: "第1周", v: 16800 }, { day: "第2周", v: 18200 }, { day: "第3周", v: 19500 }, { day: "第4周", v: 21300 }] },
+    const trendTitles: Record<string, string> = { today: "今日通话量（按小时）", "7d": "近 7 日通话量", "30d": "近 30 日通话量（按周）" };
+    const trendSets: Record<string, any> = this.realTrends ? {
+      today: { title: trendTitles.today, data: this.realTrends.today || [] },
+      "7d": { title: trendTitles["7d"], data: this.realTrends["7d"] || [] },
+      "30d": { title: trendTitles["30d"], data: this.realTrends["30d"] || [] },
+    } : {
+      today: { title: trendTitles.today, data: [{ day: "0时", v: 120 }, { day: "4时", v: 60 }, { day: "8时", v: 280 }, { day: "12时", v: 430 }, { day: "16时", v: 520 }, { day: "20时", v: 790 }, { day: "现在", v: 540 }] },
+      "7d": { title: trendTitles["7d"], data: [{ day: "周一", v: 2480 }, { day: "周二", v: 2710 }, { day: "周三", v: 2390 }, { day: "周四", v: 2950 }, { day: "周五", v: 3180 }, { day: "周六", v: 3620 }, { day: "周日", v: 3219 }] },
+      "30d": { title: trendTitles["30d"], data: [{ day: "第1周", v: 16800 }, { day: "第2周", v: 18200 }, { day: "第3周", v: 19500 }, { day: "第4周", v: 21300 }] },
     };
     const tset = trendSets[s.dateRange] || trendSets["7d"];
-    const tmax = Math.max(...tset.data.map((t: any) => t.v));
+    const tmax = Math.max(1, ...tset.data.map((t: any) => t.v));
     const trend = tset.data.map((t: any) => ({ day: t.day, val: t.v.toLocaleString(), h: Math.round(t.v / tmax * 100) + "%" }));
     const trendTitle = tset.title;
     const dateChips = ([["today", "今日"], ["7d", "近 7 日"], ["30d", "近 30 日"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ dateRange: k }), bg: s.dateRange === k ? "#16161A" : "#fff", color: s.dateRange === k ? "#fff" : "#5A5E6B", border: s.dateRange === k ? "#16161A" : "#E6E7EB" }));

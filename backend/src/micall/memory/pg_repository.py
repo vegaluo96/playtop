@@ -469,6 +469,42 @@ class PgRepository(MemoryRepository):
             log.warning("top_characters 失败：%r", e)
             return []
 
+    def character_call_counts(self) -> dict:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute("SELECT character_id, count(*) FROM calls GROUP BY character_id").fetchall()
+            return {r[0]: int(r[1]) for r in rows}
+        except Exception as e:
+            log.warning("character_call_counts 失败：%r", e)
+            return {}
+
+    def call_trends(self) -> dict:
+        from datetime import date, timedelta
+        out = {"today": [], "7d": [], "30d": []}
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT (floor(extract(hour from started_at)/4)*4)::int h, count(*) "
+                    "FROM calls WHERE started_at::date = current_date GROUP BY h"
+                ).fetchall()
+                hm = {int(r[0]): int(r[1]) for r in rows}
+                rows = c.execute(
+                    "SELECT started_at::date d, count(*) FROM calls "
+                    "WHERE started_at >= current_date - 29 GROUP BY d"
+                ).fetchall()
+                daily = {r[0]: int(r[1]) for r in rows}
+            out["today"] = [{"day": f"{h}时", "v": hm.get(h, 0)} for h in (0, 4, 8, 12, 16, 20)]
+            today = date.today()
+            out["7d"] = [{"day": f"{(today - timedelta(days=i)).month}/{(today - timedelta(days=i)).day}",
+                          "v": daily.get(today - timedelta(days=i), 0)} for i in range(6, -1, -1)]
+            for w in range(3, -1, -1):
+                s = today - timedelta(days=(w + 1) * 7 - 1)
+                e = today - timedelta(days=w * 7)
+                out["30d"].append({"day": f"第{4 - w}周", "v": sum(n for d, n in daily.items() if s <= d <= e)})
+        except Exception as e:
+            log.warning("call_trends 失败：%r", e)
+        return out
+
     # ── 兑换码 ──
     def create_redeem_codes(self, count, seconds) -> list[str]:
         import secrets

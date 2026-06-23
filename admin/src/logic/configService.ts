@@ -133,15 +133,16 @@ async function getList(path: string, key: string): Promise<any[] | null> {
   return null;
 }
 
-/** 首页 KPI + 热门角色。无后端/失败 → null。 */
-export async function loadDashboard(): Promise<{ stats: any; top_characters: any[] } | null> {
+/** 首页 KPI + 热门角色 + 趋势 + 每角色通话数。无后端/失败 → null。 */
+export async function loadDashboard(): Promise<{ stats: any; top_characters: any[]; trends: any; char_calls: any } | null> {
   const b = base();
   if (!b) return null;
   try {
     const r = await fetch(`${b}/admin/stats`, { credentials: "include", headers: authHeaders() });
     if (r.ok) {
       const d = (await r.json()) as Record<string, any>;
-      if (d && d.ok) return { stats: d.stats || {}, top_characters: d.top_characters || [] };
+      if (d && d.ok) return { stats: d.stats || {}, top_characters: d.top_characters || [],
+                              trends: d.trends || null, char_calls: d.char_calls || null };
     }
   } catch {
     /* 退回演示 */

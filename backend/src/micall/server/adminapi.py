@@ -272,7 +272,9 @@ class _Handler(BaseHTTPRequestHandler):
             if _REPO is None:
                 return self._json(200, {"ok": False, "error": "no repo"})
             return self._json(200, {"ok": True, "stats": _REPO.admin_stats(),
-                                    "top_characters": _REPO.top_characters(limit=5)})
+                                    "top_characters": _REPO.top_characters(limit=5),
+                                    "trends": _REPO.call_trends(),
+                                    "char_calls": _REPO.character_call_counts()})
         if self._route() == "/admin/users":
             if _REPO is None:
                 return self._json(200, {"ok": False, "users": []})

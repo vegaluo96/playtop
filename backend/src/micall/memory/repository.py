@@ -158,6 +158,14 @@ class MemoryRepository(ABC):
         """按通话量排名的角色：{character_id, calls}。后台首页「热门角色」。"""
         return []
 
+    def character_call_counts(self) -> dict:
+        """每个角色的真实通话数 {character_id: count}。后台「角色」列表统计。"""
+        return {}
+
+    def call_trends(self) -> dict:
+        """通话量趋势（从 calls 真实聚合）：{today:[{day,v}], "7d":[...], "30d":[...]}。后台首页图表。"""
+        return {"today": [], "7d": [], "30d": []}
+
     # ── 兑换码（P5：后台生成、用户核销充值）──
     def create_redeem_codes(self, count: int, seconds: int) -> list[str]:
         """批量生成兑换码（每个值 seconds），返回码列表。后台「兑换码」用。"""
@@ -414,6 +422,32 @@ class InMemoryRepository(MemoryRepository):
         from collections import Counter
         cnt = Counter(c["character_id"] for c in self._calls)
         return [{"character_id": cid, "calls": n} for cid, n in cnt.most_common(limit)]
+
+    def character_call_counts(self) -> dict:
+        from collections import Counter
+        return dict(Counter(c["character_id"] for c in self._calls))
+
+    def call_trends(self) -> dict:
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        ds = []
+        for c in self._calls:
+            try:
+                ds.append(datetime.fromisoformat(c["started_at"]))
+            except (ValueError, TypeError):
+                pass
+        today = now.date()
+        today_calls = [d for d in ds if d.date() == today]
+        today_series = [{"day": f"{h}时", "v": sum(1 for d in today_calls if h <= d.hour < h + 4)}
+                        for h in (0, 4, 8, 12, 16, 20)]
+        d7 = [{"day": f"{(now - timedelta(days=i)).month}/{(now - timedelta(days=i)).day}",
+               "v": sum(1 for d in ds if d.date() == (now - timedelta(days=i)).date())} for i in range(6, -1, -1)]
+        d30 = []
+        for w in range(3, -1, -1):
+            s = (now - timedelta(days=(w + 1) * 7 - 1)).date()
+            e = (now - timedelta(days=w * 7)).date()
+            d30.append({"day": f"第{4 - w}周", "v": sum(1 for d in ds if s <= d.date() <= e)})
+        return {"today": today_series, "7d": d7, "30d": d30}
 
     # ── 兑换码（内存）──
     def create_redeem_codes(self, count, seconds) -> list[str]:
