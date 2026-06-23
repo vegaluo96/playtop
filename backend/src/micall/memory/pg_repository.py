@@ -226,6 +226,28 @@ class PgRepository(MemoryRepository):
         except Exception as e:
             log.warning("set_user_voice 失败：%r", e)
 
+    def list_user_voices(self, user_id) -> dict[str, str]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT character_id, voice_id FROM user_voice WHERE user_id=%s",
+                    (user_id,),
+                ).fetchall()
+            return {r[0]: r[1] for r in rows}
+        except Exception as e:
+            log.warning("list_user_voices 失败：%r", e)
+            return {}
+
+    def clear_user_voice(self, user_id, character_id) -> None:
+        try:
+            with self.pool.connection() as c:
+                c.execute(
+                    "DELETE FROM user_voice WHERE user_id=%s AND character_id=%s",
+                    (user_id, character_id),
+                )
+        except Exception as e:
+            log.warning("clear_user_voice 失败：%r", e)
+
     # ── 角色自主状态（存 characters.autonomous）──
     def get_autonomous(self, character_id) -> AutonomousState:
         try:

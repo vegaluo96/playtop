@@ -82,6 +82,16 @@ class MemoryRepository(ABC):
     @abstractmethod
     def set_user_voice(self, user_id: str, character_id: str, voice_id: str, label: str = "") -> None: ...
 
+    @abstractmethod
+    def list_user_voices(self, user_id: str) -> dict[str, str]:
+        """该用户全部「角色→已选音色」映射（{character_id: voice_id}）。用于用户端音色页跨设备回显选中态。"""
+        ...
+
+    @abstractmethod
+    def clear_user_voice(self, user_id: str, character_id: str) -> None:
+        """清掉该用户对某角色的音色覆盖 → 通话回退角色出厂默认音色（用户端「原本音色」）。"""
+        ...
+
     # ── 角色自主状态（§4.1，per-character，独立于用户）──
     @abstractmethod
     def get_autonomous(self, character_id: str) -> AutonomousState: ...
@@ -335,6 +345,12 @@ class InMemoryRepository(MemoryRepository):
 
     def set_user_voice(self, user_id: str, character_id: str, voice_id: str, label: str = "") -> None:
         self._voices[(user_id, character_id)] = voice_id
+
+    def list_user_voices(self, user_id: str) -> dict[str, str]:
+        return {cid: vid for (uid, cid), vid in self._voices.items() if uid == user_id}
+
+    def clear_user_voice(self, user_id: str, character_id: str) -> None:
+        self._voices.pop((user_id, character_id), None)
 
     def get_autonomous(self, character_id: str) -> AutonomousState:
         return self._autonomous.get(character_id, AutonomousState())

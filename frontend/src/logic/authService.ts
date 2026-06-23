@@ -93,9 +93,40 @@ export async function getInvite(): Promise<{ code: string; invited: number; rewa
   return j && j.ok ? j.invite : null;
 }
 
-/** 角色音色试听 WAV 地址（真实 TTS 合成，非占位动画）。前端 new Audio(url) 直接播。 */
-export function voicePreviewUrl(characterId: string): string {
-  return BASE + "/api/voice-preview?c=" + encodeURIComponent(characterId || "");
+/** 角色音色试听 WAV 地址（真实 TTS 合成，非占位动画）。带 voiceId 则试听该指定音色，否则角色默认。 */
+export function voicePreviewUrl(characterId: string, voiceId = ""): string {
+  let u = BASE + "/api/voice-preview?c=" + encodeURIComponent(characterId || "");
+  if (voiceId) u += "&v=" + encodeURIComponent(voiceId);
+  return u;
+}
+
+export interface Voice { voice_id: string; name: string; gender: string; group: string; lang?: string; engine?: string; }
+
+/** 真实可选音色库（MiniMax 系统音色）+ 我每个角色已选音色（登录才有 mine，跨设备一致）。失败 → null。 */
+export async function getVoices(): Promise<{ voices: Voice[]; mine: Record<string, string> } | null> {
+  try {
+    const tok = getToken();
+    const r = await fetch(BASE + "/api/voices", tok ? { headers: { Authorization: "Bearer " + tok } } : undefined);
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j || !j.ok || !Array.isArray(j.voices)) return null;
+    return { voices: j.voices as Voice[], mine: (j.mine && typeof j.mine === "object") ? j.mine : {} };
+  } catch { return null; }
+}
+
+/** 设定本账号某角色的音色（账号级、跨设备一致，下一通即生效）。需登录。返回是否成功。 */
+export async function setUserVoice(characterId: string, voiceId: string): Promise<boolean> {
+  const tok = getToken();
+  if (!tok || !characterId || !voiceId) return false;
+  try {
+    const r = await fetch(BASE + "/api/voice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+      body: JSON.stringify({ character_id: characterId, voice_id: voiceId }),
+    });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
 }
 
 /** 后台配置的邀请奖励（分钟）—— 公开接口，登录与否都返回真实值。失败 → null。 */

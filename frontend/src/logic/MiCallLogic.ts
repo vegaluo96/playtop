@@ -74,7 +74,7 @@ export class MiCallLogic {
     // 之前为撑满目录生成的占位角色已移除——不上线假角色。新角色做好 spec 后加进上面的 chars 即可。
   }
 
-  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, setSound: true, setVibrate: true, setSubtitle: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", genVoicesByChar: {}, pendingVoiceDel: null, cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, voiceCustomOpen: false, voiceCustomText: "", lowWarned: false, micGranted: false, permOpen: false, callFailed: false, remaining: 60, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false };
+  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 60, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false };
 
   t: Timer[] = [];
   i = 0;
@@ -96,6 +96,10 @@ export class MiCallLogic {
   invites: any[] = [];
 
   history: any[] = [];
+
+  // 真实可选音色库（MiniMax 系统音色）+ 我每个角色已选音色（账号级，跨设备回显选中态）。
+  private voiceLib: authApi.Voice[] = [];
+  private myVoices: Record<string, string> = {};
 
   // scenarioDefs[].lines: static design copy only (slogan source); NOT replayed.
   scenarioDefs: ScenarioDef[] = [
@@ -146,7 +150,6 @@ export class MiCallLogic {
       if (typeof p.lang === "string") this.state.lang = p.lang;
       if (typeof p.speaker === "boolean") this.state.speaker = p.speaker;
       if (p.voiceByChar && typeof p.voiceByChar === "object") this.state.voiceByChar = p.voiceByChar;
-      if (p.genVoicesByChar && typeof p.genVoicesByChar === "object") this.state.genVoicesByChar = p.genVoicesByChar;
       if (Array.isArray(p.customHistory)) this.state.customHistory = p.customHistory.slice(0, 8);
       if (typeof p.autoHangupMin === "number" && p.autoHangupMin >= 0) this.state.autoHangupMin = p.autoHangupMin;
     } catch { /* noop */ }
@@ -156,7 +159,7 @@ export class MiCallLogic {
       const s = this.state;
       localStorage.setItem("micall_prefs", JSON.stringify({
         theme: s.theme, lang: s.lang, speaker: s.speaker,
-        voiceByChar: s.voiceByChar, genVoicesByChar: s.genVoicesByChar,
+        voiceByChar: s.voiceByChar,
         customHistory: s.customHistory, autoHangupMin: s.autoHangupMin,
       }));
     } catch { /* noop */ }
@@ -201,6 +204,14 @@ export class MiCallLogic {
     this.restoreSession();   // 用存的 token 恢复登录态 + 真实余额（接了后端才生效）
     this.loadCharacters();   // 从后端拉角色（含运营新建、剔除已删除）；失败保留内置 5 个
     this.loadInviteReward(); // 后台配置的邀请奖励（公开接口）：登录与否都显示真实值，不再写死 60
+    this.loadVoices();       // 真实音色库 + 我已选音色（角色详情「音色」区据此选/试听，账号级生效）
+  }
+
+  /** 拉真实可选音色库 + 我每个角色的已选音色。失败则库空（音色区只显「原本音色」，不崩）。 */
+  private async loadVoices() {
+    if (!authApi.authConfigured()) return;
+    const v = await authApi.getVoices();
+    if (v) { this.voiceLib = v.voices; this.myVoices = v.mine || {}; this.notify(); }
   }
 
   /** 接后端则用后端角色列表（运营在后台可新建/删除）；演示或失败时保留内置 5 个真角色。 */
@@ -249,7 +260,7 @@ export class MiCallLogic {
 
   // ── 音色试听（真实）：拉后端用该角色真实 voice_id 合成的 WAV 播放，不是占位动画 ──
   private previewAudio: HTMLAudioElement | null = null;
-  private playPreview(ci: number) {
+  private playPreview(ci: number, voiceId = "") {
     const cid = this.chars[ci]?.id || "";
     this.setState({ previewing: ci });
     const done = () => this.setState((s) => (s.previewing === ci ? { previewing: null } : {}));
@@ -257,7 +268,9 @@ export class MiCallLogic {
     if (!authApi.authConfigured() || !cid) { this.t.push(setTimeout(done, 1400)); return; }
     try { this.previewAudio?.pause(); } catch { /* noop */ }
     try {
-      const a = new Audio(authApi.voicePreviewUrl(cid) + "&t=" + Date.now());
+      // voiceId 非空（default 视为空）→ 试听该指定音色；否则角色默认音色。
+      const vid = voiceId && voiceId !== "default" ? voiceId : "";
+      const a = new Audio(authApi.voicePreviewUrl(cid, vid) + "&t=" + Date.now());
       this.previewAudio = a;
       a.onended = done; a.onerror = done;
       a.play().catch(done);
@@ -265,12 +278,28 @@ export class MiCallLogic {
     } catch { done(); }
   }
 
+  /** 角色 ci 当前生效音色：账号级（myVoices，跨设备）优先，回退本地选择，再回退「原本音色」。 */
+  private selectedVoice(ci: number): string {
+    const cid = this.characterId(ci);
+    return this.myVoices[cid] ?? this.state.voiceByChar[ci] ?? "default";
+  }
+
+  /** 选定角色 ci 的音色：本地即时高亮 + 持久化 + 写后端（账号级、下一通即生效）+ 试听该音色。 */
+  private pickVoice(ci: number, voiceId: string) {
+    const cid = this.characterId(ci);
+    this.myVoices = { ...this.myVoices, [cid]: voiceId };   // 即时高亮（与后端最终一致）
+    this.setState((s) => ({ voiceByChar: { ...s.voiceByChar, [ci]: voiceId } }));
+    this.savePrefs();
+    void authApi.setUserVoice(cid, voiceId);   // "default" → 后端清覆盖回退出厂；其余 → 落库
+    this.playPreview(ci, voiceId);
+  }
+
   /** 刷新后凭 localStorage 的 token 向后端核验登录态，拉回邮箱与真实余额。 */
   private async restoreSession() {
     if (!authApi.authConfigured()) return;
     try {
       const u = await authApi.me();
-      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds }); this.loadHistory(); return; }
+      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds }); this.loadHistory(); this.loadVoices(); return; }
     } catch { /* 离线/后端不可达：维持游客态 */ }
     // 游客：按 IP 拉真实剩余试用（刷新不重置，防刷）。用完显示 0 → 通话即提示注册。
     const g = await authApi.getGuestTrial();
@@ -373,9 +402,11 @@ export class MiCallLogic {
       remaining: res.remaining_seconds ?? this.state.remaining,
       outOfMins: (res.remaining_seconds ?? 1) <= 0 ? this.state.outOfMins : false,
       toast: res.message || "充值成功" });
-    this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+    this.clearToastSoon(2200);
   }
-  private toast(msg: string) { this.setState({ toast: msg }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 2000)); }
+  private toast(msg: string, ms = 2000) { this.setState({ toast: msg }); this.clearToastSoon(ms); }
+  /** ms 后自动清空 toast（已清则跳过一次多余渲染）。集中这一处定时清除，免到处复写样板。 */
+  private clearToastSoon(ms = 2000) { this.t.push(setTimeout(() => this.setState((s) => (s.toast ? { toast: "" } : {})), ms)); }
 
   private async loadBills() {
     if (!authApi.authConfigured() || !this.state.loggedIn) { this.realBills = null; return; }
@@ -459,7 +490,7 @@ export class MiCallLogic {
       if (!this.callActive()) return;
       this.endCall();
       this.setState({ toast: "长时间无人说话，已自动挂断" });
-      this.t.push(setTimeout(() => this.setState({ toast: "" }), 2600));
+      this.clearToastSoon(2600);
     }, mins * 60 * 1000);
   }
 
@@ -487,7 +518,7 @@ export class MiCallLogic {
       s.termsOpen || s.privacyOpen || s.moreOpen || s.authOpen || s.pwResetOpen || s.autoHangupOpen;
     // 中心模态/对话框（权限、呼叫失败、时长耗尽、切换确认、删除确认…）期间不接管手势。
     const modal =
-      s.permOpen || s.callFailed || s.outOfMins || s.pendingSwitch || s.pendingVoiceDel ||
+      s.callFailed || s.outOfMins || s.pendingSwitch ||
       s.logoutConfirmOpen || s.resetOpen || s.histDelConfirm;
     return { menuOpen: !!s.menuOpen, historyOpen: !!s.historyOpen, sheetOpen: !!sheetOpen, modal: !!modal };
   }
@@ -757,7 +788,7 @@ export class MiCallLogic {
         break;
       case "low_minutes":
         this.setState({ lowWarned: true, toast: "时长仅剩 1 分钟" });
-        this.t.push(setTimeout(() => this.setState({ toast: "" }), 2400));
+        this.clearToastSoon(2400);
         break;
       case "out_of_minutes":
         this.clearTimers();
@@ -949,18 +980,20 @@ export class MiCallLogic {
         previewing: this.state.previewing === this.state.charIndex,
         notPreviewing: this.state.previewing !== this.state.charIndex,
         previewLabel: this.state.previewing === this.state.charIndex ? "正在试听…" : "试听声音",
-        previewVoice: () => { this.playPreview(this.state.charIndex); },
+        previewVoice: () => { this.playPreview(this.state.charIndex, this.selectedVoice(this.state.charIndex)); },
         ...this.profileOf(this.state.charIndex),
         voiceChips: (() => {
           const ci = this.state.charIndex;
-          const gen = this.state.genVoicesByChar[ci] || [];
-          const sel = this.state.voiceByChar[ci] ?? "default";
-          const mk = (nm: string, key: string, rm: boolean) => ({ name: nm, removable: !!rm, sel: sel === key, bg: sel === key ? "rgba(110,92,255,.12)" : "var(--ctrl)", color: sel === key ? "#6E5CFF" : "var(--fg)", pick: () => { this.setState((s) => ({ voiceByChar: { ...s.voiceByChar, [ci]: key } })); this.savePrefs(); this.playPreview(ci); }, remove: (e: any) => { if (e) e.stopPropagation(); this.setState({ pendingVoiceDel: { ci, key } }); } });
-          return [mk("原本音色", "default", false), ...gen.map((g: string) => mk(g, g, true))];
+          const sel = this.selectedVoice(ci);   // 当前生效音色（账号级 myVoices 优先，回退本地）
+          const mk = (name: string, key: string) => ({
+            name, sel: sel === key,
+            bg: sel === key ? "rgba(110,92,255,.12)" : "var(--ctrl)",
+            color: sel === key ? "#6E5CFF" : "var(--fg)",
+            pick: () => this.pickVoice(ci, key),
+          });
+          // 「原本音色」（角色出厂默认）+ 真实音色库（MiniMax 系统音色，名字带性别便于辨识）。
+          return [mk("原本音色", "default"), ...this.voiceLib.map((v) => mk(`${v.name}·${v.gender}`, v.voice_id))];
         })(),
-        voiceCustomText: this.state.voiceCustomText,
-        onVoiceCustom: (e: any) => this.setState({ voiceCustomText: e.target.value }),
-        genVoice: () => { const v = (this.state.voiceCustomText || "").trim(); if (!v) return; const ci = this.state.charIndex; this.setState((s) => { const cur = s.genVoicesByChar[ci] || []; const next = cur.includes(v) ? cur : [...cur, v]; return { genVoicesByChar: { ...s.genVoicesByChar, [ci]: next }, voiceByChar: { ...s.voiceByChar, [ci]: v }, voiceCustomText: "", toast: "音色已添加" }; }); this.savePrefs(); this.playPreview(ci); this.t.push(setTimeout(() => this.setState({ toast: "" }), 2000)); },
       },
       charDetailOpen: this.state.charDetailOpen,
       charDetailToggle: () => this.setState((s) => ({ charDetailOpen: !s.charDetailOpen })),
@@ -1044,14 +1077,14 @@ export class MiCallLogic {
         this.send({ type: "mute", on: next });
         return { mute: next };
       }),
-      undoLast: () => { this.setState((s) => ({ lines: s.lines.slice(0, -1), toast: "已撤回上一句", moreOpen: false })); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
+      undoLast: () => { this.setState((s) => ({ lines: s.lines.slice(0, -1), toast: "已撤回上一句", moreOpen: false })); this.clearToastSoon(1600); },
       resetMemory: () => {
         // 真清后端记忆（事实层+理解层），不只是清屏；接了真实信令才发，Mock 下静默。
         if (!this.usingMockSignaling()) {
           try { this.send({ type: "reset_memory", character_id: this.characterId(this.state.charIndex) }); } catch { /* 未连接则忽略 */ }
         }
         this.setState({ lines: [], toast: "记忆已重置", resetOpen: false });
-        this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600));
+        this.clearToastSoon(1600);
       },
       askReset: () => this.setState({ resetOpen: true, moreOpen: false }),
       moreOpen: this.state.moreOpen,
@@ -1106,7 +1139,7 @@ export class MiCallLogic {
           const total = t.m * cfg.mult * cfg.off;
           const perMonth = t.m * cfg.off;
           const note = this.state.billing === "month" ? t.tag : ("约 " + fmt(perMonth) + "/月");
-          return { tile: t.tile, iconPath: t.iconPath, name: t.name, mins: t.mins, price: fmt(total), unit: cfg.unit, note, pick: () => { this.setState({ toast: "会员套餐即将上线，当前请用兑换码充值" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200)); } };
+          return { tile: t.tile, iconPath: t.iconPath, name: t.name, mins: t.mins, price: fmt(total), unit: cfg.unit, note, pick: () => { this.setState({ toast: "会员套餐即将上线，当前请用兑换码充值" }); this.clearToastSoon(2200); } };
         });
       })(),
       historyOpen: this.state.historyOpen,
@@ -1147,7 +1180,7 @@ export class MiCallLogic {
         } else {
           this.setState({ toast: "删除失败，请重试" });
         }
-        this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800));
+        this.clearToastSoon(1800);
       },
       pendingSwitch: this.state.pendingSwitch,
       pendingName: this.state.pendingSwitch ? this.chars[this.state.pendingSwitch.idx].name : "",
@@ -1197,7 +1230,6 @@ export class MiCallLogic {
           color: sel ? "#6E5CFF" : "var(--fg)", check: sel ? 1 : 0,
           pick: () => { this.setState({ autoHangupMin: m, autoHangupOpen: false }); this.savePrefs(); this.armAutoHangup(); } };
       }),
-      permOpen: false,   // 自定义麦克风弹窗已移除：点击通话直接走浏览器原生授权（见 startCall）
       callFailed: this.state.callFailed,
       retryDial: () => this.retryDial(),
       dismissFail: () => this.setState({ callFailed: false }),
@@ -1218,14 +1250,14 @@ export class MiCallLogic {
         // 演示模式（未接后端）：保留原本地行为。
         if (!authApi.authConfigured()) {
           this.setState((s) => ({ tickets: [{ type, msg, date: "刚刚", status: "处理中", reply: "" }, ...s.tickets], contactMsg: "", toast: "已提交，回复会显示在下方" }));
-          this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+          this.clearToastSoon(2200);
           return;
         }
         if (!this.state.loggedIn) { this.setState({ contactOpen: false, authOpen: true, authMode: "login", toast: "请先登录再提交" }); return; }
         const res = await authApi.submitTicket(type, msg);
         if (!res.ok) { this.toast(res.error || "提交失败"); return; }
         this.setState({ contactMsg: "", toast: "已提交，回复会显示在下方" });
-        this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+        this.clearToastSoon(2200);
         this.loadTickets();   // 拉回含这条新工单
       },
       ticketList: (this.realTickets ?? this.state.tickets).map((tk: any) => ({ type: tk.type, msg: tk.msg, date: tk.date, status: tk.status, reply: tk.reply, replied: tk.status === "已回复", statusColor: tk.status === "已回复" ? "#33A06B" : "#E0954F", statusBg: tk.status === "已回复" ? "rgba(51,160,107,.14)" : "rgba(224,149,79,.14)" })),
@@ -1250,7 +1282,7 @@ export class MiCallLogic {
         const pw = this.state.authPw || "";
         if (!(/.+@.+\..+/.test(email) && pw.length >= 6)) {
           this.setState({ toast: "请输入有效邮箱和至少 6 位密码" });
-          this.t.push(setTimeout(() => this.setState({ toast: "" }), 2000));
+          this.clearToastSoon(2000);
           return;
         }
         const reg = this.state.authMode === "register";
@@ -1258,7 +1290,7 @@ export class MiCallLogic {
         // 纯演示（未接后端）：保留原前端假登录。
         if (!authApi.authConfigured()) {
           this.setState((s) => ({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: reg ? Math.max(s.remaining, 3600) : s.remaining, toast: okMsg }));
-          this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+          this.clearToastSoon(2200);
           return;
         }
         // 真实后端：打 /api/auth/*，存 token，余额以服务端为准。
@@ -1266,23 +1298,20 @@ export class MiCallLogic {
         const res = reg ? await authApi.register(email, pw, this.pendingInvite) : await authApi.login(email, pw);
         if (!res.ok || !res.token) {
           this.setState({ toast: res.error || "操作失败，请重试" });
-          this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+          this.clearToastSoon(2200);
           return;
         }
         authApi.setToken(res.token);
         if (reg) { this.pendingInvite = ""; try { localStorage.removeItem("micall_invite"); } catch { /* noop */ } }
         this.resetSignaling();   // 让下一通电话带上新 token 重连
         this.setState({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: res.user?.remaining_seconds ?? this.state.remaining, toast: okMsg });
-        this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+        this.loadVoices();       // 登录后拉本账号已选音色 → 音色页跨设备回显一致
+        this.clearToastSoon(2200);
       },
       logout: () => this.setState({ logoutConfirmOpen: true, menuOpen: false }),
       logoutConfirmOpen: this.state.logoutConfirmOpen,
       cancelLogout: () => this.setState({ logoutConfirmOpen: false }),
-      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.realTickets = null; this.realInvite = null; this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
-      pendingVoiceDel: this.state.pendingVoiceDel,
-      pendingVoiceName: this.state.pendingVoiceDel ? this.state.pendingVoiceDel.key : "",
-      cancelVoiceDel: () => this.setState({ pendingVoiceDel: null }),
-      confirmVoiceDel: () => { const pv = this.state.pendingVoiceDel; if (!pv) return; this.setState((s) => { const next = (s.genVoicesByChar[pv.ci] || []).filter((x: string) => x !== pv.key); const vb = { ...s.voiceByChar }; if (vb[pv.ci] === pv.key) vb[pv.ci] = "default"; return { genVoicesByChar: { ...s.genVoicesByChar, [pv.ci]: next }, voiceByChar: vb, pendingVoiceDel: null, toast: "已删除音色" }; }); this.savePrefs(); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1500)); },
+      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.realTickets = null; this.realInvite = null; this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.clearToastSoon(1600); },
       loggedOut: !this.state.loggedIn,
       accountEmail: this.state.authEmail || "已登录用户",
       accountInitial: (this.state.authEmail || "M").trim().charAt(0).toUpperCase(),
@@ -1297,14 +1326,14 @@ export class MiCallLogic {
         const a = this.state.newPw1 || "", b = this.state.newPw2 || "";
         if (a.length < 6) { this.toast("新密码至少 6 位"); return; }
         if (a !== b) { this.toast("两次密码不一致"); return; }
-        if (!authApi.authConfigured()) { this.setState({ pwResetOpen: false, newPw1: "", newPw2: "", toast: "密码已修改" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800)); return; }
+        if (!authApi.authConfigured()) { this.setState({ pwResetOpen: false, newPw1: "", newPw2: "", toast: "密码已修改" }); this.clearToastSoon(1800); return; }
         if (!this.state.loggedIn) { this.setState({ pwResetOpen: false, authOpen: true, authMode: "login", toast: "请先登录" }); return; }
         const res = await authApi.changePassword(a);
         if (!res.ok) { this.toast(res.error || "修改失败"); return; }
         this.setState({ pwResetOpen: false, newPw1: "", newPw2: "", toast: "密码已修改" });
-        this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800));
+        this.clearToastSoon(1800);
       },
-      cancelSub: () => { this.setState({ settingsOpen: false, toast: "订阅将在本周期结束后取消" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200)); },
+      cancelSub: () => { this.setState({ settingsOpen: false, toast: "订阅将在本周期结束后取消" }); this.clearToastSoon(2200); },
       cookieOpen: this.state.cookieOpen,
       acceptCookie: () => this.acceptCookie(),
       privacyOpen: this.state.privacyOpen,
@@ -1317,18 +1346,6 @@ export class MiCallLogic {
       dismissRegPrompt: () => this.setState({ regPromptDismissed: true, regPromptShown: false }),
       settingsOpen: this.state.settingsOpen,
       settingsClose: () => this.setState({ settingsOpen: false }),
-      setSound: this.state.setSound,
-      setVibrate: this.state.setVibrate,
-      setSubtitle: this.state.setSubtitle,
-      setSoundTrack: this.state.setSound ? "#33C376" : "var(--ctrl)",
-      setSoundDot: this.state.setSound ? "translateX(20px)" : "translateX(0)",
-      setVibrateTrack: this.state.setVibrate ? "#33C376" : "var(--ctrl)",
-      setVibrateDot: this.state.setVibrate ? "translateX(20px)" : "translateX(0)",
-      setSubtitleTrack: this.state.setSubtitle ? "#33C376" : "var(--ctrl)",
-      setSubtitleDot: this.state.setSubtitle ? "translateX(20px)" : "translateX(0)",
-      toggleSound: () => this.setState((s) => ({ setSound: !s.setSound })),
-      toggleVibrate: () => this.setState((s) => ({ setVibrate: !s.setVibrate })),
-      toggleSubtitle: () => this.setState((s) => ({ setSubtitle: !s.setSubtitle })),
       favFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, favOpen: true }),
       billFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, billsOpen: true }); this.loadBills(); },
       billsOpen: this.state.billsOpen,

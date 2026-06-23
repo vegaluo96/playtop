@@ -45,6 +45,35 @@ class TestVoiceLibrary(unittest.TestCase):
         self.assertIn(dv, voice_ids())
 
 
+class TestUserVoiceSelection(unittest.TestCase):
+    """用户选音色账号级落库 + 跨设备回显（list_user_voices）。"""
+
+    def test_set_and_list_roundtrip(self):
+        from micall.memory import InMemoryRepository
+
+        repo = InMemoryRepository()
+        repo.set_user_voice("u1", "lin_wan", "female-yujie")
+        repo.set_user_voice("u1", "jiang_ye", "male-qn-jingying")
+        repo.set_user_voice("u2", "lin_wan", "female-shaonv")   # 别的用户不串
+        mine = repo.list_user_voices("u1")
+        self.assertEqual(mine, {"lin_wan": "female-yujie", "jiang_ye": "male-qn-jingying"})
+        self.assertEqual(repo.get_user_voice("u1", "lin_wan"), "female-yujie")
+
+    def test_list_empty_for_unknown_user(self):
+        from micall.memory import InMemoryRepository
+
+        self.assertEqual(InMemoryRepository().list_user_voices("nobody"), {})
+
+    def test_only_real_library_ids_accepted(self):
+        # /api/voice 用 voice_ids() 校验：库里的接受、库外的（含假的自由文本）拒绝。
+        from micall.server.voice_library import voice_ids
+
+        ids = voice_ids()
+        self.assertIn("female-yujie", ids)
+        self.assertNotIn("温柔沙哑的女声", ids)   # 旧假功能写入的自由文本必须被拒
+        self.assertNotIn("", ids)
+
+
 class TestInviteRewardChain(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp()) / "admin_overrides.json"

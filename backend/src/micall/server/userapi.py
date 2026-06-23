@@ -132,6 +132,11 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._audio_wav(preview_wav(character_id=self._query("c"), voice_id=self._query("v")))
             except Exception as e:
                 return self._json(500, {"ok": False, "error": str(e)[:200]})
+        if route == "/api/voices":            # 公开：真实可选音色库（MiniMax 系统音色）+（登录则）我每个角色已选音色
+            from .voice_library import system_voice_library
+            uid = self._uid()                 # 带合法 token 才回显选中态；游客只拿库
+            mine = _REPO.list_user_voices(uid) if uid else {}
+            return self._json(200, {"ok": True, "voices": system_voice_library(), "mine": mine})
         if route == "/api/auth/me":
             return self._json(*_auth.me(_REPO, _bearer(self.headers)))
         if route == "/api/calls":
@@ -199,6 +204,23 @@ class _Handler(BaseHTTPRequestHandler):
             ids = self._body().get("ids")
             n = _REPO.hide_calls(uid, ids if isinstance(ids, list) else [])
             return self._json(200, {"ok": True, "deleted": n})
+        if route == "/api/voice":        # 设定本账号某角色的音色：账号级、跨设备一致，下一通即生效（后端 get_user_voice）
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "未登录"})
+            from .voice_library import voice_ids
+            b = self._body()
+            cid = (b.get("character_id") or "").strip()
+            vid = (b.get("voice_id") or "").strip()
+            if not cid:
+                return self._json(400, {"ok": False, "error": "无效音色"})
+            if vid == "default":                    # 「原本音色」：清掉覆盖 → 通话回退角色出厂默认
+                _REPO.clear_user_voice(uid, cid)
+                return self._json(200, {"ok": True})
+            if vid not in voice_ids():               # 只接受真实库里的 voice_id，杜绝写入用不了的假值
+                return self._json(400, {"ok": False, "error": "无效音色"})
+            _REPO.set_user_voice(uid, cid, vid)
+            return self._json(200, {"ok": True})
         if route == "/api/tickets":      # 提交工单
             uid = self._uid()
             if not uid:
