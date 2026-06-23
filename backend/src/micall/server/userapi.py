@@ -92,6 +92,16 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(*_auth.login(_REPO, b.get("email"), b.get("password")))
         if route == "/api/auth/logout":
             return self._json(*_auth.logout(_REPO, _bearer(self.headers)))
+        if route == "/api/redeem":
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "请先登录"})
+            code = (self._body().get("code") or "").strip()
+            if not code:
+                return self._json(400, {"ok": False, "error": "请输入兑换码"})
+            ok, remaining, msg = _REPO.redeem_code(uid, code)
+            return self._json(200, {"ok": ok, "error": None if ok else msg,
+                                    "message": msg, "remaining_seconds": remaining})
         self._json(404, {"error": "not found"})
 
     def log_message(self, *args) -> None:  # 静默

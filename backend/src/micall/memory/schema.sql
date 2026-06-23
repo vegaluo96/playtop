@@ -106,5 +106,16 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS orders_user_idx ON orders (user_id, created_at DESC);
 
+-- ───────────────────────── 兑换码（充值）─────────────────────────
+-- 后台批量生成、用户在 App 弹窗输入核销 → 余额入账 + 记 billing_ledger(reason=redeem)。单次有效。
+CREATE TABLE IF NOT EXISTS redeem_codes (
+    code        TEXT PRIMARY KEY,
+    seconds     INTEGER NOT NULL,
+    used_by     TEXT REFERENCES users(user_id),
+    used_at     TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS redeem_codes_created_idx ON redeem_codes (created_at DESC);
+
 -- facts.embedding 的维度必须等于所配 Embedding 模型的输出维度（后台「测试连接」会显示维度）；
 -- text-embedding-v4 / v3 默认 1024。换了模型/维度需 ALTER 该列并重建索引（旧向量作废）。

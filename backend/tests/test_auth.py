@@ -106,6 +106,30 @@ class AuthFlowTest(unittest.TestCase):
         top = self.repo.top_characters()
         self.assertEqual(top[0], {"character_id": "c0", "calls": 2})    # c0 通话最多
 
+    def test_redeem_codes(self):
+        uid = auth.register(self.repo, "a@b.com", "secret1")[1]["user"]["user_id"]
+        codes = self.repo.create_redeem_codes(2, 600)                   # 2 个 ×10 分钟
+        self.assertEqual(len(codes), 2)
+
+        ok, bal, _ = self.repo.redeem_code(uid, codes[0])
+        self.assertTrue(ok)
+        self.assertEqual(bal, 3600 + 600)                              # 注册 60 + 兑换 10 分钟
+
+        ok2, bal2, msg2 = self.repo.redeem_code(uid, codes[0])         # 不能重复用
+        self.assertFalse(ok2)
+        self.assertEqual(bal2, 4200)
+        self.assertIn("已被使用", msg2)
+
+        ok3, _, msg3 = self.repo.redeem_code(uid, "MC-BOGUS")          # 无效码
+        self.assertFalse(ok3)
+        self.assertIn("无效", msg3)
+
+        bills = [b["reason"] for b in self.repo.list_ledger(uid)]
+        self.assertIn("redeem", bills)                                 # 兑换记一条流水
+        listed = self.repo.list_redeem_codes()
+        self.assertEqual(len(listed), 2)
+        self.assertEqual(listed[0]["used_by_email"] or listed[1]["used_by_email"], "a@b.com")
+
 
 if __name__ == "__main__":
     unittest.main()

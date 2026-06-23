@@ -158,6 +158,19 @@ class MemoryRepository(ABC):
         """按通话量排名的角色：{character_id, calls}。后台首页「热门角色」。"""
         return []
 
+    # ── 兑换码（P5：后台生成、用户核销充值）──
+    def create_redeem_codes(self, count: int, seconds: int) -> list[str]:
+        """批量生成兑换码（每个值 seconds），返回码列表。后台「兑换码」用。"""
+        return []
+
+    def redeem_code(self, user_id: str, code: str) -> tuple[bool, int, str]:
+        """用户核销兑换码：未用过则入账 seconds + 记 redeem 流水。返回 (是否成功, 改后余额, 提示)。"""
+        return False, 0, "暂不支持"
+
+    def list_redeem_codes(self, *, limit: int = 200) -> list[dict]:
+        """兑换码列表（后台）：{code,seconds,used_by_email,used_at,created_at}。"""
+        return []
+
 
 class InMemoryRepository(MemoryRepository):
     """字典实现。配了 Embedding 节点则按余弦相似召回（recall_vec），否则字符重叠近似（recall）。
@@ -174,7 +187,8 @@ class InMemoryRepository(MemoryRepository):
         self._sessions: dict[str, tuple[str, float]] = {}  # token → (user_id, expires_epoch)
         self._calls: list[dict] = []                       # 通话记录（含 user_id）
         self._ledger: list[dict] = []                      # 计费流水（含 user_id）
-        self._orders: list[dict] = []                      # 充值订单（P5 支付写入）
+        self._orders: list[dict] = []                      # 充值订单（保留：支付接入时写入）
+        self._redeem: dict[str, dict] = {}                 # code → 兑换码
 
     def add_fact(
         self, user_id: str, character_id: str, text: str, *,
@@ -361,3 +375,30 @@ class InMemoryRepository(MemoryRepository):
         from collections import Counter
         cnt = Counter(c["character_id"] for c in self._calls)
         return [{"character_id": cid, "calls": n} for cid, n in cnt.most_common(limit)]
+
+    # ── 兑换码（内存）──
+    def create_redeem_codes(self, count, seconds) -> list[str]:
+        import secrets
+        codes = []
+        for _ in range(max(1, int(count))):
+            code = "MC-" + "-".join(secrets.token_hex(2).upper() for _ in range(3))
+            self._redeem[code] = {"code": code, "seconds": int(seconds), "used_by": None,
+                                  "used_at": None, "created_at": _now_iso()}
+            codes.append(code)
+        return codes
+
+    def redeem_code(self, user_id, code) -> tuple[bool, int, str]:
+        rec = self._redeem.get((code or "").strip().upper())
+        if not rec:
+            return False, self.remaining_seconds(user_id), "兑换码无效"
+        if rec["used_by"]:
+            return False, self.remaining_seconds(user_id), "兑换码已被使用"
+        rec["used_by"], rec["used_at"] = user_id, _now_iso()
+        bal = self.add_seconds(user_id, rec["seconds"], "redeem")
+        return True, bal, f"成功充值 {rec['seconds'] // 60} 分钟"
+
+    def list_redeem_codes(self, *, limit=200) -> list[dict]:
+        email = {u["user_id"]: (u.get("email") or "") for u in self._users.values()}
+        rows = sorted(self._redeem.values(), key=lambda r: r["created_at"], reverse=True)[:limit]
+        return [{"code": r["code"], "seconds": r["seconds"], "used_by_email": email.get(r["used_by"], ""),
+                 "used_at": r["used_at"] or "", "created_at": r["created_at"]} for r in rows]

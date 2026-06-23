@@ -285,6 +285,10 @@ class _Handler(BaseHTTPRequestHandler):
             if _REPO is None:
                 return self._json(200, {"ok": False, "orders": []})
             return self._json(200, {"ok": True, "orders": _REPO.list_all_orders(limit=200)})
+        if self._route() == "/admin/redeem-codes":
+            if _REPO is None:
+                return self._json(200, {"ok": False, "codes": []})
+            return self._json(200, {"ok": True, "codes": _REPO.list_redeem_codes(limit=200)})
         self._json(404, {"error": "not found"})
 
     def do_PUT(self) -> None:
@@ -315,6 +319,14 @@ class _Handler(BaseHTTPRequestHandler):
         if route == "/admin/api-config/test":
             b = self._body()
             return self._json(200, test_section(b.get("section", ""), b.get("config", {}) or {}))
+        if route == "/admin/redeem-codes":      # 批量生成兑换码
+            if _REPO is None:
+                return self._json(200, {"ok": False, "error": "no repo"})
+            b = self._body()
+            count = max(1, min(500, int(b.get("count", 1) or 1)))      # 单次上限 500
+            minutes = max(1, int(b.get("minutes", 60) or 60))
+            codes = _REPO.create_redeem_codes(count, minutes * 60)
+            return self._json(200, {"ok": True, "codes": codes})
         self._json(404, {"error": "not found"})
 
     def log_message(self, *args) -> None:  # 静默（journalctl 不刷屏）

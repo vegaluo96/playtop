@@ -469,6 +469,62 @@ class PgRepository(MemoryRepository):
             log.warning("top_characters 失败：%r", e)
             return []
 
+    # ── 兑换码 ──
+    def create_redeem_codes(self, count, seconds) -> list[str]:
+        import secrets
+        codes = []
+        try:
+            with self.pool.connection() as c:
+                for _ in range(max(1, int(count))):
+                    code = "MC-" + "-".join(secrets.token_hex(2).upper() for _ in range(3))
+                    c.execute("INSERT INTO redeem_codes (code, seconds) VALUES (%s,%s)", (code, int(seconds)))
+                    codes.append(code)
+        except Exception as e:
+            log.warning("create_redeem_codes 失败：%r", e)
+        return codes
+
+    def redeem_code(self, user_id, code) -> tuple[bool, int, str]:
+        code = (code or "").strip().upper()
+        try:
+            with self.pool.connection() as c, c.transaction():
+                # 原子占用：仅当未被使用时把 used_by 置为本人（防并发重复核销）。
+                r = c.execute(
+                    "UPDATE redeem_codes SET used_by=%s, used_at=now() "
+                    "WHERE code=%s AND used_by IS NULL RETURNING seconds",
+                    (user_id, code),
+                ).fetchone()
+                if r is None:
+                    exists = c.execute("SELECT 1 FROM redeem_codes WHERE code=%s", (code,)).fetchone()
+                    return False, self.remaining_seconds(user_id), "兑换码已被使用" if exists else "兑换码无效"
+                secs = int(r[0])
+                bal = c.execute(
+                    "UPDATE users SET remaining_seconds = GREATEST(0, remaining_seconds + %s) "
+                    "WHERE user_id=%s RETURNING remaining_seconds", (secs, user_id),
+                ).fetchone()
+                c.execute(
+                    "INSERT INTO billing_ledger (user_id, delta_seconds, reason) VALUES (%s,%s,'redeem')",
+                    (user_id, secs),
+                )
+            return True, int(bal[0]) if bal else 0, f"成功充值 {secs // 60} 分钟"
+        except Exception as e:
+            log.warning("redeem_code 失败：%r", e)
+            return False, self.remaining_seconds(user_id), "兑换失败，请重试"
+
+    def list_redeem_codes(self, *, limit=200) -> list[dict]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT r.code, r.seconds, u.email, r.used_at, r.created_at "
+                    "FROM redeem_codes r LEFT JOIN users u ON u.user_id = r.used_by "
+                    "ORDER BY r.created_at DESC LIMIT %s", (int(limit),),
+                ).fetchall()
+            return [{"code": r[0], "seconds": r[1], "used_by_email": r[2] or "",
+                     "used_at": r[3].isoformat() if r[3] else "",
+                     "created_at": r[4].isoformat() if r[4] else ""} for r in rows]
+        except Exception as e:
+            log.warning("list_redeem_codes 失败：%r", e)
+            return []
+
     def close(self) -> None:
         try:
             self.pool.close()
