@@ -63,6 +63,29 @@ export async function logout(): Promise<void> {
   setToken("");
 }
 
+async function getJSON(path: string): Promise<any | null> {
+  const tok = getToken();
+  if (!tok) return null;
+  try {
+    const r = await fetch(BASE + path, { headers: { Authorization: "Bearer " + tok } });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+/** 通话历史（后端原始形状，由 UI 层映射）。未登录/失败 → null（UI 退回演示数据）。 */
+export async function getCalls(): Promise<any[] | null> {
+  const j = await getJSON("/api/calls");
+  return j && j.ok ? j.calls : null;
+}
+/** 账单流水。未登录/失败 → null。 */
+export async function getBills(): Promise<any[] | null> {
+  const j = await getJSON("/api/bills");
+  return j && j.ok ? j.bills : null;
+}
+
 /** 刷新后用存的 token 恢复登录态；token 失效（401）则清掉。 */
 export async function me(): Promise<AuthUser | null> {
   const tok = getToken();

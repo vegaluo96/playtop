@@ -204,6 +204,58 @@ export class MiCallLogic {
       this.sig = null;
     }
   }
+
+  // ── 通话历史 / 账单：登录用户拉真实数据，未登录/未接后端退回演示数据 ──
+  private realHistory: any[] | null = null;   // null = 用演示 this.history
+  private realBills: any[] | null = null;     // null = 用演示 this.bills
+
+  private idxForCharId(cid: string): number {
+    const i = this.chars.findIndex((c) => c.id === cid);
+    return i >= 0 ? i : 0;
+  }
+  private sceneNameOf(key: string): string {
+    return this.scenarioDefs.find((d) => d.key === key)?.name || "随便聊聊";
+  }
+  private fmtDur(sec: number): string {
+    const s = Math.max(0, Math.floor(sec));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+  private fmtWhen(iso: string): string {
+    const d = new Date(iso);
+    if (isNaN(+d)) return "";
+    const hh = String(d.getHours()).padStart(2, "0"), mm = String(d.getMinutes()).padStart(2, "0");
+    const day0 = (x: Date) => +new Date(x.getFullYear(), x.getMonth(), x.getDate());
+    const diff = Math.round((day0(new Date()) - day0(d)) / 86400000);
+    if (diff === 0) return `今天 ${hh}:${mm}`;
+    if (diff === 1) return `昨天 ${hh}:${mm}`;
+    return `${d.getMonth() + 1}月${d.getDate()}日 ${hh}:${mm}`;
+  }
+
+  private async loadHistory() {
+    if (!authApi.authConfigured() || !this.state.loggedIn) { this.realHistory = null; return; }
+    const calls = await authApi.getCalls();
+    if (!calls) { this.realHistory = []; this.notify(); return; }
+    this.realHistory = calls.map((c) => {
+      const idx = this.idxForCharId(c.character_id), ch = this.chars[idx];
+      return { name: ch?.name || "TA", hue: ch?.hue ?? 0, idx, sceneKey: c.scenario || "chat",
+               scene: this.sceneNameOf(c.scenario), dur: this.fmtDur(c.duration_seconds || 0),
+               when: this.fmtWhen(c.started_at) };
+    });
+    this.notify();
+  }
+  private async loadBills() {
+    if (!authApi.authConfigured() || !this.state.loggedIn) { this.realBills = null; return; }
+    const bills = await authApi.getBills();
+    if (!bills) { this.realBills = []; this.notify(); return; }
+    const TITLE: Record<string, string> = { call: "通话消费", recharge: "充值", invite_reward: "邀请奖励", register_gift: "注册赠送" };
+    const TYPE = (r: string) => r === "invite_reward" ? "invite" : (r === "recharge" || r === "register_gift") ? "sub" : "call";
+    this.realBills = bills.map((b) => {
+      const sec = b.delta_seconds || 0, mins = Math.round(Math.abs(sec) / 60);
+      return { type: TYPE(b.reason), title: TITLE[b.reason] || b.reason, date: this.fmtWhen(b.created_at),
+               amount: "", mins: (sec >= 0 ? "+" : "-") + (mins >= 1 ? `${mins} 分钟` : `${Math.abs(sec)} 秒`) };
+    });
+    this.notify();
+  }
   componentWillUnmount() {
     this.clearTimers();
     this.stopMic();
@@ -287,7 +339,7 @@ export class MiCallLogic {
     return { menuOpen: !!s.menuOpen, historyOpen: !!s.historyOpen, sheetOpen: !!sheetOpen, modal: !!modal };
   }
   openMenu() { if (!this.state.menuOpen) this.setState({ menuOpen: true, historyOpen: false }); }
-  openHistory() { if (!this.state.historyOpen) this.setState({ historyOpen: true, menuOpen: false }); }
+  openHistory() { if (!this.state.historyOpen) { this.setState({ historyOpen: true, menuOpen: false }); this.loadHistory(); } }
   closeMenu() { if (this.state.menuOpen) this.setState({ menuOpen: false }); }
   closeHistory() { if (this.state.historyOpen) this.setState({ historyOpen: false }); }
   closeTopSheet() { this.setState(this.sheets()); }
@@ -800,9 +852,9 @@ export class MiCallLogic {
         });
       })(),
       historyOpen: this.state.historyOpen,
-      historyToggle: () => this.setState((s) => ({ historyOpen: !s.historyOpen })),
+      historyToggle: () => this.setState((s) => ({ historyOpen: !s.historyOpen }), () => { if (this.state.historyOpen) this.loadHistory(); }),
       historyClose: () => this.setState({ historyOpen: false }),
-      historyList: this.history.map((h) => ({ name: h.name, scene: h.scene, dur: h.dur, when: h.when, hueFilter: `hue-rotate(${h.hue}deg)`, pick: () => this.switchTo(h.idx, h.sceneKey) })),
+      historyList: (this.realHistory ?? this.history).map((h) => ({ name: h.name, scene: h.scene, dur: h.dur, when: h.when, hueFilter: `hue-rotate(${h.hue}deg)`, pick: () => this.switchTo(h.idx, h.sceneKey) })),
       pendingSwitch: this.state.pendingSwitch,
       pendingName: this.state.pendingSwitch ? this.chars[this.state.pendingSwitch.idx].name : "",
       confirmSwitch: () => this.confirmSwitch(),
@@ -916,7 +968,7 @@ export class MiCallLogic {
       logout: () => this.setState({ logoutConfirmOpen: true, menuOpen: false }),
       logoutConfirmOpen: this.state.logoutConfirmOpen,
       cancelLogout: () => this.setState({ logoutConfirmOpen: false }),
-      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
+      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
       pendingVoiceDel: this.state.pendingVoiceDel,
       pendingVoiceName: this.state.pendingVoiceDel ? this.state.pendingVoiceDel.key : "",
       cancelVoiceDel: () => this.setState({ pendingVoiceDel: null }),
@@ -964,11 +1016,11 @@ export class MiCallLogic {
       toggleVibrate: () => this.setState((s) => ({ setVibrate: !s.setVibrate })),
       toggleSubtitle: () => this.setState((s) => ({ setSubtitle: !s.setSubtitle })),
       favFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, favOpen: true }),
-      billFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, billsOpen: true }),
+      billFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, billsOpen: true }); this.loadBills(); },
       billsOpen: this.state.billsOpen,
       billsClose: () => this.setState({ billsOpen: false }),
       billsToRecharge: () => this.setState({ ...this.sheets(), rechargeOpen: true }),
-      billsList: this.bills.map((b) => ({
+      billsList: (this.realBills ?? this.bills).map((b) => ({
         title: b.title, date: b.date, mins: b.mins,
         minsColor: b.mins.startsWith("+") ? "#33A06B" : "var(--dim)",
         iconBg: b.type === "sub" ? "rgba(110,92,255,.12)" : (b.type === "invite" ? "rgba(255,79,123,.12)" : "rgba(46,123,255,.12)"),
