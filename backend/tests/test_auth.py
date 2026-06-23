@@ -130,6 +130,25 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(len(listed), 2)
         self.assertEqual(listed[0]["used_by_email"] or listed[1]["used_by_email"], "a@b.com")
 
+    def test_tickets(self):
+        uid = auth.register(self.repo, "a@b.com", "secret1")[1]["user"]["user_id"]
+        tid = self.repo.add_ticket(uid, "功能异常", "通话有杂音")
+        self.assertTrue(tid)
+
+        mine = self.repo.list_user_tickets(uid)
+        self.assertEqual(len(mine), 1)
+        self.assertEqual(mine[0]["status"], "open")
+        self.assertEqual(mine[0]["reply"], "")
+
+        allt = self.repo.list_all_tickets()
+        self.assertEqual(allt[0]["user_email"], "a@b.com")             # 后台看得到提交人
+
+        self.assertTrue(self.repo.reply_ticket(tid, "已优化降噪，补 30 分钟"))
+        mine2 = self.repo.list_user_tickets(uid)
+        self.assertEqual(mine2[0]["status"], "replied")                # 用户看到回复
+        self.assertIn("降噪", mine2[0]["reply"])
+        self.assertFalse(self.repo.reply_ticket(999999, "x"))          # 不存在
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -194,6 +194,18 @@ export class MiCallLogic {
   // ── 通话历史 / 账单：登录用户拉真实数据，未登录/未接后端退回演示数据 ──
   private realHistory: any[] | null = null;   // null = 用演示 this.history
   private realBills: any[] | null = null;     // null = 用演示 this.bills
+  private realTickets: any[] | null = null;   // null = 用演示 state.tickets
+
+  private async loadTickets() {
+    if (!authApi.authConfigured() || !this.state.loggedIn) { this.realTickets = null; return; }
+    const tk = await authApi.getTickets();
+    if (!tk) { this.realTickets = []; this.notify(); return; }
+    this.realTickets = tk.map((t) => ({
+      type: t.type, msg: t.message, date: this.fmtWhen(t.created_at),
+      status: t.status === "replied" ? "已回复" : "处理中", reply: t.reply || "",
+    }));
+    this.notify();
+  }
 
   private idxForCharId(cid: string): number {
     const i = this.chars.findIndex((c) => c.id === cid);
@@ -906,7 +918,7 @@ export class MiCallLogic {
       outToRecharge: () => this.setState({ outOfMins: false, rechargeOpen: true }),
       dismissOut: () => this.setState({ outOfMins: false }),
       settingsFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, settingsOpen: true }),
-      contactFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, contactOpen: true }),
+      contactFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, contactOpen: true }); this.loadTickets(); },
       fontLabel: ["标准", "大", "特大"][this.state.fontScale],
       rootZoom: [1, 1.06, 1.11][this.state.fontScale],
       orbCounterZoom: [1, 0.943, 0.901][this.state.fontScale],
@@ -920,13 +932,25 @@ export class MiCallLogic {
       contactMsg: this.state.contactMsg,
       onContactMsg: (e: any) => this.setState({ contactMsg: e.target.value }),
       contactTypes: ["建议反馈", "功能异常", "账号/支付", "其他"].map((t) => ({ name: t, sel: this.state.contactType === t, bg: this.state.contactType === t ? "rgba(110,92,255,.12)" : "var(--ctrl)", color: this.state.contactType === t ? "#6E5CFF" : "var(--fg)", pick: () => this.setState({ contactType: t }) })),
-      submitContact: () => {
-        if (!(this.state.contactMsg || "").trim()) { this.setState({ toast: "请先描述你的问题" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800)); return; }
-        this.setState((s) => ({ tickets: [{ type: s.contactType, msg: s.contactMsg.trim(), date: "刚刚", status: "处理中", reply: "" }, ...s.tickets], contactMsg: "", toast: "已提交，回复会显示在下方" }));
+      submitContact: async () => {
+        const msg = (this.state.contactMsg || "").trim();
+        if (!msg) { this.toast("请先描述你的问题"); return; }
+        const type = this.state.contactType;
+        // 演示模式（未接后端）：保留原本地行为。
+        if (!authApi.authConfigured()) {
+          this.setState((s) => ({ tickets: [{ type, msg, date: "刚刚", status: "处理中", reply: "" }, ...s.tickets], contactMsg: "", toast: "已提交，回复会显示在下方" }));
+          this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+          return;
+        }
+        if (!this.state.loggedIn) { this.setState({ contactOpen: false, authOpen: true, authMode: "login", toast: "请先登录再提交" }); return; }
+        const res = await authApi.submitTicket(type, msg);
+        if (!res.ok) { this.toast(res.error || "提交失败"); return; }
+        this.setState({ contactMsg: "", toast: "已提交，回复会显示在下方" });
         this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+        this.loadTickets();   // 拉回含这条新工单
       },
-      ticketList: this.state.tickets.map((tk: any) => ({ type: tk.type, msg: tk.msg, date: tk.date, status: tk.status, reply: tk.reply, replied: tk.status === "已回复", statusColor: tk.status === "已回复" ? "#33A06B" : "#E0954F", statusBg: tk.status === "已回复" ? "rgba(51,160,107,.14)" : "rgba(224,149,79,.14)" })),
-      hasTickets: this.state.tickets.length > 0,
+      ticketList: (this.realTickets ?? this.state.tickets).map((tk: any) => ({ type: tk.type, msg: tk.msg, date: tk.date, status: tk.status, reply: tk.reply, replied: tk.status === "已回复", statusColor: tk.status === "已回复" ? "#33A06B" : "#E0954F", statusBg: tk.status === "已回复" ? "rgba(51,160,107,.14)" : "rgba(224,149,79,.14)" })),
+      hasTickets: (this.realTickets ?? this.state.tickets).length > 0,
       loggedIn: this.state.loggedIn,
       authOpen: this.state.authOpen,
       authIsRegister: this.state.authMode === "register",
@@ -974,7 +998,7 @@ export class MiCallLogic {
       logout: () => this.setState({ logoutConfirmOpen: true, menuOpen: false }),
       logoutConfirmOpen: this.state.logoutConfirmOpen,
       cancelLogout: () => this.setState({ logoutConfirmOpen: false }),
-      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
+      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.realTickets = null; this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
       pendingVoiceDel: this.state.pendingVoiceDel,
       pendingVoiceName: this.state.pendingVoiceDel ? this.state.pendingVoiceDel.key : "",
       cancelVoiceDel: () => this.setState({ pendingVoiceDel: null }),

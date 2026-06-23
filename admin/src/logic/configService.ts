@@ -152,6 +152,23 @@ export async function loadDashboard(): Promise<{ stats: any; top_characters: any
 export const loadUsers = () => getList("/admin/users", "users");
 export const loadCalls = () => getList("/admin/calls", "calls");
 export const loadOrders = () => getList("/admin/orders", "orders");
+export const loadTickets = () => getList("/admin/tickets", "tickets");
+
+/** 回复工单（后台）。返回是否成功。 */
+export async function replyTicket(id: any, reply: string): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/tickets/reply`, {
+      method: "POST", headers: authHeaders(true), credentials: "include",
+      body: JSON.stringify({ id, reply }),
+    });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch {
+    /* noop */
+  }
+  return false;
+}
 
 /** 连通性测试结果：ok=null 表示无后端（未知）；失败时 error 带出后端真因（1004/2049 等）。 */
 export type TestResult = { ok: boolean | null; error?: string; ms?: number; note?: string };

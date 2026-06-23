@@ -11,7 +11,7 @@
 
 import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
-         loadDashboard, loadUsers, loadCalls, loadOrders } from "./configService";
+         loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, replyTicket, usingBackend } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -241,8 +241,8 @@ export class AdminLogic {
 
   /** 拉后台真实数据并映射成既有视图形状；无后端/失败时保持内置演示数据。 */
   private async loadRealData() {
-    const [dash, users, calls, orders] = await Promise.all([
-      loadDashboard(), loadUsers(), loadCalls(), loadOrders(),
+    const [dash, users, calls, orders, tickets] = await Promise.all([
+      loadDashboard(), loadUsers(), loadCalls(), loadOrders(), loadTickets(),
     ]);
     if (dash) { this.realStats = dash.stats; this.realTopChars = dash.top_characters || []; }
     const GRADS = ["linear-gradient(140deg,#A78BFF,#6E5CFF)", "linear-gradient(140deg,#FF8FC8,#FF4FA0)",
@@ -275,7 +275,13 @@ export class AdminLogic {
         amount: "$" + ((o.amount_cents || 0) / 100).toFixed(2), status: OSTAT[o.status] || o.status,
       }));
     }
-    if (dash || users || calls || orders) this.setState({});
+    if (tickets) {
+      this.tickets = tickets.map((t: any) => ({
+        id: t.id, type: t.type || "其他", user: t.user_email || "—", msg: t.message,
+        date: fmtTime(t.created_at), status: t.status === "replied" ? "已回复" : "待处理", reply: t.reply || "",
+      }));
+    }
+    if (dash || users || calls || orders || tickets) this.setState({});
   }
 
   _splitList(s: string): string[] {
@@ -691,7 +697,7 @@ export class AdminLogic {
       ceVoice: (s.charEdit as any).voice_id || "", onCeVoice: (e: any) => this.setCe("voice_id", e.target.value),
       ceBio: (s.charEdit as any).background_story || "", onCeBio: (e: any) => this.setCe("background_story", e.target.value),
       replyDraft: s.replyDraft, onReplyDraft: (e: any) => this.setState({ replyDraft: e.target.value }), ticketNeedsReply,
-      sendReply: () => { const v = (s.replyDraft || "").trim(); if (!v) { this.toastMsg("请输入回复内容"); return; } const id = d.id; this.setState((p) => ({ ticketReplies: { ...p.ticketReplies, [id]: v }, replyDraft: "" })); this.toastMsg("回复已发送"); },
+      sendReply: async () => { const v = (s.replyDraft || "").trim(); if (!v) { this.toastMsg("请输入回复内容"); return; } const id = d.id; const ok = await replyTicket(id, v); if (!ok && usingBackend()) { this.toastMsg("回复失败，请重试"); return; } const t = this.tickets.find((x) => x.id === id); if (t) { t.reply = v; t.status = "已回复"; } this.setState((p) => ({ ticketReplies: { ...p.ticketReplies, [id]: v }, replyDraft: "" })); this.toastMsg("回复已发送"); },
       toast: s.toast,
     };
   }

@@ -171,6 +171,23 @@ class MemoryRepository(ABC):
         """兑换码列表（后台）：{code,seconds,used_by_email,used_at,created_at}。"""
         return []
 
+    # ── 工单（用户反馈 / 客服）──
+    def add_ticket(self, user_id: str, type: str, message: str) -> int:
+        """用户提交工单，返回 id。"""
+        return 0
+
+    def list_user_tickets(self, user_id: str, *, limit: int = 30) -> list[dict]:
+        """该用户的工单：{type,message,status,reply,created_at}。"""
+        return []
+
+    def list_all_tickets(self, *, limit: int = 200) -> list[dict]:
+        """全站工单（后台）：{id,user_email,type,message,status,reply,created_at}。"""
+        return []
+
+    def reply_ticket(self, ticket_id: int, reply: str) -> bool:
+        """后台回复工单（status→replied）。"""
+        return False
+
 
 class InMemoryRepository(MemoryRepository):
     """字典实现。配了 Embedding 节点则按余弦相似召回（recall_vec），否则字符重叠近似（recall）。
@@ -189,6 +206,8 @@ class InMemoryRepository(MemoryRepository):
         self._ledger: list[dict] = []                      # 计费流水（含 user_id）
         self._orders: list[dict] = []                      # 充值订单（保留：支付接入时写入）
         self._redeem: dict[str, dict] = {}                 # code → 兑换码
+        self._tickets: list[dict] = []                     # 工单（含 user_id）
+        self._tid = 0                                      # 工单自增 id
 
     def add_fact(
         self, user_id: str, character_id: str, text: str, *,
@@ -402,3 +421,28 @@ class InMemoryRepository(MemoryRepository):
         rows = sorted(self._redeem.values(), key=lambda r: r["created_at"], reverse=True)[:limit]
         return [{"code": r["code"], "seconds": r["seconds"], "used_by_email": email.get(r["used_by"], ""),
                  "used_at": r["used_at"] or "", "created_at": r["created_at"]} for r in rows]
+
+    # ── 工单（内存）──
+    def add_ticket(self, user_id, type, message) -> int:
+        self._tid += 1
+        self._tickets.append({"id": self._tid, "user_id": user_id, "type": type or "", "message": message,
+                              "status": "open", "reply": "", "created_at": _now_iso()})
+        return self._tid
+
+    def list_user_tickets(self, user_id, *, limit=30) -> list[dict]:
+        rows = [t for t in self._tickets if t["user_id"] == user_id][::-1][:limit]
+        return [{k: t[k] for k in ("type", "message", "status", "reply", "created_at")} for t in rows]
+
+    def list_all_tickets(self, *, limit=200) -> list[dict]:
+        email = {u["user_id"]: (u.get("email") or "") for u in self._users.values()}
+        rows = sorted(self._tickets, key=lambda t: t["created_at"], reverse=True)[:limit]
+        return [{"id": t["id"], "user_email": email.get(t["user_id"], ""), "type": t["type"],
+                 "message": t["message"], "status": t["status"], "reply": t["reply"],
+                 "created_at": t["created_at"]} for t in rows]
+
+    def reply_ticket(self, ticket_id, reply) -> bool:
+        for t in self._tickets:
+            if t["id"] == int(ticket_id):
+                t["reply"], t["status"] = reply, "replied"
+                return True
+        return False

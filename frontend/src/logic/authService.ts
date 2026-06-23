@@ -86,6 +86,27 @@ export async function getBills(): Promise<any[] | null> {
   return j && j.ok ? j.bills : null;
 }
 
+/** 我的工单（后端原始形状，UI 映射）。未登录/失败 → null（退回演示）。 */
+export async function getTickets(): Promise<any[] | null> {
+  const j = await getJSON("/api/tickets");
+  return j && j.ok ? j.tickets : null;
+}
+/** 提交工单。需登录。 */
+export async function submitTicket(type: string, message: string): Promise<{ ok: boolean; error?: string }> {
+  const tok = getToken();
+  if (!tok) return { ok: false, error: "请先登录" };
+  try {
+    const r = await fetch(BASE + "/api/tickets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+      body: JSON.stringify({ type, message }),
+    });
+    return (await r.json()) as { ok: boolean; error?: string };
+  } catch {
+    return { ok: false, error: "网络错误，请稍后再试" };
+  }
+}
+
 export interface RedeemResult { ok: boolean; error?: string; message?: string; remaining_seconds?: number; }
 
 /** 核销兑换码 → 后端入账，返回新余额。需登录。 */

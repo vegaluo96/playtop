@@ -289,6 +289,10 @@ class _Handler(BaseHTTPRequestHandler):
             if _REPO is None:
                 return self._json(200, {"ok": False, "codes": []})
             return self._json(200, {"ok": True, "codes": _REPO.list_redeem_codes(limit=200)})
+        if self._route() == "/admin/tickets":
+            if _REPO is None:
+                return self._json(200, {"ok": False, "tickets": []})
+            return self._json(200, {"ok": True, "tickets": _REPO.list_all_tickets(limit=200)})
         self._json(404, {"error": "not found"})
 
     def do_PUT(self) -> None:
@@ -327,6 +331,12 @@ class _Handler(BaseHTTPRequestHandler):
             minutes = max(1, int(b.get("minutes", 60) or 60))
             codes = _REPO.create_redeem_codes(count, minutes * 60)
             return self._json(200, {"ok": True, "codes": codes})
+        if route == "/admin/tickets/reply":     # 回复工单
+            if _REPO is None:
+                return self._json(200, {"ok": False, "error": "no repo"})
+            b = self._body()
+            ok = _REPO.reply_ticket(b.get("id"), (b.get("reply") or "").strip())
+            return self._json(200, {"ok": ok})
         self._json(404, {"error": "not found"})
 
     def log_message(self, *args) -> None:  # 静默（journalctl 不刷屏）

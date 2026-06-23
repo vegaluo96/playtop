@@ -525,6 +525,58 @@ class PgRepository(MemoryRepository):
             log.warning("list_redeem_codes 失败：%r", e)
             return []
 
+    # ── 工单 ──
+    def add_ticket(self, user_id, type, message) -> int:
+        try:
+            with self.pool.connection() as c:
+                r = c.execute(
+                    "INSERT INTO tickets (user_id, type, message) VALUES (%s,%s,%s) RETURNING id",
+                    (user_id, type or "", message),
+                ).fetchone()
+            return int(r[0]) if r else 0
+        except Exception as e:
+            log.warning("add_ticket 失败：%r", e)
+            return 0
+
+    def list_user_tickets(self, user_id, *, limit=30) -> list[dict]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT type, message, status, reply, created_at FROM tickets "
+                    "WHERE user_id=%s ORDER BY created_at DESC LIMIT %s", (user_id, int(limit)),
+                ).fetchall()
+            return [{"type": r[0], "message": r[1], "status": r[2], "reply": r[3],
+                     "created_at": r[4].isoformat() if r[4] else ""} for r in rows]
+        except Exception as e:
+            log.warning("list_user_tickets 失败：%r", e)
+            return []
+
+    def list_all_tickets(self, *, limit=200) -> list[dict]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT t.id, u.email, t.type, t.message, t.status, t.reply, t.created_at "
+                    "FROM tickets t LEFT JOIN users u ON u.user_id = t.user_id "
+                    "ORDER BY t.created_at DESC LIMIT %s", (int(limit),),
+                ).fetchall()
+            return [{"id": r[0], "user_email": r[1] or "", "type": r[2], "message": r[3],
+                     "status": r[4], "reply": r[5], "created_at": r[6].isoformat() if r[6] else ""} for r in rows]
+        except Exception as e:
+            log.warning("list_all_tickets 失败：%r", e)
+            return []
+
+    def reply_ticket(self, ticket_id, reply) -> bool:
+        try:
+            with self.pool.connection() as c:
+                r = c.execute(
+                    "UPDATE tickets SET reply=%s, status='replied', replied_at=now() WHERE id=%s RETURNING id",
+                    (reply, int(ticket_id)),
+                ).fetchone()
+            return r is not None
+        except Exception as e:
+            log.warning("reply_ticket 失败：%r", e)
+            return False
+
     def close(self) -> None:
         try:
             self.pool.close()

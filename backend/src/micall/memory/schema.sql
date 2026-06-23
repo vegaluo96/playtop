@@ -106,6 +106,38 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS orders_user_idx ON orders (user_id, created_at DESC);
 
+-- ───────────────────────── 工单（用户反馈 / 客服）─────────────────────────
+-- 用户端「联系我们/反馈」提交 → 入库；后台「工单」真实查看 + 回复（status: open→replied）。
+CREATE TABLE IF NOT EXISTS tickets (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(user_id),
+    type        TEXT NOT NULL DEFAULT '',
+    message     TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'open',   -- open / replied
+    reply       TEXT NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    replied_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS tickets_user_idx ON tickets (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS tickets_created_idx ON tickets (created_at DESC);
+
+-- ───────────────────────── 邀请（拉新奖励）─────────────────────────
+-- 每个用户有唯一邀请码；被邀请人注册时带码 → 双方各得奖励（记 invite_reward 流水）。
+CREATE TABLE IF NOT EXISTS invites (
+    code        TEXT PRIMARY KEY,                 -- 邀请人的邀请码
+    inviter_id  TEXT NOT NULL REFERENCES users(user_id),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS invite_uses (
+    id          BIGSERIAL PRIMARY KEY,
+    code        TEXT NOT NULL REFERENCES invites(code),
+    inviter_id  TEXT NOT NULL REFERENCES users(user_id),
+    invitee_id  TEXT NOT NULL REFERENCES users(user_id),
+    reward_seconds INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS invite_uses_inviter_idx ON invite_uses (inviter_id);
+
 -- ───────────────────────── 兑换码（充值）─────────────────────────
 -- 后台批量生成、用户在 App 弹窗输入核销 → 余额入账 + 记 billing_ledger(reason=redeem)。单次有效。
 CREATE TABLE IF NOT EXISTS redeem_codes (

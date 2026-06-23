@@ -80,6 +80,11 @@ class _Handler(BaseHTTPRequestHandler):
             if not uid:
                 return self._json(401, {"ok": False, "error": "未登录"})
             return self._json(200, {"ok": True, "bills": _REPO.list_ledger(uid, limit=30)})
+        if route == "/api/tickets":
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "未登录"})
+            return self._json(200, {"ok": True, "tickets": _REPO.list_user_tickets(uid, limit=30)})
         self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
@@ -102,6 +107,16 @@ class _Handler(BaseHTTPRequestHandler):
             ok, remaining, msg = _REPO.redeem_code(uid, code)
             return self._json(200, {"ok": ok, "error": None if ok else msg,
                                     "message": msg, "remaining_seconds": remaining})
+        if route == "/api/tickets":      # 提交工单
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "请先登录"})
+            b = self._body()
+            msg = (b.get("message") or "").strip()
+            if not msg:
+                return self._json(400, {"ok": False, "error": "请描述你的问题"})
+            tid = _REPO.add_ticket(uid, (b.get("type") or "").strip(), msg)
+            return self._json(200, {"ok": True, "id": tid})
         self._json(404, {"error": "not found"})
 
     def log_message(self, *args) -> None:  # 静默
