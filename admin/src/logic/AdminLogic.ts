@@ -12,7 +12,8 @@
 import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
          loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
-         loadRedeemCodes, createRedeemCode, deleteRedeemCode, usingBackend } from "./configService";
+         loadRedeemCodes, createRedeemCode, deleteRedeemCode,
+         createCharacter, deleteCharacter, generateCharacter, usingBackend } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -343,13 +344,58 @@ export class AdminLogic {
     this.setState((p) => ({ charEdit: { ...p.charEdit, [k]: v } }));
   }
 
-  /** 保存角色人设到后端（写回 spec overrides，下一通生效）；同步更新本地展示。 */
+  /** 打开「新建角色」表单（空白 + AI 生成入口）。 */
+  openNewChar() {
+    this.setState({ detail: { type: "char", id: "__new__" }, charBio: "", charAiPrompt: "",
+      charEdit: { name: "", tagline: "", gender: "女", age: "20", traits: "", speaking_style: "", background_story: "", likes: "", dislikes: "", voice_id: "" } });
+  }
+
+  /** AI 一键生成角色字段，填进编辑表单（运营可再微调）。 */
+  async genCharAI() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    this.toastMsg("AI 生成中…");
+    const res = await generateCharacter((this.state.charAiPrompt || "").trim());
+    if (!res.ok || !res.fields) { this.toastMsg(res.error || "生成失败"); return; }
+    const f = res.fields;
+    this.setState((p) => ({ charBio: f.background_story || "", charEdit: { ...p.charEdit,
+      name: f.name || "", tagline: f.tagline || "", gender: f.gender || (p.charEdit as any).gender, age: f.age || (p.charEdit as any).age,
+      traits: f.traits || "", speaking_style: f.speaking_style || "", background_story: f.background_story || "",
+      likes: f.likes || "", dislikes: f.dislikes || "" } }));
+    this.toastMsg("已生成，可微调后保存");
+  }
+
+  /** 删除当前角色（自定义直删 / 出厂隐藏）。 */
+  async delChar() {
+    const d = this.state.detail;
+    if (!d || d.type !== "char" || d.id === "__new__") return;
+    const c = this.chars.find((x) => x.id === d.id);
+    const ok = await deleteCharacter(c?.cid || c?.id || d.id);
+    if (!ok) { this.toastMsg("删除失败"); return; }
+    this.chars = this.chars.filter((x) => x.id !== d.id);
+    this.setState({ detail: null });
+    this.toastMsg("角色已删除，下一通通话生效");
+  }
+
+  /** 保存角色人设到后端（新建走 create，编辑走 update）；同步更新本地展示。 */
   async saveChar() {
     const d = this.state.detail;
     if (!d || d.type !== "char") return;
+    const e: any = this.state.charEdit || {};
+    if (d.id === "__new__") {   // 新建自定义角色
+      if (!(e.name || "").trim()) { this.toastMsg("请填写角色名"); return; }
+      const res = await createCharacter(e);
+      if (!res.ok || !res.id) { this.toastMsg(res.error || "创建失败"); return; }
+      this.chars.push({ id: res.id, cid: res.id, name: e.name, desc: e.tagline, hue: (this.chars.length * 47) % 360,
+        gender: e.gender || "女", age: e.age || "20", height: 160, weight: 48, birthday: "", nationality: "", race: "",
+        traits: this._splitList(e.traits), tags: [], slogan: "", likes: e.likes || "", dislikes: e.dislikes || "",
+        bio: e.background_story || "", speaking_style: e.speaking_style || "", voiceId: e.voice_id || "",
+        calls: "0", customVoices: 0, favs: "0", status: "上线" });
+      this.setState({ detail: null });
+      this.toastMsg("角色已创建，下一通通话生效");
+      return;
+    }
     const c = this.chars.find((x) => x.id === d.id);
     if (!c || !c.cid) { this.toastMsg("该角色未关联后端，无法保存"); return; }
-    const e: any = this.state.charEdit || {};
     const ok = await saveCharacter({
       id: c.cid, name: e.name, tagline: e.tagline, traits: e.traits,
       speaking_style: e.speaking_style, background_story: e.background_story,
@@ -627,9 +673,10 @@ export class AdminLogic {
       detailTitle = "用户详情";
       banLabel = isBan ? "解除封禁" : "封禁该用户"; banColor = isBan ? "#1FA971" : "#E0594F"; banBg = isBan ? "rgba(31,169,113,.1)" : "rgba(224,89,79,.1)";
     } else if (d && d.type === "char") {
-      const c = this.chars.find((x) => x.id === d.id);
-      dChar = { ...c, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: c.gender === "女" ? "#FF6FA5" : "#5B8DEF", ...((st: string) => st === "上线" ? { stColor: "#1FA971", stBg: "rgba(31,169,113,.1)" } : { stColor: "#878B95", stBg: "#F0F0F3" })(c.status) };
-      detailTitle = "角色编辑"; charBioLen = ((s.charEdit as any).background_story || "").length;
+      const isNew = d.id === "__new__";
+      const c = isNew ? { name: "新角色", hue: 270, gender: (s.charEdit as any).gender || "女", age: (s.charEdit as any).age || "20", height: "—", weight: "—", desc: "AI 生成或手填", status: "上线" } : this.chars.find((x) => x.id === d.id);
+      dChar = { ...c, isNew, notNew: !isNew, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: c.gender === "女" ? "#FF6FA5" : "#5B8DEF", ...((st: string) => st === "上线" ? { stColor: "#1FA971", stBg: "rgba(31,169,113,.1)" } : { stColor: "#878B95", stBg: "#F0F0F3" })(c.status) };
+      detailTitle = isNew ? "新建角色" : "角色编辑"; charBioLen = ((s.charEdit as any).background_story || "").length;
       dCharExpr = this.expressions.map((e) => { const ok = d.id + "_" + e.key; const off = !!s.exprOff[ok]; return { name: e.name, emoji: e.emoji, key: e.key, status: off ? "停用" : "启用", stColor: off ? "#878B95" : "#1FA971", stBg: off ? "#F0F0F3" : "rgba(31,169,113,.1)", toggle: () => { this.setState((p) => ({ exprOff: { ...p.exprOff, [ok]: !p.exprOff[ok] } })); }, preview: () => this.toastMsg("预览「" + e.name + "」表情…") }; });
     } else if (d && d.type === "call") {
       const c = this.calls.find((x) => x.id === d.id);
@@ -712,6 +759,10 @@ export class AdminLogic {
       dUser, dChar, dCall, dTicket, dCharExpr,
       banLabel, banColor, banBg, toggleBan: () => { const id = d.id; this.setState((p) => ({ banned: { ...p.banned, [id]: !p.banned[id] } })); this.toastMsg(s.banned[d.id] ? "已解除封禁" : "已封禁该用户"); },
       charBioLen, saveChar: () => this.saveChar(),
+      saveCharLabel: (s.detail && s.detail.id === "__new__") ? "创建角色" : "保存修改",
+      openNewChar: () => this.openNewChar(), genCharAI: () => this.genCharAI(), delChar: () => this.delChar(),
+      isNewChar: !!(s.detail && s.detail.type === "char" && s.detail.id === "__new__"),
+      charAiPrompt: s.charAiPrompt || "", onCharAiPrompt: (e: any) => this.setState({ charAiPrompt: e.target.value }),
       ceName: (s.charEdit as any).name || "", onCeName: (e: any) => this.setCe("name", e.target.value),
       ceTagline: (s.charEdit as any).tagline || "", onCeTagline: (e: any) => this.setCe("tagline", e.target.value),
       ceTraits: (s.charEdit as any).traits || "", onCeTraits: (e: any) => this.setCe("traits", e.target.value),

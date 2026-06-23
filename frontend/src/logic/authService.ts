@@ -47,6 +47,18 @@ export function register(email: string, password: string, inviteCode = ""): Prom
   return postJSON("/api/auth/register", { email, password, invite_code: inviteCode });
 }
 
+/** 公开角色列表（含运营新建、剔除已删除）。失败 → null（前端用内置 5 个）。 */
+export async function getCharacters(): Promise<any[] | null> {
+  try {
+    const r = await fetch(BASE + "/api/characters");
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j.ok && Array.isArray(j.characters) ? j.characters : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 我的邀请概况：{code, invited, reward_seconds}。未登录/失败 → null。 */
 export async function getInvite(): Promise<{ code: string; invited: number; reward_seconds: number } | null> {
   const j = await getJSON("/api/invite");

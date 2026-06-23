@@ -198,6 +198,7 @@
       <sc-if value="{{ isChars }}" hint-placeholder-val="{{ false }}">
         <div style="animation:adRise .3s ease;">
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px;">
+            <div onClick="{{ openNewChar }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#fff;background:#16161A;border-radius:10px;padding:8px 15px;cursor:pointer;" style-active="transform:scale(.97)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>新建角色</div>
             <div onClick="{{ openExport }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:10px;padding:8px 15px;cursor:pointer;" style-active="transform:scale(.97)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>导出角色</div>
             <div onClick="{{ openImport }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:10px;padding:8px 15px;cursor:pointer;box-shadow:0 6px 14px rgba(110,92,255,.26);" style-active="transform:scale(.97)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 9l5-5 5 5M12 4v12"/></svg>导入资产</div>
           </div>
@@ -855,6 +856,13 @@
           </sc-for>
         </div>
 
+        <sc-if value="{{ dChar.isNew }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 10px;">AI 一键生成（填描述 → 自动生成人设，可再微调）</div>
+          <div style="display:flex;gap:8px;">
+            <input value="{{ charAiPrompt }}" onInput="{{ onCharAiPrompt }}" placeholder="如：温柔的深夜电台主播，喜欢读诗" style="flex:1;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+            <div onClick="{{ genCharAI }}" style="flex:none;display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:#fff;background:#16161A;border-radius:11px;padding:0 18px;cursor:pointer;" style-active="transform:scale(.97)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg>AI 生成</div>
+          </div>
+        </sc-if>
         <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 10px;">人设编辑 · 保存后下一通通话生效</div>
         <div style="display:flex;flex-direction:column;gap:13px;">
           <div>
@@ -916,7 +924,10 @@
           </sc-for>
         </div>
 
-        <div onClick="{{ saveChar }}" style="margin-top:22px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.28);" style-active="transform:scale(.98)">保存修改</div>
+        <div onClick="{{ saveChar }}" style="margin-top:22px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.28);" style-active="transform:scale(.98)">{{ saveCharLabel }}</div>
+        <sc-if value="{{ dChar.notNew }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ delChar }}" style="margin-top:10px;text-align:center;font-size:13.5px;font-weight:600;color:#E0594F;background:rgba(224,89,79,.08);border-radius:11px;padding:11px;cursor:pointer;" style-active="transform:scale(.98)">删除角色</div>
+        </sc-if>
       </sc-if>
 
       <!-- call detail -->

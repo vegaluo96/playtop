@@ -177,6 +177,23 @@ export class MiCallLogic {
       else { this.pendingInvite = localStorage.getItem("micall_invite") || ""; }
     } catch { /* noop */ }
     this.restoreSession();   // 用存的 token 恢复登录态 + 真实余额（接了后端才生效）
+    this.loadCharacters();   // 从后端拉角色（含运营新建、剔除已删除）；失败保留内置 5 个
+  }
+
+  /** 接后端则用后端角色列表（运营在后台可新建/删除）；演示或失败时保留内置 5 个真角色。 */
+  private async loadCharacters() {
+    if (!authApi.authConfigured()) return;
+    const list = await authApi.getCharacters();
+    if (!list || !list.length) return;
+    const HUE: Record<string, number> = { lin_wan: 0, jiang_ye: 135, xia_ming: 60, gu_ci: 225, su_yao: 300 };
+    this.chars = list.map((c: any, i: number) => ({
+      id: c.id, name: c.name || "TA", desc: c.desc || "",
+      traits: Array.isArray(c.traits) ? c.traits : [], bio: c.bio || "",
+      hue: HUE[c.id] ?? ((i * 47) % 360),
+    }));
+    this._charsBuilt = true;
+    if (this.state.charIndex >= this.chars.length) this.state.charIndex = 0;
+    this.notify();
   }
 
   /** 刷新后凭 localStorage 的 token 向后端核验登录态，拉回邮箱与真实余额。 */

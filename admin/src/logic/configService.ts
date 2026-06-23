@@ -205,6 +205,37 @@ export async function replyTicket(id: any, reply: string): Promise<boolean> {
   return false;
 }
 
+/** 新建自定义角色，返回 {ok, id}。 */
+export async function createCharacter(fields: any): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const b = base();
+  if (!b) return { ok: false, error: "需接入后端" };
+  try {
+    const r = await fetch(`${b}/admin/characters/create`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify(fields) });
+    if (r.ok) return await r.json();
+  } catch { /* noop */ }
+  return { ok: false, error: "请求失败" };
+}
+/** 删除角色。 */
+export async function deleteCharacter(id: string): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/characters/delete`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ id }) });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
+}
+/** AI 一键生成角色字段。 */
+export async function generateCharacter(prompt: string): Promise<{ ok: boolean; fields?: any; error?: string }> {
+  const b = base();
+  if (!b) return { ok: false, error: "需接入后端" };
+  try {
+    const r = await fetch(`${b}/admin/characters/generate`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ prompt }) });
+    if (r.ok) return await r.json();
+  } catch { /* noop */ }
+  return { ok: false, error: "生成失败" };
+}
+
 /** 连通性测试结果：ok=null 表示无后端（未知）；失败时 error 带出后端真因（1004/2049 等）。 */
 export type TestResult = { ok: boolean | null; error?: string; ms?: number; note?: string };
 
