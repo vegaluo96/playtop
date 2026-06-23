@@ -90,11 +90,14 @@ if _OK:
             self._start: float | None = None
             self._in_pts = 0             # 输入帧 pts 计数（喂给重采样器）
             self._closed = False
+            self._flush_until = 0.0      # 打断后短暂拒收在途残留块的截止时刻
 
         def feed(self, pcm24: bytes) -> None:
             """喂入编排产生的 24k PCM（s16 mono）；重采样到 48k 累积到发送缓冲。"""
             if self._closed or not pcm24:
                 return
+            if time.time() < self._flush_until:
+                return  # 打断后极短窗口内的在途残留块：丢弃，别 re-fill 刚清空的缓冲（打断更干脆）
             n = len(pcm24) // 2
             if n <= 0:
                 return
@@ -108,8 +111,9 @@ if _OK:
                 self._buf.extend(bytes(out.planes[0])[: out.samples * 2])
 
         def flush(self) -> None:
-            """打断/挂断：丢掉未发的 AI 语音。"""
+            """打断/挂断：丢掉未发的 AI 语音，并在极短窗口内拒收在途残留块（防被打断那句的尾巴 re-fill）。"""
             self._buf.clear()
+            self._flush_until = time.time() + 0.12
 
         async def recv(self):  # aiortc 按需拉帧；这里按 20ms 实时节奏返回
             if self._start is None:

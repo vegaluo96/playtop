@@ -42,6 +42,26 @@ class QwenRealtimeASR(ASRProvider):
     async def stream(
         self, frames: AsyncIterator[bytes]
     ) -> AsyncIterator[tuple[str, bool]]:  # pragma: no cover （需真实网络/密钥）
+        """断线自动重连续传：ASR WS 中途断了就退避重连（同一 frames，不丢后续语音），整通不会「突然不应答」；
+        挂断时本 task 被 cancel → CancelledError 向上抛、不重连。"""
+        import logging
+        _log = logging.getLogger("micall.asr")
+        backoff = 0.5
+        while True:
+            try:
+                async for _out in self._stream_once(frames):
+                    yield _out
+                return
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                _log.warning("ASR 流中断，%.1fs 后重连：%r", backoff, e)
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 5.0)
+
+    async def _stream_once(
+        self, frames: AsyncIterator[bytes]
+    ) -> AsyncIterator[tuple[str, bool]]:  # pragma: no cover
         from websockets.asyncio.client import connect
 
         url = f"{self.ws_url}?model={self.model}"

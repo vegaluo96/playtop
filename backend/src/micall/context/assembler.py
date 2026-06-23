@@ -128,7 +128,11 @@ class ContextAssembler:
 
     def prefix(self, scenario: str) -> str:
         """通话内不变的前缀（L1 人设 + 原则 + 情绪指令 + L2 画像/关系/自主/策略 + 情境）。
-        真实接入时整体进 LLM 的 prefix cache（§1.7），每轮只追加滑窗。"""
+        真实接入时整体进 LLM 的 prefix cache（§1.7），每轮只追加滑窗。
+        通话内人设/画像/原则不变、仅 scenario 可能变（set_scene）→ 按 scenario 缓存，省每轮重建这串字符。"""
+        c = getattr(self, "_prefix_cache", None)
+        if c is not None and c[0] == scenario:
+            return c[1]
         parts = [
             _persona_block(self.character),
             _PRINCIPLES,
@@ -144,7 +148,9 @@ class ContextAssembler:
         extra = (self.character.runtime_overrides or {}).get("realtime_prompt_extra")
         if extra:
             parts.append(f"本角色口吻提示：{extra}")
-        return "\n\n".join(p for p in parts if p)
+        out = "\n\n".join(p for p in parts if p)
+        self._prefix_cache = (scenario, out)
+        return out
 
     def build(
         self, *, character_id: str, scenario: str, history: list[Message],
