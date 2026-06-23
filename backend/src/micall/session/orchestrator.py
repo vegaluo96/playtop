@@ -59,13 +59,6 @@ AudioEmit = Callable[[bytes], Awaitable[None]]
 _SENTENCE_END = set("。！？!?\n")
 
 
-def _first_sentence_end(s: str) -> int:
-    for i, ch in enumerate(s):
-        if ch in _SENTENCE_END:
-            return i
-    return -1
-
-
 def _split_sentences(s: str) -> list[str]:
     """按句末标点切成短句（保留标点）。用于字幕逐句下发，避免一长段撑开屏幕。"""
     out: list[str] = []
@@ -299,42 +292,26 @@ class CallSession:
         stripper = EmotionStripper()
         spoke: list[str] = []   # 实际播出的句子（ack 边界 → 进上下文，§1.5）
         buf = ""
-        speaking = False
-        emotion_sent = False
 
-        async def open_speak() -> None:
-            nonlocal speaking, emotion_sent
-            if not speaking:
-                self._ai_said = ""  # 进入发声：以本轮 AI 文本作为新的回声基准（此前保留上一轮防拖尾回声）
-                self.sm.to(Phase.SPEAKING)
-                await self._emit(ServerEvent.state(Phase.SPEAKING.value))
-                speaking = True
-            if not emotion_sent:
-                self.emotion_tag = stripper.tag
-                await self._emit(ServerEvent.emotion(stripper.tag))  # 一处产生，多处消费
-                emotion_sent = True
-
-        spoke_first = False
+        # 整段回复先流式生成完，再「一次」合成下发 —— 修复用户实测「说话时音色像换了个人」：
+        #   ① 旧版「首句抢跑 + 尾段」是两次独立 TTS 生成，同一 voice_id 在句界仍会渲染出差异 →
+        #      像换了个人。改成整段一次生成，全程同一次渲染、同一个人。
+        #   ② 不再把每轮跳变的情绪标签喂给 TTS（见 _speak）——情绪在 happy/中性/sad 间跳，MiniMax 会把
+        #      同一音色渲染成不同的人。情绪只发前端/编排（UI 线索），绝不动音色。
+        # DeepSeek-flash 很快，一两句的整段生成只比首句抢跑多约 0.3s，换来全程同一个人，值。
         async for token in self.llm.stream(messages, max_tokens=self._reply_max_tokens):
             if self._interrupt.is_set():
                 break
             buf += stripper.feed(token)
-            # 只抢跑「第一句」压低首音延迟；其余攒着，等流结束一次性合成——
-            # 否则每句一个 TTS 调用，句间各有首块延迟 → 开场长回复一顿一顿（用户实测：开场卡顿）。
-            if not spoke_first:
-                idx = _first_sentence_end(buf)
-                if idx >= 0:
-                    sentence, buf = buf[: idx + 1], buf[idx + 1:]
-                    if sentence.strip():
-                        await open_speak()                   # 首句一出即抢跑（§1.7）
-                        await self._speak(sentence, spoke)
-                        spoke_first = True
 
-        # 第一句之后的整段一次合成：MiniMax 连续流，句与句之间不再断气。
-        tail = (buf + stripper.flush()).strip()
-        if tail and not self._interrupt.is_set():
-            await open_speak()
-            await self._speak(tail, spoke)
+        reply = (buf + stripper.flush()).strip()
+        if reply and not self._interrupt.is_set():
+            self._ai_said = ""  # 进入发声：以本轮 AI 文本作为新的回声基准（此前保留上一轮防拖尾回声）
+            self.emotion_tag = stripper.tag
+            self.sm.to(Phase.SPEAKING)
+            await self._emit(ServerEvent.state(Phase.SPEAKING.value))
+            await self._emit(ServerEvent.emotion(stripper.tag))  # 仅供前端/编排（不喂 TTS，见 _speak）
+            await self._speak(reply, spoke)
 
         # 实际播出的话进上下文；被打断则标注，让下轮能自然接住（§1.5 难点4）。
         if spoke:
@@ -346,7 +323,8 @@ class CallSession:
         self._trim_history()
 
         # 回 listening（打断路径已由 interrupt() 切 listening + emit interrupted）。
-        if not self._interrupt.is_set() and self.sm.phase == Phase.SPEAKING:
+        # 含空回复兜底：没说出话也从 THINKING 回到 LISTENING，避免卡在思考态。
+        if not self._interrupt.is_set() and self.sm.phase in (Phase.SPEAKING, Phase.THINKING):
             self.sm.to(Phase.LISTENING)
             await self._emit(ServerEvent.state(Phase.LISTENING.value))
 
@@ -362,7 +340,7 @@ class CallSession:
         self._ai_said += spoken  # 记入回声基准（这句即将在前端播放，可能回灌麦克风）
         audio_bytes = 0
         async for chunk in self.tts.synthesize(
-            spoken, voice_id=self.voice_id, emotion=self.emotion_tag
+            spoken, voice_id=self.voice_id, emotion=""   # 不喂动态情绪：保证整通同一个人（情绪跳变会"像换了个人"）
         ):
             if self._interrupt.is_set():
                 return  # 熔断：停下行 + 丢弃后续（清 tts_queue 的等价）
