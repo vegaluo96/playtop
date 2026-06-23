@@ -248,6 +248,103 @@ class PgRepository(MemoryRepository):
         except Exception as e:
             log.warning("save_autonomous 失败：%r", e)
 
+    # ── 账号/会话/计费 ──
+    def create_user(self, user_id, email, password_hash, *, display_name="", gift_seconds=0) -> bool:
+        try:
+            with self.pool.connection() as c, c.transaction():
+                c.execute(
+                    "INSERT INTO users (user_id, email, password_hash, display_name, remaining_seconds) "
+                    "VALUES (%s,%s,%s,%s,%s)",
+                    (user_id, email, password_hash, display_name, max(0, int(gift_seconds))),
+                )
+                if gift_seconds:
+                    c.execute(
+                        "INSERT INTO billing_ledger (user_id, delta_seconds, reason) VALUES (%s,%s,'register_gift')",
+                        (user_id, int(gift_seconds)),
+                    )
+            return True
+        except psycopg.errors.UniqueViolation:
+            return False
+        except Exception as e:
+            log.warning("create_user 失败：%r", e)
+            return False
+
+    def auth_user(self, email):
+        try:
+            with self.pool.connection() as c:
+                r = c.execute(
+                    "SELECT user_id, password_hash FROM users WHERE lower(email)=lower(%s)", (email,)
+                ).fetchone()
+            return (r[0], r[1]) if r else None
+        except Exception:
+            return None
+
+    def get_user(self, user_id):
+        try:
+            with self.pool.connection() as c:
+                r = c.execute(
+                    "SELECT user_id, email, display_name, remaining_seconds FROM users WHERE user_id=%s",
+                    (user_id,),
+                ).fetchone()
+            return {"user_id": r[0], "email": r[1], "display_name": r[2], "remaining_seconds": r[3]} if r else None
+        except Exception:
+            return None
+
+    def create_session(self, token, user_id, ttl_seconds) -> None:
+        try:
+            with self.pool.connection() as c:
+                c.execute(
+                    "INSERT INTO sessions (token, user_id, expires_at) "
+                    "VALUES (%s,%s, now() + make_interval(secs => %s))",
+                    (token, user_id, int(ttl_seconds)),
+                )
+        except Exception as e:
+            log.warning("create_session 失败：%r", e)
+
+    def user_for_token(self, token):
+        try:
+            with self.pool.connection() as c:
+                r = c.execute(
+                    "SELECT user_id FROM sessions WHERE token=%s AND expires_at > now()", (token,)
+                ).fetchone()
+            return r[0] if r else None
+        except Exception:
+            return None
+
+    def delete_session(self, token) -> None:
+        try:
+            with self.pool.connection() as c:
+                c.execute("DELETE FROM sessions WHERE token=%s", (token,))
+        except Exception:
+            pass
+
+    def remaining_seconds(self, user_id) -> int:
+        try:
+            with self.pool.connection() as c:
+                r = c.execute("SELECT remaining_seconds FROM users WHERE user_id=%s", (user_id,)).fetchone()
+            return int(r[0]) if r else 0
+        except Exception:
+            return 0
+
+    def add_seconds(self, user_id, delta_seconds, reason) -> int:
+        try:
+            with self.pool.connection() as c, c.transaction():
+                r = c.execute(
+                    "UPDATE users SET remaining_seconds = GREATEST(0, remaining_seconds + %s) "
+                    "WHERE user_id=%s RETURNING remaining_seconds",
+                    (int(delta_seconds), user_id),
+                ).fetchone()
+                if r is None:
+                    return 0
+                c.execute(
+                    "INSERT INTO billing_ledger (user_id, delta_seconds, reason) VALUES (%s,%s,%s)",
+                    (user_id, int(delta_seconds), reason),
+                )
+            return int(r[0])
+        except Exception as e:
+            log.warning("add_seconds 失败：%r", e)
+            return 0
+
     def close(self) -> None:
         try:
             self.pool.close()

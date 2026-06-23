@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import math
+import time
 from abc import ABC, abstractmethod
 
 from ..context.models import AutonomousState, UserProfile
@@ -83,6 +84,41 @@ class MemoryRepository(ABC):
     @abstractmethod
     def save_autonomous(self, character_id: str, state: AutonomousState) -> None: ...
 
+    # ── 用户账号 / 登录会话 / 计费余额（P2/P3）──
+    # 基类给「游客安全」缺省（不支持账号）；InMemoryRepository 与 PgRepository 给真实实现。
+    def create_user(
+        self, user_id: str, email: str, password_hash: str, *,
+        display_name: str = "", gift_seconds: int = 0,
+    ) -> bool:
+        """新建用户；email 已注册返回 False。gift_seconds 入账并记 register_gift 流水。"""
+        return False
+
+    def auth_user(self, email: str) -> tuple[str, str] | None:
+        """email → (user_id, password_hash)；无则 None。登录校验用。"""
+        return None
+
+    def get_user(self, user_id: str) -> dict | None:
+        """user_id → {user_id,email,display_name,remaining_seconds}；无则 None。"""
+        return None
+
+    def create_session(self, token: str, user_id: str, ttl_seconds: int) -> None:
+        """登录发 token：记 token→user_id，ttl_seconds 后过期。"""
+
+    def user_for_token(self, token: str) -> str | None:
+        """token → user_id（未过期）；无效/过期则 None。WS 握手与 /api/auth/me 用。"""
+        return None
+
+    def delete_session(self, token: str) -> None:
+        """登出：作废 token。"""
+
+    def remaining_seconds(self, user_id: str) -> int:
+        """用户当前余额（秒，服务端权威）。"""
+        return 0
+
+    def add_seconds(self, user_id: str, delta_seconds: int, reason: str) -> int:
+        """改余额并记流水（负=消费 call、正=充值 recharge/赠送）。返回改后余额（钳到 ≥0）。"""
+        return 0
+
 
 class InMemoryRepository(MemoryRepository):
     """字典实现。配了 Embedding 节点则按余弦相似召回（recall_vec），否则字符重叠近似（recall）。
@@ -94,6 +130,9 @@ class InMemoryRepository(MemoryRepository):
         self._profiles: dict[tuple[str, str], UserProfile] = {}
         self._voices: dict[tuple[str, str], str] = {}
         self._autonomous: dict[str, AutonomousState] = {}
+        self._users: dict[str, dict] = {}                  # user_id → 账号
+        self._email_idx: dict[str, str] = {}               # email(lower) → user_id
+        self._sessions: dict[str, tuple[str, float]] = {}  # token → (user_id, expires_epoch)
 
     def add_fact(
         self, user_id: str, character_id: str, text: str, *,
@@ -160,3 +199,51 @@ class InMemoryRepository(MemoryRepository):
 
     def save_autonomous(self, character_id: str, state: AutonomousState) -> None:
         self._autonomous[character_id] = state
+
+    # ── 账号/会话/计费（内存）──
+    def create_user(self, user_id, email, password_hash, *, display_name="", gift_seconds=0) -> bool:
+        key = (email or "").strip().lower()
+        if key and key in self._email_idx:
+            return False
+        self._users[user_id] = {
+            "user_id": user_id, "email": email, "display_name": display_name,
+            "password_hash": password_hash, "remaining_seconds": max(0, int(gift_seconds)),
+        }
+        if key:
+            self._email_idx[key] = user_id
+        return True
+
+    def auth_user(self, email):
+        uid = self._email_idx.get((email or "").strip().lower())
+        return (uid, self._users[uid]["password_hash"]) if uid else None
+
+    def get_user(self, user_id):
+        u = self._users.get(user_id)
+        return {k: u[k] for k in ("user_id", "email", "display_name", "remaining_seconds")} if u else None
+
+    def create_session(self, token, user_id, ttl_seconds) -> None:
+        self._sessions[token] = (user_id, time.time() + ttl_seconds)
+
+    def user_for_token(self, token):
+        rec = self._sessions.get(token)
+        if not rec:
+            return None
+        uid, exp = rec
+        if exp < time.time():
+            self._sessions.pop(token, None)
+            return None
+        return uid
+
+    def delete_session(self, token) -> None:
+        self._sessions.pop(token, None)
+
+    def remaining_seconds(self, user_id) -> int:
+        u = self._users.get(user_id)
+        return int(u["remaining_seconds"]) if u else 0
+
+    def add_seconds(self, user_id, delta_seconds, reason) -> int:
+        u = self._users.get(user_id)
+        if not u:
+            return 0
+        u["remaining_seconds"] = max(0, int(u["remaining_seconds"]) + int(delta_seconds))
+        return u["remaining_seconds"]

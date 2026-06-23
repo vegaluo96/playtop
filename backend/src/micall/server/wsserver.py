@@ -30,6 +30,22 @@ _DEFAULT_REMAINING = 720  # 骨架默认通话余额（秒）；真实从 users 
 _ANON = "anon"            # 骨架无鉴权；真实从登录态取 user_id
 
 
+def _resolve_user(repo: MemoryRepository, websocket: Any) -> str:
+    """从 WS 握手 URL 的 ?token= 解析登录用户。无/失效 → 游客 _ANON（仍可通话，前端会提示注册）。"""
+    try:
+        from urllib.parse import parse_qs, urlsplit
+
+        path = getattr(getattr(websocket, "request", None), "path", "") or ""
+        token = parse_qs(urlsplit(path).query).get("token", [""])[0]
+        if token:
+            uid = repo.user_for_token(token)
+            if uid:
+                return uid
+    except Exception as e:
+        log.warning("token 解析失败，按游客处理：%r", e)
+    return _ANON
+
+
 def _load_characters() -> dict[str, CharacterRuntime]:
     """加载出厂角色 spec + 后台「角色管理」覆盖（铁律7：出厂、全用户共享）。
     effective_specs 合并 character_overrides.json，运营在后台改完下一通即生效。"""
@@ -58,7 +74,18 @@ class SignalingServer:
         # 这样 admin 改了「接口配置」即时生效；后台触发，不碰实时路径。
         self._bg_tasks: set[asyncio.Task] = set()
 
-    def _schedule_understanding(self, session: "CallSession") -> None:
+    def _consume_balance(self, user_id: str, session: "CallSession") -> None:
+        """登录用户挂断 → 按实际通话秒数扣余额 + 记 call 流水（§5 服务端权威计费）。游客不入账。"""
+        if user_id == _ANON or not session:
+            return
+        consumed = int(getattr(getattr(session, "billing", None), "elapsed", 0) or 0)
+        if consumed > 0:
+            try:
+                self.repo.add_seconds(user_id, -consumed, "call")
+            except Exception as e:
+                log.warning("扣费失败 user=%s：%r", user_id, e)
+
+    def _schedule_understanding(self, session: "CallSession", user_id: str = _ANON) -> None:
         """通话结束 → 后台跑离线理解（写事实层 + 修正画像 + 生成下次策略）。fire-and-forget。"""
         if not session or not session.history:
             return
@@ -73,8 +100,8 @@ class SignalingServer:
 
         async def run() -> None:
             try:
-                await engine.process_call(_ANON, char, history)
-                log.info("离线理解完成 char=%s", char)
+                await engine.process_call(user_id, char, history)
+                log.info("离线理解完成 char=%s user=%s", char, user_id)
             except Exception as e:  # 离线失败不影响任何实时路径
                 log.warning("离线理解失败：%r", e)
 
@@ -116,13 +143,13 @@ class SignalingServer:
             log.warning("实时 ASR 初始化失败，转文字模式：%r", e)
             return None
 
-    def _make_session(self, *, emit, audio_emit=None, character_id, scenario) -> CallSession:
+    def _make_session(self, *, emit, audio_emit=None, character_id, scenario, user_id=_ANON) -> CallSession:
         char = self._character(character_id)
-        user_voice = self.repo.get_user_voice(_ANON, char.character_id)
+        user_voice = self.repo.get_user_voice(user_id, char.character_id)
         voice_id = resolve_voice(
             self.config.global_defaults.get("default_voice", ""), char.voice_id, user_voice
         )
-        profile = self.repo.get_profile(_ANON, char.character_id)
+        profile = self.repo.get_profile(user_id, char.character_id)
         assembler = ContextAssembler(
             char,
             profile=profile,
@@ -130,6 +157,8 @@ class SignalingServer:
             memory=self.repo,
             memory_top_k=int(self.config.global_defaults.get("memory_depth", 5)),
         )
+        # 余额：登录用户读 users.remaining_seconds（服务端权威，§5）；游客给试用额度。
+        remaining = self.repo.remaining_seconds(user_id) if user_id != _ANON else _DEFAULT_REMAINING
         return CallSession(
             config=self.config,
             emit=emit,
@@ -141,7 +170,7 @@ class SignalingServer:
             assembler=assembler,
             character_id=char.character_id,
             scenario=scenario or "",
-            remaining_seconds=_DEFAULT_REMAINING,
+            remaining_seconds=remaining,
             voice_id=voice_id,
         )
 
@@ -156,8 +185,10 @@ class SignalingServer:
         async def audio_emit(buf: bytes) -> None:
             await websocket.send(buf)  # 二进制下行：TTS 音频帧（媒体）
 
+        # 握手鉴权：URL ?token= 解析出真实 user_id（替换游客 _ANON）。无/失效 token → 游客可继续通话。
+        user_id = _resolve_user(self.repo, websocket)
         addr = getattr(websocket, "remote_address", None)
-        log.info("⇆ 新连接 %s", addr[0] if addr else "?")
+        log.info("⇆ 新连接 %s user=%s", addr[0] if addr else "?", user_id)
         try:
             async for raw in websocket:
                 if isinstance(raw, (bytes, bytearray)):
@@ -174,22 +205,25 @@ class SignalingServer:
                     self._reload_config()  # 拾取后台「接口配置」最新改动（无需重启）
                     session = self._make_session(
                         emit=emit, audio_emit=audio_emit,
-                        character_id=msg.character_id, scenario=msg.scenario,
+                        character_id=msg.character_id, scenario=msg.scenario, user_id=user_id,
                     )
                     await session.start()
                 elif msg.type == "switch_character":
                     if session:
                         await session.end(emit_ended=False)  # 切角色 = 结束 + 新建（docs/03 §3）
+                        self._consume_balance(user_id, session)
+                        self._schedule_understanding(session, user_id)
                     self._reload_config()
                     session = self._make_session(
                         emit=emit, audio_emit=audio_emit,
-                        character_id=msg.character_id, scenario=msg.scenario,
+                        character_id=msg.character_id, scenario=msg.scenario, user_id=user_id,
                     )
                     await session.start()
                 elif msg.type == "end_call":
                     if session:
                         await session.end()
-                        self._schedule_understanding(session)
+                        self._consume_balance(user_id, session)
+                        self._schedule_understanding(session, user_id)
                         session = None
                 elif msg.type == "text_input":
                     if session and msg.text:
@@ -205,7 +239,7 @@ class SignalingServer:
                     char = msg.character_id or (session.character_id if session else None)
                     if char:
                         char = self._character(char).character_id  # 归一到出厂 id
-                        self.repo.reset_memory(_ANON, char)
+                        self.repo.reset_memory(user_id, char)
                         if session and session.character_id == char:
                             session.history.clear()
                         log.info("🧹 重置记忆 char=%s", char)
@@ -214,13 +248,15 @@ class SignalingServer:
         finally:
             if session:
                 await session.end(emit_ended=False)
-                self._schedule_understanding(session)
+                self._consume_balance(user_id, session)
+                self._schedule_understanding(session, user_id)
 
 
 async def serve_forever(config: Config) -> None:
     from websockets.asyncio.server import serve  # 延迟导入：仅运行服务才需 websockets
 
-    server = SignalingServer(config)
+    repo = make_repository(config)               # 仓储建一次，WS 与用户 HTTP API 共用（账号即时可见）
+    server = SignalingServer(config, repo=repo)
     host = config.server.get("ws_host", "0.0.0.0")
     port = int(config.server.get("ws_port", 8787))
     path = config.server.get("path", "/realtime/signal")
@@ -234,6 +270,15 @@ async def serve_forever(config: Config) -> None:
         print(f"[micall] 后台配置 API http://{admin_host}:{admin_port}/admin/api-config")
     except Exception as e:  # 配置 API 起不来不影响通话主链路
         log.warning("后台配置 API 启动失败：%r", e)
+    # C 端用户账号 API（注册/登录，本地监听，nginx 反代 /api/）。
+    user_port = int(config.server.get("user_port", 8789))
+    try:
+        from .userapi import run_user_http
+
+        run_user_http(repo, admin_host, user_port)
+        print(f"[micall] 用户账号 API http://{admin_host}:{user_port}/api/auth/*")
+    except Exception as e:  # 账号 API 起不来不影响通话主链路（游客仍可用）
+        log.warning("用户账号 API 启动失败：%r", e)
     print(f"[micall] 信令服务器监听 ws://{host}:{port}{path}")
     async with serve(server.handle, host, port):
         await asyncio.Future()  # run forever
