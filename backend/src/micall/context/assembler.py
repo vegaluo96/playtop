@@ -36,6 +36,75 @@ def _now_line(now: datetime.datetime | None = None) -> str:
     )
 
 
+def _elapsed_line(secs: float | None) -> str:
+    """距上次和这个角色通话的间隔，给 AI「间隔感」（像真人记得多久没联系）。只在开场自然带一句。
+    secs=None 表示没有往次通话（首次相识），不在此处处理。"""
+    if secs is None:
+        return ""
+    m = secs / 60
+    if m < 8:
+        gap = "你俩几分钟前刚通完话，TA 又拨进来了"
+    elif m < 90:
+        gap = "今天稍早你们才聊过"
+    else:
+        h = secs / 3600
+        if h < 12:
+            gap = "今天早些时候通过话"
+        elif h < 36:
+            gap = "上次通话大概是昨天"
+        elif h < 60:
+            gap = "上次通话大概是前天"
+        else:
+            d = secs / 86400
+            if d < 14:
+                gap = f"距上次通话大约 {int(round(d))} 天了"
+            elif d < 60:
+                gap = f"距上次通话有 {int(round(d / 7))} 周了"
+            else:
+                gap = "已经一个多月没通话、很久没联系了"
+    return f"（{gap}——开场时若自然可轻轻带一句，别刻意、别反复提。）"
+
+
+# 固定公历节日（每年同日，可靠）。键 (月, 日) → 文案。
+_FIXED_FESTIVALS = {
+    (1, 1): "元旦",
+    (2, 14): "情人节",
+    (3, 8): "妇女节",
+    (5, 1): "劳动节",
+    (6, 1): "儿童节",
+    (9, 10): "教师节",
+    (10, 1): "国庆节",
+    (12, 24): "平安夜",
+    (12, 25): "圣诞节",
+}
+
+# 农历/换算节日逐年公历日期都不同——农历无简易公式，按年份硬编一份，需每年初核对更新。
+# 键 (年, 月, 日) → 文案；缺失年份则该节日不触发（宁缺毋错，避免报错日期）。
+_LUNAR_FESTIVALS = {
+    # 2026（丙午马年）——已核对
+    (2026, 2, 16): "除夕",
+    (2026, 2, 17): "春节",
+    (2026, 3, 3): "元宵节",
+    (2026, 4, 5): "清明",
+    (2026, 6, 19): "端午节",
+    (2026, 8, 19): "七夕",
+    (2026, 9, 25): "中秋节",
+    (2026, 10, 18): "重阳节",
+    # 2027（丁未羊年）——春节档，需逐年核对
+    (2027, 2, 5): "除夕",
+    (2027, 2, 6): "春节",
+    (2027, 2, 20): "元宵节",
+}
+
+
+def _special_day_line(now: datetime.datetime) -> str:
+    """今天若是节日，给一行应景提示（TA 的生日另由「已知事实 + 现实时间」让模型自行识别）。"""
+    name = _LUNAR_FESTIVALS.get((now.year, now.month, now.day)) or _FIXED_FESTIVALS.get((now.month, now.day))
+    if not name:
+        return ""
+    return f"（今天是{name}——若自然可应应景送上一句心意，别硬塞祝福。）"
+
+
 def _identity_line(idt: dict) -> str:
     """把 identity 摊成一句「基本资料」，让 AI 清楚自己是谁（被问性别/年龄/外貌/生日能答上）。"""
     prof = idt.get("profile", {}) or {}
@@ -83,6 +152,8 @@ _PRINCIPLES = (
     "（绝不说半句、不戛然而止；你自己控制长短，别等被截断）；想多说也收住，留到下一轮。"
     "别长篇大论、别分点罗列、别一口气问一堆问题；介绍场景/情境也一两句带过即可，不要铺陈。"
     "说完就留白，把话头交给对方。"
+    "你不是只会应答的客服：可以主动接上次没聊完的线头、问问 TA 上回惦记的事，别总等 TA 起话头。"
+    "遇到 TA 的生日或当天的节日，自然送上一句心意就好，别硬来。"
     "这是语音通话：别写括号里的动作/神态/旁白（如（轻声笑）（歪着头）），就当面对面，直接把话说出来。"
 )
 
@@ -207,17 +278,41 @@ class ContextAssembler:
                     + "；".join(recalls) + "）\n"
                 )
 
-        # 时间观念：每轮新算的「现实时间」一行，和情节记忆一样折进末轮 user（动态内容不进 prefix 缓存，
+        # 「真实感」上下文：现实时间（每轮新算）+ 距上次通话的间隔感 + 当天节日（后两者整通电话不变，
+        # 首轮算好缓存，避免每轮查库）。和情节记忆一样折进末轮 user（动态内容不进 prefix 缓存，
         # 保持 system+历史前缀稳定、缓存不废）。无末轮 user（如开场白）则作为一条 system 追加在末尾。
-        now_line = _now_line()
+        human = self._human_context(character_id)
         if hist and hist[-1].get("role") == "user":
             *head, last = hist
             messages.extend(head)
-            messages.append({"role": "user", "content": now_line + "\n" + recall_preamble + last["content"]})
+            messages.append({"role": "user", "content": human + "\n" + recall_preamble + last["content"]})
         else:
             messages.extend(hist)
-            messages.append({"role": "system", "content": now_line})
+            messages.append({"role": "system", "content": human})
         return messages
+
+    def _human_context(self, character_id: str, now: datetime.datetime | None = None) -> str:
+        """现实时间 + 间隔感 + 节日，拼成给末轮 user 的「真实感」前缀。
+        时间每轮新算；间隔/节日整通电话内不变 → 首轮算好缓存（避免每轮查库 seconds_since_last_call）。"""
+        if now is None:
+            now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+        static = getattr(self, "_human_static", None)
+        if static is None:
+            bits: list[str] = []
+            if self.memory is not None and self.profile is not None:
+                try:
+                    secs = self.memory.seconds_since_last_call(self.profile.user_id, character_id)
+                except Exception:
+                    secs = None
+                el = _elapsed_line(secs)
+                if el:
+                    bits.append(el)
+            sp = _special_day_line(now)
+            if sp:
+                bits.append(sp)
+            static = "".join(bits)
+            self._human_static = static
+        return _now_line(now) + static
 
     def _windowed(self, history: list[Message], *, reserved: int) -> list[Message]:
         """L4 滑窗：从最近往回纳入，吃满剩余预算即停（滑窗最先被裁，§3.4）。"""

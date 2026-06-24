@@ -163,6 +163,12 @@ class MemoryRepository(ABC):
         不含被用户删除（hidden_by_user）的记录。"""
         return []
 
+    def seconds_since_last_call(self, user_id: str, character_id: str) -> float | None:
+        """距上次和「这个角色」通话过去了多少秒（无往次通话则 None）。给「间隔感」用：
+        让 AI 能说「三天没找我啦」「刚挂了又想我啦」。本通话写库（add_call）发生在挂断后，
+        故新通话开场算到的最近一条 = 上一次通话，正是我们要的间隔。"""
+        return None
+
     def hide_calls(self, user_id: str, ids: list) -> int:
         """用户端删除（隐藏）通话记录（账号级，跨设备一致）；后台统计仍计入。返回隐藏条数。"""
         return 0
@@ -458,6 +464,19 @@ class InMemoryRepository(MemoryRepository):
         rows.sort(key=lambda c: c["started_at"], reverse=True)
         return [{k: c[k] for k in ("id", "character_id", "scenario", "duration_seconds", "ended_reason", "started_at")}
                 for c in rows[:limit]]
+
+    def seconds_since_last_call(self, user_id, character_id) -> float | None:
+        from datetime import datetime
+        mine = [c["started_at"] for c in self._calls
+                if c["user_id"] == user_id and c["character_id"] == character_id]
+        if not mine:
+            return None
+        try:
+            last = max(datetime.fromisoformat(s) for s in mine)
+        except ValueError:
+            return None
+        now = datetime.now(last.tzinfo) if last.tzinfo else datetime.now()
+        return max(0.0, (now - last).total_seconds())
 
     def hide_calls(self, user_id, ids) -> int:
         want = {int(i) for i in (ids or []) if isinstance(i, int) or str(i).lstrip("-").isdigit()}

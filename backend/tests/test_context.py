@@ -111,6 +111,49 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("现实时间", msgs[-1]["content"])
         self.assertEqual(msgs[-1]["role"], "system")
 
+    def test_elapsed_line_buckets(self):
+        from micall.context.assembler import _elapsed_line
+
+        self.assertEqual(_elapsed_line(None), "")              # 首次通话：无间隔感
+        self.assertIn("几分钟前刚通完话", _elapsed_line(120))    # 2 分钟 → 刚挂又拨
+        self.assertIn("今天稍早", _elapsed_line(60 * 30))       # 半小时
+        self.assertIn("昨天", _elapsed_line(3600 * 24))         # 一天
+        self.assertIn("前天", _elapsed_line(3600 * 48))         # 两天
+        self.assertIn("3 天", _elapsed_line(86400 * 3))         # 几天
+        self.assertIn("周", _elapsed_line(86400 * 21))          # 三周
+        self.assertIn("一个多月", _elapsed_line(86400 * 70))     # 很久
+
+    def test_special_day_line(self):
+        import datetime
+        from micall.context.assembler import _special_day_line
+
+        tz = datetime.timezone(datetime.timedelta(hours=8))
+        self.assertIn("国庆节", _special_day_line(datetime.datetime(2026, 10, 1, 9, 0, tzinfo=tz)))  # 固定公历
+        self.assertIn("春节", _special_day_line(datetime.datetime(2026, 2, 17, 9, 0, tzinfo=tz)))     # 2026 农历
+        self.assertEqual(_special_day_line(datetime.datetime(2026, 6, 24, 9, 0, tzinfo=tz)), "")      # 平常日子无
+
+    def test_seconds_since_last_call_roundtrip(self):
+        r = InMemoryRepository()
+        self.assertIsNone(r.seconds_since_last_call("u", "lin_wan"))   # 没通过话
+        r.add_call("u", "lin_wan", "心情树洞", 120, "ended")
+        secs = r.seconds_since_last_call("u", "lin_wan")
+        self.assertIsNotNone(secs)
+        self.assertLess(secs, 60)                                       # 刚写入，间隔很小
+        self.assertIsNone(r.seconds_since_last_call("u", "other_char")) # 按角色隔离
+
+    def test_human_context_injects_elapsed_and_festival(self):
+        import datetime
+
+        r = InMemoryRepository()
+        r.add_call("u", "lin_wan", "", 60, "ended")          # 制造一次往次通话
+        prof = UserProfile("u", "lin_wan")
+        a = ContextAssembler(self._char(), profile=prof, memory=r)
+        tz = datetime.timezone(datetime.timedelta(hours=8))
+        human = a._human_context("lin_wan", datetime.datetime(2026, 10, 1, 9, 0, tzinfo=tz))
+        self.assertIn("现实时间", human)     # 时间
+        self.assertIn("刚通完话", human)      # 间隔感（刚 add_call）
+        self.assertIn("国庆节", human)        # 节日应景
+
     def test_recall_injected(self):
         r = InMemoryRepository()
         r.add_fact("u", "lin_wan", "养的猫叫团子")

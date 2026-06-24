@@ -444,6 +444,21 @@ class PgRepository(MemoryRepository):
             log.warning("list_calls 失败：%r", e)
             return []
 
+    def seconds_since_last_call(self, user_id, character_id) -> float | None:
+        try:
+            with self.pool.connection() as c:
+                row = c.execute(
+                    "SELECT EXTRACT(EPOCH FROM (now() - max(started_at)))::float "
+                    "FROM calls WHERE user_id=%s AND character_id=%s",
+                    (user_id, character_id),
+                ).fetchone()
+            if row and row[0] is not None:
+                return max(0.0, float(row[0]))
+            return None
+        except Exception as e:
+            log.warning("seconds_since_last_call 失败：%r", e)
+            return None
+
     def hide_calls(self, user_id, ids) -> int:
         """用户端删除（隐藏）：标记 hidden_by_user。账号级 → 该用户所有设备刷新后都不再显示；后台不受影响。"""
         clean = [int(i) for i in (ids or []) if isinstance(i, int) or str(i).lstrip("-").isdigit()]
