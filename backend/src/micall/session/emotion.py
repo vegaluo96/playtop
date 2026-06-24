@@ -156,16 +156,23 @@ def take_sentence_emotion(sentence: str, default: str) -> tuple[str, str]:
     return default, (sentence or "")
 
 
-# 安全网：模型常把笑写成文字「哈哈」而不是 (laughs) 标签 → 字幕里它读成"哈哈"不像真笑。
-# 在正向情绪下，把成串的「哈/嘻/嘿」就地换成 MiniMax 的 (laughs)，让语音真的笑出来；字幕不动（仍显"哈哈"）。
+# 安全网 + 高频真人感：模型在情绪化口语里本就高频写「哈哈」「唉」这类文字反应，但 TTS 把它们当字念、
+# 不像真笑/真叹。这里按情绪把这些文字反应就地换成 MiniMax 拟声，让语音真的笑/叹出来——频率随模型的
+# 自然表达走（它写得越多、真人声越密）。只动送 TTS 的文本，不动字幕（用户仍看到「哈哈」「唉」）。
 _LAUGH_RUN = re.compile(r"(?:哈|嘻|嘿){2,}|哈哈+")
-_LAUGH_EMOTIONS = frozenset({"happy", "excited", "playful"})
+_LAUGH_EMOTIONS = frozenset({"happy", "excited", "playful", "neutral", "tender", "caring"})
+_SIGH_RUN = re.compile(r"唉+")
+_SIGH_EMOTIONS = frozenset({"sad", "comfort", "caring", "worried", "calm", "tender", "gentle", "neutral"})
 
 
-def laughify_for_tts(tts_text: str, emotion: str) -> str:
-    """仅在正向情绪下，把「哈哈/哈哈哈/嘻嘻」这类文字笑替换成 (laughs)，让 TTS 发出真实笑声。
-    只动送 TTS 的文本，不动字幕（用户仍看到"哈哈"）。"""
-    if (emotion or "").strip().lower() not in _LAUGH_EMOTIONS:
-        return tts_text
-    return _LAUGH_RUN.sub("(laughs)", tts_text or "")
+def humanize_for_tts(tts_text: str, emotion: str) -> str:
+    """把模型自然写出的文字反应换成真实人声拟声：正向情绪「哈哈/嘻嘻」→ (laughs)；低落/温柔情绪「唉」→ (sighs)。
+    让 AI 像真人那样高频地真笑、真叹，而不是把"哈哈""唉"当字念。只动 TTS 文本，字幕不动。"""
+    e = (emotion or "").strip().lower()
+    t = tts_text or ""
+    if e in _LAUGH_EMOTIONS:
+        t = _LAUGH_RUN.sub("(laughs)", t)
+    if e in _SIGH_EMOTIONS:
+        t = _SIGH_RUN.sub("(sighs)", t)
+    return t
 
