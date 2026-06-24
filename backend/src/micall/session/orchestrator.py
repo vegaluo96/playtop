@@ -425,9 +425,9 @@ class CallSession:
         if not spoken:
             return  # 整句都是括号动作/旁白：不发音、不进上下文
         self._usage["tts_chars"] += len(spoken)   # 成本：TTS 合成字符
-        # 字幕逐句下发（短行，不撑屏）；音频整段一次合成（句间不断气）。
-        for seg in _split_sentences(spoken):
-            await self._emit(ServerEvent.subtitle("ai", seg))
+        # 一段（首句 / 尾段）只发一条字幕：首句随抢跑显示、尾段随它的音频显示，不再把整段多句一齐瞬发、跳到末句。
+        # 音频仍整段一次合成、一口气说完（不切句、不插停顿，避免「说一句就没」）。回复本就一两句，这样基本一句跟一句。
+        await self._emit(ServerEvent.subtitle("ai", spoken))
         self._ai_said += spoken  # 记入回声基准（这句即将在前端播放，可能回灌麦克风）
         audio_bytes = 0
         _ts = time.monotonic()
