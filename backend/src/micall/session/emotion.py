@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import re
 
-# 容错匹配开头的情绪标签：模型常把 key 写成 emotion/mood/feeling/情绪/心情，tag 可中可英。
-# 之前只认 [emotion:...]，模型吐 [mood:tender] 就漏过 → 被念出来/显示出来（用户实测）。
+# 容错匹配开头的情绪标签：模型常把 key 写成 emotion/mood/feeling/情绪/心情，tag 可中可英；
+# 且常省略 key 直接吐 [caring]/[listening]（用户实测漏到字幕/被念出来）。故 key 设为可选——
+# 开头任何 [短词]/【短词】 都当情绪标签剥掉（人设已要求绝不写括号，开头方括号必是标签残留）。
 _PREFIX = re.compile(
-    r"^\s*[\[【(（]\s*(?:emotion|mood|feeling|情绪|心情|语气)\s*[:：]\s*"
-    r"([a-zA-Z_一-鿿][\w一-鿿]*)\s*[\]】)）]\s*",
+    r"^\s*[\[【(（]\s*"
+    r"(?:(?:emotion|mood|feeling|情绪|心情|语气)\s*[:：]\s*)?"   # key 可有可无
+    r"([a-zA-Z_一-鿿][\w一-鿿]{0,20})\s*[\]】)）]\s*",
     re.IGNORECASE,
 )
 DEFAULT_EMOTION = "neutral"

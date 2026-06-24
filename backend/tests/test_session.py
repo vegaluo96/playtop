@@ -55,6 +55,16 @@ class TestEmotion(unittest.TestCase):
     def test_split(self):
         self.assertEqual(split_emotion("[emotion:tender] 你好"), ("tender", "你好"))
         self.assertEqual(split_emotion("没有标签的回复"), ("neutral", "没有标签的回复"))
+        # 模型常省略 key 直接吐 [caring]/[listening]（用户实测漏到字幕）——bare 标签也要剥掉。
+        self.assertEqual(split_emotion("[caring]下午四点多啦。"), ("caring", "下午四点多啦。"))
+        self.assertEqual(split_emotion("[listening]嗯，四点多。"), ("listening", "嗯，四点多。"))
+        self.assertEqual(split_emotion("【tender】在呢"), ("tender", "在呢"))
+
+    def test_stripper_bare_tag_streaming(self):
+        s = EmotionStripper()
+        out = "".join(s.feed(c) for c in "[caring]下午四点多啦。") + s.flush()
+        self.assertEqual(s.tag, "caring")
+        self.assertEqual(out, "下午四点多啦。")   # bare 标签不漏进 TTS/字幕
 
     def test_stripper_streaming(self):
         s = EmotionStripper()
