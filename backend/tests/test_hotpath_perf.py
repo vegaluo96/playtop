@@ -36,6 +36,48 @@ class TestEmbeddingSharedClient(unittest.TestCase):
             be._SHARED_CLIENT = None
 
 
+class _CountingEmbedder:
+    """记次假嵌入：用于验证短话不触发嵌入（省实时路径一次网络往返）。"""
+    def __init__(self):
+        self.calls = 0
+
+    async def embed_one(self, text):
+        self.calls += 1
+        return [0.1, 0.2, 0.3]
+
+
+class TestEmbedSkipShortTurns(unittest.TestCase):
+    def _session_with_facts(self, embedder):
+        from micall.config import load_config
+        from micall.context import CharacterRuntime, ContextAssembler
+        from micall.memory import InMemoryRepository
+        from micall.providers import StubLLM, StubTTS
+        from micall.session import CallSession
+
+        async def emit(ev):
+            pass
+        repo = InMemoryRepository()
+        repo.add_fact("u", "lin_wan", "养了一只猫叫团子", importance=0.8)  # 有记忆 → _mem_has_facts=True
+        char = CharacterRuntime("lin_wan", "林晚", {"core_traits": ["温柔"]}, emotion_map={"tender": "g"})
+        assembler = ContextAssembler(char, profile=repo.get_profile("u", "lin_wan"), memory=repo)
+        return CallSession(
+            config=load_config(), emit=emit, llm=StubLLM(["嗯"]), tts=StubTTS(),
+            assembler=assembler, character_id="lin_wan", scenario="", remaining_seconds=30,
+            voice_id="v1", embedder=embedder,
+        )
+
+    def test_short_turn_skips_embed_long_turn_embeds(self):
+        emb = _CountingEmbedder()
+        s = self._session_with_facts(emb)
+        self.assertTrue(s._mem_has_facts)                       # 预查命中
+        self.assertIsNone(asyncio.run(s._embed_query("嗯")))     # 短话 → 不嵌入
+        self.assertIsNone(asyncio.run(s._embed_query("好的")))   # 短话 → 不嵌入
+        self.assertEqual(emb.calls, 0)                          # 一次都没调嵌入
+        v = asyncio.run(s._embed_query("我最近在准备一场很重要的面试"))  # 实质长话 → 嵌入
+        self.assertEqual(v, [0.1, 0.2, 0.3])
+        self.assertEqual(emb.calls, 1)
+
+
 class TestMicQueueBounded(unittest.TestCase):
     def _active_session(self):
         async def emit(ev):

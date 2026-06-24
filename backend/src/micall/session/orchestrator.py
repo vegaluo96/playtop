@@ -173,6 +173,12 @@ class CallSession:
         # LLM 首 token 墙钟超时：连上后若卡住（不吐 token），不要干等 httpx 读超时(30s)才解脱 →
         # 表现为"一直在思考/突然卡死"。只卡首 token（宽松，不误杀慢而有效的长回复）。
         self._llm_first_token_timeout = float(turn.get("llm_first_token_timeout_s", 8.0))
+        # 嵌入召回的接话提速旋钮（都不影响语音/VAD）：
+        #   embed_min_chars —— 短话（"嗯""好的""是啊"）不嵌入：嵌一两个字本就没语义、召回多是噪声，
+        #     却白加一次往返（最多 embed_timeout_s）拖慢接话。短话走关键词召回足矣。低于此长度跳过嵌入。
+        #   embed_timeout_s —— 嵌入墙钟上限，超时即退关键词（不拖累实时接话）。
+        self._embed_min_chars = int(turn.get("embed_min_chars", 4))
+        self._embed_timeout_s = float(turn.get("embed_timeout_s", 0.6))
 
     # ── 下行封装：状态未结束才发（结束后丢弃迟到事件）──
     async def _emit(self, ev: dict) -> None:
@@ -323,14 +329,17 @@ class CallSession:
     async def _embed_query(self, text: str) -> list[float] | None:
         """把本轮用户话向量化用于情节记忆余弦召回。仅配了 Embedding 且库里有可检索记忆时才嵌入，
         否则纯属给实时路径白加一次网络往返（开场/新会话尤其明显，对话发钝）。带紧超时兜底。"""
-        if self._embedder is None or not (text or "").strip():
+        t = (text or "").strip()
+        if self._embedder is None or not t:
             return None
         if not self._mem_has_facts:
             return None  # 没有可召回的记忆 → 不嵌入，省一次往返（recall 也只会返回空）。开场已缓存，不再每轮查库
+        if len(t) < self._embed_min_chars:
+            return None  # 短话（嗯/好的/是啊）不嵌入：没语义、召回是噪声，省一次往返让接话更跟手（关键词召回兜底）
         try:
-            # 实时路径硬上限：嵌入慢/卡也不拖累对话，超时即退关键词召回。0.6s 让「说完→AI接话」更跟手，
-            # 嵌入正常都 <0.6s（不影响召回质量），只有真卡时才快速降级关键词。
-            return await asyncio.wait_for(self._embedder.embed_one(text), timeout=0.6)
+            # 实时路径硬上限：嵌入慢/卡也不拖累对话，超时即退关键词召回。让「说完→AI接话」更跟手，
+            # 嵌入正常都 <embed_timeout_s（不影响召回质量），只有真卡时才快速降级关键词。
+            return await asyncio.wait_for(self._embedder.embed_one(t), timeout=self._embed_timeout_s)
         except Exception as e:  # 超时/网络/鉴权：静默退关键词召回（asyncio.TimeoutError 也是 Exception）。
             log.warning("query 向量化跳过（超时/失败），退关键词召回：%r", e)
             return None
