@@ -155,3 +155,17 @@ def take_sentence_emotion(sentence: str, default: str) -> tuple[str, str]:
         return m.group(1), sentence[m.end():]
     return default, (sentence or "")
 
+
+# 安全网：模型常把笑写成文字「哈哈」而不是 (laughs) 标签 → 字幕里它读成"哈哈"不像真笑。
+# 在正向情绪下，把成串的「哈/嘻/嘿」就地换成 MiniMax 的 (laughs)，让语音真的笑出来；字幕不动（仍显"哈哈"）。
+_LAUGH_RUN = re.compile(r"(?:哈|嘻|嘿){2,}|哈哈+")
+_LAUGH_EMOTIONS = frozenset({"happy", "excited", "playful"})
+
+
+def laughify_for_tts(tts_text: str, emotion: str) -> str:
+    """仅在正向情绪下，把「哈哈/哈哈哈/嘻嘻」这类文字笑替换成 (laughs)，让 TTS 发出真实笑声。
+    只动送 TTS 的文本，不动字幕（用户仍看到"哈哈"）。"""
+    if (emotion or "").strip().lower() not in _LAUGH_EMOTIONS:
+        return tts_text
+    return _LAUGH_RUN.sub("(laughs)", tts_text or "")
+

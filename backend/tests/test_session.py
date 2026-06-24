@@ -121,6 +121,16 @@ class TestSentenceEmotion(unittest.TestCase):
         out = clean_for_subtitle("[emotion:sad](sighs)唉 <#0.3#> 别难过。")
         self.assertEqual(out, "唉 别难过。")   # 标签/拟声/停顿全去掉，只剩人话
 
+    def test_laughify_text_to_real_laugh(self):
+        from micall.session.emotion import laughify_for_tts
+        # 正向情绪：文字「哈哈」→ (laughs)（让 TTS 真笑），喂的是 TTS 文本，字幕另算。
+        self.assertEqual(laughify_for_tts("哈哈，太逗了", "happy"), "(laughs)，太逗了")
+        self.assertEqual(laughify_for_tts("嘻嘻你好坏", "playful"), "(laughs)你好坏")
+        # 非正向情绪不动（难过时的「哈」不该变笑）。
+        self.assertEqual(laughify_for_tts("哈哈", "sad"), "哈哈")
+        # 单个「哈」不是笑（可能是别的词的一部分），不动。
+        self.assertEqual(laughify_for_tts("哈", "happy"), "哈")
+
 
 if __name__ == "__main__":
     unittest.main()

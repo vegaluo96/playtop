@@ -49,7 +49,9 @@ from ..protocol import ServerEvent
 from ..providers import ASRProvider, LLMProvider, TTSProvider
 from ..context.assembler import ContextAssembler
 from .billing import BillingMeter
-from .emotion import clean_for_subtitle, clean_for_tts, prosody_for, take_sentence_emotion
+from .emotion import (
+    clean_for_subtitle, clean_for_tts, laughify_for_tts, prosody_for, take_sentence_emotion,
+)
 from .state import CallStateMachine, Phase
 
 log = logging.getLogger("micall.session")
@@ -390,6 +392,7 @@ class CallSession:
             emo, body = take_sentence_emotion(sentence, cur_emotion)
             cur_emotion = emo
             tts_text, sub_text = clean_for_tts(body), clean_for_subtitle(body)
+            tts_text = laughify_for_tts(tts_text, emo)   # 正向情绪下「哈哈」→ (laughs) 真笑声（字幕仍显"哈哈"）
             if not tts_text and not sub_text:
                 return None
             m_emo, speed, pitch, vol = prosody_for(emo)
