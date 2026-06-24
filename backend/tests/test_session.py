@@ -136,6 +136,10 @@ class TestSentenceEmotion(unittest.TestCase):
         self.assertEqual(humanize_for_tts("唉", "happy"), "唉")
         # 单个「哈」不是笑，不动。
         self.assertEqual(humanize_for_tts("哈", "happy"), "哈")
+        # 明确被逗乐却没写「哈哈」→ 句尾补真笑（让支持拟声的音色笑出来）。
+        self.assertEqual(humanize_for_tts("你太逗了", "playful"), "你太逗了(laughs)")
+        self.assertEqual(humanize_for_tts("笑死我了", "happy"), "笑死我了(laughs)")
+        self.assertNotIn("(laughs)", humanize_for_tts("今天天气不错", "happy"))  # 没逗乐标志不硬加
 
 
 if __name__ == "__main__":

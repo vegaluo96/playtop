@@ -166,6 +166,9 @@ _LAUGH_RUN = re.compile(r"(?:哈|嘻|嘿){2,}|哈哈+")
 _LAUGH_EMOTIONS = frozenset({"happy", "excited", "playful", "neutral", "tender", "caring"})
 _SIGH_RUN = re.compile(r"唉+")
 _SIGH_EMOTIONS = frozenset({"sad", "comfort", "caring", "worried", "calm", "tender", "gentle", "neutral"})
+# 明确「被逗乐」的标志：开心情绪下若出现这些词、却没写出笑 → 句尾补一个真笑（让支持拟声的音色笑出来）。
+_AMUSED_CUE = re.compile(r"太逗|逗死|笑死|乐死|太好玩|太搞笑|笑喷|绝了|有意思|好玩")
+_AMUSED_EMOTIONS = frozenset({"happy", "excited", "playful"})
 
 
 def humanize_for_tts(tts_text: str, emotion: str) -> str:
@@ -177,5 +180,7 @@ def humanize_for_tts(tts_text: str, emotion: str) -> str:
         t = _LAUGH_RUN.sub("(laughs)", t)
     if e in _SIGH_EMOTIONS:
         t = _SIGH_RUN.sub("(sighs)", t)
+    if e in _AMUSED_EMOTIONS and "(laughs)" not in t and _AMUSED_CUE.search(t):
+        t = t + "(laughs)"   # 被逗乐却没写出笑 → 句尾真笑一下
     return t
 
