@@ -66,13 +66,7 @@ export class MiCallLogic {
     { name: "顾辞", hue: 225, desc: "沉静睿智的对话者", traits: ["沉静", "睿智", "文艺"], bio: "读过很多书，喜欢慢慢聊。和他说话，像在深夜翻开一本旧书。", id: "gu_ci" },
     { name: "苏窈", hue: 300, desc: "俏皮灵动的伙伴", traits: ["俏皮", "灵动", "好奇"], bio: "鬼马精灵，脑洞奇大。跟她聊天，你永远猜不到她下一句会说什么。", id: "su_yao" },
   ];
-  private _charsBuilt = false;
   private _scenesBuilt = false;
-
-  buildChars() {
-    // 上线只保留 5 个真出厂角色（林晚/江野/夏鸣/顾辞/苏窈，spec 在 asset-pipeline/characters）。
-    // 之前为撑满目录生成的占位角色已移除——不上线假角色。新角色做好 spec 后加进上面的 chars 即可。
-  }
 
   state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 60, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false };
 
@@ -130,7 +124,6 @@ export class MiCallLogic {
         const c = JSON.parse(raw);
         if (c && Array.isArray(c.chars) && c.chars.length) {
           this.chars = c.chars;
-          this._charsBuilt = true;
           if (typeof c.idx === "number" && c.idx >= 0 && c.idx < c.chars.length) this.state.charIndex = c.idx;
         }
       }
@@ -226,7 +219,6 @@ export class MiCallLogic {
       traits: Array.isArray(c.traits) ? c.traits : [], bio: c.bio || "",
       hue: HUE[c.id] ?? ((i * 47) % 360),
     }));
-    this._charsBuilt = true;
     // 默认角色（运营在后台设、后端把它标 default 并排首位）：进来先选它。
     const di = list.findIndex((c: any) => c && c.default);
     if (di >= 0) this.state.charIndex = di;
@@ -811,6 +803,13 @@ export class MiCallLogic {
         this.stopMic();
         this.setState({ phase: "idle", callFailed: true });
         break;
+      case "connection_lost":
+        // 接通后网络掉线：收掉这通、回到可重拨状态，并明确告知（别让用户对着冻屏）。
+        this.clearTimers();
+        this.stopMic();
+        this.setState({ phase: "idle", callFailed: true, toast: "连接中断，请重新拨打" });
+        this.clearToastSoon(3200);
+        break;
       case "ended":
         if (this.state.phase !== "ended") { this.clearTimers(); this.stopMic(); this.setState({ phase: "ended", textMode: false }); }
         break;
@@ -882,7 +881,6 @@ export class MiCallLogic {
       };
     });
 
-    if (!this._charsBuilt) { this.buildChars(); this._charsBuilt = true; }
     const char = this.chars[this.state.charIndex % this.chars.length];
     const charName = char.name;
     const orbHue = `hue-rotate(${char.hue}deg)`;

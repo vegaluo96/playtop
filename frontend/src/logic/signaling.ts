@@ -27,6 +27,7 @@ export type ServerEvent =
   | { type: "out_of_minutes" }
   | { type: "call_failed"; reason: string }
   | { type: "ended" }
+  | { type: "connection_lost" }           // 接通后网络掉线（WS 异常关闭）→ 前端给「连接中断·重拨」
   | { type: "rtc_answer"; sdp: string }   // 可选 WebRTC：服务端 answer
   | { type: "rtc_unavailable" };          // 后端没装 aiortc → 前端回退 WS
 
@@ -59,6 +60,8 @@ class WebSocketSignalingClient implements SignalingClient {
   private ws: WebSocket;
   private queue: ClientMessage[] = [];
   private everConnected = false;   // 接通后的 error 不再当「呼叫失败」（防网络瞬抖误掉线）
+  private terminal = false;        // 已正常收尾（ended/out_of_minutes/call_failed）→ close 不再报「连接中断」
+  private closedByUs = false;      // 本端主动挂断 → close 不报「连接中断」
 
   constructor(url: string, private onEvent: ServerHandler, private onAudio?: AudioHandler) {
     this.ws = new WebSocket(url);
@@ -75,6 +78,7 @@ class WebSocketSignalingClient implements SignalingClient {
       try {
         const sev = JSON.parse(e.data) as ServerEvent;
         if (sev.type === "connected") this.everConnected = true;
+        if (sev.type === "ended" || sev.type === "out_of_minutes" || sev.type === "call_failed") this.terminal = true;
         this.onEvent(sev);
       } catch {
         /* ignore malformed frames */
@@ -83,6 +87,13 @@ class WebSocketSignalingClient implements SignalingClient {
     this.ws.addEventListener("error", () => {
       // 只在「接通前」把 error 当呼叫失败；接通后的网络瞬抖不掉线，否则活的通话被弹失败框。
       if (!this.everConnected) this.onEvent({ type: "call_failed", reason: "network" });
+    });
+    this.ws.addEventListener("close", () => {
+      // 接通后、非正常收尾、非本端挂断而 socket 关闭 = 网络掉线。给上层「连接中断·重拨」明确状态，
+      // 而不是把活的通话界面冻在那（此前无 close 处理 → 用户对着死屏，不知发生了什么）。
+      if (this.everConnected && !this.terminal && !this.closedByUs) {
+        this.onEvent({ type: "connection_lost" });
+      }
     });
   }
 
@@ -102,6 +113,7 @@ class WebSocketSignalingClient implements SignalingClient {
   }
 
   close(): void {
+    this.closedByUs = true;   // 本端主动挂断：随后的 close 事件不报「连接中断」
     try {
       this.ws.close();
     } catch {
