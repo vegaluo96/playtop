@@ -460,11 +460,13 @@ export class MiCallLogic {
     this.setState((s) => ({ feedback: s.feedback.includes(tag) ? s.feedback.filter((x: string) => x !== tag) : [...s.feedback, tag] }));
   }
   selectScenario(key: string) {
-    this.setState({ scenario: key, scenarioOpen: false });
-    // 通话中切场景：发完整情境指令（不是 key），AI 才真进入新场景。
-    if (this.isConnected()) {
-      const prompt = this.scenarioDefs.find((d) => d.key === key)?.prompt || key;
-      this.send({ type: "set_scene", scene: prompt });
+    const def = this.scenarioDefs.find((d) => d.key === key);
+    const live = this.isConnected();
+    // 通话中切场景也支持：发完整情境指令（不是 key），AI 下一轮即进入新场景；给个确认提示让用户知道生效了。
+    this.setState({ scenario: key, scenarioOpen: false, ...(live ? { toast: "已切到「" + (def?.name || "新场景") + "」，下一句起生效" } : {}) });
+    if (live) {
+      this.send({ type: "set_scene", scene: def?.prompt || key });
+      this.clearToastSoon(2400);
     }
   }
   selectLang(l: string) { this.setState({ lang: l, langOpen: false }); this.savePrefs(); }
