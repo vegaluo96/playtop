@@ -11,12 +11,13 @@ from __future__ import annotations
 
 import re
 
-# 容错匹配开头的情绪标签：模型常把 key 写成 emotion/mood/feeling/情绪/心情，tag 可中可英；
-# 且常省略 key 直接吐 [caring]/[listening]（用户实测漏到字幕/被念出来）。故 key 设为可选——
-# 开头任何 [短词]/【短词】 都当情绪标签剥掉（人设已要求绝不写括号，开头方括号必是标签残留）。
+# 容错匹配开头的情绪标签。实测模型有三种乱法都会漏进字幕/被念出来：
+#   ① 标准 [emotion:tender]；② 省略 key 直接 [caring]/[listening]；③ 把 key 拼错，如 [eomotion:idle]。
+# 故【不再写死 key 列表】——开头方括号 = 标签残留（人设本就禁止写括号/旁白），一律剥掉：
+#   接受「[ 可选的任意短 key： ] 标签」与「[ 标签 ]」两种形态，key 拼对拼错都吃掉。
 _PREFIX = re.compile(
     r"^\s*[\[【(（]\s*"
-    r"(?:(?:emotion|mood|feeling|情绪|心情|语气)\s*[:：]\s*)?"   # key 可有可无
+    r"(?:[a-zA-Z_一-鿿]{1,12}\s*[:：]\s*)?"          # 可选 key：（含拼错的 emotion，如 eomotion/emo/emotion）
     r"([a-zA-Z_一-鿿][\w一-鿿]{0,20})\s*[\]】)）]\s*",
     re.IGNORECASE,
 )

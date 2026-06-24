@@ -59,12 +59,24 @@ class TestEmotion(unittest.TestCase):
         self.assertEqual(split_emotion("[caring]下午四点多啦。"), ("caring", "下午四点多啦。"))
         self.assertEqual(split_emotion("[listening]嗯，四点多。"), ("listening", "嗯，四点多。"))
         self.assertEqual(split_emotion("【tender】在呢"), ("tender", "在呢"))
+        # 模型把 key 拼错（eomotion）仍带 :tag——不在固定 key 列表也要剥掉（用户实测 [eomotion:idle] 漏字幕）。
+        self.assertEqual(split_emotion("[eomotion:idle] 嗯，我在呢。"), ("idle", "嗯，我在呢。"))
+        self.assertEqual(split_emotion("[mood：平静]在的"), ("平静", "在的"))
+        # 不误伤：开头不是括号标签的正常话原样返回（含开头是时间/数字的不剥）。
+        self.assertEqual(split_emotion("[8:30]该起床了"), ("neutral", "[8:30]该起床了"))
 
     def test_stripper_bare_tag_streaming(self):
         s = EmotionStripper()
         out = "".join(s.feed(c) for c in "[caring]下午四点多啦。") + s.flush()
         self.assertEqual(s.tag, "caring")
         self.assertEqual(out, "下午四点多啦。")   # bare 标签不漏进 TTS/字幕
+
+    def test_stripper_misspelled_key_streaming(self):
+        # 用户实测：模型吐 [eomotion:idle]（拼错 key），逐 token 流式也要剥干净，不漏字幕。
+        s = EmotionStripper()
+        out = "".join(s.feed(c) for c in "[eomotion:idle] 嗯，我在呢。") + s.flush()
+        self.assertEqual(s.tag, "idle")
+        self.assertEqual(out, "嗯，我在呢。")
 
     def test_stripper_streaming(self):
         s = EmotionStripper()
