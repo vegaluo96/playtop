@@ -104,10 +104,10 @@ class TestOrchestrator(unittest.TestCase):
 
         self.assertEqual(types[0], "connected")
         self.assertIn("ended", types)
-        # 情绪 piggyback 一处产生：tag 来自 stub 回复前缀。
+        # 逐句情绪：每句一条 emotion 事件（驱动逐句切表情）；首句 tag 来自前缀，次句无标签→继承 tender。
         emo = [e for e in events if e["type"] == "emotion"]
-        self.assertEqual(len(emo), 1)
-        self.assertEqual(emo[0]["tag"], "tender")
+        self.assertEqual(len(emo), 2)
+        self.assertTrue(all(e["tag"] == "tender" for e in emo))
         # 回复两句 → 两条 AI 字幕（句子级切分）。
         ai = [e for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
         self.assertEqual(len(ai), 2)
@@ -117,6 +117,31 @@ class TestOrchestrator(unittest.TestCase):
         states = [e["phase"] for e in events if e["type"] == "state"]
         for p in ("thinking", "speaking", "listening"):
             self.assertIn(p, states)
+
+    def test_per_sentence_emotion_and_clean_subtitle(self):
+        # 逐句不同情绪 + 拟声：每句一条对应情绪事件；字幕是纯人话（拟声/标签不漏给用户）。
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        reply = "[emotion:sad]唉，(sighs)今天是不是又被骂了。[emotion:caring]别往心里去，啊。"
+
+        async def run():
+            s = _make_session(emit, llm=StubLLM([reply]))
+            await s.start()
+            await s.on_user_text("我今天好难受")
+            await s.end()
+
+        asyncio.run(run())
+        emo = [e["tag"] for e in events if e["type"] == "emotion"]
+        self.assertEqual(emo, ["sad", "caring"])          # 逐句情绪：先 sad 后 caring
+        ai = [e["text"] for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
+        self.assertEqual(len(ai), 2)
+        joined = "".join(ai)
+        self.assertNotIn("(sighs)", joined)               # 拟声不进字幕
+        self.assertNotIn("[emotion", joined)              # 情绪标签不进字幕
+        self.assertIn("今天是不是又被骂了", joined)
 
     def test_speak_cuts_on_interrupt(self):
         events: list[dict] = []
@@ -128,11 +153,12 @@ class TestOrchestrator(unittest.TestCase):
             s = _make_session(emit)
             s._interrupt.set()
             spoke: list[str] = []
-            await s._speak("你好。", spoke)
+            job = {"emotion": "neutral", "speed": 1.0, "pitch": 0, "vol": 1.0, "tts": "你好。", "sub": "你好。"}
+            await s._speak_job(job, None, spoke)
             return spoke
 
         spoke = asyncio.run(run())
-        self.assertEqual(spoke, [])  # 熔断：未播完不进上下文（§1.5 难点4）
+        self.assertEqual(spoke, [])  # 熔断：已打断不发、不进上下文（§1.5 难点4）
 
     def test_interrupt_guard_when_idle(self):
         events: list[dict] = []

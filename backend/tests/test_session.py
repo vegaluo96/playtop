@@ -91,5 +91,36 @@ class TestEmotion(unittest.TestCase):
         self.assertEqual(s.tag, "neutral")
 
 
+class TestSentenceEmotion(unittest.TestCase):
+    """逐句情绪 + 韵律 + 拟声/停顿清洗：让 AI 说话带情绪、像真人。"""
+
+    def test_prosody_presets(self):
+        from micall.session.emotion import prosody_for
+        self.assertLess(prosody_for("sad")[1], 1.0)        # 难过更慢
+        self.assertLess(prosody_for("comfort")[1], prosody_for("sad")[1])  # 安慰比难过更慢
+        self.assertGreater(prosody_for("happy")[1], 1.0)   # 开心更快
+        self.assertGreater(prosody_for("excited")[2], 0)   # 兴奋音高更高
+        self.assertEqual(prosody_for("没这个情绪"), prosody_for("neutral"))  # 未知 → 中性兜底
+
+    def test_take_sentence_emotion_inherit(self):
+        from micall.session.emotion import take_sentence_emotion
+        self.assertEqual(take_sentence_emotion("[emotion:sad]难受", "neutral"), ("sad", "难受"))
+        self.assertEqual(take_sentence_emotion("[happy]开心", "neutral"), ("happy", "开心"))  # bare 标签
+        self.assertEqual(take_sentence_emotion("没标签的话", "tender"), ("tender", "没标签的话"))  # 继承
+
+    def test_clean_for_tts_keeps_interjection_and_pause(self):
+        from micall.session.emotion import clean_for_tts
+        out = clean_for_tts("(sighs)唉 <#0.3#> 别难过。（叹气）")
+        self.assertIn("(sighs)", out)     # 合法拟声标签：喂 TTS（会被读成声音）
+        self.assertIn("<#0.3#>", out)     # 停顿标记保留
+        self.assertNotIn("（叹气）", out)  # 中文旁白：去掉
+        self.assertEqual(clean_for_tts("(blah)正文"), "正文")  # 非法英文括号当旁白去掉
+
+    def test_clean_for_subtitle_strips_all_cues(self):
+        from micall.session.emotion import clean_for_subtitle
+        out = clean_for_subtitle("[emotion:sad](sighs)唉 <#0.3#> 别难过。")
+        self.assertEqual(out, "唉 别难过。")   # 标签/拟声/停顿全去掉，只剩人话
+
+
 if __name__ == "__main__":
     unittest.main()

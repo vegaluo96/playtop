@@ -49,13 +49,15 @@ from ..protocol import ServerEvent
 from ..providers import ASRProvider, LLMProvider, TTSProvider
 from ..context.assembler import ContextAssembler
 from .billing import BillingMeter
-from .emotion import EmotionStripper
+from .emotion import clean_for_subtitle, clean_for_tts, prosody_for, take_sentence_emotion
 from .state import CallStateMachine, Phase
 
 log = logging.getLogger("micall.session")
 
 Emit = Callable[[dict], Awaitable[None]]
 AudioEmit = Callable[[bytes], Awaitable[None]]
+
+_AUDIO_CHUNK = 4096   # 预合成缓冲回放时的分块大小（别一次性灌一大块给前端）
 
 _SENTENCE_END = set("。！？!?\n")
 
@@ -364,37 +366,41 @@ class CallSession:
         )
         log.info("⏱ 召回嵌入 %.0fms", (time.monotonic() - _t0) * 1000)
         self._usage["llm_in_chars"] += sum(len(str(m.get("content", ""))) for m in messages)  # 成本：LLM 输入
-        stripper = EmotionStripper()
-        spoke: list[str] = []   # 实际播出的句子（ack 边界 → 进上下文，§1.5）
+        spoke: list[str] = []   # 实际播出的句子（清洗后的人话）→ 进上下文（§1.5）
         buf = ""
-
-        # 首句抢跑流式合成：LLM 边流式生成，第一句一成形就立刻发声（首字延迟 = 首句 LLM + TTS 首块，
-        # 而非「整段 LLM 全部生成完」），其余攒到生成结束再「一次」合成。全程同一 voice_id、emotion 固定
-        # 为 ""（情绪不喂 TTS，见 _speak），所以只有「首句 → 其余」一个接缝且几乎听不出 —— 既快又不
-        # 「像换个人」。当初为修「像换人」改成整段串行，但根因（情绪乱跳）已单独修掉，串行不再必要。
         started = False
+        cur_emotion = "neutral"          # 逐句情绪「继承」：LLM 只在情绪变化时打标签，没打就沿用上一句（更省更稳）
+        jobs: list[dict] = []            # 已切出的句子任务（按序）：含情绪 + 韵律 + TTS 文本 + 字幕文本
+        prefetch: list = []              # jobs[1:] 的预合成任务（与首句播放并行，消除句间空档）
+        play0 = None                     # 首句抢跑播放任务
 
-        async def _open_speaking() -> None:
+        async def _open_speaking(first_emotion: str) -> None:
             nonlocal started
             if started:
                 return
             self._ai_said = ""  # 进入发声：以本轮 AI 文本作为新的回声基准（此前保留上一轮防拖尾回声）
-            self.emotion_tag = stripper.tag
+            self.emotion_tag = first_emotion
             self.sm.to(Phase.SPEAKING)
             await self._emit(ServerEvent.state(Phase.SPEAKING.value))
-            await self._emit(ServerEvent.emotion(stripper.tag))  # 仅供前端/编排（不喂 TTS，见 _speak）
             started = True
 
-        # 被打断了就别再让 LLM 生成「这句的后续」——用户已给新输入、AI 接下来要说的话也变了，继续生成纯浪费
-        # token/钱。aclosing 在 break 时立刻 aclose() 掐断流式请求 → 服务端停生成、停计费（省成本，不影响流畅）。
-        spoke_first = False
+        def _make_job(sentence: str) -> dict | None:
+            """一句 → 情绪 + 韵律 + TTS 文本(留拟声/停顿) + 字幕文本(纯人话)。整句全是旁白/标签则 None。"""
+            nonlocal cur_emotion
+            emo, body = take_sentence_emotion(sentence, cur_emotion)
+            cur_emotion = emo
+            tts_text, sub_text = clean_for_tts(body), clean_for_subtitle(body)
+            if not tts_text and not sub_text:
+                return None
+            m_emo, speed, pitch, vol = prosody_for(emo)
+            return {"emotion": emo, "speed": speed, "pitch": pitch, "vol": vol, "tts": tts_text, "sub": sub_text}
+
         _first_token = True
         async with aclosing(self.llm.stream(messages, max_tokens=self._reply_max_tokens)) as llm_gen:
             _it = llm_gen.__aiter__()
             while True:
                 try:
                     if _first_token:
-                        # 只给首 token 套墙钟超时：卡死时快速放弃本轮，而非干等 httpx 30s 读超时。
                         token = await asyncio.wait_for(_it.__anext__(), timeout=self._llm_first_token_timeout)
                     else:
                         token = await _it.__anext__()
@@ -409,20 +415,55 @@ class CallSession:
                 if _first_token:
                     _first_token = False
                     log.info("⏱ LLM首token %.0fms", (time.monotonic() - _t0) * 1000)
-                buf += stripper.feed(token)
-                if not spoke_first:
-                    first, rest = _take_first_sentence(buf)
-                    if first:
+                buf += token
+                # 切出所有已成形的完整句，逐句带情绪入流水线
+                while True:
+                    sent, rest = _take_first_sentence(buf)
+                    if not sent:
+                        break
+                    buf = rest
+                    job = _make_job(sent)
+                    if job is None:
+                        continue
+                    if not jobs:
+                        jobs.append(job)
                         log.info("⏱ 首句成形 %.0fms", (time.monotonic() - _t0) * 1000)
-                        await _open_speaking()
-                        await self._speak(first, spoke)   # 第一句立刻发声（抢跑）
-                        buf, spoke_first = rest, True
+                        await _open_speaking(job["emotion"])
+                        play0 = asyncio.create_task(self._speak_job(job, None, spoke))  # 首句抢跑：流式合成
+                    else:
+                        jobs.append(job)
+                        prefetch.append(asyncio.create_task(self._synth_buffer(job)))   # 后续句：边播首句边预合成
 
-        tail = (buf + stripper.flush()).strip()
+        tail = buf.strip()
         if tail and not self._interrupt.is_set():
-            await _open_speaking()
-            await self._speak(tail, spoke)            # 其余一次合成（抢跑过则是尾段，否则是整段）——一口气说完、不断气，
-            #                                            也不给回声留「句间插进来打断自己」的窗口
+            job = _make_job(tail)
+            if job is not None:
+                if not jobs:
+                    jobs.append(job)
+                    await _open_speaking(job["emotion"])
+                    play0 = asyncio.create_task(self._speak_job(job, None, spoke))
+                else:
+                    jobs.append(job)
+                    prefetch.append(asyncio.create_task(self._synth_buffer(job)))
+
+        # 首句播完后，按序播放已预合成好的后续句（缓冲就绪 → 无缝衔接，不留「句间自我打断」的空档）。
+        if play0 is not None:
+            try:
+                await play0
+            except Exception as e:  # 单句发声异常绝不断整轮
+                log.warning("首句发声异常：%r", e)
+        for k in range(1, len(jobs)):
+            if self._interrupt.is_set():
+                break
+            try:
+                audio = await prefetch[k - 1]
+            except Exception as e:
+                log.warning("预合成异常（该句无音频，不断话）：%r", e)
+                audio = b""
+            await self._speak_job(jobs[k], audio, spoke)
+        for t in prefetch:   # 被打断/出错：取消还没用上的预合成，省成本
+            if not t.done():
+                t.cancel()
 
         # 实际播出的话进上下文；被打断则标注，让下轮能自然接住（§1.5 难点4）。
         if spoke:
@@ -439,38 +480,82 @@ class CallSession:
             self.sm.to(Phase.LISTENING)
             await self._emit(ServerEvent.state(Phase.LISTENING.value))
 
-    async def _speak(self, sentence: str, spoke: list[str]) -> None:
-        """task C：一句的流式发声。有 audio_emit 则把音频块二进制下行；骨架仅计时长。"""
-        spoken = _strip_actions(sentence)   # 去掉（轻声笑）这类舞台提示，别让 TTS 念出来
-        if not spoken:
-            return  # 整句都是括号动作/旁白：不发音、不进上下文
-        self._usage["tts_chars"] += len(spoken)   # 成本：TTS 合成字符
-        # 一段（首句 / 尾段）只发一条字幕：首句随抢跑显示、尾段随它的音频显示，不再把整段多句一齐瞬发、跳到末句。
-        # 音频仍整段一次合成、一口气说完（不切句、不插停顿，避免「说一句就没」）。回复本就一两句，这样基本一句跟一句。
-        await self._emit(ServerEvent.subtitle("ai", spoken))
-        self._ai_said += spoken  # 记入回声基准（这句即将在前端播放，可能回灌麦克风）
+    async def _synth_buffer(self, job: dict) -> bytes:
+        """后续句的「预合成」：在首句还在播时，把这句带情绪+韵律一次合成进缓冲，等轮到它即刻无缝放出。
+        合成失败/被打断 → 返回已得部分（绝不抛错断整轮）。"""
+        if not job.get("tts"):
+            return b""
+        chunks: list[bytes] = []
+        try:
+            async with aclosing(self.tts.synthesize(
+                job["tts"], voice_id=self.voice_id, emotion=job["emotion"],
+                speed=job["speed"], pitch=job["pitch"], vol=job["vol"],
+            )) as gen:
+                async for c in gen:
+                    if self._interrupt.is_set():
+                        break
+                    chunks.append(c)
+        except Exception as e:
+            log.warning("预合成失败（该句仅丢音频，不断话）：%r", e)
+        return b"".join(chunks)
+
+    async def _speak_job(self, job: dict, audio: bytes | None, spoke: list[str]) -> None:
+        """发一句：先亮字幕(纯人话) + 切该句情绪的脸，再放音频。audio=None → 首句流式合成(抢跑)；
+        audio=bytes → 后续句的预合成缓冲，分块放出。任何异常都吞掉（不断整轮，§无回退靠健壮兜底）。"""
+        if self._interrupt.is_set():
+            return  # 已被打断：这句不发、不进上下文（§1.5 难点4）
+        sub, tts_text = job.get("sub", ""), job.get("tts", "")
+        # 这句的情绪同步驱动「脸」（逐句切表情，比整轮一个表情更生动）。
+        await self._emit(ServerEvent.emotion(job["emotion"]))
+        self.emotion_tag = job["emotion"]
+        if sub:
+            await self._emit(ServerEvent.subtitle("ai", sub))
+            self._ai_said += sub  # 回声基准（按真正说出的人话，不含拟声/停顿标记）
+        if not tts_text:
+            if sub:
+                spoke.append(sub)
+            return
+        self._usage["tts_chars"] += len(tts_text)   # 成本：TTS 合成字符
+        if self._audio_emit is None:   # 文字/测试模式：不出音频，只记上下文
+            spoke.append(sub or tts_text)
+            return
         audio_bytes = 0
         _ts = time.monotonic()
         _first_chunk = True
-        # 打断时 aclosing 立刻 aclose() 掐断 TTS 合成请求 → 停止合成、停止计费剩余字符（被打断那句的后续没意义）。
-        async with aclosing(self.tts.synthesize(
-            spoken, voice_id=self.voice_id, emotion=""   # 不喂动态情绪：保证整通同一个人（情绪跳变会"像换了个人"）
-        )) as tts_gen:
-            async for chunk in tts_gen:
-                if self._interrupt.is_set():
-                    return  # 熔断：停下行 + 掐断合成
-                if self._audio_emit is not None and chunk:
-                    if _first_chunk:
-                        _first_chunk = False
-                        log.info("⏱ TTS首块 %.0fms（合成首字节）", (time.monotonic() - _ts) * 1000)
-                    await self._audio_emit(chunk)  # 真实下行：TTS 音频帧 → 前端播放
-                    audio_bytes += len(chunk)
-        if self._audio_emit is not None:
-            # 估计这句在前端播放到的时刻（24kHz 16bit 单声道）→ 用于回声判定的时间窗。
-            dur = audio_bytes / (24000 * 2)
-            self._audio_until = max(time.monotonic(), self._audio_until) + dur + self._play_pad
-            log.info("⟶ 句音频 %d bytes（voice=%s）", audio_bytes, self.voice_id)
-        spoke.append(spoken)  # 整句播完 → ack 边界（进上下文用清洗后的口语文本）
+        try:
+            if audio is None:
+                # 首句抢跑：流式合成边出边播（最低首音延迟）。打断时 aclosing 立刻掐断合成。
+                async with aclosing(self.tts.synthesize(
+                    tts_text, voice_id=self.voice_id, emotion=job["emotion"],
+                    speed=job["speed"], pitch=job["pitch"], vol=job["vol"],
+                )) as gen:
+                    async for chunk in gen:
+                        if self._interrupt.is_set():
+                            return
+                        if chunk:
+                            if _first_chunk:
+                                _first_chunk = False
+                                log.info("⏱ TTS首块 %.0fms（合成首字节）", (time.monotonic() - _ts) * 1000)
+                            await self._audio_emit(chunk)
+                            audio_bytes += len(chunk)
+            else:
+                # 后续句：预合成缓冲，分块放出（已就绪 → 紧接上一句、无空档）。
+                for i in range(0, len(audio), _AUDIO_CHUNK):
+                    if self._interrupt.is_set():
+                        return
+                    piece = audio[i:i + _AUDIO_CHUNK]
+                    if piece:
+                        await self._audio_emit(piece)
+                        audio_bytes += len(piece)
+        except Exception as e:
+            log.warning("发声异常（跳过该句，不断话）：%r", e)
+        # 估计这句在前端播放到的时刻（24kHz 16bit 单声道）→ 回声判定时间窗。
+        dur = audio_bytes / (24000 * 2)
+        self._audio_until = max(time.monotonic(), self._audio_until) + dur + self._play_pad
+        log.info("⟶ 句音频 %d bytes（emo=%s spd=%.2f pit=%d voice=%s）",
+                 audio_bytes, job["emotion"], job["speed"], job["pitch"], self.voice_id)
+        if sub:
+            spoke.append(sub)  # 整句播完 → ack 边界（进上下文用纯人话）
 
     # ── 打断（§1.5：停下行 → 清队列 → cancel → 半截话进上下文 → 回 listening）──
     async def interrupt(self) -> None:

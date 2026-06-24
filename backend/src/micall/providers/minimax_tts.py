@@ -7,10 +7,13 @@ endpoint/key 全配置（铁律2）。endpoint 形如 https://api.minimax.chat/v
 from __future__ import annotations
 
 import json
+import logging
 from typing import AsyncIterator
 
 from ..config import NodeConfig
 from .base import TTSProvider
+
+log = logging.getLogger("micall.tts")
 
 try:
     import httpx
@@ -19,20 +22,31 @@ except ImportError:  # pragma: no cover
 
 
 # MiniMax T2A v2 voice_setting.emotion 只认这几种；传其它值会 2013 invalid params。
-_MINIMAX_EMOTIONS = {"happy", "sad", "angry", "fearful", "disgusted", "surprised"}
+_MINIMAX_EMOTIONS = {"happy", "sad", "angry", "fearful", "disgusted", "surprised", "neutral"}
 _EMOTION_ALIAS = {
-    "joyful": "happy", "excited": "happy", "pleased": "happy", "warm": "happy",
-    "sympathy": "sad", "sorrow": "sad", "down": "sad",
+    "joyful": "happy", "excited": "happy", "pleased": "happy", "warm": "happy", "playful": "happy",
+    "sympathy": "sad", "sorrow": "sad", "down": "sad", "comfort": "sad",
     "worried": "fearful", "anxious": "fearful", "nervous": "fearful",
 }
 
+# 进程级：实测不支持 emotion 参数的 voice_id（首次报 2013 即记下，后续直接只走韵律，不再带 emotion）。
+# 目标：音色库里每个音色都能用——支持情绪的吃情绪，不支持的自动降级到 speed/pitch/拟声，绝不报错断话。
+_NO_EMOTION_VOICES: set[str] = set()
+
 
 def _minimax_emotion(tag: str) -> str:
-    """内部情绪标签 → MiniMax 认的情绪；软情绪(tender/gentle/listening…)/未知 → 空（省略=默认中性）。"""
+    """内部情绪标签 → MiniMax 认的情绪；非枚举(tender/playful…)/未知 → 空（省略=默认，靠韵律实现）。"""
     t = (tag or "").strip().lower()
     if t in _MINIMAX_EMOTIONS:
         return t
     return _EMOTION_ALIAS.get(t, "")
+
+
+def _is_param_emotion_error(e: Exception) -> bool:
+    """这个错误像不像「该音色不支持 emotion 参数」（2013 invalid params / 提到 emotion）。
+    只对这类做降级缓存，避免把网络/鉴权等瞬时错误误判成"音色不支持情绪"而永久砍掉它的情绪。"""
+    s = repr(e).lower()
+    return ("2013" in s) or ("emotion" in s) or ("invalid" in s and "param" in s)
 
 
 _SHARED_CLIENT: "httpx.AsyncClient | None" = None
@@ -56,22 +70,50 @@ class MiniMaxTTS(TTSProvider):
         self.model = node.params.get("model", "speech-2.8-turbo")
 
     async def synthesize(
-        self, text: str, *, voice_id: str, emotion: str = "", sample_rate: int = 24000,
-        audio_format: str = "pcm",
+        self, text: str, *, voice_id: str, emotion: str = "",
+        speed: float = 1.0, pitch: int = 0, vol: float = 1.0,
+        sample_rate: int = 24000, audio_format: str = "pcm",
     ) -> AsyncIterator[bytes]:  # pragma: no cover （需真实网络/密钥）
         """句子级流式合成：stream=true，按 SSE 收 hex 音频块，首块一出即可下行（§1.7）。
-        audio_format：通话下行用 "pcm"（前端直接播）；试听用 "mp3"。"""
+        emotion/speed/pitch/vol 让 AI 说话带情绪。audio_format：通话下行用 "pcm"，试听用 "mp3"。
+        emotion 自愈：该音色不支持 emotion（2013）→ 记下并仅靠韵律重试一次，绝不让通话因情绪参数断话。"""
         vid = voice_id or self.node.params.get("default_voice", "")
+        emo = _minimax_emotion(emotion) if vid not in _NO_EMOTION_VOICES else ""
+        yielded = False
+        try:
+            async for chunk in self._stream(vid, text, emo, speed, pitch, vol, sample_rate, audio_format):
+                yielded = True
+                yield chunk
+        except Exception as e:
+            # 只在「带了 emotion + 还没出过音频 + 像情绪参数错」时降级重试；其它错照常抛（上层兜底）。
+            if emo and not yielded and _is_param_emotion_error(e):
+                _NO_EMOTION_VOICES.add(vid)
+                log.warning("voice %s 不支持 emotion，降级为仅韵律重试：%r", vid, e)
+                async for chunk in self._stream(vid, text, "", speed, pitch, vol, sample_rate, audio_format):
+                    yield chunk
+            else:
+                raise
+
+    async def _stream(
+        self, vid: str, text: str, emo: str, speed: float, pitch: int, vol: float,
+        sample_rate: int, audio_format: str,
+    ) -> AsyncIterator[bytes]:  # pragma: no cover （需真实网络/密钥）
+        # 钳到 MiniMax 合法区间：speed 0.5–2、pitch -12~12 整、vol 0–10。越界会 2013。
+        vs: dict = {
+            "voice_id": vid,
+            "speed": max(0.5, min(2.0, float(speed))),
+            "vol": max(0.0, min(10.0, float(vol))),
+            "pitch": max(-12, min(12, int(round(pitch)))),
+        }
+        if emo:
+            vs["emotion"] = emo  # 仅传 MiniMax 认的情绪，否则省略（默认中性）
         body: dict = {
             "model": self.model,
             "text": text,
             "stream": True,
-            "voice_setting": {"voice_id": vid, "speed": 1.0, "vol": 1.0, "pitch": 0},
+            "voice_setting": vs,
             "audio_setting": {"sample_rate": sample_rate, "format": audio_format, "channel": 1},
         }
-        emo = _minimax_emotion(emotion)
-        if emo:
-            body["voice_setting"]["emotion"] = emo  # 仅传 MiniMax 认的情绪，否则省略（默认中性）
         headers = {
             "Authorization": f"Bearer {self.node.api_key}",
             "Content-Type": "application/json",

@@ -28,11 +28,12 @@ class TTSProvider(ABC):
 
     @abstractmethod
     def synthesize(
-        self, text: str, *, voice_id: str, emotion: str = "", sample_rate: int = 24000,
-        audio_format: str = "pcm",
+        self, text: str, *, voice_id: str, emotion: str = "",
+        speed: float = 1.0, pitch: int = 0, vol: float = 1.0,
+        sample_rate: int = 24000, audio_format: str = "pcm",
     ) -> AsyncIterator[bytes]:
-        """逐音频块异步产出。audio_format：实时通话用 "pcm"（前端 Web Audio 直接播，H5/iOS 稳）；
-        试听存档用 "mp3"。"""
+        """逐音频块异步产出。emotion/speed/pitch/vol 让 AI 说话带情绪（韵律由编排层按情绪预设算好传入）。
+        audio_format：实时通话用 "pcm"（前端 Web Audio 直接播，H5/iOS 稳）；试听存档用 "mp3"。"""
         raise NotImplementedError
 
 

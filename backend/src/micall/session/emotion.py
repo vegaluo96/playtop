@@ -76,3 +76,82 @@ class EmotionStripper:
             return ""
         self._resolved = True
         return self._buf
+
+
+# ─────────────────────── 逐句情绪 + 韵律（让 AI 说话带情绪，非平铺直叙）───────────────────────
+# 设计：LLM 逐句吐情绪标签 + 在正文里插拟声/停顿；后端按「情绪→韵律预设」算 speed/pitch/vol（LLM 不吐数字，
+# 避免逐句数字抖动=「像换人」）。MiniMax 仅认 6 种 emotion 枚举，非枚举情绪（tender/playful…）靠 speed/pitch 做。
+
+# 情绪标签 → (MiniMax 语义情绪, speed[0.5-2], pitch[-12~12 整], vol[0-10])。初版凭直觉，留真机听调。
+# emotion 这一列交给 minimax 层再映射到其 6 枚举；非枚举（""）则只靠韵律实现。
+_PROSODY: dict[str, tuple[str, float, int, float]] = {
+    "neutral":   ("neutral", 1.00, 0, 1.0),
+    "tender":    ("", 0.95, 0, 1.0),       # 温柔：中性音色 + 略慢
+    "caring":    ("", 0.92, -1, 1.0),      # 关切：略慢略低
+    "gentle":    ("", 0.94, 0, 1.0),
+    "happy":     ("happy", 1.06, 1, 1.0),
+    "excited":   ("happy", 1.12, 3, 1.2),  # 兴奋：快、高、响
+    "playful":   ("happy", 1.08, 2, 1.0),  # 俏皮/撒娇：MiniMax 无此枚举，靠快+高
+    "shy":       ("", 0.96, 1, 0.9),       # 害羞：略慢略高略轻
+    "sad":       ("sad", 0.88, -1, 1.0),   # 难过：慢、低
+    "comfort":   ("sad", 0.85, -2, 0.9),   # 安慰：更慢更柔
+    "calm":      ("", 0.93, -1, 1.0),
+    "angry":     ("angry", 1.05, 1, 1.2),
+    "fearful":   ("fearful", 1.04, 1, 1.0),
+    "worried":   ("fearful", 0.97, 0, 1.0),
+    "surprised": ("surprised", 1.10, 3, 1.1),
+    "disgusted": ("disgusted", 0.98, 0, 1.0),
+}
+
+
+def prosody_for(tag: str) -> tuple[str, float, int, float]:
+    """情绪标签 → (emotion, speed, pitch, vol)。未知标签回退中性（安全：等于现状）。"""
+    return _PROSODY.get((tag or "").strip().lower(), _PROSODY["neutral"])
+
+
+# MiniMax 2.8-turbo 支持的拟声/气口标签（正文内行内）：喂 TTS 念成真实的笑/叹/呼吸声，但不进字幕。
+_INTERJECTIONS = frozenset({
+    "laughs", "laugh", "chuckle", "chuckles", "coughs", "cough", "clear-throat", "groans",
+    "groan", "breath", "breathe", "pant", "pants", "inhale", "exhale", "gasps", "gasp",
+    "sniffs", "sniff", "sighs", "sigh", "snorts", "snort", "burps", "lip-smacking",
+    "humming", "hissing", "emm", "sneezes", "sneeze",
+})
+_PAUSE = re.compile(r"<#\s*\d+(?:\.\d+)?\s*#>")                # MiniMax 停顿标记 <#0.4#>
+_EN_PAREN = re.compile(r"\(\s*([a-zA-Z][a-zA-Z\- ]*)\s*\)")     # 英文括号（可能是拟声标签）
+_CN_ACTION = re.compile(r"（[^）]*）|【[^】]*】|\*[^*]*\*")        # 中文旁白/动作/星号：一律去掉
+_ALL_EMOTION_TAGS = re.compile(                                  # 句中任意位置的情绪标签残留
+    r"[\[【]\s*(?:[a-zA-Z_一-鿿]{1,12}\s*[:：]\s*)?[a-zA-Z_一-鿿][\w一-鿿]{0,20}\s*[\]】]"
+)
+
+
+def _keep_interjection(m: "re.Match[str]") -> str:
+    """英文括号：是 MiniMax 认的拟声标签就保留（喂 TTS），否则当旁白去掉。"""
+    word = m.group(1).strip().lower()
+    return m.group(0) if word in _INTERJECTIONS else ""
+
+
+def clean_for_tts(text: str) -> str:
+    """送 TTS 的文本：保留拟声标签 (sighs) 与停顿 <#x#>（MiniMax 会发声/停顿），去掉中文旁白与非法英文括号。
+    情绪标签由调用方先 split 掉，这里再兜底去残留。"""
+    t = _ALL_EMOTION_TAGS.sub("", text or "")
+    t = _CN_ACTION.sub("", t)
+    t = _EN_PAREN.sub(_keep_interjection, t)
+    return t.strip()
+
+
+def clean_for_subtitle(text: str) -> str:
+    """送字幕的文本：纯人话——情绪标签、拟声标签、停顿标记、中文旁白全部去掉（用户不该看到 (sighs)/<#0.3#>）。"""
+    t = _ALL_EMOTION_TAGS.sub("", text or "")
+    t = _PAUSE.sub("", t)
+    t = _CN_ACTION.sub("", t)
+    t = _EN_PAREN.sub("", t)
+    return re.sub(r"\s{2,}", " ", t).strip()
+
+
+def take_sentence_emotion(sentence: str, default: str) -> tuple[str, str]:
+    """从一句（可能带前缀情绪标签）剥出情绪并返回正文。无标签则继承 default（让 LLM 只在情绪变化时打标签，更省更稳）。"""
+    m = _PREFIX.match(sentence or "")
+    if m:
+        return m.group(1), sentence[m.end():]
+    return default, (sentence or "")
+
