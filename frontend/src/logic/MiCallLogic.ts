@@ -84,6 +84,7 @@ export class MiCallLogic {
   private rtcAudioEl: HTMLAudioElement | null = null;  // 播远端 AI 语音轨（标准 WebRTC 远端音频，浏览器解码 Opus）
   private rtcWatchdog: ReturnType<typeof setTimeout> | null = null;  // 连不通就回退 WS 的看门狗
   private rtcFellBack = false;                     // 本通是否已回退（防重复回退）
+  private _authBusy = false;                        // 登录/注册请求进行中（防快速双击发两次）
 
   bills: any[] = [];
 
@@ -189,7 +190,9 @@ export class MiCallLogic {
       this.rtcEnabled = rtcParam !== "0" && (rtcParam === "1" || hasIce) &&
                         typeof RTCPeerConnection !== "undefined" && !this.usingMockSignaling();
     } catch (e) { /* noop */ }
-    this.setState({ showGuide: !seen, cookieOpen: !cookie });
+    // 引导与 Cookie 同台会双层叠在中间「都点不了」。改为先 Cookie、后引导：引导仅在 Cookie 已处理后才出，
+    // 二者不再同屏（Cookie 未处理时 guide 暂不显示，acceptCookie 后再补显引导）。
+    this.setState({ showGuide: !seen && cookie, cookieOpen: !cookie });
     try {  // 邀请链接 ?invite=CODE：记下来，注册时带上 → 双方各得 60 分钟
       const code = new URLSearchParams(location.search).get("invite");
       if (code) { this.pendingInvite = code.trim(); localStorage.setItem("micall_invite", this.pendingInvite); }
@@ -207,6 +210,10 @@ export class MiCallLogic {
     if (!authApi.authConfigured()) return;
     const v = await authApi.getVoices();
     if (v) { this.voiceLib = v.voices; this.myVoices = v.mine || {}; this.notify(); }
+    else if (this.state.loggedIn) {  // 已登录却拉不到（真实后端故障）→ 给提示，别让音色区空白无解释
+      this.setState({ toast: "音色库加载失败，请稍后重试" });
+      this.clearToastSoon(2400);
+    }
   }
 
   /** 接后端则用后端角色列表（运营在后台可新建/删除）；演示或失败时保留内置 5 个真角色。 */
@@ -477,7 +484,10 @@ export class MiCallLogic {
   }
   acceptCookie() {
     try { localStorage.setItem("micall_cookie_ok", "1"); } catch (e) { /* noop */ }
-    this.setState({ cookieOpen: false });
+    // Cookie 处理完才补显新手引导（首次访问时二者不同屏，避免双层叠住中间区）。
+    let seen = false;
+    try { seen = localStorage.getItem("micall_seen_guide") === "1"; } catch (e) { /* noop */ }
+    this.setState({ cookieOpen: false, showGuide: !seen });
   }
   dismissGuide() {
     try { localStorage.setItem("micall_seen_guide", "1"); } catch (e) { /* noop */ }
@@ -898,6 +908,11 @@ export class MiCallLogic {
         this.clearTimers();
         this.stopMic();
         this.setState({ remaining: 0, outOfMins: true, phase: "idle", subtitle: "", lines: [] });
+        break;
+      case "asr_failed":
+        // 实时语音识别断流：通话不中断（文字仍可发），提示用户改用文字继续，别让 TA 对着没反应的麦克风干等。
+        this.setState({ toast: "语音识别中断，可用文字继续对话" });
+        this.clearToastSoon(2600);
         break;
       case "call_failed":
         this.clearTimers();
@@ -1455,19 +1470,25 @@ export class MiCallLogic {
           return;
         }
         // 真实后端：打 /api/auth/*，存 token，余额以服务端为准。
+        if (this._authBusy) return;   // 防快速双击发两次注册/登录
+        this._authBusy = true;
         this.setState({ toast: reg ? "注册中…" : "登录中…" });
-        const res = reg ? await authApi.register(email, pw, this.pendingInvite) : await authApi.login(email, pw);
-        if (!res.ok || !res.token) {
-          this.setState({ toast: res.error || "操作失败，请重试" });
+        try {
+          const res = reg ? await authApi.register(email, pw, this.pendingInvite) : await authApi.login(email, pw);
+          if (!res.ok || !res.token) {
+            this.setState({ toast: res.error || "操作失败，请重试" });
+            this.clearToastSoon(2200);
+            return;
+          }
+          authApi.setToken(res.token);
+          if (reg) { this.pendingInvite = ""; try { localStorage.removeItem("micall_invite"); } catch { /* noop */ } }
+          this.resetSignaling();   // 让下一通电话带上新 token 重连
+          this.setState({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: res.user?.remaining_seconds ?? this.state.remaining, toast: okMsg });
+          this.loadVoices();       // 登录后拉本账号已选音色 → 音色页跨设备回显一致
           this.clearToastSoon(2200);
-          return;
+        } finally {
+          this._authBusy = false;
         }
-        authApi.setToken(res.token);
-        if (reg) { this.pendingInvite = ""; try { localStorage.removeItem("micall_invite"); } catch { /* noop */ } }
-        this.resetSignaling();   // 让下一通电话带上新 token 重连
-        this.setState({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: res.user?.remaining_seconds ?? this.state.remaining, toast: okMsg });
-        this.loadVoices();       // 登录后拉本账号已选音色 → 音色页跨设备回显一致
-        this.clearToastSoon(2200);
       },
       logout: () => this.setState({ logoutConfirmOpen: true, menuOpen: false }),
       logoutConfirmOpen: this.state.logoutConfirmOpen,

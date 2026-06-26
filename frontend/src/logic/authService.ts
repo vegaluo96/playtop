@@ -267,13 +267,14 @@ export async function redeem(code: string): Promise<RedeemResult> {
   }
 }
 
-/** 刷新后用存的 token 恢复登录态；token 失效（401）则清掉。 */
+/** 刷新后用存的 token 恢复登录态；token 失效（401/422）则清掉，5xx/网络错保守不清（避免误登出）。 */
 export async function me(): Promise<AuthUser | null> {
   const tok = getToken();
   if (!tok) return null;
   try {
     const r = await fetch(BASE + "/api/auth/me", { headers: { Authorization: "Bearer " + tok } });
-    if (!r.ok) { if (r.status === 401) setToken(""); return null; }
+    // 明确鉴权失败（401 未授权 / 422 token 畸形）→ 清坏 token，免得每次刷新都拿它重试失败。
+    if (!r.ok) { if (r.status === 401 || r.status === 422) setToken(""); return null; }
     const j = await r.json();
     return j.ok ? (j.user as AuthUser) : null;
   } catch {

@@ -92,7 +92,7 @@
           </div>
         </div>
         <div style="flex:2;display:flex;justify-content:center;">
-          <div onClick="{{ scenarioToggle }}" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:18px;background:var(--pill);cursor:pointer;user-select:none;font-size:15px;font-weight:500;color:var(--fg);white-space:nowrap;max-width:220px;box-sizing:border-box;">
+          <div onClick="{{ scenarioToggle }}" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:18px;background:var(--pill);cursor:pointer;user-select:none;font-size:15px;font-weight:500;color:var(--fg);white-space:nowrap;max-width:clamp(120px,60vw,220px);box-sizing:border-box;">
             <svg width="14" height="14" viewBox="0 0 15 15" style="flex:none;"><g fill="currentColor"><rect x="0" y="0" width="6.4" height="6.4" rx="2"/><rect x="8.6" y="0" width="6.4" height="6.4" rx="2"/><rect x="0" y="8.6" width="6.4" height="6.4" rx="2"/><rect x="8.6" y="8.6" width="6.4" height="6.4" rx="2"/></g></svg>
             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">{{ pillLabel }}</span>
           </div>
@@ -927,7 +927,7 @@
       </sc-if>
 
       <sc-if value="{{ cookieOpen }}" hint-placeholder-val="{{ false }}">
-        <div style="position:absolute;left:14px;right:14px;bottom:18px;z-index:18;display:flex;flex-direction:column;gap:12px;padding:16px 16px 14px;border-radius:18px;background:var(--sheet);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);box-shadow:0 14px 40px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.2);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);">
+        <div style="position:absolute;left:14px;right:14px;bottom:18px;z-index:18;box-sizing:border-box;max-width:calc(100% - 28px);display:flex;flex-direction:column;gap:12px;padding:16px 16px 14px;border-radius:18px;background:var(--sheet);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);box-shadow:0 14px 40px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.2);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);">
           <div style="font-size:13.5px;line-height:1.6;color:var(--fg);text-wrap:pretty;">我们使用必要的 Cookie 维持登录与基本偏好,不用于广告追踪。继续使用即表示同意我们的隐私政策。</div>
           <div style="display:flex;align-items:center;gap:10px;">
             <div onClick="{{ openPrivacy }}" style="flex:none;font-size:13px;color:var(--dim);cursor:pointer;padding:8px 4px;">隐私政策</div>
@@ -939,7 +939,7 @@
       </sc-if>
 
       <sc-if value="{{ showGuide }}" hint-placeholder-val="{{ false }}">
-        <div onClick="{{ dismissGuide }}" style="position:absolute;inset:0;z-index:16;background:rgba(20,16,30,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:128px;cursor:pointer;animation:backdropIn .4s ease;">
+        <div onClick="{{ dismissGuide }}" style="position:absolute;inset:0;z-index:16;background:rgba(20,16,30,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:clamp(68px,15vh,128px);cursor:pointer;animation:backdropIn .4s ease;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:8px;max-width:240px;text-align:center;">
             <div style="font-size:18px;font-weight:600;color:#fff;letter-spacing:.3px;">轻点下方按钮开始通话</div>
             <div style="font-size:14px;color:rgba(255,255,255,.7);line-height:1.6;">选好角色和场景,绿色按钮拨给 TA,像打电话一样聊天。</div>

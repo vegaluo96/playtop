@@ -25,6 +25,7 @@ export type ServerEvent =
   | { type: "billing"; remaining_seconds: number; elapsed: number }
   | { type: "low_minutes"; remaining_seconds: number }
   | { type: "out_of_minutes" }
+  | { type: "asr_failed" }                 // 实时语音识别中断 → 提示「可用文字继续」，通话不中断
   | { type: "call_failed"; reason: string }
   | { type: "ended" }
   | { type: "connection_lost" }           // 接通后网络掉线（WS 异常关闭）→ 前端给「连接中断·重拨」

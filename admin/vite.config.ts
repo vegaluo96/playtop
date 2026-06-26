@@ -7,5 +7,5 @@ export default defineConfig({
   root: ".",
   plugins: [react()],
   server: { host: true, port: 5174 },
-  build: { outDir: "dist", sourcemap: true },
+  build: { outDir: "dist", sourcemap: false },   // 内部后台亦不外泄源码（dev 仍有内联 sourcemap）
 });

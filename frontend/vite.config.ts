@@ -13,6 +13,6 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    sourcemap: true,
+    sourcemap: false,   // 生产不外泄 TS 源码到浏览器 DevTools（dev 模式仍有内联 sourcemap，不影响调试）
   },
 });
