@@ -332,7 +332,7 @@ class InMemoryRepository(MemoryRepository):
         query: str = "", top_k: int = 5,
     ) -> list[str]:
         items = self._facts.get((user_id, character_id), [])
-        if not items or not query_vector:
+        if not items or query_vector is None or len(query_vector) == 0:
             return self.recall(user_id, character_id, query, top_k=top_k)
         n = len(items)
         scored: list[tuple[float, str]] = []

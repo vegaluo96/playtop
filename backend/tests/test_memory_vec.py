@@ -44,6 +44,14 @@ class TestRecallVec(unittest.TestCase):
         hits = r.recall_vec("u", "c", [1.0, 0, 0, 0], query="猫", top_k=3)
         self.assertTrue(any("猫" in h for h in hits))
 
+    def test_empty_query_vector_falls_back_to_keyword(self):
+        # 空向量 []（embedding 失败/未配）应明确判空 → 退关键词召回，不报错也不漏召回。
+        r = InMemoryRepository()
+        emb = _FakeEmbedder()
+        r.add_fact("u", "c", "养了一只猫", vector=asyncio.run(emb.embed_one("猫")))
+        hits = r.recall_vec("u", "c", [], query="猫", top_k=3)
+        self.assertTrue(any("猫" in h for h in hits))
+
 
 class TestAssemblerVec(unittest.TestCase):
     def test_build_uses_vector_recall_when_query_vector_given(self):

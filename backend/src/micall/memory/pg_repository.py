@@ -78,7 +78,13 @@ class PgRepository(MemoryRepository):
                 try:
                     c.execute(stmt)
                 except Exception as e:
-                    log.warning("schema 段落跳过（多半是扩展权限，已由 bootstrap 建好）：%r", e)
+                    head = stmt.lstrip()[:40].lower()
+                    if "extension" in head:
+                        # CREATE EXTENSION 可能因 app 角色非超级用户失败（已由 bootstrap 以超管建好）→ 可容忍
+                        log.warning("schema 扩展段跳过（多半是权限，已由 bootstrap 建好）：%r", e)
+                    else:
+                        # 建表/建索引失败更严重：后续读写才暴雷，这里就要醒目（不硬抛，留给已存在的表继续跑）
+                        log.error("schema 段执行失败（可能影响后续读写）：%s… → %r", stmt[:60].replace("\n", " "), e)
 
     # ── 出厂角色 & 用户存在性（FK 前置）──
     def seed_characters(self, specs: dict[str, dict]) -> None:
@@ -115,8 +121,8 @@ class PgRepository(MemoryRepository):
                     (user_id, character_id, text, _vec_literal(vector), emotion_weight, importance),
                 )
         except Exception as e:  # FK/维度不符/连接：离线写入失败不该影响通话
-            log.warning("add_fact 失败（忽略）：%r", e)
-            if vector is not None:  # 多半是向量维度与列不符 → 退而存无向量
+            log.warning("add_fact 首次写入失败：%r", e)
+            if vector is not None:  # 多半是向量维度与列不符 → 退而存无向量（但要让人看见，否则向量召回长期失效而无感）
                 try:
                     with self.pool.connection() as c:
                         c.execute(
@@ -124,8 +130,10 @@ class PgRepository(MemoryRepository):
                             "VALUES (%s,%s,%s,%s,%s)",
                             (user_id, character_id, text, emotion_weight, importance),
                         )
-                except Exception:
-                    pass
+                    log.error("add_fact 已降级为【无向量】存储 → 向量召回将失效。多半是 embedding 维度与表 "
+                              "vector(N) 不符，请核对模型维度与 schema。原始错误：%r", e)
+                except Exception as e2:
+                    log.error("add_fact 无向量回退也失败，本条记忆丢失：%r", e2)
 
     def recall(self, user_id, character_id, query, *, top_k=5) -> list[str]:
         # 非向量兜底（embedding 超时/未配/旧数据无向量时走这里）。此前只按 created_at DESC，
@@ -157,7 +165,11 @@ class PgRepository(MemoryRepository):
             return []
 
     def recall_vec(self, user_id, character_id, query_vector, *, query="", top_k=5) -> list[str]:
-        if not query_vector:
+        if query_vector is None or len(query_vector) == 0:
+            # 没有可用向量 → 退关键词召回。若本应有向量（query 非空却拿不到向量）多半 embedding 异常，
+            # 升级日志便于运营发现（否则向量召回长期静默失效而无感）。
+            if (query or "").strip():
+                log.warning("recall_vec 无向量（embedding 可能异常），本次退关键词召回")
             return self.recall(user_id, character_id, query, top_k=top_k)
         try:
             with self.pool.connection() as c:

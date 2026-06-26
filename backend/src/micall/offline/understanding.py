@@ -57,14 +57,21 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
 
 
 def parse_profile_update(raw: str) -> dict[str, Any]:
-    """从 LLM 输出容错地抠出 JSON 对象（可能被前后文包裹）。失败返回空 dict。"""
-    try:
-        start = raw.index("{")
-        end = raw.rindex("}") + 1
-        obj = json.loads(raw[start:end])
-        return obj if isinstance(obj, dict) else {}
-    except (ValueError, json.JSONDecodeError):
+    """从 LLM 输出容错地抠出 JSON 对象（可能被前后文/代码围栏包裹）。失败返回空 dict。
+    用 raw_decode 从第一个 `{` 起解析第一个完整对象、自动忽略其后的尾随文本——比 index..rindex 截取更稳：
+    旧法遇到正文里出现 `}`（如「(注：…})」）或输出了多个对象，就会把标点/多余内容一起截进来 → 解析失败。"""
+    if not raw:
         return {}
+    decoder = json.JSONDecoder()
+    idx = raw.find("{")
+    while idx != -1:
+        try:
+            obj, _ = decoder.raw_decode(raw, idx)
+        except (ValueError, json.JSONDecodeError):
+            idx = raw.find("{", idx + 1)   # 这个 { 不是合法对象起点（多半在正文里）→ 试下一个
+            continue
+        return obj if isinstance(obj, dict) else {}
+    return {}
 
 
 def _fact_text_importance(f: Any, default: float = 0.5) -> tuple[str, float]:

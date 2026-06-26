@@ -30,16 +30,18 @@ def _embed_endpoint(ep: str) -> str:
     return ep
 
 
-_SHARED_CLIENT: "httpx.AsyncClient | None" = None
+from ._http import loop_client
 
 
 def _shared_client() -> "httpx.AsyncClient":
-    """进程级共享 HTTP 连接池：实时路径每轮召回都向（多在新加坡的）Embedding 发一次，复用 keep-alive
-    省掉「每轮一次 TCP+TLS 握手」→ "说完→AI 接话"更跟手。与 minimax_tts/apiyi_llm 同法。"""
-    global _SHARED_CLIENT
-    if _SHARED_CLIENT is None or _SHARED_CLIENT.is_closed:
-        _SHARED_CLIENT = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0))
-    return _SHARED_CLIENT
+    """共享 HTTP 连接池，按事件循环隔离（见 providers/_http.loop_client）。实时路径每轮召回都向
+    （多在新加坡的）Embedding 发一次，复用 keep-alive 省掉「每轮一次 TCP+TLS 握手」→ AI 接话更跟手。
+    与 minimax_tts/apiyi_llm 同法：管理端连通性测试走 asyncio.run（一次性循环），跨循环复用会 PoolTimeout，
+    故每个循环各持一个 client（此前本 provider 缺该隔离，是连通性测试后召回卡死的隐患）。"""
+    return loop_client(lambda: httpx.AsyncClient(
+        timeout=httpx.Timeout(10.0, connect=5.0, pool=5.0),
+        limits=httpx.Limits(max_connections=16, max_keepalive_connections=4, keepalive_expiry=15.0),
+    ))
 
 
 class BailianEmbedding:

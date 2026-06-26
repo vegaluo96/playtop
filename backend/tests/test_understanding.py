@@ -36,6 +36,20 @@ class TestParse(unittest.TestCase):
         self.assertEqual(parse_profile_update("这里没有 JSON"), {})
         self.assertEqual(parse_profile_update("{坏的"), {})
 
+    def test_trailing_text_with_brace(self):
+        # 正文里出现 } —— 旧法 index..rindex 会连标点截进来解析失败；raw_decode 只取第一个完整对象。
+        raw = '{"next_strategy":"接面试线头"}\n（注：仅供参考 :)}'
+        self.assertEqual(parse_profile_update(raw)["next_strategy"], "接面试线头")
+
+    def test_first_of_multiple_objects(self):
+        raw = '前言\n{"a":1}\n{"b":2}\n尾注'
+        self.assertEqual(parse_profile_update(raw), {"a": 1})
+
+    def test_skips_non_json_brace_before_real_object(self):
+        # 第一个 { 不是合法 JSON（正文里的），应跳到下一个真正的对象。
+        raw = '我觉得 {大概} 是这样：{"stage":"friend"}'
+        self.assertEqual(parse_profile_update(raw)["stage"], "friend")
+
 
 class TestMerge(unittest.TestCase):
     def test_merge_all_fields(self):

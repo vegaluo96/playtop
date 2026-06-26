@@ -28,6 +28,10 @@ log = logging.getLogger("micall.signal")
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CHARACTERS_DIR = _REPO_ROOT / "asset-pipeline" / "characters"
 _GUEST_TRIAL_SECONDS = 60  # 游客（未登录）试用：1 分钟，到期提示注册（注册即送 60 分钟）
+# 单连接入站【文本/控制帧】限流（音频二进制帧不计——其按 20ms/帧本就高频）。滑窗超限即丢弃，
+# 防恶意客户端刷 text_input / 畸形帧耗 CPU。50/10s 对正常使用（打字、ICE 协商）很宽裕。
+_WS_CTRL_LIMIT = 50
+_WS_CTRL_WINDOW = 10.0
 _ANON = "anon"            # 骨架无鉴权；真实从登录态取 user_id
 _AUTONOMY_THROTTLE_S = 3 * 3600  # 角色自主状态最多每 3 小时推进一次（节流慢脑成本 + 近况不过快变）
 
@@ -311,12 +315,24 @@ class SignalingServer:
         user_id = _resolve_user(self.repo, websocket)
         client_ip = _client_ip(websocket)   # 游客按 IP 计试用配额（防刷）
         log.info("⇆ 新连接 %s user=%s", client_ip, user_id)
+        ctrl_hits: list[float] = []   # 入站控制帧时间戳滑窗（按连接，音频帧不计）
+        ctrl_warned = False
         try:
             async for raw in websocket:
                 if isinstance(raw, (bytes, bytearray)):
                     if session is not None:
                         session.push_audio(bytes(raw))  # 上行麦克风帧 → task A
                     continue
+                # 文本/控制帧限流：滑窗超限即丢弃（防 text_input/畸形帧刷爆 CPU）。音频帧已在上面放行。
+                now = time.time()
+                ctrl_hits = [t for t in ctrl_hits if now - t < _WS_CTRL_WINDOW]
+                if len(ctrl_hits) >= _WS_CTRL_LIMIT:
+                    if not ctrl_warned:
+                        log.warning("⚠ 连接 %s 控制帧超频(>%d/%.0fs)，开始丢弃", client_ip, _WS_CTRL_LIMIT, _WS_CTRL_WINDOW)
+                        ctrl_warned = True
+                    continue
+                ctrl_warned = False
+                ctrl_hits.append(now)
                 # 先拦 WebRTC 信令（可选 ?rtc=1）：这些 type 不在 ClientMessage 里，单独处理。
                 try:
                     d = json.loads(raw)
