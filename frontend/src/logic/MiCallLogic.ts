@@ -923,7 +923,9 @@ export class MiCallLogic {
     const noFavs = favList.length === 0;
     const phaseIdle = p === "idle";
     const phaseEnded = p === "ended";
-    const showOrbStatus = p !== "idle";
+    // 简介(tagline)在 idle + 接通中(calling)都显示，跟未拨打状态对齐；真正接通(connected)/结束后才换成计时。
+    const showTagline = p === "idle" || p === "calling";
+    const showOrbStatus = p !== "idle" && p !== "calling";   // 头部计时仅真正通话/结束态显示（接通中让位给简介）
     const stars = [1, 2, 3, 4, 5].map((n) => ({ fill: n <= this.state.rating ? "#FFB23E" : "var(--faint)", set: () => this.setState({ rating: n }) }));
     const feedbackChips = ["很温暖", "聊得开心", "答非所问", "反应慢"].map((t) => {
       const sel = this.state.feedback.includes(t);
@@ -992,7 +994,7 @@ export class MiCallLogic {
       // 锥形渐变，省掉持续的 GPU 合成（仅通话各阶段才挂载）。
       edgeVisible: edgeOpacity > 0,
       title: p === "ended" ? "通话结束" : charName,
-      orbHue, showOrbStatus, showUnderOrb, charDots,
+      orbHue, showOrbStatus, showTagline, showUnderOrb, charDots,
       charTagline: char.desc,
       charDetail: {
         name: char.name, tagline: char.desc, bio: char.bio, traits: char.traits, hueFilter: orbHue,
