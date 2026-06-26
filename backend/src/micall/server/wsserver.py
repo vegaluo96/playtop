@@ -246,6 +246,15 @@ class SignalingServer:
 
     def _make_session(self, *, emit, audio_emit=None, character_id, scenario, scenario_prompt="", user_id=_ANON, client_ip="") -> CallSession:
         char = self._character(character_id)
+        # 人设指纹：把这通电话「实际载入」的角色字段打出来——后台改完打一通、grep 📇 即可确认
+        # 编辑是否真喂进通话（不再靠猜「改了没生效」是数据没到、还是没重启、还是字段没接）。
+        _id, _ps = (char.identity or {}), (char.persona or {})
+        log.info(
+            "📇 通话载入角色 id=%s name=%r 简介=%r 风格=%r 来历=%r 音色=%s",
+            char.character_id, char.name,
+            str(_id.get("tagline", ""))[:24], str(_ps.get("speaking_style", ""))[:24],
+            str(_ps.get("background_story", ""))[:24], char.voice_id,
+        )
         user_voice = self.repo.get_user_voice(user_id, char.character_id)
         voice_id = resolve_voice(
             self.config.global_defaults.get("default_voice", ""), char.voice_id, user_voice
