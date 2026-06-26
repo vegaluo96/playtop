@@ -21,6 +21,7 @@ _CHARACTERS_DIR = _REPO_ROOT / "asset-pipeline" / "characters"
 CHAR_OVERRIDES_PATH = _REPO_DEFAULT.parent / "character_overrides.json"
 CUSTOM_CHARS_PATH = _REPO_DEFAULT.parent / "custom_characters.json"   # 运营新建的角色（全 spec）
 DELETED_CHARS_PATH = _REPO_DEFAULT.parent / "deleted_characters.json"  # 被隐藏/删除的角色 id
+OFFLINE_CHARS_PATH = _REPO_DEFAULT.parent / "offline_characters.json"  # 被「下架」的角色 id（仍在后台、不对用户展示）
 DEFAULT_CHAR_PATH = _REPO_DEFAULT.parent / "default_character.json"   # 运营设定的默认角色 id（用户端进来先选它）
 
 _LIST_SEP = re.compile(r"[、,，;；\n]+")
@@ -83,6 +84,26 @@ def load_deleted() -> set:
     return set(d) if isinstance(d, list) else set()
 
 
+def load_offline() -> set:
+    """被「下架」的角色 id 集合：仍在后台可管理，但不对用户端展示（区别于「删除」）。"""
+    d = _load_json_file(OFFLINE_CHARS_PATH, [])
+    return set(d) if isinstance(d, list) else set()
+
+
+def set_character_offline(cid: str, offline: bool) -> bool:
+    """下架/上架某角色：只允许操作「生效中」（出厂/新建、未删除）的角色。下架=进集合、上架=出集合。"""
+    cid = str(cid or "").strip()
+    if cid not in effective_specs():
+        return False
+    off = load_offline()
+    if offline:
+        off.add(cid)
+    else:
+        off.discard(cid)
+    _save_json_file(OFFLINE_CHARS_PATH, sorted(off))
+    return True
+
+
 def effective_specs() -> dict[str, dict]:
     """出厂 spec + 运营新建角色，深合并 overrides、剔除已删除 → 生效中的角色定义（通话端/后台/用户端都用）。"""
     overrides = load_overrides()
@@ -101,6 +122,7 @@ def effective_specs() -> dict[str, dict]:
 # ── 后台读：把可编辑字段摊平成扁平 dict（列表 join 成串）──
 def read_characters_for_admin() -> list[dict]:
     out: list[dict] = []
+    offline = load_offline()
     for cid, s in effective_specs().items():
         ident = s.get("identity", {}) or {}
         persona = s.get("persona", {}) or {}
@@ -130,6 +152,7 @@ def read_characters_for_admin() -> list[dict]:
             "dislikes": _join(persona.get("dislikes")),
             "voice_id": voice.get("voice_id", ""),
             "prompt_extra": ro.get("realtime_prompt_extra", "") or "",
+            "status": "下架" if cid in offline else "上线",
         })
     return out
 
@@ -237,15 +260,16 @@ def create_character(payload: dict) -> str:
 
 
 def load_default_character() -> str:
-    """运营设定的默认角色 id；未设或已失效（被删/改名/不存在）→ 回退第一个生效角色。"""
-    specs = effective_specs()
+    """运营设定的默认角色 id；未设或已失效（被删/改名/下架/不存在）→ 回退第一个**在架**角色。"""
+    offline = load_offline()
+    specs = {cid: s for cid, s in effective_specs().items() if cid not in offline}  # 默认角色不能是下架的
     if not specs:
         return ""
     d = _load_json_file(DEFAULT_CHAR_PATH, {})
     cid = d.get("id") if isinstance(d, dict) else ""
     if cid and cid in specs:
         return cid
-    return "lin_wan" if "lin_wan" in specs else next(iter(specs.keys()))  # 未设：回退产品主角林晚，否则第一个
+    return "lin_wan" if "lin_wan" in specs else next(iter(specs.keys()))  # 未设：回退产品主角林晚，否则第一个在架的
 
 
 def set_default_character(cid: str) -> bool:
@@ -302,7 +326,10 @@ def public_characters() -> list[dict]:
     标注并把「默认角色」排到第一位——用户端进来先选它（运营在后台「角色管理」可改默认）。"""
     out: list[dict] = []
     default_id = load_default_character()
+    offline = load_offline()
     for cid, s in effective_specs().items():
+        if cid in offline:
+            continue                         # 下架角色：不对用户端展示（仍在后台可上架）
         ident = s.get("identity", {}) or {}
         persona = s.get("persona", {}) or {}
         prof = ident.get("profile", {}) or {}

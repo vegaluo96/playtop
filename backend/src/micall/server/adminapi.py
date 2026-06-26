@@ -533,6 +533,11 @@ class _Handler(BaseHTTPRequestHandler):
             from .characters_admin import delete_character
             ok = delete_character((self._body().get("id") or "").strip())
             return self._json(200, {"ok": ok})
+        if route == "/admin/characters/online":    # 下架/上架角色（下架=不对用户展示，仍在后台可改）
+            from .characters_admin import set_character_offline
+            b = self._body()
+            ok = set_character_offline((b.get("id") or "").strip(), not bool(b.get("online", True)))
+            return self._json(200 if ok else 400, {"ok": ok, "error": None if ok else "未知或已删除的角色"})
         if route == "/admin/characters/generate":  # AI 一键生成角色
             import asyncio
 
