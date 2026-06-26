@@ -149,6 +149,8 @@ export class AdminLogic {
         if (row.tagline) c.desc = row.tagline;
         if (row.traits) { c.traits = this._splitList(row.traits); c.tags = c.traits.slice(0, 4); }  // 标签=性格前若干，和用户端一致（过去标签是写死 mock）
         if (row.background_story) c.bio = row.background_story;
+        if ((row as any).hidden_layer != null) c.hidden_layer = (row as any).hidden_layer;
+        if ((row as any).values != null) c.values = (row as any).values;
         if (row.likes != null) c.likes = row.likes;
         if (row.dislikes != null) c.dislikes = row.dislikes;
         c.speaking_style = row.speaking_style || "";
@@ -382,6 +384,7 @@ export class AdminLogic {
         birthday: c.birthday || "", race: c.race || "",
         traits: Array.isArray(c.traits) ? c.traits.join("、") : (c.traits || ""),
         speaking_style: c.speaking_style || "", background_story: c.bio || "",
+        hidden_layer: c.hidden_layer || "", values: c.values || "",
         likes: c.likes || "", dislikes: c.dislikes || "", voice_id: c.voiceId || "",
       };
     }
@@ -396,7 +399,7 @@ export class AdminLogic {
   /** 打开「新建角色」表单（空白 + AI 生成入口）。 */
   openNewChar() {
     this.setState({ detail: { type: "char", id: "__new__" }, charBio: "", charAiPrompt: "",
-      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", traits: "", speaking_style: "", background_story: "", likes: "", dislikes: "", voice_id: "" } });
+      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", traits: "", speaking_style: "", background_story: "", hidden_layer: "", values: "", likes: "", dislikes: "", voice_id: "" } });
   }
 
   /** AI 一键生成角色字段，填进编辑表单（运营可再微调）。 */
@@ -450,11 +453,13 @@ export class AdminLogic {
       gender: e.gender, age: e.age, nationality: e.nationality, appearance: e.appearance,
       height: e.height, weight: e.weight, birthday: e.birthday, race: e.race,
       speaking_style: e.speaking_style, background_story: e.background_story,
+      hidden_layer: e.hidden_layer, values: e.values,
       likes: e.likes, dislikes: e.dislikes, voice_id: e.voice_id,
     });
     if (ok) {  // 本地同步，列表/详情立即反映
       c.name = e.name; c.desc = e.tagline; c.traits = this._splitList(e.traits);
       c.bio = e.background_story; c.likes = e.likes; c.dislikes = e.dislikes;
+      c.hidden_layer = e.hidden_layer; c.values = e.values;
       c.speaking_style = e.speaking_style; c.voiceId = e.voice_id;
       if (e.gender) c.gender = e.gender; if (e.age !== "" && e.age != null) c.age = e.age;
       c.nationality = e.nationality; c.appearance = e.appearance; c.birthday = e.birthday; c.race = e.race;
@@ -767,6 +772,8 @@ export class AdminLogic {
       ceWeight: (s.charEdit as any).weight || "", onCeWeight: (e: any) => this.setCe("weight", e.target.value),
       ceBirthday: (s.charEdit as any).birthday || "", onCeBirthday: (e: any) => this.setCe("birthday", e.target.value),
       ceRace: (s.charEdit as any).race || "", onCeRace: (e: any) => this.setCe("race", e.target.value),
+      ceHidden: (s.charEdit as any).hidden_layer || "", onCeHidden: (e: any) => this.setCe("hidden_layer", e.target.value),
+      ceValues: (s.charEdit as any).values || "", onCeValues: (e: any) => this.setCe("values", e.target.value),
       replyDraft: s.replyDraft, onReplyDraft: (e: any) => this.setState({ replyDraft: e.target.value }), ticketNeedsReply,
       sendReply: async () => { const v = (s.replyDraft || "").trim(); if (!v) { this.toastMsg("请输入回复内容"); return; } const id = d.id; const ok = await replyTicket(id, v); if (!ok && usingBackend()) { this.toastMsg("回复失败，请重试"); return; } const t = this.tickets.find((x) => x.id === id); if (t) { t.reply = v; t.status = "已回复"; } this.setState((p) => ({ ticketReplies: { ...p.ticketReplies, [id]: v }, replyDraft: "" })); this.toastMsg("回复已发送"); },
       toast: s.toast,

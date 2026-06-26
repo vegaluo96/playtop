@@ -124,6 +124,7 @@ def read_characters_for_admin() -> list[dict]:
             "traits": _join(persona.get("core_traits")),
             "speaking_style": persona.get("speaking_style", ""),
             "background_story": persona.get("background_story", ""),
+            "hidden_layer": persona.get("hidden_layer", ""),
             "values": persona.get("values_and_boundaries", ""),
             "likes": _join(persona.get("likes")),
             "dislikes": _join(persona.get("dislikes")),
@@ -177,6 +178,7 @@ def write_character_from_admin(payload: dict) -> None:
     if "traits" in p:          persona["core_traits"] = _split(p["traits"])
     if "speaking_style" in p:  persona["speaking_style"] = s(p["speaking_style"])
     if "background_story" in p: persona["background_story"] = s(p["background_story"])
+    if "hidden_layer" in p:    persona["hidden_layer"] = s(p["hidden_layer"])
     if "values" in p:          persona["values_and_boundaries"] = s(p["values"])
     if "likes" in p:           persona["likes"] = _split(p["likes"])
     if "dislikes" in p:        persona["dislikes"] = _split(p["dislikes"])
@@ -214,6 +216,7 @@ def _spec_from_flat(cid: str, p: dict) -> dict:
                      "version": "1"},
         "persona": {"core_traits": _split(p.get("traits", "")), "speaking_style": s(p.get("speaking_style")),
                     "background_story": s(p.get("background_story")),
+                    "hidden_layer": s(p.get("hidden_layer")),
                     "values_and_boundaries": s(p.get("values")),
                     "likes": _split(p.get("likes", "")), "dislikes": _split(p.get("dislikes", ""))},
         "voice": {"voice_id": s(p.get("voice_id"))},

@@ -659,6 +659,7 @@
           <div><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">体重 kg</div><input value="{{ ceWeight }}" onInput="{{ onCeWeight }}" placeholder="如 48" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
           <div><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">种族</div><input value="{{ ceRace }}" onInput="{{ onCeRace }}" placeholder="如 东亚人" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
           <div style="grid-column:span 3;"><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">生日（如 2002-03-15）</div><input value="{{ ceBirthday }}" onInput="{{ onCeBirthday }}" placeholder="YYYY-MM-DD" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
+          <div style="grid-column:span 3;"><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">外貌（被问长相时她照此回答）</div><input value="{{ ceAppearance }}" onInput="{{ onCeAppearance }}" placeholder="如 齐肩黑发，红唇，眼神慵懒" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
         </div>
 
         <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 10px;">标签</div>
@@ -713,6 +714,14 @@
               <span style="font-size:11.5px;color:#A8ABB5;">{{ charBioLen }} 字</span>
             </div>
             <textarea value="{{ ceBio }}" onInput="{{ onCeBio }}" style="width:100%;box-sizing:border-box;min-height:96px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:13px 15px;font-size:13.5px;line-height:1.7;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">内里（不明说但会流露的一面）</div>
+            <textarea value="{{ ceHidden }}" onInput="{{ onCeHidden }}" placeholder="如 嘴上撩人，其实很在意对方是不是真在听" style="width:100%;box-sizing:border-box;min-height:56px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">价值观与边界（她的原则，不必迎合用户）</div>
+            <textarea value="{{ ceValues }}" onInput="{{ onCeValues }}" placeholder="如 喜欢就靠近，不喜欢就冷下来；不解释、不讨好" style="width:100%;box-sizing:border-box;min-height:56px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
           </div>
         </div>
 
