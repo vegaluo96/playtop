@@ -27,16 +27,20 @@ def _wav(pcm: bytes, rate: int = _RATE) -> bytes:
 
 
 async def _synth(text: str, voice_id: str) -> bytes:
+    from contextlib import aclosing
+
     from ..config import load_config
     from ..providers import make_tts
 
     node = load_config().node("tts")
     tts = make_tts(node)
     buf = bytearray()
-    async for chunk in tts.synthesize(text, voice_id=voice_id, emotion="", sample_rate=_RATE):
-        buf.extend(chunk)
-        if len(buf) >= _MAX_BYTES:
-            break
+    # aclosing：达到 _MAX_BYTES 而 break（或异常）时也关掉生成器，释放底层 httpx 流/连接，不漏连接。
+    async with aclosing(tts.synthesize(text, voice_id=voice_id, emotion="", sample_rate=_RATE)) as gen:
+        async for chunk in gen:
+            buf.extend(chunk)
+            if len(buf) >= _MAX_BYTES:
+                break
     return bytes(buf)
 
 

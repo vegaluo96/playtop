@@ -6,6 +6,7 @@ endpoint/key 全配置（铁律2）。endpoint 形如 https://api.minimax.chat/v
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import AsyncIterator
@@ -55,13 +56,26 @@ _RICH_OK = True
 
 
 _SHARED_CLIENT: "httpx.AsyncClient | None" = None
+_SHARED_LOOP: object = None
 
 
 def _shared_client() -> "httpx.AsyncClient":
-    """进程级共享 HTTP 连接池：跨通话/跨句复用 keep-alive，省掉「每句一次 TCP+TLS 握手」→ 首块更快。"""
-    global _SHARED_CLIENT
-    if _SHARED_CLIENT is None or _SHARED_CLIENT.is_closed:
-        _SHARED_CLIENT = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
+    """共享 HTTP 连接池，但【按事件循环隔离】。
+    关键：音色试听走 asyncio.run（每次起一个一次性事件循环），通话走 wsserver 常驻循环。同一个 httpx
+    client 跨事件循环复用会污染连接池 → 连接挂死不释放 → 攒满后请求拿不到连接 → PoolTimeout（实测：换几次
+    音色试听后通话合成全卡）。故按当前运行循环隔离：循环变了就建新 client（旧的随其循环关闭而释放）。
+    并加限额/回收/短 pool 超时：连接数封顶、闲置 15s 即弃（防半死 keep-alive）、池满 5s 快速失败而非干等 30s。"""
+    global _SHARED_CLIENT, _SHARED_LOOP
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    if _SHARED_CLIENT is None or _SHARED_CLIENT.is_closed or _SHARED_LOOP is not loop:
+        _SHARED_CLIENT = httpx.AsyncClient(
+            timeout=httpx.Timeout(20.0, connect=5.0, pool=5.0),
+            limits=httpx.Limits(max_connections=32, max_keepalive_connections=8, keepalive_expiry=15.0),
+        )
+        _SHARED_LOOP = loop
     return _SHARED_CLIENT
 
 
