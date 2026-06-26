@@ -651,10 +651,12 @@ export class MiCallLogic {
     const sig = this.ensureSignaling();
     this.micCapture = new MicCapture(this.micStream, (pcm) => {
       if (this.state.mute) return;                       // 静音：不上行（本地已禁音轨）
-      // WS 路径【恒半双工】：AI 音频外放时一律不上行——这条路没有硬件 AEC，全程开麦必把外放的 AI 声音回灌
+      // WS 路径【恒半双工】：AI 在说话期间一律不上行——这条路没有硬件 AEC，全程开麦必把外放的 AI 声音回灌
       // 进麦克风，被服务器当成「你在插话」→ 触发打断「说到一半就停」。全双工打断只有 RTC（硬件 AEC）下才安全，
-      // 那条走 addTrack、不经此函数；所以这里【无视 duplex=full】，永远播放时不上行，从源头堵死回声自我打断。
-      if (this.player.isPlaying()) return;
+      // 那条走 addTrack、不经此函数；所以这里【无视 duplex=full】，从源头堵死回声自我打断。
+      // 门控两条都要：① 音频在外放（含 600ms 拖尾，盖喇叭输出延迟）；② AI 这一轮还在进行（thinking/speaking）——
+      // 后者堵住「句与句之间音频短暂停顿、playhead 已追上」的缝（那一瞬麦克风若开，正好录到 AI 的话）。
+      if (this.player.isPlaying() || this.state.phase === "thinking" || this.state.phase === "speaking") return;
       sig.sendAudio(pcm);
     });
     try { this.micCapture.start(); } catch { /* 不支持音频采集时静默降级 */ }

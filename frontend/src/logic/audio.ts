@@ -118,7 +118,9 @@ export class AudioPlayer {
   /** AI 音频此刻是否正在外放（含一小段衰减拖尾）。仅"半双工兜底模式"用它判断要不要暂停上行：
    *  playhead = 已排队音频播放到的终点；currentTime 还没追上 playhead+tail 就当作「还在响」。
    *  flush 后 playhead 归 0 → false；自然播完后 currentTime 越过终点 → false。 */
-  isPlaying(tailMs = 250): boolean {
+  isPlaying(tailMs = 600): boolean {
+    // 拖尾 600ms：手机外放有「已排队播完」到「喇叭真正出完声」的物理延迟，尾巴太短会让麦克风提前开、
+    // 录到 AI 最后几个字 → 被当成用户说话（自我打断/把自己的话当我说的）。600ms 覆盖多数机型的输出延迟。
     if (!this.ctx || this.playhead <= 0) return false;
     return this.ctx.currentTime < this.playhead + tailMs / 1000;
   }
