@@ -181,12 +181,11 @@ export class MiCallLogic {
       const dux = qs.get("duplex");
       if (dux === "half" || dux === "full") localStorage.setItem("micall_duplex", dux);
       this.halfDuplex = localStorage.getItem("micall_duplex") !== "full";  // 缺省即半双工（稳）
-      // WebRTC 全双工（真打断 + 外放硬件 AEC）：配了自建 coturn（VITE_ICE_SERVERS 非空）就默认开——
-      // 此时 ICE 走境内可达的 STUN/TURN，建连快且稳。没配 coturn 时默认仍走「即时接通」的 WS（稳，
-      // 境内弱网不卡），仅 ?rtc=1 试。?rtc=0 可随时强制退回 WS；连不通也会自动回退，不会坏掉通话。
+      // 默认走 WS（TCP/443，大陆→香港稳、不掉句、开场也不必等 RTC 协商）。RTC 全双工（真打断 + 硬件 AEC）
+      // 走 UDP，无 VPN 时被国际出口限速/丢包 → 连上后媒体不稳「说到一半就断」，且协商拖慢开场。故 RTC 改为
+      // 显式 ?rtc=1 才开（有 VPN/好网/想要打断时用）。根治要靠全球加速把大陆→香港的 UDP 路打通，再默认开。
       const rtcParam = qs.get("rtc");
-      const hasIce = !!(((import.meta.env?.VITE_ICE_SERVERS as string) || "").trim());
-      this.rtcEnabled = rtcParam !== "0" && (rtcParam === "1" || hasIce) &&
+      this.rtcEnabled = rtcParam === "1" &&
                         typeof RTCPeerConnection !== "undefined" && !this.usingMockSignaling();
     } catch (e) { /* noop */ }
     this.setState({ showGuide: !seen, cookieOpen: !cookie });
