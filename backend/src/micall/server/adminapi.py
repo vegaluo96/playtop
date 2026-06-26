@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import re
@@ -258,42 +259,79 @@ def write_invite_from_admin(payload: dict) -> None:
     tmp.replace(OVERRIDES_PATH)
 
 
-def login(payload: dict) -> tuple[int, dict]:
-    """后台登录：校验账号密码，成功发 token（前端后续带 Authorization 访问配置 API）。
+# 弱口令/占位 token：视为「未配置」，一律按未配置 fail closed 处理。
+_WEAK_SECRETS = {"dev", "test", "demo", "changeme", "change-me", "admin", "password",
+                 "micall", "micall-admin", "token", "secret", "default"}
+_MIN_TOKEN_LEN = 16     # 应用级 Bearer token：要求足够长的随机串
+_MIN_PASSWORD_LEN = 8   # 后台登录密码：至少 8 位
 
-    账号取 MICALL_ADMIN_USER（默认 admin）。密码取 MICALL_ADMIN_PASSWORD：
-      • 已设 → 必须匹配；
-      • 未设 → 放行（真正门禁靠 nginx Basic Auth，此登录仅 UX 层）。
-    token 取 MICALL_ADMIN_TOKEN（设了则配置 API 也校验它，形成完整应用级鉴权），否则 "dev"。
-    返回 "dev" 是关键：前端识别到 "dev" 就**不发 Authorization: Bearer**，从而不顶掉浏览器
-    自动携带的 Basic Auth 凭据（否则 nginx 收到 Bearer 而非 Basic → 401 → 反复弹密码框）。
-    要用应用级 Bearer 鉴权时设 MICALL_ADMIN_TOKEN，并在 nginx 的 /admin/ 关掉 auth_basic 以免冲突。
+
+def _admin_token() -> str:
+    """安全配置的 Bearer token；未配置/弱口令/过短 → 空串（调用方据此 fail closed）。"""
+    t = os.environ.get("MICALL_ADMIN_TOKEN", "").strip()
+    if not t or t.lower() in _WEAK_SECRETS or len(t) < _MIN_TOKEN_LEN:
+        return ""
+    return t
+
+
+def _admin_password() -> str:
+    """安全配置的后台密码；未配置/弱口令/过短 → 空串（登录 fail closed）。"""
+    p = os.environ.get("MICALL_ADMIN_PASSWORD", "")
+    if not p or p.strip().lower() in _WEAK_SECRETS or len(p) < _MIN_PASSWORD_LEN:
+        return ""
+    return p
+
+
+def login(payload: dict) -> tuple[int, dict]:
+    """后台登录：校验账号密码，成功发 token（前端后续带 Authorization: Bearer 访问管理 API）。
+
+    Fail closed（铁律：线上不得裸奔）：
+      • MICALL_ADMIN_PASSWORD 或 MICALL_ADMIN_TOKEN 未安全配置（缺失/弱口令/过短）→ 503，绝不发 token。
+      • 账号或密码不匹配 → 401。
+    安全配置后，login 返回真实 token，前端带 Bearer；nginx 的 /admin/ 关掉 auth_basic 让 Bearer 透传，
+    后端 _authorized 校验 Bearer 即应用级门禁（不再依赖「未设 token 就放行」的危险默认）。
     """
-    user = os.environ.get("MICALL_ADMIN_USER", "admin").strip()
-    pw = os.environ.get("MICALL_ADMIN_PASSWORD", "")
-    token = os.environ.get("MICALL_ADMIN_TOKEN", "").strip() or "dev"
+    user = os.environ.get("MICALL_ADMIN_USER", "admin").strip() or "admin"
+    pw = _admin_password()
+    token = _admin_token()
+    if not pw or not token:
+        return 503, {"ok": False, "error": "后台未安全配置：请设置强 MICALL_ADMIN_PASSWORD 与长随机 MICALL_ADMIN_TOKEN"}
     u = str((payload or {}).get("username", "")).strip()
     p = str((payload or {}).get("password", ""))
-    if u != user or (pw and p != pw):
+    if not hmac.compare_digest(u, user) or not hmac.compare_digest(p, pw):
         return 401, {"ok": False, "error": "账号或密码错误"}
     return 200, {"ok": True, "token": token}
 
 
 def _authorized(headers) -> bool:
-    want = os.environ.get("MICALL_ADMIN_TOKEN", "").strip()
+    """Fail closed：token 未安全配置 → 一律拒绝；否则要求 Bearer 与之常数时间相等。"""
+    want = _admin_token()
     if not want:
-        return True                                # 未设 → 依赖 nginx Basic Auth + 本地监听
+        return False                               # 未安全配置 → 拒绝（不再裸奔放行）
     got = (headers.get("Authorization", "") or "").removeprefix("Bearer ").strip()
-    return got == want
+    return bool(got) and hmac.compare_digest(got, want)
+
+
+def _allowed_origins() -> set:
+    """CORS 白名单：仅 admin 域；本地开发经 MICALL_ADMIN_ALLOWED_ORIGINS 显式追加（逗号分隔）。"""
+    out = {"https://admin.zsky.com"}
+    for o in os.environ.get("MICALL_ADMIN_ALLOWED_ORIGINS", "").split(","):
+        o = o.strip()
+        if o:
+            out.add(o)
+    return out
 
 
 class _Handler(BaseHTTPRequestHandler):
     server_version = "MiCallAdmin/1.0"
 
     def _cors(self) -> None:
-        origin = self.headers.get("Origin", "*")
-        self.send_header("Access-Control-Allow-Origin", origin)
-        self.send_header("Access-Control-Allow-Credentials", "true")
+        # 仅对白名单 Origin 反射并允许携带凭据；未知 Origin 不回 ACAO/ACAC（浏览器据此拦截跨域）。
+        origin = (self.headers.get("Origin", "") or "").strip()
+        if origin and origin in _allowed_origins():
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Credentials", "true")
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
 
@@ -306,9 +344,11 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    _MAX_BODY = 256 * 1024   # 请求体上限 256KB：管理 JSON 都很小，挡无上限请求体
+
     def _body(self) -> dict:
         n = int(self.headers.get("Content-Length", 0) or 0)
-        if n <= 0:
+        if n <= 0 or n > self._MAX_BODY:
             return {}
         try:
             return json.loads(self.rfile.read(n).decode("utf-8"))

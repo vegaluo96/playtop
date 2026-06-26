@@ -14,11 +14,22 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import auth as _auth
+
+
+def _user_allowed_origins() -> set:
+    """用户端 CORS 白名单：仅 zsky 域；本地开发经 MICALL_USER_ALLOWED_ORIGINS 显式追加（逗号分隔）。"""
+    out = {"https://zsky.com", "https://www.zsky.com"}
+    for o in os.environ.get("MICALL_USER_ALLOWED_ORIGINS", "").split(","):
+        o = o.strip()
+        if o:
+            out.add(o)
+    return out
 
 log = logging.getLogger("micall.userapi")
 _REPO = None  # run_user_http 注入；与 SignalingServer.repo 同一实例
@@ -56,8 +67,12 @@ class _Handler(BaseHTTPRequestHandler):
     server_version = "MiCallUser/1.0"
 
     def _cors(self) -> None:
-        self.send_header("Access-Control-Allow-Origin", self.headers.get("Origin", "*"))
-        self.send_header("Access-Control-Allow-Credentials", "true")
+        # 仅对白名单 Origin 反射并允许携带凭据；未知 Origin 不回 ACAO/ACAC。
+        origin = (self.headers.get("Origin", "") or "").strip()
+        if origin and origin in _user_allowed_origins():
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Credentials", "true")
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
 
@@ -70,9 +85,11 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    _MAX_BODY = 256 * 1024   # 请求体上限：用户端 JSON 都很小，挡无上限请求体
+
     def _body(self) -> dict:
         n = int(self.headers.get("Content-Length", 0) or 0)
-        if n <= 0:
+        if n <= 0 or n > self._MAX_BODY:
             return {}
         try:
             return json.loads(self.rfile.read(n).decode("utf-8"))

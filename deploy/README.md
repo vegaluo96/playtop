@@ -201,10 +201,26 @@ cd ~/micall.ai/admin
 echo 'VITE_API_BASE=https://admin.zsky.com' > .env.production
 npm run build && sudo cp -r dist/* /var/www/micall-admin/
 ```
-打开 `admin.zsky.com` 先过 nginx Basic Auth，再到 admin 自带登录页：
+### ⚠️ 必做：后台鉴权（线上 fail closed）
+
+后端**已 fail closed**：未安全配置时 `POST /admin/login` 返回 `503`、其余 `/admin/*` 返回 `401`
+（即便 nginx 对 `/admin/` `auth_basic off` 也不会裸奔）。**生产必须设这两个环境变量**
+（写进 systemd 的 `EnvironmentFile` 或 `micall.env`，随后端进程加载）：
+
+```bash
+# 强密码（≥8 位、非弱口令）
+MICALL_ADMIN_PASSWORD='换成你的强密码'
+# 长随机 token（≥16 位；下面命令生成一个）
+MICALL_ADMIN_TOKEN='paste-a-long-random-string'        # 例：openssl rand -hex 24
+# 可选：本地联调放行的 CORS 来源（逗号分隔），线上无需设
+# MICALL_ADMIN_ALLOWED_ORIGINS='http://localhost:5174'
+```
+
+设好后重启后端。打开 `admin.zsky.com` 先过 nginx Basic Auth（保护静态页），再到 admin 登录页：
 - **账号** `admin`（可改 `MICALL_ADMIN_USER`）。
-- **密码**：未设 `MICALL_ADMIN_PASSWORD` 时任意密码放行（真门禁是 Basic Auth）；设了就必须匹配。
-- 想要应用级 Bearer 鉴权：设 `MICALL_ADMIN_TOKEN`，登录成功即发该 token，配置 API 随后校验。
+- **密码**：必须等于 `MICALL_ADMIN_PASSWORD`。登录成功后前端带 `Authorization: Bearer <MICALL_ADMIN_TOKEN>`
+  访问 `/admin/*`，后端校验该 token——这才是真正的应用级门禁。
+- **不要**用 `dev`、`admin`、`changeme` 等弱口令做 token/密码（被视为「未配置」→ fail closed）。
 
 进去后到「接口配置」，填好 TTS/LLM/ASR 的 endpoint+key，点**保存**、点**测试**。
 （nginx 把整个 `/admin/`（login + api-config + test）反代到后端 8788；后端只听本地，外网只经 nginx。）
