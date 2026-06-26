@@ -123,6 +123,14 @@ class TestSentenceEmotion(unittest.TestCase):
         out = clean_for_subtitle("[emotion:sad](sighs)唉 <#0.3#> 别难过。")
         self.assertEqual(out, "唉 别难过。")   # 标签/拟声/停顿全去掉，只剩人话
 
+    def test_bracketed_multiword_interjection(self):
+        from micall.session.emotion import clean_for_subtitle, clean_for_tts
+        # 模型写的方括号多词拟声 [laughs softly]：字幕要去掉（实测漏到字幕），TTS 转成真笑。
+        self.assertEqual(clean_for_subtitle("笑一下听吧。[laughs softly]刚才挂完电话。"), "笑一下听吧。刚才挂完电话。")
+        self.assertEqual(clean_for_tts("笑一下听吧。[laughs softly]刚才挂完电话。"), "笑一下听吧。(laughs)刚才挂完电话。")
+        self.assertEqual(clean_for_tts("唉。[sighs]别这样"), "唉。(sighs)别这样")
+        self.assertEqual(clean_for_subtitle("[8:30]该起床了"), "[8:30]该起床了")  # 数字开头(时间)不误伤
+
     def test_humanize_text_to_real_sounds(self):
         from micall.session.emotion import humanize_for_tts
         # 正向情绪：文字「哈哈」→ (laughs)（让 TTS 真笑）。

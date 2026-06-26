@@ -122,9 +122,15 @@ _INTERJECTIONS = frozenset({
 _PAUSE = re.compile(r"<#\s*\d+(?:\.\d+)?\s*#>")                # MiniMax 停顿标记 <#0.4#>
 _EN_PAREN = re.compile(r"\(\s*([a-zA-Z][a-zA-Z\- ]*)\s*\)")     # 英文括号（可能是拟声标签）
 _CN_ACTION = re.compile(r"（[^）]*）|【[^】]*】|\*[^*]*\*")        # 中文旁白/动作/星号：一律去掉
-_ALL_EMOTION_TAGS = re.compile(                                  # 句中任意位置的情绪标签残留
-    r"[\[【]\s*(?:[a-zA-Z_一-鿿]{1,12}\s*[:：]\s*)?[a-zA-Z_一-鿿][\w一-鿿]{0,20}\s*[\]】]"
+_ALL_EMOTION_TAGS = re.compile(                                  # 句中任意位置的方括号标注残留（情绪标签 / 舞台说明）
+    # tag 内容允许【空格】：模型有时把拟声/旁白写成多词方括号（如 [laughs softly]），原来不含空格会漏进字幕。
+    # 仍以字母/汉字开头（数字开头如 [8:30] 不当标签，不误伤时间）。
+    r"[\[【]\s*(?:[a-zA-Z_一-鿿]{1,12}\s*[:：]\s*)?[a-zA-Z_一-鿿][\w一-鿿 ]{0,30}\s*[\]】]"
 )
+# 模型有时把笑/叹写成【方括号多词】形式（[laughs softly]/[sighs]）：既漏进字幕、又不被 MiniMax 当拟声念。
+# 送 TTS 前把这类转成 MiniMax 认的拟声 (laughs)/(sighs)，让她真笑真叹；字幕侧则由上面的标签清洗一并去掉。
+_BRACKET_LAUGH = re.compile(r"[\[【]\s*(?:laugh|chuckl|giggl|haha|hehe|grin)[\w \-]*[\]】]", re.IGNORECASE)
+_BRACKET_SIGH = re.compile(r"[\[【]\s*(?:sigh|exhale)[\w \-]*[\]】]", re.IGNORECASE)
 
 
 def _keep_interjection(m: "re.Match[str]") -> str:
@@ -136,7 +142,9 @@ def _keep_interjection(m: "re.Match[str]") -> str:
 def clean_for_tts(text: str) -> str:
     """送 TTS 的文本：保留拟声标签 (sighs) 与停顿 <#x#>（MiniMax 会发声/停顿），去掉中文旁白与非法英文括号。
     情绪标签由调用方先 split 掉，这里再兜底去残留。"""
-    t = _ALL_EMOTION_TAGS.sub("", text or "")
+    t = _BRACKET_LAUGH.sub("(laughs)", text or "")   # [laughs softly] 等方括号笑 → 真笑拟声
+    t = _BRACKET_SIGH.sub("(sighs)", t)              # [sighs]/[exhale] 等 → 真叹气
+    t = _ALL_EMOTION_TAGS.sub("", t)                 # 其余方括号标注（情绪/舞台说明）清掉
     t = _CN_ACTION.sub("", t)
     t = _EN_PAREN.sub(_keep_interjection, t)
     return t.strip()
