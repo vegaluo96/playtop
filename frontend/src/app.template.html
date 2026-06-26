@@ -142,9 +142,9 @@
         <div style="min-height:28px;display:flex;align-items:center;justify-content:center;">
           <!-- 「换个角色」已并入下方 3 图标控制行；此处放「剩余分钟 + 充值」文字（不要进度条）。 -->
           <sc-if value="{{ phaseIdle }}" hint-placeholder-val="{{ true }}">
-            <div style="display:flex;align-items:center;gap:11px;font-size:13px;letter-spacing:.4px;">
+            <div style="display:flex;align-items:center;gap:11px;font-size:15px;letter-spacing:.5px;font-variant-numeric:tabular-nums;">
               <span style="color:var(--dim);">{{ remainLabel }}</span>
-              <div onClick="{{ rechargeToggle }}" style="color:#2E7BFF;cursor:pointer;display:inline-flex;align-items:center;gap:3px;user-select:none;">充值
+              <div onClick="{{ rechargeToggle }}" style="color:#2E7BFF;cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;gap:3px;user-select:none;">充值
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-top:1px;"><path d="M9 6l6 6-6 6"/></svg>
               </div>
             </div>
