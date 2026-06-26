@@ -129,6 +129,21 @@ export async function setUserVoice(characterId: string, voiceId: string): Promis
   return false;
 }
 
+/** 自定义音色：一句话描述 → 后端 LLM 在免费音色库里匹配一个真实 voice_id（含名称/性别）。 */
+export async function matchVoice(desc: string): Promise<Voice | null> {
+  const tok = getToken();
+  if (!tok || !desc.trim()) return null;
+  try {
+    const r = await fetch(BASE + "/api/voice-match", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+      body: JSON.stringify({ desc: desc.trim() }),
+    });
+    if (r.ok) { const d = await r.json(); if (d && d.ok && d.voice) return d.voice as Voice; }
+  } catch { /* noop */ }
+  return null;
+}
+
 /** 后台配置的邀请奖励（分钟）—— 公开接口，登录与否都返回真实值。失败 → null。 */
 export async function getInviteReward(): Promise<number | null> {
   try {

@@ -296,6 +296,32 @@ export class MiCallLogic {
     this.playPreview(ci, voiceId);
   }
 
+  // ── 自定义音色：描述一句话 → 后端 LLM 在免费库里匹配一个真实音色（不给用户翻一长串列表）──
+  setVoiceDesc(v: string) { this.setState({ voiceDesc: v }); }
+  toggleVoiceList() { this.setState((s) => ({ voiceListOpen: !s.voiceListOpen })); }
+
+  /** 把描述发后端 → LLM 命中库内一个免费 voice_id → 自动试听，满意再「用这个声音」。 */
+  async matchVoiceByDesc() {
+    const desc = (this.state.voiceDesc || "").trim();
+    if (!desc) { this.toast("先描述一下你想要的声音，比如「温柔的成熟女声」"); return; }
+    if (!authApi.authConfigured()) { this.toast("接入后端后可用"); return; }
+    if (!this.state.loggedIn) { this.setState({ authOpen: true, authMode: "login", toast: "请先登录" }); return; }
+    if (this.callActive()) { this.toast("通话中不能换音色"); return; }
+    this.setState({ voiceMatching: true });
+    const v = await authApi.matchVoice(desc);
+    this.setState({ voiceMatching: false, voiceMatch: v });
+    if (!v) { this.toast("没匹配上，换个说法再试试"); return; }
+    this.playPreview(this.state.charIndex, v.voice_id);   // 自动试听匹配到的声音
+  }
+
+  /** 采用匹配到的音色：设为该角色音色（账号级、下一通生效）+ 再试听一次。 */
+  useMatchedVoice() {
+    const v = this.state.voiceMatch;
+    if (!v) return;
+    this.pickVoice(this.state.charIndex, v.voice_id);
+    this.toast(`已设为「${v.name}」，下一通通话生效`);
+  }
+
   /** 刷新后凭 localStorage 的 token 向后端核验登录态，拉回邮箱与真实余额。 */
   private async restoreSession() {
     if (!authApi.authConfigured()) return;
@@ -1062,6 +1088,19 @@ export class MiCallLogic {
           // 「原本音色」（角色出厂默认）+ 真实音色库（MiniMax 系统音色，名字带性别便于辨识）。
           return [mk("原本音色", "default"), ...this.voiceLib.map((v) => mk(`${v.name}·${v.gender}`, v.voice_id))];
         })(),
+        // 自定义音色：描述 → LLM 匹配（默认入口，不再让用户翻一长串）。
+        voiceDesc: this.state.voiceDesc || "",
+        onVoiceDesc: (e: any) => this.setVoiceDesc(e.target.value),
+        doMatchVoice: () => this.matchVoiceByDesc(),
+        voiceMatching: !!this.state.voiceMatching,
+        matchLabel: this.state.voiceMatching ? "匹配中…" : "匹配声音",
+        hasVoiceMatch: !!this.state.voiceMatch,
+        voiceMatchName: this.state.voiceMatch ? `${this.state.voiceMatch.name} · ${this.state.voiceMatch.gender}` : "",
+        useMatchedVoice: () => this.useMatchedVoice(),
+        replayMatch: () => { const v = this.state.voiceMatch; if (v) this.playPreview(this.state.charIndex, v.voice_id); },
+        voiceListOpen: !!this.state.voiceListOpen,
+        toggleVoiceList: () => this.toggleVoiceList(),
+        voiceListLabel: this.state.voiceListOpen ? "收起" : "从全部音色里挑",
       },
       charDetailOpen: this.state.charDetailOpen,
       charDetailToggle: () => this.setState((s) => ({ charDetailOpen: !s.charDetailOpen })),

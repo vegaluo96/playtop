@@ -238,6 +238,15 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "error": "无效音色"})
             _REPO.set_user_voice(uid, cid, vid)
             return self._json(200, {"ok": True})
+        if route == "/api/voice-match":  # 自定义音色：用户一句话描述 → LLM 在免费音色库里匹配一个真实 voice_id
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "请先登录"})
+            desc = (self._body().get("desc") or "").strip()
+            if not desc:
+                return self._json(400, {"ok": False, "error": "描述一下你想要的声音吧"})
+            from .voice_match import match_voice
+            return self._json(200, {"ok": True, "voice": match_voice(desc[:200])})
         if route == "/api/tickets":      # 提交工单
             uid = self._uid()
             if not uid:

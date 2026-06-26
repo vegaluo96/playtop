@@ -459,14 +459,29 @@
             </div>
 
             <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
-              <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">音色</div>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                <sc-for list="{{ charDetail.voiceChips }}" as="vc" hint-placeholder-count="2">
-                  <div onClick="{{ vc.pick }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:8px 13px;border-radius:13px;cursor:pointer;background:{{ vc.bg }};color:{{ vc.color }};transition:all .2s ease;max-width:100%;box-sizing:border-box;" style-active="transform:scale(.96)">
-                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ vc.name }}</span>
-                  </div>
-                </sc-for>
+              <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">音色 · 描述你想要的声音</div>
+              <!-- 自定义音色：一句话描述 → LLM 在免费音色库里匹配一个，不用翻一长串列表 -->
+              <div style="display:flex;gap:8px;">
+                <input value="{{ charDetail.voiceDesc }}" onInput="{{ charDetail.onVoiceDesc }}" placeholder="如：温柔的成熟女声 / 低沉磁性的大叔" style="flex:1;min-width:0;box-sizing:border-box;border:1px solid var(--line);border-radius:13px;padding:10px 14px;font-size:13.5px;font-family:inherit;color:var(--fg);outline:none;background:var(--ctrl);" />
+                <div onClick="{{ charDetail.doMatchVoice }}" style="flex:none;display:inline-flex;align-items:center;font-size:13.5px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:13px;padding:0 16px;cursor:pointer;white-space:nowrap;" style-active="transform:scale(.97)">{{ charDetail.matchLabel }}</div>
               </div>
+              <sc-if value="{{ charDetail.hasVoiceMatch }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:11px 14px;border-radius:13px;background:rgba(110,92,255,.1);">
+                  <span style="flex:1;min-width:0;font-size:13.5px;font-weight:600;color:#6E5CFF;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">为你匹配到：{{ charDetail.voiceMatchName }}</span>
+                  <div onClick="{{ charDetail.replayMatch }}" style="flex:none;font-size:12.5px;font-weight:600;color:#6E5CFF;cursor:pointer;padding:5px 10px;border-radius:10px;background:rgba(110,92,255,.12);" style-active="transform:scale(.96)">再听</div>
+                  <div onClick="{{ charDetail.useMatchedVoice }}" style="flex:none;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;padding:5px 12px;border-radius:10px;background:#6E5CFF;" style-active="transform:scale(.96)">用这个</div>
+                </div>
+              </sc-if>
+              <div onClick="{{ charDetail.toggleVoiceList }}" style="margin-top:12px;font-size:12.5px;font-weight:500;color:var(--faint);cursor:pointer;" style-active="opacity:.7">{{ charDetail.voiceListLabel }} ›</div>
+              <sc-if value="{{ charDetail.voiceListOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+                  <sc-for list="{{ charDetail.voiceChips }}" as="vc" hint-placeholder-count="2">
+                    <div onClick="{{ vc.pick }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:8px 13px;border-radius:13px;cursor:pointer;background:{{ vc.bg }};color:{{ vc.color }};transition:all .2s ease;max-width:100%;box-sizing:border-box;" style-active="transform:scale(.96)">
+                      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ vc.name }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
             </div>
 
             <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
