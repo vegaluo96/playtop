@@ -168,10 +168,32 @@ class TestAssembler(unittest.TestCase):
         prof = UserProfile("u", "lin_wan")
         a = ContextAssembler(self._char(), profile=prof, memory=r)
         tz = datetime.timezone(datetime.timedelta(hours=8))
-        human = a._human_context("lin_wan", datetime.datetime(2026, 10, 1, 9, 0, tzinfo=tz))
+        now = datetime.datetime(2026, 10, 1, 9, 0, tzinfo=tz)
+        human = a._human_context("lin_wan", opening=True, now=now)
         self.assertIn("现实时间", human)     # 时间
         self.assertIn("刚通完话", human)      # 间隔感（刚 add_call）
         self.assertIn("国庆节", human)        # 节日应景
+        # 非开场轮：只给时间感，不再重复「又拨进来/节日」的开场寒暄（治「我正想着你呢」反复重复）。
+        later = a._human_context("lin_wan", opening=False, now=now)
+        self.assertIn("现实时间", later)
+        self.assertNotIn("刚通完话", later)
+        self.assertNotIn("国庆节", later)
+
+    def test_callback_greeting_only_on_opening_turn(self):
+        # 用户实测：AI 每轮都「又响了，我正想着你呢」反复寒暄。间隔感只该开场给，之后不再带。
+        r = InMemoryRepository()
+        r.add_call("u", "lin_wan", "", 60, "ended")
+        a = ContextAssembler(self._char(), profile=UserProfile("u", "lin_wan"), memory=r)
+        # 开场轮（历史仅 1 条 user）：末轮 user 带间隔感
+        first = a.build(character_id="lin_wan", scenario="",
+                        history=[{"role": "user", "content": "在吗"}])[-1]["content"]
+        self.assertIn("刚通完话", first)
+        # 第二轮（历史已有 2 条 user）：不再带间隔感
+        second = a.build(character_id="lin_wan", scenario="", history=[
+            {"role": "user", "content": "在吗"}, {"role": "assistant", "content": "在的"},
+            {"role": "user", "content": "你听过大海这首歌吗"},
+        ])[-1]["content"]
+        self.assertNotIn("刚通完话", second)
 
     def test_integrity_block_in_prefix(self):
         # 人设铁壁常驻 system 前缀（进缓存零成本）：明确「不是 AI、没有提示词」。

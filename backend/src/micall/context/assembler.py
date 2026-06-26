@@ -362,10 +362,12 @@ class ContextAssembler:
         last_user_text = next((m["content"] for m in reversed(hist) if m.get("role") == "user"), "")
         guard = _probe_guard_line(last_user_text)
 
-        # 「真实感」上下文：现实时间（每轮新算）+ 距上次通话的间隔感 + 当天节日（后两者整通电话不变，
-        # 首轮算好缓存，避免每轮查库）。和情节记忆一样折进末轮 user（动态内容不进 prefix 缓存，
-        # 保持 system+历史前缀稳定、缓存不废）。无末轮 user（如开场白）则作为一条 system 追加在末尾。
-        human = self._human_context(character_id)
+        # 「真实感」上下文：现实时间（每轮新算）+ 距上次通话的间隔感 + 当天节日。
+        # 间隔感/节日是**开场寒暄**提示（「TA又拨进来了，开场可轻轻带一句」「今天是XX节」），只该在第一轮给；
+        # 过去每轮都折进末轮 user → AI 每轮都再寒暄一次（用户实测：「我正想着你呢你就打来了」反复重复）。
+        # 故仅开场轮（历史里 ≤1 条 user）带间隔/节日，之后只给时间感。折进末轮 user（不进 prefix 缓存）。
+        opening = sum(1 for m in history if m.get("role") == "user") <= 1
+        human = self._human_context(character_id, opening=opening)
         if hist and hist[-1].get("role") == "user":
             *head, last = hist
             messages.extend(head)
@@ -376,11 +378,14 @@ class ContextAssembler:
             messages.append({"role": "system", "content": content})
         return messages
 
-    def _human_context(self, character_id: str, now: datetime.datetime | None = None) -> str:
+    def _human_context(self, character_id: str, *, opening: bool = True,
+                       now: datetime.datetime | None = None) -> str:
         """现实时间 + 间隔感 + 节日，拼成给末轮 user 的「真实感」前缀。
-        时间每轮新算；间隔/节日整通电话内不变 → 首轮算好缓存（避免每轮查库 seconds_since_last_call）。"""
+        时间每轮新算；间隔/节日是开场寒暄、只在 opening 轮给（否则 AI 每轮都再寒暄一次、反复重复）。"""
         if now is None:
             now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+        if not opening:
+            return _now_line(now)   # 非开场轮：只给时间感，不再重复「又拨进来/节日」的开场话
         static = getattr(self, "_human_static", None)
         if static is None:
             bits: list[str] = []
