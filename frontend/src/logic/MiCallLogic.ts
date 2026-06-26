@@ -322,6 +322,27 @@ export class MiCallLogic {
     this.toast(`已设为「${v.name}」，下一通通话生效`);
   }
 
+  // ── 首页「状态」：TA 当下的心情/近况/精力（per-角色，公开）──
+  async openStatus() {
+    if (!authApi.authConfigured()) { this.toast("接入后端后可用"); return; }
+    const cid = this.characterId(this.state.charIndex);
+    this.setState({ statusOpen: true, statusData: undefined });   // undefined = 加载中
+    const st = await authApi.getCharacterStatus(cid);
+    this.setState({ statusData: st || null });
+  }
+  closeStatus() { this.setState({ statusOpen: false }); }
+
+  // ── 首页「回忆」：你和这个角色之间的关系/聊过的事（per-user×角色，需登录）──
+  async openMemory() {
+    if (!authApi.authConfigured()) { this.toast("接入后端后可用"); return; }
+    if (!this.state.loggedIn) { this.setState({ authOpen: true, authMode: "login", toast: "登录后可查看你们的回忆" }); return; }
+    const cid = this.characterId(this.state.charIndex);
+    this.setState({ memoryOpen: true, memoryData: undefined });
+    const m = await authApi.getMemories(cid);
+    this.setState({ memoryData: m || null });
+  }
+  closeMemory() { this.setState({ memoryOpen: false }); }
+
   /** 刷新后凭 localStorage 的 token 向后端核验登录态，拉回邮箱与真实余额。 */
   private async restoreSession() {
     if (!authApi.authConfigured()) return;
@@ -1129,6 +1150,39 @@ export class MiCallLogic {
       charCursor: "pointer",
       charToggle: () => { if (p === "idle") this.setState((s) => ({ charOpen: !s.charOpen })); },
       charClose: () => this.setState({ charOpen: false }),
+      // 首页「状态 / 回忆」入口 + 弹层视图模型
+      openStatus: () => this.openStatus(),
+      openMemory: () => this.openMemory(),
+      statusOpen: !!this.state.statusOpen,
+      closeStatus: () => this.closeStatus(),
+      memoryOpen: !!this.state.memoryOpen,
+      closeMemory: () => this.closeMemory(),
+      statusView: (() => {
+        const name = this.chars[this.state.charIndex]?.name || "TA";
+        const d = this.state.statusData;
+        if (d === undefined) return { name, loading: true, items: [], empty: false, emptyText: "" };
+        const items: any[] = [];
+        if (d && d.mood) items.push({ label: "心情", value: d.mood });
+        if (d && d.recent) items.push({ label: "最近在经历", value: d.recent });
+        if (d && d.energy) items.push({ label: "此刻精力", value: d.energy });
+        return { name, loading: false, items, empty: items.length === 0,
+                 emptyText: `${name}现在状态挺好，随时可以接你电话～` };
+      })(),
+      memoryView: (() => {
+        const name = this.chars[this.state.charIndex]?.name || "TA";
+        const d = this.state.memoryData;
+        if (d === undefined) return { name, loading: true, items: [], facts: [], empty: false, emptyText: "" };
+        const items: any[] = [];
+        if (d && d.stage) items.push({ label: "你们的关系", value: d.stage });
+        if (d && d.last_topic) items.push({ label: "上次聊到", value: d.last_topic });
+        if (d && d.last_mood) items.push({ label: "上次的心情", value: d.last_mood });
+        if (d && Array.isArray(d.shared_refs) && d.shared_refs.length) items.push({ label: "你们的梗", value: d.shared_refs.join("、") });
+        if (d && Array.isArray(d.open_threads) && d.open_threads.length) items.push({ label: "还没聊完的", value: d.open_threads.join("、") });
+        const facts = (d && Array.isArray(d.facts)) ? d.facts : [];
+        const empty = items.length === 0 && facts.length === 0;
+        return { name, loading: false, items, facts, hasFacts: facts.length > 0, empty,
+                 emptyText: `你和${name}还没什么回忆，打个电话开始吧～` };
+      })(),
       prevChar: (e: any) => { if (e) e.stopPropagation(); this.setState((s) => ({ charIndex: (s.charIndex - 1 + this.chars.length) % this.chars.length })); },
       nextChar: (e: any) => { if (e) e.stopPropagation(); this.setState((s) => ({ charIndex: (s.charIndex + 1) % this.chars.length })); },
       subline,

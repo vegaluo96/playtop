@@ -189,26 +189,26 @@
             <!-- 首页控制行：排版与「通话中」控制行一致（54 圆 + 12 标签 + gap:30），首页与通话中对齐。
                  切换角色已接现成 charToggle（原「换个角色」按钮已并入此处）；回忆/近况先占位（无 onClick），待功能落地再接。 -->
             <div style="display:flex;gap:30px;justify-content:center;">
-              <!-- 回忆（占位，待接） -->
+              <!-- 回忆：你和这个角色之间的关系/聊过的事 -->
               <div style="display:flex;flex-direction:column;align-items:center;gap:9px;">
-                <div style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;">
+                <div onClick="{{ openMemory }}" style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease;" style-active="transform:scale(.9)">
                   <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                 </div>
                 <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">回忆</span>
               </div>
-              <!-- 切换角色（接现成 charToggle，居中） -->
+              <!-- 发现：浏览/切换角色（接现成 charToggle，居中） -->
               <div style="display:flex;flex-direction:column;align-items:center;gap:9px;">
                 <div onClick="{{ charToggle }}" style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease;" style-active="transform:scale(.9)">
-                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 </div>
-                <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">切换角色</span>
+                <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">发现</span>
               </div>
-              <!-- 近况（占位，待接） -->
+              <!-- 状态：TA 当下的心情/近况/精力 -->
               <div style="display:flex;flex-direction:column;align-items:center;gap:9px;">
-                <div style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;">
+                <div onClick="{{ openStatus }}" style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease;" style-active="transform:scale(.9)">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5z"/></svg>
                 </div>
-                <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">近况</span>
+                <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">状态</span>
               </div>
             </div>
             <div onClick="{{ actionTap }}" style="width:70px;height:70px;border-radius:50%;background:#33C376;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 12px 28px rgba(51,195,118,.40);transition:transform .18s ease;" style-active="transform:scale(.93)">
@@ -370,6 +370,54 @@
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#33C376" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:{{ ah.check }};"><path d="M5 13l4 4L19 7"/></svg>
             </div>
           </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- 状态：TA 当下的心情/近况/精力 -->
+      <sc-if value="{{ statusOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closeStatus }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;max-height:72vh;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 16px 26px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;"></div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:16px;">{{ statusView.name }} 现在</div>
+          <sc-if value="{{ statusView.loading }}" hint-placeholder-val="{{ false }}">
+            <div style="text-align:center;color:var(--faint);padding:22px 0;font-size:14px;">读取中…</div>
+          </sc-if>
+          <sc-if value="{{ statusView.empty }}" hint-placeholder-val="{{ false }}">
+            <div style="text-align:center;color:var(--dim);padding:18px 10px 8px;font-size:14.5px;line-height:1.7;">{{ statusView.emptyText }}</div>
+          </sc-if>
+          <sc-for list="{{ statusView.items }}" as="it" hint-placeholder-count="3">
+            <div style="padding:12px 16px;margin-bottom:9px;border-radius:16px;background:var(--ctrl);">
+              <div style="font-size:12px;color:var(--faint);margin-bottom:4px;">{{ it.label }}</div>
+              <div style="font-size:15px;font-weight:500;color:var(--fg);line-height:1.6;">{{ it.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- 回忆：你和这个角色之间的关系/聊过的事 -->
+      <sc-if value="{{ memoryOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closeMemory }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;max-height:72vh;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 16px 26px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;"></div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:16px;">和 {{ memoryView.name }} 的回忆</div>
+          <sc-if value="{{ memoryView.loading }}" hint-placeholder-val="{{ false }}">
+            <div style="text-align:center;color:var(--faint);padding:22px 0;font-size:14px;">读取中…</div>
+          </sc-if>
+          <sc-if value="{{ memoryView.empty }}" hint-placeholder-val="{{ false }}">
+            <div style="text-align:center;color:var(--dim);padding:18px 10px 8px;font-size:14.5px;line-height:1.7;">{{ memoryView.emptyText }}</div>
+          </sc-if>
+          <sc-for list="{{ memoryView.items }}" as="it" hint-placeholder-count="3">
+            <div style="padding:12px 16px;margin-bottom:9px;border-radius:16px;background:var(--ctrl);">
+              <div style="font-size:12px;color:var(--faint);margin-bottom:4px;">{{ it.label }}</div>
+              <div style="font-size:15px;font-weight:500;color:var(--fg);line-height:1.6;">{{ it.value }}</div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ memoryView.hasFacts }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12px;color:var(--faint);margin:14px 2px 8px;letter-spacing:.3px;">她还记得的一些事</div>
+            <sc-for list="{{ memoryView.facts }}" as="f" hint-placeholder-count="3">
+              <div style="padding:10px 15px;margin-bottom:7px;border-radius:14px;background:var(--ctrl);font-size:14px;color:var(--fg);line-height:1.6;">{{ f }}</div>
+            </sc-for>
+          </sc-if>
         </div>
       </sc-if>
 

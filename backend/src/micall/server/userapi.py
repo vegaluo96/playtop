@@ -154,6 +154,30 @@ class _Handler(BaseHTTPRequestHandler):
             uid = self._uid()                 # 带合法 token 才回显选中态；游客只拿库
             mine = _REPO.list_user_voices(uid) if uid else {}
             return self._json(200, {"ok": True, "voices": system_voice_library(), "mine": mine})
+        if route == "/api/character-status":   # 公开：角色「状态」——TA 当下的心情/近况/精力（§4.1 自主状态，per-角色）
+            cid = self._query("c")
+            if not cid:
+                return self._json(400, {"ok": False, "error": "缺少角色"})
+            st = _REPO.get_autonomous(cid)
+            has = bool(st.mood or st.recent_experience or st.energy)
+            return self._json(200, {"ok": True, "status": {
+                "mood": st.mood, "recent": st.recent_experience, "energy": st.energy, "has": has}})
+        if route == "/api/memories":           # 「回忆」——你和这个角色之间的关系/聊过的事（per-user×角色，需登录）
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "请先登录"})
+            cid = self._query("c")
+            if not cid:
+                return self._json(400, {"ok": False, "error": "缺少角色"})
+            prof = _REPO.get_profile(uid, cid)
+            rel = prof.relationship
+            facts = _REPO.recall(uid, cid, "", top_k=8)   # 最近若干条记忆（pg：空 query→取最近）
+            has = bool(rel.last_topic or rel.shared_refs or rel.open_threads or facts
+                       or (rel.stage and rel.stage != "初识"))
+            return self._json(200, {"ok": True, "memory": {
+                "stage": rel.stage, "last_topic": rel.last_topic, "last_mood": rel.last_mood,
+                "shared_refs": rel.shared_refs, "open_threads": rel.open_threads,
+                "facts": facts, "has": has}})
         if route == "/api/auth/me":
             return self._json(*_auth.me(_REPO, _bearer(self.headers)))
         if route == "/api/calls":

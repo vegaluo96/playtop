@@ -144,6 +144,27 @@ export async function matchVoice(desc: string): Promise<Voice | null> {
   return null;
 }
 
+/** 角色「状态」：TA 当下的心情/近况/精力（per-角色自主状态，公开）。 */
+export async function getCharacterStatus(characterId: string): Promise<{ mood: string; recent: string; energy: string; has: boolean } | null> {
+  if (!characterId) return null;
+  try {
+    const r = await fetch(BASE + "/api/character-status?c=" + encodeURIComponent(characterId));
+    if (r.ok) { const d = await r.json(); if (d && d.ok) return d.status; }
+  } catch { /* noop */ }
+  return null;
+}
+
+/** 「回忆」：你和这个角色之间的关系/聊过的事（per-user×角色，需登录）。 */
+export async function getMemories(characterId: string): Promise<any | null> {
+  const tok = getToken();
+  if (!tok || !characterId) return null;
+  try {
+    const r = await fetch(BASE + "/api/memories?c=" + encodeURIComponent(characterId), { headers: { Authorization: "Bearer " + tok } });
+    if (r.ok) { const d = await r.json(); if (d && d.ok) return d.memory; }
+  } catch { /* noop */ }
+  return null;
+}
+
 /** 后台配置的邀请奖励（分钟）—— 公开接口，登录与否都返回真实值。失败 → null。 */
 export async function getInviteReward(): Promise<number | null> {
   try {
