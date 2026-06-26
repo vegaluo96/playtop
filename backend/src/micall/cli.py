@@ -80,6 +80,19 @@ def main(argv: list[str] | None = None) -> int:
         import logging
 
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+        # 启动即声明每个节点解析到的实现：未配置 → 回退 stub（tts=stub 等于通话只有静音、没声音）。
+        # 一次性环境重启后若 micall.env / MICALL_TTS_API_KEY 没注入，下面这条 ERROR 会在 boot 日志里
+        # 直接点名 tts→StubTTS，免去「用户说没声音 → 反复猜 → 探针」那一长串。
+        _boot = logging.getLogger("micall.boot")
+        for _k in NODE_KEYS:
+            _n = config.node(_k)
+            if _n.configured:
+                _boot.info("节点 %-10s → %s（已配置）", _k, _n.provider or "—")
+            elif _k == "tts":
+                _boot.error("节点 tts 未配置（endpoint/api_key 空）→ 回退 StubTTS！通话只会有静音、没声音。"
+                            "检查 micall.env 是否注入 MICALL_TTS_API_KEY / MICALL_TTS_ENDPOINT")
+            else:
+                _boot.warning("节点 %-10s 未配置 → 回退 stub", _k)
         from .server import serve_forever
 
         try:

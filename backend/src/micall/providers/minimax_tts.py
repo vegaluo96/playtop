@@ -49,6 +49,16 @@ def _is_param_error(e: Exception) -> bool:
     return ("2013" in s) or ("emotion" in s) or ("invalid" in s and "param" in s)
 
 
+def _is_network_error(e: Exception) -> bool:
+    """像不像「连接/网络层」错误（连接被掐、超时、读写失败、连接池超时）。这类要丢弃连接池重来，
+    而不是当参数问题降级——是「没声音、重启才好」的元凶（长驻进程的 keep-alive 连接变质）。"""
+    if httpx is not None and isinstance(e, (httpx.TransportError, httpx.TimeoutException)):
+        return True
+    s = repr(e).lower()
+    return any(k in s for k in ("timeout", "connecterror", "connectionerror", "connecterror",
+                                "remoteprotocol", "readerror", "writeerror", "pooltimeout"))
+
+
 # 进程级：扩展功能（language_boost/pronunciation_dict/english_normalization/voice_modify）整体是否可用。
 # 某次带扩展报参数错、去掉扩展就好 → 说明扩展格式与该端点不符，本进程不再带（省得每句都试错），并打日志。
 _RICH_OK = True
@@ -58,11 +68,29 @@ _SHARED_CLIENT: "httpx.AsyncClient | None" = None
 
 
 def _shared_client() -> "httpx.AsyncClient":
-    """进程级共享 HTTP 连接池：跨通话/跨句复用 keep-alive，省掉「每句一次 TCP+TLS 握手」→ 首块更快。"""
+    """进程级共享 HTTP 连接池：跨通话/跨句复用 keep-alive，省掉「每句一次 TCP+TLS 握手」→ 首块更快。
+    keepalive_expiry=20s：闲置超 20s 的连接主动丢弃。长驻进程在通话空档里，到 MiniMax 的 keep-alive
+    连接常被对端/NAT 悄悄掐成半死（TCP 没复位），下一通复用就挂到超时=「没声音」。主动过期闲置连接，
+    让下一通拿新连接，从源头少踩这个坑（配合 _reset_client 的失败兜底）。"""
     global _SHARED_CLIENT
     if _SHARED_CLIENT is None or _SHARED_CLIENT.is_closed:
-        _SHARED_CLIENT = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
+        _SHARED_CLIENT = httpx.AsyncClient(
+            timeout=httpx.Timeout(30.0, connect=5.0),
+            limits=httpx.Limits(keepalive_expiry=20.0),
+        )
     return _SHARED_CLIENT
+
+
+async def _reset_client() -> None:
+    """网络/连接类错误后丢弃共享连接池：变质的 keep-alive 连接会让后续每句都挂到超时=「没声音、只能重启」。
+    重建池让下一次合成拿到全新连接，进程自愈、无需手动 restart（治本次反复发作的根）。"""
+    global _SHARED_CLIENT
+    c, _SHARED_CLIENT = _SHARED_CLIENT, None
+    if c is not None and not c.is_closed:
+        try:
+            await c.aclose()
+        except Exception:
+            pass
 
 
 class MiniMaxTTS(TTSProvider):
@@ -102,8 +130,16 @@ class MiniMaxTTS(TTSProvider):
                 yield chunk
             return
         except Exception as e:
+            # 网络/连接错误（连接变质=「没声音」的根）：丢弃连接池 + 用新连接重试一次，进程自愈、免手动重启。
+            if not yielded and _is_network_error(e):
+                await _reset_client()
+                log.warning("TTS 连接错误，已重置连接池并重试一次：%r", e)
+                async for chunk in self._stream(vid, text, emo, speed, pitch, vol, sample_rate, audio_format, rich=_RICH_OK):
+                    yielded = True
+                    yield chunk
+                return
             if yielded or not _is_param_error(e):
-                raise  # 出过音频 / 非参数错（网络/鉴权/余额）→ 照常抛，上层兜底
+                raise  # 出过音频 / 非参数错（鉴权/余额）→ 照常抛，上层兜底
             log.warning("TTS 合成参数被拒，分级降级重试：%r", e)
 
         # 第二档：去掉扩展功能（保留情绪 + 韵律）——定位是不是扩展参数格式与端点不符。

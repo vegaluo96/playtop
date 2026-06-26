@@ -567,6 +567,10 @@ class CallSession:
         # 估计这句在前端播放到的时刻（24kHz 16bit 单声道）→ 回声判定时间窗。
         dur = audio_bytes / (24000 * 2)
         self._audio_until = max(time.monotonic(), self._audio_until) + dur + self._play_pad
+        if audio_bytes == 0 and tts_text:
+            # 有文本却 0 字节 = 这句完全没出声。打 ERROR 点名最可能原因，让「没声音」在日志里一眼可见、可 grep。
+            log.error("⚠ 本句 0 字节、没出声！voice=%s —— TTS 上游没返回音频（连接变质/鉴权/余额）。"
+                      "连接变质类已加连接池自愈；若反复出现请查 key/余额或看 boot 日志是否 tts→StubTTS", self.voice_id)
         log.info("⟶ 句音频 %d bytes（emo=%s spd=%.2f pit=%d voice=%s）",
                  audio_bytes, job["emotion"], job["speed"], job["pitch"], self.voice_id)
         if sub:
