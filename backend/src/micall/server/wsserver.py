@@ -291,10 +291,12 @@ class SignalingServer:
             await websocket.send(json.dumps(ev, ensure_ascii=False))
 
         async def audio_emit(buf: bytes) -> None:
-            if rtc is not None:
-                rtc.feed_tts(buf)          # WebRTC 下行：喂 TTS 轨（内部重采样 24k→48k + Opus）
+            if rtc is not None and rtc.connected:
+                rtc.feed_tts(buf)          # RTC 已真连上 → 喂 TTS 轨（内部重采样 24k→48k + Opus）
             else:
-                await websocket.send(buf)  # WS 下行：二进制 PCM 帧（默认路径）
+                # 未连上（含 RTC 协商中的 ~2s）→ 走 WS：开场音频立即出声，不卡在 RTC 连接上。
+                # 前端在 pc 未 connected 时本就播 WS 音频；RTC 一连上，前端切远端轨、后端这里也切 feed_tts。
+                await websocket.send(buf)
 
         # 握手鉴权：URL ?token= 解析出真实 user_id（替换游客 _ANON）。无/失效 token → 游客可继续通话。
         user_id = _resolve_user(self.repo, websocket)

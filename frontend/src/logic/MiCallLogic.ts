@@ -732,9 +732,9 @@ export class MiCallLogic {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       sig.sendRaw?.({ type: "rtc_offer", sdp: offer.sdp });
-      // 看门狗：1.2s 内没连上（对称 NAT / UDP 封 / 没收到 answer）→ 立刻回退 WS。网好时 RTC 通常 <1s 连上；
-      // 连不上的（手机弱网 / 大陆→香港 coturn 慢）早退回 WS，开场那句问候不再卡在 RTC 协商上干等（原 2.5s）。
-      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, 1200);
+      // 看门狗 3s：大陆→香港 coturn 实测要 ~2s 才连上（别砍太短误杀 RTC=丢了打断）。开场音频已不等 RTC
+      // （连接期间走 WS，见后端 audio_emit），所以这里给足时间让 RTC 连上、拿到全双工打断；真连不上才退 WS。
+      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, 3000);
     } catch {
       this.rtcFallback();   // 建不起来 → 回退 WS
     }

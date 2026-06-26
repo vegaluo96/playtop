@@ -153,6 +153,7 @@ class RTCVoiceTransport:
         self._emit = emit
         self._on_audio = on_audio
         self._on_connected = on_connected   # 真连上/断开回调（→ 标记全双工硬件 AEC，放开服务端回声判定）
+        self.connected = False              # RTC 是否真连上：连上前下行先走 WS（开场不等 RTC ~2s 协商），连上后切 RTC 轨
         self.pc = RTCPeerConnection(RTCConfiguration(iceServers=_ice_servers_from_env()))
         self.tts = _TTSTrack()
         self.pc.addTrack(self.tts)
@@ -169,7 +170,12 @@ class RTCVoiceTransport:
         async def _on_state():
             st = self.pc.connectionState
             log.info("WebRTC 连接状态 → %s", st)
-            # 真连上=全双工硬件 AEC 生效；failed/closed=退回 WS。disconnected 可能瞬断后自愈，不翻转（留给后续状态）。
+            # 真连上=全双工硬件 AEC 生效 + 下行切到 RTC 轨；failed/closed=退回 WS。
+            # disconnected 可能瞬断后自愈，不翻转 connected（留给后续状态）。
+            if st == "connected":
+                self.connected = True
+            elif st in ("failed", "closed"):
+                self.connected = False
             if self._on_connected is not None:
                 if st == "connected":
                     self._on_connected(True)
