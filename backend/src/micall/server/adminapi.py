@@ -469,9 +469,12 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json(500, {"ok": False, "error": str(e)[:200]})
         if self._route() == "/admin/default-character":
-            from .characters_admin import set_default_character
-            ok = set_default_character((self._body().get("id") or "").strip())
-            return self._json(200 if ok else 400, {"ok": ok, "error": None if ok else "未知或已删除的角色"})
+            try:
+                from .characters_admin import set_default_character
+                ok = set_default_character((self._body().get("id") or "").strip())
+                return self._json(200 if ok else 400, {"ok": ok, "error": None if ok else "未知或已删除的角色"})
+            except Exception as e:   # 写文件失败等：返回干净错误而非崩连接（其它写端点已有此保护）
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
         if self._route() == "/admin/invite-config":
             try:
                 write_invite_from_admin(self._body())
