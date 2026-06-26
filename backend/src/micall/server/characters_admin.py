@@ -106,12 +106,21 @@ def read_characters_for_admin() -> list[dict]:
         persona = s.get("persona", {}) or {}
         voice = s.get("voice", {}) or {}
         ro = s.get("runtime_overrides", {}) or {}
+        prof = ident.get("profile", {}) or {}
         out.append({
             "id": cid,
             "name": ident.get("name", ""),
             "tagline": ident.get("tagline", ""),
             "gender": ident.get("gender", ""),
             "age": ident.get("age", ""),
+            # 基础资料：过去后台只「显示」（且是前端写死的假数据），从不回真 spec、也存不回去——
+            # 于是「后台显示 18 岁、通话里却按出厂 24 岁」对不上。把真值读出来，让后台能改、能存、能生效。
+            "appearance": ident.get("appearance", ""),
+            "nationality": ident.get("nationality", ""),
+            "height": prof.get("height_cm", ""),
+            "weight": prof.get("weight_kg", ""),
+            "birthday": prof.get("birthday", ""),
+            "race": prof.get("race", ""),
             "traits": _join(persona.get("core_traits")),
             "speaking_style": persona.get("speaking_style", ""),
             "background_story": persona.get("background_story", ""),
@@ -142,8 +151,29 @@ def write_character_from_admin(payload: dict) -> None:
     def s(v) -> str:
         return str(v).strip()
 
+    def num(v):
+        """年龄/身高/体重：纯数字存成数字（_identity_line 才好用），非数字（如空）则跳过。"""
+        t = s(v)
+        if t == "":
+            return None
+        try:
+            return int(float(t))
+        except ValueError:
+            return t
+
     if "name" in p:            ident["name"] = s(p["name"])
     if "tagline" in p:         ident["tagline"] = s(p["tagline"])
+    # 基础资料：身份字段写回 identity（profile 子块放身高/体重/生日/种族），让后台改的年龄等真正进通话提示词。
+    if "gender" in p:          ident["gender"] = s(p["gender"])
+    if "age" in p and num(p["age"]) is not None:        ident["age"] = num(p["age"])
+    if "nationality" in p:     ident["nationality"] = s(p["nationality"])
+    if "appearance" in p:      ident["appearance"] = s(p["appearance"])
+    if any(k in p for k in ("height", "weight", "birthday", "race")):
+        prof = ident.setdefault("profile", {})
+        if "height" in p and num(p["height"]) is not None:  prof["height_cm"] = num(p["height"])
+        if "weight" in p and num(p["weight"]) is not None:  prof["weight_kg"] = num(p["weight"])
+        if "birthday" in p:    prof["birthday"] = s(p["birthday"])
+        if "race" in p:        prof["race"] = s(p["race"])
     if "traits" in p:          persona["core_traits"] = _split(p["traits"])
     if "speaking_style" in p:  persona["speaking_style"] = s(p["speaking_style"])
     if "background_story" in p: persona["background_story"] = s(p["background_story"])
@@ -162,9 +192,25 @@ def write_character_from_admin(payload: dict) -> None:
 def _spec_from_flat(cid: str, p: dict) -> dict:
     def s(v) -> str:
         return str(v or "").strip()
+
+    def n(v):
+        t = s(v)
+        if t == "":
+            return ""
+        try:
+            return int(float(t))
+        except ValueError:
+            return t
+
+    prof = {k: v for k, v in (
+        ("height_cm", n(p.get("height"))), ("weight_kg", n(p.get("weight"))),
+        ("birthday", s(p.get("birthday"))), ("race", s(p.get("race"))),
+    ) if v != ""}
     return {
         "identity": {"character_id": cid, "name": s(p.get("name")) or "新角色",
-                     "tagline": s(p.get("tagline")), "gender": s(p.get("gender")), "age": s(p.get("age")),
+                     "tagline": s(p.get("tagline")), "gender": s(p.get("gender")), "age": n(p.get("age")),
+                     "nationality": s(p.get("nationality")), "appearance": s(p.get("appearance")),
+                     **({"profile": prof} if prof else {}),
                      "version": "1"},
         "persona": {"core_traits": _split(p.get("traits", "")), "speaking_style": s(p.get("speaking_style")),
                     "background_story": s(p.get("background_story")),

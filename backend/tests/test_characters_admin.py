@@ -50,6 +50,28 @@ class TestCharactersAdmin(unittest.TestCase):
         self.assertEqual(eff["identity"]["name"], "林晚")          # 没动的字段保留
         self.assertTrue(eff["persona"].get("core_traits"))         # 出厂人设还在
 
+    def test_identity_fields_persist_and_reach_prompt(self):
+        # 用户实测：后台改年龄等「基础资料」对不上通话——过去 write 根本不存身份字段。
+        ca.write_character_from_admin({
+            "id": "lin_wan", "gender": "女", "age": "18",
+            "nationality": "中国", "height": "156", "weight": "44", "birthday": "2006-01-01", "race": "东亚人",
+        })
+        eff = ca.effective_specs()["lin_wan"]
+        self.assertEqual(eff["identity"]["age"], 18)              # 纯数字存成数字
+        self.assertEqual(eff["identity"]["profile"]["height_cm"], 156)
+        self.assertEqual(eff["identity"]["profile"]["birthday"], "2006-01-01")
+        # 后台列表回显真值（而非写死 mock）
+        lw = next(r for r in ca.read_characters_for_admin() if r["id"] == "lin_wan")
+        self.assertEqual(lw["age"], 18)
+        self.assertEqual(lw["height"], 156)
+        # 真正落进通话系统提示词
+        from micall.context import CharacterRuntime, ContextAssembler
+        char = CharacterRuntime.from_spec(eff)
+        sysmsg = ContextAssembler(char).build(
+            character_id="lin_wan", scenario="", history=[{"role": "user", "content": "你多大"}])[0]["content"]
+        self.assertIn("18岁", sysmsg)
+        self.assertIn("身高156cm", sysmsg)
+
     def test_write_rejects_unknown_id(self):
         with self.assertRaises(ValueError):
             ca.write_character_from_admin({"id": "nope", "name": "x"})

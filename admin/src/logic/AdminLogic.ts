@@ -153,6 +153,15 @@ export class AdminLogic {
         if (row.dislikes != null) c.dislikes = row.dislikes;
         c.speaking_style = row.speaking_style || "";
         c.voiceId = row.voice_id || "";
+        // 基础资料取真值覆盖内置 mock（过去后台显示的是写死假数据，和通话用的出厂 spec 对不上）。
+        if ((row as any).gender) c.gender = (row as any).gender;
+        if ((row as any).age !== "" && (row as any).age != null) c.age = (row as any).age;
+        if ((row as any).appearance != null) c.appearance = (row as any).appearance;
+        if ((row as any).nationality != null) c.nationality = (row as any).nationality;
+        if ((row as any).height !== "" && (row as any).height != null) c.height = (row as any).height;
+        if ((row as any).weight !== "" && (row as any).weight != null) c.weight = (row as any).weight;
+        if ((row as any).birthday != null) c.birthday = (row as any).birthday;
+        if ((row as any).race != null) c.race = (row as any).race;
       }
       this.setState({}); // 用真实角色数据重渲染
     }
@@ -368,6 +377,9 @@ export class AdminLogic {
       ns.charBio = c.bio;
       ns.charEdit = {  // 把可编辑字段摊进编辑态（列表型 join 成串便于输入）
         name: c.name || "", tagline: c.desc || "",
+        gender: c.gender || "女", age: (c.age ?? "") + "", nationality: c.nationality || "",
+        appearance: c.appearance || "", height: (c.height ?? "") + "", weight: (c.weight ?? "") + "",
+        birthday: c.birthday || "", race: c.race || "",
         traits: Array.isArray(c.traits) ? c.traits.join("、") : (c.traits || ""),
         speaking_style: c.speaking_style || "", background_story: c.bio || "",
         likes: c.likes || "", dislikes: c.dislikes || "", voice_id: c.voiceId || "",
@@ -384,7 +396,7 @@ export class AdminLogic {
   /** 打开「新建角色」表单（空白 + AI 生成入口）。 */
   openNewChar() {
     this.setState({ detail: { type: "char", id: "__new__" }, charBio: "", charAiPrompt: "",
-      charEdit: { name: "", tagline: "", gender: "女", age: "20", traits: "", speaking_style: "", background_story: "", likes: "", dislikes: "", voice_id: "" } });
+      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", traits: "", speaking_style: "", background_story: "", likes: "", dislikes: "", voice_id: "" } });
   }
 
   /** AI 一键生成角色字段，填进编辑表单（运营可再微调）。 */
@@ -435,6 +447,8 @@ export class AdminLogic {
     if (!c || !c.cid) { this.toastMsg("该角色未关联后端，无法保存"); return; }
     const ok = await saveCharacter({
       id: c.cid, name: e.name, tagline: e.tagline, traits: e.traits,
+      gender: e.gender, age: e.age, nationality: e.nationality, appearance: e.appearance,
+      height: e.height, weight: e.weight, birthday: e.birthday, race: e.race,
       speaking_style: e.speaking_style, background_story: e.background_story,
       likes: e.likes, dislikes: e.dislikes, voice_id: e.voice_id,
     });
@@ -442,6 +456,10 @@ export class AdminLogic {
       c.name = e.name; c.desc = e.tagline; c.traits = this._splitList(e.traits);
       c.bio = e.background_story; c.likes = e.likes; c.dislikes = e.dislikes;
       c.speaking_style = e.speaking_style; c.voiceId = e.voice_id;
+      if (e.gender) c.gender = e.gender; if (e.age !== "" && e.age != null) c.age = e.age;
+      c.nationality = e.nationality; c.appearance = e.appearance; c.birthday = e.birthday; c.race = e.race;
+      if (e.height !== "" && e.height != null) c.height = e.height;
+      if (e.weight !== "" && e.weight != null) c.weight = e.weight;
     }
     this.toastMsg(ok ? "角色已保存，下一通通话生效" : "保存失败，检查后端连接");
   }
@@ -741,6 +759,14 @@ export class AdminLogic {
       ceDislikes: (s.charEdit as any).dislikes || "", onCeDislikes: (e: any) => this.setCe("dislikes", e.target.value),
       ceVoice: (s.charEdit as any).voice_id || "", onCeVoice: (e: any) => this.setCe("voice_id", e.target.value),
       ceBio: (s.charEdit as any).background_story || "", onCeBio: (e: any) => this.setCe("background_story", e.target.value),
+      ceGender: (s.charEdit as any).gender || "", onCeGender: (e: any) => this.setCe("gender", e.target.value),
+      ceAge: (s.charEdit as any).age || "", onCeAge: (e: any) => this.setCe("age", e.target.value),
+      ceNationality: (s.charEdit as any).nationality || "", onCeNationality: (e: any) => this.setCe("nationality", e.target.value),
+      ceAppearance: (s.charEdit as any).appearance || "", onCeAppearance: (e: any) => this.setCe("appearance", e.target.value),
+      ceHeight: (s.charEdit as any).height || "", onCeHeight: (e: any) => this.setCe("height", e.target.value),
+      ceWeight: (s.charEdit as any).weight || "", onCeWeight: (e: any) => this.setCe("weight", e.target.value),
+      ceBirthday: (s.charEdit as any).birthday || "", onCeBirthday: (e: any) => this.setCe("birthday", e.target.value),
+      ceRace: (s.charEdit as any).race || "", onCeRace: (e: any) => this.setCe("race", e.target.value),
       replyDraft: s.replyDraft, onReplyDraft: (e: any) => this.setState({ replyDraft: e.target.value }), ticketNeedsReply,
       sendReply: async () => { const v = (s.replyDraft || "").trim(); if (!v) { this.toastMsg("请输入回复内容"); return; } const id = d.id; const ok = await replyTicket(id, v); if (!ok && usingBackend()) { this.toastMsg("回复失败，请重试"); return; } const t = this.tickets.find((x) => x.id === id); if (t) { t.reply = v; t.status = "已回复"; } this.setState((p) => ({ ticketReplies: { ...p.ticketReplies, [id]: v }, replyDraft: "" })); this.toastMsg("回复已发送"); },
       toast: s.toast,
