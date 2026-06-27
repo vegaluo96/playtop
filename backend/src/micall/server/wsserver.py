@@ -443,9 +443,16 @@ class SignalingServer:
                         if session and session.character_id == char:
                             session.history.clear()
                         log.info("🧹 重置记忆 char=%s", char)
-        except Exception:  # 连接异常：尽力清理会话
-            pass
+        except Exception as e:  # 连接异常（多为网络掉线/对端异常关闭）：不再静默吞掉——记下真实原因。
+            # ConnectionClosedError 会带 close code：1006=异常断开(网络/中间设备掐)、1011=服务端错、1009=帧过大。
+            # 用户反馈「亮屏说话时掉线」就靠这条 + 下面 finally 的本通时长，在日志里定位是网络断还是代码抛异常。
+            _elapsed = int(getattr(getattr(session, "billing", None), "elapsed", 0) or 0) if session else 0
+            _in_call = bool(session and getattr(getattr(session, "sm", None), "active", False))
+            log.warning("⚠ 连接 %s 异常结束 user=%s（本通 %ds, 通话中=%s）：%r",
+                        client_ip, user_id, _elapsed, _in_call, e)
         finally:
+            _elapsed = int(getattr(getattr(session, "billing", None), "elapsed", 0) or 0) if session else 0
+            log.info("⇆ 连接关闭 %s user=%s（本通 %ds）", client_ip, user_id, _elapsed)
             if rtc is not None:
                 await rtc.close()
             if session:
