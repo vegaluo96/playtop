@@ -137,6 +137,27 @@ class TestEchoGuard(unittest.TestCase):
         s._ai_said = ""
         self.assertFalse(s._looks_like_echo("你好呀"))        # 没有基准 → 不是
 
+    # ── AEC 热身期「选择性」防回声：低阈值抓没消干净的回声，但放行真用户话（不吞话）──
+    def test_warmup_lower_threshold_catches_garbled_echo(self):
+        import time
+        s = self._sess()
+        s._ai_said = "我在这儿陪着你散步吧"
+        s._audio_until = time.monotonic() + 5.0
+        # 「陪你散步去玩」与 AI 话重叠 4/6≈0.67：热身低阈值(0.6)判回声丢弃，默认阈值(0.85)放过（平时不误杀附和）。
+        self.assertTrue(s._looks_like_echo("陪你散步去玩", overlap_threshold=0.6))
+        self.assertFalse(s._looks_like_echo("陪你散步去玩"))
+
+    def test_warmup_threshold_passes_real_speech(self):
+        import time
+        s = self._sess()
+        s._ai_said = "我在这儿陪着你散步吧"
+        s._audio_until = time.monotonic() + 5.0
+        # 明显不重叠的真用户话 → 即便热身低阈值也放行（不吞话）。
+        self.assertFalse(s._looks_like_echo("我想去爬山看日出", overlap_threshold=0.6))
+
+    def test_warmup_overlap_knob_wired(self):
+        self.assertAlmostEqual(self._sess()._aec_warmup_echo_overlap, 0.6)
+
 
 class TestOrchestrator(unittest.TestCase):
     def test_turn_event_sequence(self):
