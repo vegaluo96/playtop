@@ -42,6 +42,37 @@ class TestAvatarPrompt(unittest.TestCase):
         self.assertIn("齐肩黑发、清冷气质", p)
 
 
+class TestExtractImage(unittest.TestCase):
+    # 1x1 透明 PNG
+    _PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+
+    def test_chat_completion_data_uri(self):
+        # 用户实测：gemini-2.5-flash-image 经 apiyi 走 chat，图在 message.content 的 markdown data-uri 里。
+        from micall.server.avatar_gen import _extract_image
+        d = {"object": "chat.completion", "model": "gemini-2.5-flash-image",
+             "choices": [{"index": 0, "message": {"role": "assistant",
+                          "content": f"![image](data:image/png;base64,{self._PNG})"}}]}
+        kind, val = _extract_image(d)
+        self.assertEqual(kind, "b64")
+        import base64
+        self.assertEqual(base64.b64decode(val)[:4], b"\x89PNG")
+
+    def test_images_api_b64_and_url(self):
+        from micall.server.avatar_gen import _extract_image
+        self.assertEqual(_extract_image({"data": [{"b64_json": "AAA"}]}), ("b64", "AAA"))
+        self.assertEqual(_extract_image({"data": [{"url": "https://x/y.png"}]}), ("url", "https://x/y.png"))
+
+    def test_chat_url_in_text(self):
+        from micall.server.avatar_gen import _extract_image
+        k, v = _extract_image({"choices": [{"message": {"content": "here https://cdn.x/z.jpg done"}}]})
+        self.assertEqual((k, v), ("url", "https://cdn.x/z.jpg"))
+
+    def test_no_image_raises(self):
+        from micall.server.avatar_gen import _extract_image
+        with self.assertRaises(RuntimeError):
+            _extract_image({"choices": [{"message": {"content": "sorry, I cannot do that"}}]})
+
+
 class TestImageNode(unittest.TestCase):
     def test_image_node_exists(self):
         # 加了 'image' 到 NODE_KEYS：config.node('image') 不再 KeyError（未配置时为空节点）。

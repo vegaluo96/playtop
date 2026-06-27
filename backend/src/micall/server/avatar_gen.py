@@ -12,8 +12,68 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import re
 
 log = logging.getLogger("micall.avatar")
+
+# 返回图片的多种形态（不同模型/网关差异很大）：
+#  ① 标准 images API：data[].b64_json / data[].url
+#  ② chat.completions（如 gemini-2.5-flash-image 经 apiyi 走 chat）：choices[].message.content 里塞
+#     markdown 图 ![](data:image/png;base64,...) 或直接 data URI / 图片链接；content 也可能是分块列表。
+_DATA_URI_RE = re.compile(r"data:image/[A-Za-z0-9.+-]+;base64,([A-Za-z0-9+/=\s]+)")
+_URL_RE = re.compile(r"https?://[^\s)\"'>]+")
+
+
+def _extract_image(d: dict) -> tuple[str, str]:
+    """从生图返回里取图，兼容 images API 与 chat.completions 两类形态。
+    返回 ('b64', base64串) 或 ('url', 链接)；都取不到则抛错（带原文片段便于排查）。"""
+    data = d.get("data")
+    if isinstance(data, list) and data:
+        it = data[0] or {}
+        if it.get("b64_json"):
+            return ("b64", it["b64_json"])
+        if it.get("url"):
+            return ("url", it["url"])
+    blobs: list[str] = []
+    choices = d.get("choices")
+    if isinstance(choices, list) and choices:
+        msg = (choices[0] or {}).get("message") or {}
+        content = msg.get("content")
+        if isinstance(content, str):
+            blobs.append(content)
+        elif isinstance(content, list):
+            for part in content:
+                if isinstance(part, str):
+                    blobs.append(part)
+                elif isinstance(part, dict):
+                    if isinstance(part.get("text"), str):
+                        blobs.append(part["text"])
+                    iu = part.get("image_url")
+                    if isinstance(iu, dict) and isinstance(iu.get("url"), str):
+                        blobs.append(iu["url"])
+                    elif isinstance(iu, str):
+                        blobs.append(iu)
+        # 有的网关把图放在 message.images: [{...url/b64...}]
+        imgs = msg.get("images")
+        if isinstance(imgs, list):
+            for im in imgs:
+                if isinstance(im, str):
+                    blobs.append(im)
+                elif isinstance(im, dict):
+                    for v in im.values():
+                        if isinstance(v, str):
+                            blobs.append(v)
+                        elif isinstance(v, dict) and isinstance(v.get("url"), str):
+                            blobs.append(v["url"])
+    for blob in blobs:
+        m = _DATA_URI_RE.search(blob)
+        if m:
+            return ("b64", re.sub(r"\s+", "", m.group(1)))
+    for blob in blobs:
+        u = _URL_RE.search(blob)
+        if u:
+            return ("url", u.group(0))
+    raise RuntimeError(f"生图未返回可识别图片（无 b64_json/url/data-uri）：{str(d)[:300]}")
 
 # ── 锁死的规范（运营改不了，保证不漂移）──────────────────────────────────────────
 # 风格：半写实·柔光影棚（用户已选定）。
@@ -86,18 +146,13 @@ async def _do_generate(prompt: str, endpoint: str, api_key: str, model: str, siz
             d = r.json()
         except ValueError:
             raise RuntimeError(f"生图返回非 JSON：{r.text[:300]}")
-        data = d.get("data") or []
-        item = data[0] if data else {}
-        b64 = item.get("b64_json")
-        if b64:
-            return base64.b64decode(b64)
-        url = item.get("url")
-        if url:
-            r2 = await client.get(url)
-            if r2.status_code >= 400:
-                raise RuntimeError(f"下载生图 HTTP {r2.status_code}")
-            return r2.content
-        raise RuntimeError(f"生图未返回图片（无 b64_json / url）：{str(d)[:300]}")
+        kind, val = _extract_image(d)   # 兼容 images API 与 chat.completions(data-uri/链接) 两类形态
+        if kind == "b64":
+            return base64.b64decode(val)
+        r2 = await client.get(val)       # kind == "url"
+        if r2.status_code >= 400:
+            raise RuntimeError(f"下载生图 HTTP {r2.status_code}")
+        return r2.content
 
 
 def generate_for_character(character_id: str) -> dict:
