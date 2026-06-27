@@ -87,6 +87,13 @@ export class AudioPlayer {
   private playhead = 0;
   private sources = new Set<AudioBufferSourceNode>();
   private logged = false;
+  // 抖动缓冲（jitter buffer）：网络（尤其大陆→香港、移动网）抖动时，音频块到达忽快忽慢；若每块只提前
+  // 20ms 排程，一旦某块迟到就接不上上一块 → 出空档 = 用户听到的「卡卡的」。这里在【起播/欠载】时把落点
+  // 抬到「现在 + JITTER_LEAD」，先攒一小段再放，用 ~180ms 提前量吸收抖动；正常排程仍紧接 playhead，不累积延迟。
+  // 180ms 对语音陪伴几乎无感（远小于一句话），却能盖掉绝大多数抖动空档。打断时 flush 立刻 stop 所有源，
+  // 缓冲再大也不影响 barge-in 即时性。
+  private static readonly JITTER_LEAD = 0.18;   // 起播/欠载时重建的缓冲提前量（秒）
+  private static readonly MIN_LEAD = 0.10;      // 排程落点离现在不足此值即判为欠载 → 重建缓冲
   private ringOsc: OscillatorNode | null = null;       // 接通提示音（loading 期）
   private ringGain: GainNode | null = null;
   private ringTimer: ReturnType<typeof setInterval> | null = null;
@@ -115,7 +122,11 @@ export class AudioPlayer {
       const node = this.ctx.createBufferSource();
       node.buffer = buf;
       node.connect(this.ctx.destination);   // 直连输出：稳、无杂音（MediaStream+<audio> 那条 AEC 路径在部分机型出电流声，已撤）
-      const start = Math.max(this.ctx.currentTime + 0.02, this.playhead);
+      // 紧接上一块的终点(playhead)排程；但若 playhead 已被 currentTime 追上（起播 / 网络抖动致欠载），
+      // 不再贴着「现在+20ms」勉强起播（下一次抖动立刻又断），而是抬到「现在+JITTER_LEAD」攒一段缓冲，吸收抖动。
+      const now = this.ctx.currentTime;
+      let start = this.playhead;
+      if (start < now + AudioPlayer.MIN_LEAD) start = now + AudioPlayer.JITTER_LEAD;
       node.start(start);
       this.playhead = start + buf.duration;
       this.sources.add(node);

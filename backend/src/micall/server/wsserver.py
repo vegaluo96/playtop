@@ -481,5 +481,8 @@ async def serve_forever(config: Config) -> None:
     except Exception as e:  # 账号 API 起不来不影响通话主链路（游客仍可用）
         log.warning("用户账号 API 启动失败：%r", e)
     print(f"[micall] 信令服务器监听 ws://{host}:{port}{path}")
-    async with serve(server.handle, host, port):
+    # 心跳保活：默认 ping_interval=20s / ping_timeout=20s——大陆→香港的移动网一抖（>20s 没回 pong）就被判死、
+    # 整通电话被掐（用户反馈「打着打着就连接失败」）。把 pong 超时放宽到 40s，能扛住绝大多数瞬时网络抖动而不掉线；
+    # 仍每 20s 主动 ping（顺带保活 NAT/反代），真死连接最多 ~60s 内回收（finally 里随即停计费、不空跑）。
+    async with serve(server.handle, host, port, ping_interval=20, ping_timeout=40):
         await asyncio.Future()  # run forever
