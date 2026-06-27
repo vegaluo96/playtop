@@ -222,6 +222,41 @@ export async function deleteCalls(ids: number[]): Promise<boolean> {
   } catch { /* noop */ }
   return false;
 }
+/** 账号级收藏（需登录）：账号收藏的角色 id 列表；未登录/失败 → null。 */
+export async function getFavorites(): Promise<string[] | null> {
+  const j = await getJSON("/api/favorites");
+  return j && j.ok ? (j.favorites || []) : null;
+}
+/** 收藏/取消收藏某角色（账号级）。返回更新后的全集；失败 → null。 */
+export async function setFavorite(characterId: string, on: boolean): Promise<string[] | null> {
+  const tok = getToken();
+  if (!tok || !characterId) return null;
+  try {
+    const r = await fetch(BASE + "/api/favorites", { method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+      body: JSON.stringify({ character_id: characterId, on }) });
+    if (r.ok) { const d = await r.json(); return d && d.ok ? (d.favorites || []) : null; }
+  } catch { /* noop */ }
+  return null;
+}
+/** 登录时把本地收藏并入账号（取并集，手机/PC 都不丢），返回账号全集；失败 → null。 */
+export async function mergeFavorites(ids: string[]): Promise<string[] | null> {
+  const tok = getToken();
+  if (!tok) return null;
+  try {
+    const r = await fetch(BASE + "/api/favorites", { method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+      body: JSON.stringify({ merge: ids || [] }) });
+    if (r.ok) { const d = await r.json(); return d && d.ok ? (d.favorites || []) : null; }
+  } catch { /* noop */ }
+  return null;
+}
+/** 公开：各角色累计通话数（character_id → 次数），用户端「热门」真实排序用。失败 → {}。 */
+export async function getPopular(): Promise<Record<string, number>> {
+  const j = await getJSON("/api/popular");
+  return j && j.ok && j.counts ? j.counts : {};
+}
+
 /** 账单流水。未登录/失败 → null。 */
 export async function getBills(): Promise<any[] | null> {
   const j = await getJSON("/api/bills");

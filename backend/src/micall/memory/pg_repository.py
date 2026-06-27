@@ -269,6 +269,40 @@ class PgRepository(MemoryRepository):
             log.warning("list_user_voices 失败：%r", e)
             return {}
 
+    # ── 账号级收藏 + 真实热门 ──
+    def list_favorites(self, user_id) -> list[str]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute("SELECT character_id FROM user_favorites WHERE user_id=%s", (user_id,)).fetchall()
+            return [r[0] for r in rows]
+        except Exception as e:
+            log.warning("list_favorites 失败：%r", e)
+            return []
+
+    def set_favorite(self, user_id, character_id, on) -> None:
+        try:
+            self.ensure_user(user_id)
+            with self.pool.connection() as c:
+                if on:
+                    c.execute(
+                        "INSERT INTO user_favorites (user_id, character_id) VALUES (%s,%s) "
+                        "ON CONFLICT (user_id, character_id) DO NOTHING",
+                        (user_id, character_id),
+                    )
+                else:
+                    c.execute("DELETE FROM user_favorites WHERE user_id=%s AND character_id=%s", (user_id, character_id))
+        except Exception as e:
+            log.warning("set_favorite 失败：%r", e)
+
+    def char_call_counts(self) -> dict[str, int]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute("SELECT character_id, COUNT(*) FROM calls GROUP BY character_id").fetchall()
+            return {r[0]: int(r[1]) for r in rows}
+        except Exception as e:
+            log.warning("char_call_counts 失败：%r", e)
+            return {}
+
     def clear_user_voice(self, user_id, character_id) -> None:
         try:
             with self.pool.connection() as c:

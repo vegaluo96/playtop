@@ -227,6 +227,13 @@ class _Handler(BaseHTTPRequestHandler):
             inv = _REPO.invite_stats(uid)
             inv["reward_minutes"] = _auth.invite_reward_seconds() // 60   # 后台配置的每邀请奖励（前端展示）
             return self._json(200, {"ok": True, "invite": inv})
+        if route == "/api/favorites":          # 账号级收藏（需登录）→ 跨设备同步
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "未登录"})
+            return self._json(200, {"ok": True, "favorites": _REPO.list_favorites(uid)})
+        if route == "/api/popular":            # 公开：各角色累计通话数 → 用户端「热门」真实排序
+            return self._json(200, {"ok": True, "counts": _REPO.char_call_counts()})
         self._json(404, {"error": "not found"})
 
     def _rate_block(self, key: str) -> bool:
@@ -270,6 +277,22 @@ class _Handler(BaseHTTPRequestHandler):
             ids = self._body().get("ids")
             n = _REPO.hide_calls(uid, ids if isinstance(ids, list) else [])
             return self._json(200, {"ok": True, "deleted": n})
+        if route == "/api/favorites":      # 账号级收藏：单条切换 {character_id,on}，或登录时把本地收藏并入账号 {merge:[ids]}
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "未登录"})
+            b = self._body()
+            merge = b.get("merge")
+            if isinstance(merge, list):       # 登录合并：本地收藏并入账号（取并集，手机+PC 都不丢）
+                for cid in merge:
+                    if isinstance(cid, str) and cid:
+                        _REPO.set_favorite(uid, cid, True)
+            else:
+                cid = (b.get("character_id") or "").strip()
+                if not cid:
+                    return self._json(400, {"ok": False, "error": "缺少角色"})
+                _REPO.set_favorite(uid, cid, bool(b.get("on", True)))
+            return self._json(200, {"ok": True, "favorites": _REPO.list_favorites(uid)})
         if route == "/api/voice":        # 设定本账号某角色的音色：账号级、跨设备一致，下一通即生效（后端 get_user_voice）
             uid = self._uid()
             if not uid:

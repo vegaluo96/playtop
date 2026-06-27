@@ -93,6 +93,22 @@ class MemoryRepository(ABC):
         """清掉该用户对某角色的音色覆盖 → 通话回退角色出厂默认音色（用户端「原本音色」）。"""
         ...
 
+    # ── 账号级收藏（跨设备同步）+ 真实热门（按通话数）──
+    @abstractmethod
+    def list_favorites(self, user_id: str) -> list[str]:
+        """该用户收藏的 character_id 列表（账号级，跨设备一致）。"""
+        ...
+
+    @abstractmethod
+    def set_favorite(self, user_id: str, character_id: str, on: bool) -> None:
+        """收藏/取消收藏某角色（on=True 收藏，False 取消）。"""
+        ...
+
+    @abstractmethod
+    def char_call_counts(self) -> dict[str, int]:
+        """各角色累计通话数（character_id → 次数，全用户）。用于用户端「热门」真实排序。"""
+        ...
+
     # ── 角色自主状态（§4.1，per-character，独立于用户）──
     @abstractmethod
     def get_autonomous(self, character_id: str) -> AutonomousState: ...
@@ -284,6 +300,7 @@ class InMemoryRepository(MemoryRepository):
         self._facts: dict[tuple[str, str], list[tuple[str, float, list[float] | None]]] = {}
         self._profiles: dict[tuple[str, str], UserProfile] = {}
         self._voices: dict[tuple[str, str], str] = {}
+        self._favorites: set[tuple[str, str]] = set()      # (user_id, character_id) 账号级收藏（跨设备同步）
         self._autonomous: dict[str, AutonomousState] = {}
         self._users: dict[str, dict] = {}                  # user_id → 账号
         self._email_idx: dict[str, str] = {}               # email(lower) → user_id
@@ -366,6 +383,22 @@ class InMemoryRepository(MemoryRepository):
 
     def clear_user_voice(self, user_id: str, character_id: str) -> None:
         self._voices.pop((user_id, character_id), None)
+
+    # ── 账号级收藏（跨设备同步）──
+    def list_favorites(self, user_id: str) -> list[str]:
+        return [cid for (uid, cid) in self._favorites if uid == user_id]
+
+    def set_favorite(self, user_id: str, character_id: str, on: bool) -> None:
+        key = (user_id, character_id)
+        self._favorites.add(key) if on else self._favorites.discard(key)
+
+    def char_call_counts(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for c in self._calls:
+            cid = c.get("character_id")
+            if cid:
+                out[cid] = out.get(cid, 0) + 1
+        return out
 
     def get_autonomous(self, character_id: str) -> AutonomousState:
         return self._autonomous.get(character_id, AutonomousState())

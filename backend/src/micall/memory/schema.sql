@@ -77,6 +77,15 @@ CREATE TABLE IF NOT EXISTS user_voice (
     PRIMARY KEY (user_id, character_id)
 );
 
+-- ─────────────── 账号级收藏（跨设备同步：手机收藏，PC 登录即见）───────────────
+-- character_id 不设 FK：运营新建/生成的角色未必在 characters 表，收藏对任意角色 id 都该成立。
+CREATE TABLE IF NOT EXISTS user_favorites (
+    user_id      TEXT NOT NULL REFERENCES users(user_id),
+    character_id TEXT NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, character_id)
+);
+
 -- ───────────────────────── 通话记录 + 计费流水 ─────────────────────────
 CREATE TABLE IF NOT EXISTS calls (
     id               BIGSERIAL PRIMARY KEY,

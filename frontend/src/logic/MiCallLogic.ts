@@ -120,6 +120,7 @@ export class MiCallLogic {
   // 真实可选音色库（MiniMax 系统音色）+ 我每个角色已选音色（账号级，跨设备回显选中态）。
   private voiceLib: authApi.Voice[] = [];
   private myVoices: Record<string, string> = {};
+  private popularity: Record<string, number> = {};   // 各角色累计通话数（/api/popular）：「热门」tab 真实排序
 
   // scenarioDefs[].lines: static design copy only (slogan source); NOT replayed.
   scenarioDefs: ScenarioDef[] = [
@@ -229,6 +230,7 @@ export class MiCallLogic {
     this.loadCharacters();   // 从后端拉角色（含运营新建、剔除已删除）；失败保留内置 5 个
     this.loadInviteReward(); // 后台配置的邀请奖励（公开接口）：登录与否都显示真实值，不再写死 60
     this.loadVoices();       // 真实音色库 + 我已选音色（角色详情「音色」区据此选/试听，账号级生效）
+    this.loadPopular();      // 各角色累计通话数（公开）：「热门」tab 真实排序
     this.prewarmSignaling(); // 提前接好信令长连接 → 点拨号即用、开头不卡握手（弱网/大陆→香港尤其明显）
   }
 
@@ -287,12 +289,31 @@ export class MiCallLogic {
   }
   private toggleFav() {
     this.setState((s) => {
-      const favs = s.favorites.includes(s.charIndex)
-        ? s.favorites.filter((x: number) => x !== s.charIndex)
-        : [...s.favorites, s.charIndex];
+      const has = s.favorites.includes(s.charIndex);
+      const favs = has ? s.favorites.filter((x: number) => x !== s.charIndex) : [...s.favorites, s.charIndex];
       try { localStorage.setItem("micall_favs", JSON.stringify(favs.map((i: number) => this.chars[i]?.id).filter(Boolean))); } catch { /* noop */ }
+      // 账号级同步：登录用户的收藏写到后端 → 跨设备一致（手机收的 PC 也看得到）。失败不影响本地。
+      const cid = this.chars[s.charIndex]?.id;
+      if (cid && this.state.loggedIn && authApi.authConfigured()) authApi.setFavorite(cid, !has).catch(() => {});
       return { favorites: favs };
     });
+  }
+
+  /** 拉「热门」真实数据：各角色累计通话数，热门 tab 据此排序（公开接口，登录与否都拿真实值）。 */
+  private async loadPopular() {
+    if (!authApi.authConfigured()) return;
+    try { this.popularity = await authApi.getPopular(); this.notify(); } catch { /* noop */ }
+  }
+
+  /** 登录后同步收藏：把本地收藏并入账号（取并集），再用账号全集回填本地 + 状态 → 跨设备一致。 */
+  private async syncFavorites() {
+    if (!authApi.authConfigured() || !this.state.loggedIn) return;
+    let localIds: string[] = [];
+    try { const raw = localStorage.getItem("micall_favs"); if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) localIds = a.filter((x: any) => typeof x === "string"); } } catch { /* noop */ }
+    const merged = await authApi.mergeFavorites(localIds);
+    const ids = merged || localIds;
+    try { localStorage.setItem("micall_favs", JSON.stringify(ids)); } catch { /* noop */ }
+    this.setState({ favorites: this.loadFavs() });   // 从更新后的 localStorage + 当前 chars 重新映射下标（loadCharacters 完成后还会再映一次，无惧竞态）
   }
 
   // ── 音色试听（真实）：拉后端用该角色真实 voice_id 合成的 WAV 播放，不是占位动画 ──
@@ -387,7 +408,7 @@ export class MiCallLogic {
     if (!authApi.authConfigured()) return;
     try {
       const u = await authApi.me();
-      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds }); this.loadHistory(); this.loadVoices(); return; }
+      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds }); this.loadHistory(); this.loadVoices(); this.syncFavorites(); return; }
     } catch { /* 离线/后端不可达：维持游客态 */ }
     // 游客：按 IP 拉真实剩余试用（刷新不重置，防刷）。用完显示 0 → 通话即提示注册。
     const g = await authApi.getGuestTrial();
@@ -1133,11 +1154,13 @@ export class MiCallLogic {
       check: i === this.state.charIndex ? 1 : 0,
       favOp: this.state.favorites.includes(i) ? 1 : 0,
       _i: i,
+      _id: c.id || "",
       pick: () => this.selectChar(i),
-    // 推荐/热门都展示全部真角色（只有 5 个出厂角色，按模运算藏掉任何一个都是 bug：后台 5 个、用户端却 4 个）；
-    // 仅「收藏」按收藏夹过滤。
+    // 推荐展示全部真角色；「收藏」按收藏夹过滤；「热门」按真实通话数降序（见下）。
     })).filter((o) => charTab === "fav" ? this.state.favorites.includes(o._i) : true)
       .filter((o) => { const q = (this.state.searchQ || "").trim(); return !q || o.name.includes(q) || o.desc.includes(q); });
+    // 「热门」按真实累计通话数降序（/api/popular 的真值）→ 不再是「全展示」的假热门。同热度保持原序。
+    if (charTab === "hot") charList.sort((a, b) => (this.popularity[b._id] || 0) - (this.popularity[a._id] || 0));
     const charListEmpty = charList.length === 0;
     const charDots = this.charsReady ? this.chars.map((_, i) => ({ op: i === this.state.charIndex ? 0.9 : 0.22 })) : [];   // 未就绪不显占位圆点
     const curFav = this.state.favorites.includes(this.state.charIndex);
@@ -1601,6 +1624,7 @@ export class MiCallLogic {
           this.resetSignaling();   // 让下一通电话带上新 token 重连
           this.setState({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: res.user?.remaining_seconds ?? this.state.remaining, toast: okMsg });
           this.loadVoices();       // 登录后拉本账号已选音色 → 音色页跨设备回显一致
+          this.syncFavorites();    // 登录后把本地收藏并入账号 + 拉回账号全集 → 跨设备一致
           this.clearToastSoon(2200);
         } finally {
           this._authBusy = false;
