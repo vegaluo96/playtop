@@ -118,6 +118,10 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("滤镜", sysmsg)              # 维度激活成「行为滤镜」而非标签
         self.assertIn("MBTI", sysmsg)
         self.assertIn("双子座", sysmsg)            # 生日 1996-06-05 → 双子座（星座由生日算，进了基本资料）
+        # 整体性/内核：把维度串联成一个真正的人（有内核、互为因果、绝不报菜名）。
+        self.assertIn("整体的人", sysmsg)
+        self.assertIn("内核", sysmsg)
+        self.assertIn("报菜名", sysmsg)
 
     def test_window_trims_oldest(self):
         a = ContextAssembler(CharacterRuntime("c", "N", {}), budget_chars=300)
