@@ -77,6 +77,7 @@ export class AdminLogic {
       tts: { provider: "minimax", endpoint: "https://api.minimax.chat/v1/t2a_v2?GroupId=填你的GroupId", key: "", model: "speech-2.8-turbo", voiceId: "female-shaonv", sampleRate: "24000" },
       memory: { provider: "apiyi_qwen_long", endpoint: "https://api.apiyi.com/v1/chat/completions", key: "", model: "qwen-max", maxContext: "32000" },
       embed: { provider: "bailian_embedding", endpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings", key: "", model: "text-embedding-v4", vectorDB: "pgvector", topK: "5" },
+      image: { provider: "", endpoint: "https://api.apiyi.com/v1/images/generations", key: "", model: "gpt-image-1", size: "1024x1024" },
     },
   };
 
@@ -741,7 +742,7 @@ export class AdminLogic {
     const invStatus = (st2: string) => st2 === "已注册" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : { c: "#E0954F", b: "rgba(224,149,79,.12)" };
     const invitersView = this.inviters.map((v, i) => ({ rank: i + 1, name: v.name, initial: v.initial, grad: v.grad, invited: v.invited, success: v.success, pending: v.pending, mins: v.mins }));
     const inviteRecordsView = this.inviteRecords.map((r) => { const ist = invStatus(r.status); return { inviter: r.inviter, invitee: r.invitee, status: r.status, stColor: ist.c, stBg: ist.b, reward: r.reward, rewardColor: r.reward.indexOf("+") === 0 ? "#1FA971" : "#A8ABB5", date: r.date }; });
-    const apiCards = this.apiSections.map((sec) => { const cfg = s.apiCfg[sec.key]; return {
+    const apiCards = this.apiSections.map((sec) => { const cfg = s.apiCfg[sec.key] || {}; return {   // || {}：某节点配置未就绪也不崩渲染（曾因新增 image 节点 apiCfg 无此键 → cfg.provider 抛错白屏）
       name: sec.name, desc: sec.desc, icon: sec.icon, req: sec.req,
       chain: sec.chain, chainColor: sec.chain === "快链路" ? "#6E5CFF" : "#1FA971", chainBg: sec.chain === "快链路" ? "rgba(110,92,255,.1)" : "rgba(31,169,113,.1)",
       tileBg: sec.chain === "快链路" ? "linear-gradient(140deg,#8E7BFF,#6E5CFF)" : "linear-gradient(140deg,#5BE0A0,#1FA971)",
