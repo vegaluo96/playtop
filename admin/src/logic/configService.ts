@@ -345,6 +345,25 @@ export async function cloneVoice(audio: Blob, characterId: string, filename = "v
   }
 }
 
+/** 给角色生成「半写实·柔光影棚」头像（走『生图』节点）。返回 {ok, avatar, error}。 */
+export async function generateAvatar(id: string): Promise<{ ok: boolean; avatar?: string; error?: string }> {
+  const b = base();
+  if (!b) return { ok: false, error: "需接入后端" };
+  try {
+    const r = await fetch(`${b}/admin/generate-avatar`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ id }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d && d.ok) return d;
+    return { ok: false, error: (d && d.error) || ("HTTP " + r.status) };
+  } catch (e: any) {
+    return { ok: false, error: String(e && e.message || e).slice(0, 200) };
+  }
+}
+
+/** 后台预览头像的同域 URL（admin nginx 反代 /admin/ → adminapi 的 /admin/avatar），带 cache-bust。 */
+export function adminAvatarUrl(cid: string): string {
+  return `${base()}/admin/avatar?c=${encodeURIComponent(cid)}&t=${Date.now()}`;
+}
+
 /** 删除角色。 */
 export async function deleteCharacter(id: string): Promise<boolean> {
   const b = base();

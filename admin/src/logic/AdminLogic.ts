@@ -16,7 +16,8 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          createCharacter, deleteCharacter, generateCharacter, setCharacterOnline,
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
-         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, cloneVoice } from "./configService";
+         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, cloneVoice,
+         generateAvatar, adminAvatarUrl } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -107,6 +108,7 @@ export class AdminLogic {
       { key: "tts", name: "TTS · 语音合成", chain: "快链路", desc: "合成角色语音，voice_id 决定音色 · 默认 MiniMax TTS（官方直连，支持 emotion）", icon: "M11 5 6 9H3v6h3l5 4V5zM15.5 9a4.5 4.5 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11", req: "快 · 自然 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "voiceId", label: "默认 voice_id" }, { k: "sampleRate", label: "采样率" }] },
       { key: "memory", name: "LLM · 长记忆脑（通话后）", chain: "慢链路", desc: "通话后总结、提取长期记忆、生成开场白 · 默认 qwen-max（经 apiyi，可在「模型」改 qwen-plus 等；离线不要求快）", icon: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20", req: "准 · 稳 · 长上下文（不要求快）", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型（如 qwen-max / qwen-plus）" }, { k: "maxContext", label: "最大上下文" }] },
       { key: "embed", name: "Embedding · 记忆检索", chain: "慢链路", desc: "向量化记忆并快速检索相关片段 · 存储 Postgres + pgvector", icon: "M21 5c0 1.66-4 3-9 3S3 6.66 3 5s4-3 9-3 9 1.34 9 3zM3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5M3 12c0 1.66 4 3 9 3s9-1.34 9-3", req: "快检索 · 高召回", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "vectorDB", label: "向量数据库" }, { k: "topK", label: "检索 Top-K" }] },
+      { key: "image", name: "生图 · 角色头像", chain: "离线", desc: "给角色生成头像（半写实·柔光影棚，规范锁死防全站漂移）· OpenAI 兼容 images 接口（经 apiyi，可填 gpt-image-1 / flux 等）", icon: "M21 15l-5-5L5 21M3 5h18a0 0 0 0 1 0 0v14a0 0 0 0 1 0 0H3a0 0 0 0 1 0 0V5a0 0 0 0 1 0 0zM8.5 8.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z", req: "1:1 正方 · 头肩居中 · 不要求快", fields: [{ k: "endpoint", label: "接口地址（…/v1/images/generations）", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "生图模型（如 gpt-image-1 / flux）" }, { k: "size", label: "尺寸（如 1024x1024）" }] },
     ];
     this.inviters = [];
     this.inviteRecords = [];
@@ -186,6 +188,7 @@ export class AdminLogic {
         if ((row as any).quirks != null) c.quirks = (row as any).quirks;
         if ((row as any).soft_spot != null) c.soft_spot = (row as any).soft_spot;
         if ((row as any).status) c.status = (row as any).status;   // 上线 / 下架（后端真值）
+        c.has_avatar = !!(row as any).has_avatar;                  // 是否已有生成的头像（编辑时决定是否预显）
       }
       // 后端为权威：剔除没在后端列表里的本地占位（否则换了出厂角色后，旧占位会和真实角色并存、还编辑不了）。
       const backendIds = new Set(chars.map((r: any) => r.id));
@@ -460,6 +463,9 @@ export class AdminLogic {
       // 切角色清空上一个的克隆片段/状态
       this._cloneBlob = null;
       ns.recording = false; ns.cloning = false; ns.hasClip = false; ns.cloneStatus = ""; ns.cloneDemoUrl = "";
+      // 头像预览：进来先显该角色【已有】头像（has_avatar 才显，避免没生成时一个破图标）；状态清空。
+      ns.avatarBusy = false; ns.avatarStatus = "";
+      ns.avatarPreview = (c.has_avatar && (c.cid || c.id)) ? adminAvatarUrl(c.cid || c.id) : "";
     }
     if (type === "ticket") ns.replyDraft = "";
     this.setState(ns);
@@ -571,6 +577,21 @@ export class AdminLogic {
     this.setState({ cloning: false, cloneDemoUrl: res.demo_audio || "",
       cloneStatus: `已克隆，voice_id=${res.voice_id}${res.set_to ? "（已设为该角色音色，记得点保存）" : "（请点保存让音色生效）"}` });
     this.toastMsg("音色克隆成功，记得保存角色");
+  }
+
+  /** 调后端 /admin/generate-avatar：给当前角色生成「半写实·柔光影棚」头像，成功后就地预览。 */
+  async doGenerateAvatar() {
+    const d = this.state.detail;
+    if (!d || d.type !== "char") return;
+    if (d.id === "__new__") { this.toastMsg("请先创建并保存角色，再生成头像"); return; }
+    if (this.state.avatarBusy) return;
+    const cid = (this.chars.find((x) => x.id === d.id) as any)?.cid || d.id;
+    this.setState({ avatarBusy: true, avatarStatus: "生成中…（约十几秒到一分钟，取决于生图模型）" });
+    const res = await generateAvatar(cid);
+    if (!res.ok) { this.setState({ avatarBusy: false, avatarStatus: "生成失败：" + (res.error || "未知错误") }); return; }
+    // 用同域 /admin/avatar 预览（带 cache-bust），生成/重生后立刻看到最新。
+    this.setState({ avatarBusy: false, avatarStatus: "已生成（全站下一通/刷新即用真实头像）", avatarPreview: adminAvatarUrl(cid) });
+    this.toastMsg("头像已生成");
   }
 
   /** 删除当前角色：二次确认后执行（自定义直删 / 出厂隐藏，不可撤销）。 */
@@ -961,6 +982,13 @@ export class AdminLogic {
       onClonePick: (e: any) => { const f = e.target.files && e.target.files[0]; if (f) this.pickCloneFile(f); },
       doClone: () => this.doClone(),
       cloneBtnLabel: s.cloning ? "克隆中…" : "克隆并设为该角色音色", cloneBtnOpacity: (s.cloning || !s.hasClip) ? ".5" : "1",
+      // 头像生成
+      doGenAvatar: () => this.doGenerateAvatar(),
+      avatarBtnLabel: s.avatarBusy ? "生成中…" : (s.avatarPreview ? "重新生成头像" : "生成头像"),
+      avatarBtnOpacity: s.avatarBusy ? ".5" : "1",
+      avatarStatus: s.avatarStatus || "",
+      avatarPreview: s.avatarPreview || "", hasAvatarPreview: !!s.avatarPreview, noAvatarPreview: !s.avatarPreview,
+      avatarIsNew: !!(s.detail && s.detail.id === "__new__"),
       ceBio: (s.charEdit as any).background_story || "", onCeBio: (e: any) => this.setCe("background_story", e.target.value),
       ceGender: (s.charEdit as any).gender || "", onCeGender: (e: any) => this.setCe("gender", e.target.value),
       ceAge: (s.charEdit as any).age || "", onCeAge: (e: any) => this.setCe("age", e.target.value),

@@ -383,6 +383,22 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _send_image(self, data: bytes) -> None:
+        ct = "image/png"
+        if data[:2] == b"\xff\xd8":
+            ct = "image/jpeg"
+        elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            ct = "image/webp"
+        elif data[:4] == b"GIF8":
+            ct = "image/gif"
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", ct)
+        self.send_header("Cache-Control", "no-store")   # 后台预览总取最新（生成/重生后立刻看到）
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_OPTIONS(self) -> None:
         self.send_response(204)
         self._cors()
@@ -393,6 +409,12 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(401, {"error": "unauthorized"})
         if self._route() == "/admin/api-config":
             return self._json(200, read_config_for_admin())
+        if self._route() == "/admin/avatar":   # 后台预览已生成的角色头像（同域，admin nginx 反代 /admin/）
+            from .characters_admin import load_avatar
+            img = load_avatar(self._query("c"))
+            if not img:
+                return self._json(404, {"ok": False, "error": "no avatar"})
+            return self._send_image(img)
         if self._route() == "/admin/voice-preview":   # 后台音色试听 → 真实 TTS 合成的 WAV（按角色或 voice_id）
             try:
                 from .voice_preview import preview_wav

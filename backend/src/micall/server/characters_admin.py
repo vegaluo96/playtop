@@ -205,6 +205,7 @@ def read_characters_for_admin() -> list[dict]:
             "mbti": ident.get("mbti", ""), "summary": persona.get("summary", ""),
             "hobbies": _join(persona.get("hobbies")), "catchphrases": _join(persona.get("catchphrases")),
             "quirks": _join(persona.get("quirks")), "soft_spot": persona.get("soft_spot", ""),
+            "has_avatar": avatar_file(cid).exists(),   # 后台据此决定编辑时是否预显已有头像
             "status": "下架" if cid in offline else "上线",
         })
     return out
