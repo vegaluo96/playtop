@@ -99,6 +99,25 @@ class TestCharactersAdmin(unittest.TestCase):
             character_id=cid, scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
         self.assertIn("多用短句，偶尔毒舌", sysmsg)
 
+    def test_core_persists_reaches_prompt_and_survives_partial_edit(self):
+        # 内核/spine：后台可编辑。验证写入 → persona.core → 落进系统提示词「你的内核」；
+        # 且对其它字段的局部编辑不会冲掉出厂 core（深合并保底）。
+        cid, _ = _a_factory_char()
+        ca.write_character_from_admin({"id": cid, "core": "你真正怕的是认真投入的东西其实没有生命力。"})
+        eff = ca.effective_specs()[cid]
+        self.assertEqual(eff["persona"]["core"], "你真正怕的是认真投入的东西其实没有生命力。")
+        row = next(r for r in ca.read_characters_for_admin() if r["id"] == cid)
+        self.assertEqual(row["core"], "你真正怕的是认真投入的东西其实没有生命力。")   # 后台回显
+        from micall.context import CharacterRuntime, ContextAssembler
+        char = CharacterRuntime.from_spec(eff)
+        sysmsg = ContextAssembler(char).build(
+            character_id=cid, scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertIn("你的内核", sysmsg)
+        self.assertIn("没有生命力", sysmsg)
+        # 改个别字段（不带 core）不应抹掉 core
+        ca.write_character_from_admin({"id": cid, "voice_id": "female-yujie"})
+        self.assertEqual(ca.effective_specs()[cid]["persona"]["core"], "你真正怕的是认真投入的东西其实没有生命力。")
+
     def test_nonnumeric_age_is_rejected_not_stored(self):
         # num() 此前对 "abc" 原样返回 → 会把非数字落进 identity（提示词出现「年龄abc」）。现应跳过、保留出厂值。
         cid, _ = _a_factory_char()

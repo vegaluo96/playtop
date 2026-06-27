@@ -203,6 +203,8 @@ def read_characters_for_admin() -> list[dict]:
             # 富化维度：身份(职业/现居/MBTI) + 人设(性子/兴趣/口头禅/小习惯/软肋)。列表 join 成可编辑串。
             "occupation": ident.get("occupation", ""), "residence": ident.get("residence", ""),
             "mbti": ident.get("mbti", ""), "summary": persona.get("summary", ""),
+            # 内核/spine：角色之所以是 TA 的那个组织原则（最在乎/最怕失去 + 软处）。运营可在后台细调。
+            "core": persona.get("core", ""),
             "hobbies": _join(persona.get("hobbies")), "catchphrases": _join(persona.get("catchphrases")),
             "quirks": _join(persona.get("quirks")), "soft_spot": persona.get("soft_spot", ""),
             "has_avatar": avatar_file(cid).exists(),   # 后台据此决定编辑时是否预显已有头像
@@ -272,6 +274,7 @@ def write_character_from_admin(payload: dict) -> None:
     if "residence" in p:       ident["residence"] = cap(p["residence"], 100)
     if "mbti" in p:            ident["mbti"] = cap(p["mbti"], 20)
     if "summary" in p:         persona["summary"] = cap(p["summary"], 500)
+    if "core" in p:            persona["core"] = cap(p["core"], 2000)   # 内核/spine，运营可细调
     if "hobbies" in p:         persona["hobbies"] = _split(p["hobbies"])[:30]
     if "catchphrases" in p:    persona["catchphrases"] = _split(p["catchphrases"])[:30]
     if "quirks" in p:          persona["quirks"] = _split(p["quirks"])[:30]
@@ -307,7 +310,8 @@ def _spec_from_flat(cid: str, p: dict) -> dict:
                      "occupation": s(p.get("occupation")), "residence": s(p.get("residence")), "mbti": s(p.get("mbti")),
                      **({"profile": prof} if prof else {}),
                      "version": "1"},
-        "persona": {"core_traits": _split(p.get("traits", "")), "summary": s(p.get("summary")),
+        "persona": {"core": s(p.get("core")),
+                    "core_traits": _split(p.get("traits", "")), "summary": s(p.get("summary")),
                     "speaking_style": s(p.get("speaking_style")),
                     "background_story": s(p.get("background_story")),
                     "hidden_layer": s(p.get("hidden_layer")),

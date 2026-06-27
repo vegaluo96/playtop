@@ -184,6 +184,8 @@ export class AdminLogic {
         if ((row as any).residence != null) c.residence = (row as any).residence;
         if ((row as any).mbti != null) c.mbti = (row as any).mbti;
         if ((row as any).summary != null) c.summary = (row as any).summary;
+        if ((row as any).core != null) c.core = (row as any).core;   // 内核/spine
+
         if ((row as any).hobbies != null) c.hobbies = (row as any).hobbies;
         if ((row as any).catchphrases != null) c.catchphrases = (row as any).catchphrases;
         if ((row as any).quirks != null) c.quirks = (row as any).quirks;
@@ -455,7 +457,7 @@ export class AdminLogic {
         birthday: c.birthday || "", race: c.race || "",
         traits: Array.isArray(c.traits) ? c.traits.join("、") : (c.traits || ""),
         occupation: c.occupation || "", residence: c.residence || "", mbti: c.mbti || "",
-        summary: c.summary || "",
+        summary: c.summary || "", core: c.core || "",
         speaking_style: c.speaking_style || "", background_story: c.bio || "",
         hidden_layer: c.hidden_layer || "", values: c.values || "", soft_spot: c.soft_spot || "",
         hobbies: c.hobbies || "", catchphrases: c.catchphrases || "", quirks: c.quirks || "",
@@ -480,7 +482,7 @@ export class AdminLogic {
   /** 打开「新建角色」表单（空白 + AI 生成入口）。 */
   openNewChar() {
     this.setState({ detail: { type: "char", id: "__new__" }, charBio: "", charAiPrompt: "",
-      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", occupation: "", residence: "", mbti: "", summary: "", traits: "", speaking_style: "", background_story: "", hidden_layer: "", values: "", soft_spot: "", hobbies: "", catchphrases: "", quirks: "", prompt_extra: "", likes: "", dislikes: "", voice_id: "" } });
+      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", occupation: "", residence: "", mbti: "", summary: "", core: "", traits: "", speaking_style: "", background_story: "", hidden_layer: "", values: "", soft_spot: "", hobbies: "", catchphrases: "", quirks: "", prompt_extra: "", likes: "", dislikes: "", voice_id: "" } });
   }
 
   /** AI 一键生成角色字段，填进编辑表单（运营可再微调）。 */
@@ -645,7 +647,7 @@ export class AdminLogic {
         if (!res.ok || !res.id) { this.toastMsg(res.error || "创建失败"); return; }
         this.chars.push({ id: res.id, cid: res.id, name: e.name, desc: e.tagline, hue: hueFromId(res.id),
           gender: e.gender || "女", age: e.age || "20", height: 160, weight: 48, birthday: "", nationality: "", race: "",
-          occupation: e.occupation || "", residence: e.residence || "", mbti: e.mbti || "", summary: e.summary || "",
+          occupation: e.occupation || "", residence: e.residence || "", mbti: e.mbti || "", summary: e.summary || "", core: e.core || "",
           hobbies: e.hobbies || "", catchphrases: e.catchphrases || "", quirks: e.quirks || "", soft_spot: e.soft_spot || "",
           traits: this._splitList(e.traits), tags: [], slogan: "", likes: e.likes || "", dislikes: e.dislikes || "",
           bio: e.background_story || "", speaking_style: e.speaking_style || "", prompt_extra: e.prompt_extra || "", voiceId: e.voice_id || "",
@@ -666,7 +668,7 @@ export class AdminLogic {
         id: c.cid, name: e.name, tagline: e.tagline, traits: e.traits,
         gender: e.gender, age: e.age, nationality: e.nationality, appearance: e.appearance,
         height: e.height, weight: e.weight, birthday: e.birthday, race: e.race,
-        occupation: e.occupation, residence: e.residence, mbti: e.mbti, summary: e.summary,
+        occupation: e.occupation, residence: e.residence, mbti: e.mbti, summary: e.summary, core: e.core,
         hobbies: e.hobbies, catchphrases: e.catchphrases, quirks: e.quirks, soft_spot: e.soft_spot,
         speaking_style: e.speaking_style, background_story: e.background_story,
         hidden_layer: e.hidden_layer, values: e.values, prompt_extra: e.prompt_extra,
@@ -677,7 +679,7 @@ export class AdminLogic {
         c.bio = e.background_story; c.likes = e.likes; c.dislikes = e.dislikes;
         c.hidden_layer = e.hidden_layer; c.values = e.values; c.prompt_extra = e.prompt_extra;
         c.speaking_style = e.speaking_style; c.voiceId = e.voice_id;
-        c.occupation = e.occupation; c.residence = e.residence; c.mbti = e.mbti; c.summary = e.summary;
+        c.occupation = e.occupation; c.residence = e.residence; c.mbti = e.mbti; c.summary = e.summary; c.core = e.core;
         c.hobbies = e.hobbies; c.catchphrases = e.catchphrases; c.quirks = e.quirks; c.soft_spot = e.soft_spot;
         if (e.gender) c.gender = e.gender; if (e.age !== "" && e.age != null) c.age = e.age;
         c.nationality = e.nationality; c.appearance = e.appearance; c.birthday = e.birthday; c.race = e.race;
@@ -1028,6 +1030,7 @@ export class AdminLogic {
       ceResidence: (s.charEdit as any).residence || "", onCeResidence: (e: any) => this.setCe("residence", e.target.value),
       ceMbti: (s.charEdit as any).mbti || "", onCeMbti: (e: any) => this.setCe("mbti", e.target.value),
       ceSummary: (s.charEdit as any).summary || "", onCeSummary: (e: any) => this.setCe("summary", e.target.value),
+      ceCore: (s.charEdit as any).core || "", onCeCore: (e: any) => this.setCe("core", e.target.value),
       ceHobbies: (s.charEdit as any).hobbies || "", onCeHobbies: (e: any) => this.setCe("hobbies", e.target.value),
       ceCatchphrases: (s.charEdit as any).catchphrases || "", onCeCatchphrases: (e: any) => this.setCe("catchphrases", e.target.value),
       ceQuirks: (s.charEdit as any).quirks || "", onCeQuirks: (e: any) => this.setCe("quirks", e.target.value),
