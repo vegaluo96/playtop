@@ -179,30 +179,35 @@ export class AudioPlayer {
     this.ringGain = null;
   }
 
-  /** 挂断提示音：与接通音呼应——同音色(sine)、低音量，短促【下行两声 doo-doo↓】示意「通话结束」。
-   *  一次性、振荡器自停，不进 sources（flush 不会误杀它）。RING_ENABLED 关时连同接通音一起静默。 */
+  /** 挂断提示音：与接通音呼应——同音色(sine)，短促【下行两声 doo-doo↓】示意「通话结束」。
+   *  一次性、振荡器自停，不进 sources（flush 不会误杀它）。RING_ENABLED 关时连同接通音一起静默。
+   *  关键：RTC 通话里 AI 声音走 <audio>、本 ctx 长期闲置常被浏览器挂起(suspended)——必须【先 resume
+   *  再排程】，否则在 suspended 的 ctx 上按 currentTime 排的振荡器不出声（正是「挂断音没听到」）。 */
   playHangup(): void {
     if (!RING_ENABLED) return;
-    this.resume();
-    if (!this.ctx) return;
-    try {
-      const ctx = this.ctx;
-      const t0 = ctx.currentTime + 0.01;
-      [480, 360].forEach((freq, i) => {   // 两声下行：480→360Hz
-        const t = t0 + i * 0.16;
-        const gain = ctx.createGain();
-        gain.connect(ctx.destination);
-        const osc = ctx.createOscillator();
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        osc.connect(gain);
-        gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.exponentialRampToValueAtTime(0.06, t + 0.03);   // 渐入
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18); // 渐出
-        osc.start(t);
-        osc.stop(t + 0.22);
-      });
-    } catch { /* noop */ }
+    if (!this.ctx) this.ctx = audioCtx();
+    const ctx = this.ctx;
+    const fire = () => {
+      try {
+        const t0 = ctx.currentTime + 0.02;
+        [480, 360].forEach((freq, i) => {   // 两声下行：480→360Hz
+          const t = t0 + i * 0.17;
+          const gain = ctx.createGain();
+          gain.connect(ctx.destination);
+          const osc = ctx.createOscillator();
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          osc.connect(gain);
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.exponentialRampToValueAtTime(0.12, t + 0.03);   // 渐入（音量比接通音高一档，挂断更明确）
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22); // 渐出
+          osc.start(t);
+          osc.stop(t + 0.26);
+        });
+      } catch { /* noop */ }
+    };
+    if (ctx.state === "suspended") void ctx.resume().then(fire).catch(() => { /* noop */ });
+    else fire();
   }
 
   /** 打断/挂断：停掉所有排队中的音频。 */
