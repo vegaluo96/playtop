@@ -329,6 +329,22 @@ export async function createCharacter(fields: any): Promise<{ ok: boolean; id?: 
   } catch { /* noop */ }
   return { ok: false, error: "请求失败" };
 }
+/** 音色克隆：上传一段人声（Blob）→ MiniMax 复刻 → 设为该角色音色。返回 {ok, voice_id, demo_audio, error}。 */
+export async function cloneVoice(audio: Blob, characterId: string, filename = "voice.wav", previewText = ""):
+  Promise<{ ok: boolean; voice_id?: string; demo_audio?: string; set_to?: string; error?: string }> {
+  const b = base();
+  if (!b) return { ok: false, error: "需接入后端" };
+  const qs = new URLSearchParams({ c: characterId || "", name: filename, text: previewText || "" }).toString();
+  try {
+    const h = authHeaders();                 // 不设 Content-Type：发原始音频字节，后端按 Content-Length 读
+    const r = await fetch(`${b}/admin/voice-clone?${qs}`, { method: "POST", headers: h, credentials: "include", body: audio });
+    if (r.ok) return await r.json();
+    return { ok: false, error: "HTTP " + r.status };
+  } catch (e: any) {
+    return { ok: false, error: String(e && e.message || e).slice(0, 200) };
+  }
+}
+
 /** 删除角色。 */
 export async function deleteCharacter(id: string): Promise<boolean> {
   const b = base();

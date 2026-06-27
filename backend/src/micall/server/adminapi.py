@@ -550,6 +550,15 @@ class _Handler(BaseHTTPRequestHandler):
             from .characters_admin import delete_character
             ok = delete_character((self._body().get("id") or "").strip())
             return self._json(200, {"ok": ok})
+        if route == "/admin/voice-clone":   # 上传一段人声 → MiniMax 复刻 → 设为指定角色音色
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            if n <= 0 or n > 20 * 1024 * 1024:   # 原始音频体，绕过 _body 的 256KB/JSON 限制
+                return self._json(400, {"ok": False, "error": "音频为空或过大（需 ≤20MB、5 分钟内）"})
+            audio = self.rfile.read(n)
+            from .voice_clone import clone_for_character
+            res = clone_for_character(audio, self._query("name") or "voice.wav",
+                                      character_id=self._query("c"), preview_text=self._query("text"))
+            return self._json(200, res)
         if route == "/admin/characters/online":    # 下架/上架角色（下架=不对用户展示，仍在后台可改）
             from .characters_admin import set_character_offline
             b = self._body()

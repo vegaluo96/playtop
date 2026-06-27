@@ -725,8 +725,23 @@
             </div>
           </div>
           <div>
-            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">默认音色 voice_id（MiniMax 系统音色，如 female-shaonv）</div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">默认音色 voice_id（MiniMax 系统音色如 female-shaonv，或克隆出的自定义音色）</div>
             <input value="{{ ceVoice }}" onInput="{{ onCeVoice }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:ui-monospace,monospace;color:#16161A;outline:none;background:#FAFAFB;" />
+          </div>
+          <div style="border:1px dashed #D9DBE3;border-radius:13px;padding:13px 14px;background:#FBFBFD;">
+            <div style="font-size:12px;font-weight:600;color:#5A5E6B;margin-bottom:3px;">🎙️ 音色克隆（把真人声音录给这个角色）</div>
+            <div style="font-size:11px;color:#A8ABB5;line-height:1.6;margin-bottom:10px;">录 15 秒～1 分钟清晰人声，或上传 mp3/m4a/wav（10秒~5分钟、≤20MB）。克隆出的 voice_id 会自动填进上面音色框，<b>记得点保存</b>。首次复刻约十几秒。</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <div onClick="{{ toggleRecord }}" style="flex:none;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:{{ recColor }};background:{{ recBg }};border:1px solid {{ recBorder }};border-radius:10px;padding:9px 14px;cursor:pointer;" style-active="transform:scale(.97)">{{ recLabel }}</div>
+              <label style="flex:none;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#16161A;background:#fff;border:1px solid #E6E7EB;border-radius:10px;padding:9px 14px;cursor:pointer;">上传文件<input type="file" accept="audio/*,.mp3,.m4a,.wav" onChange="{{ onClonePick }}" style="display:none;" /></label>
+            </div>
+            <div onClick="{{ doClone }}" style="margin-top:10px;text-align:center;font-size:13.5px;font-weight:600;color:#fff;background:#16161A;border-radius:10px;padding:10px;cursor:pointer;opacity:{{ cloneBtnOpacity }};" style-active="transform:scale(.98)">{{ cloneBtnLabel }}</div>
+            <sc-if value="{{ cloneStatus }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:9px;font-size:12px;color:#5A5E6B;line-height:1.6;word-break:break-all;">{{ cloneStatus }}</div>
+            </sc-if>
+            <sc-if value="{{ hasCloneDemo }}" hint-placeholder-val="{{ false }}">
+              <audio controls src="{{ cloneDemoUrl }}" style="margin-top:9px;width:100%;height:38px;"></audio>
+            </sc-if>
           </div>
           <div>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">

@@ -16,7 +16,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          createCharacter, deleteCharacter, generateCharacter, setCharacterOnline,
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
-         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned } from "./configService";
+         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, cloneVoice } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -456,6 +456,9 @@ export class AdminLogic {
         prompt_extra: c.prompt_extra || "",
         likes: c.likes || "", dislikes: c.dislikes || "", voice_id: c.voiceId || "",
       };
+      // 切角色清空上一个的克隆片段/状态
+      this._cloneBlob = null;
+      ns.recording = false; ns.cloning = false; ns.hasClip = false; ns.cloneStatus = ""; ns.cloneDemoUrl = "";
     }
     if (type === "ticket") ns.replyDraft = "";
     this.setState(ns);
@@ -483,6 +486,90 @@ export class AdminLogic {
       traits: f.traits || "", speaking_style: f.speaking_style || "", background_story: f.background_story || "",
       likes: f.likes || "", dislikes: f.dislikes || "" } }));
     this.toastMsg("已生成，可微调后保存");
+  }
+
+  // ── 音色克隆：录一段人声（或选文件）→ MiniMax 复刻 → 设为本角色音色 ──
+  private _recStream: MediaStream | null = null;
+  private _recCtx: AudioContext | null = null;
+  private _recNode: ScriptProcessorNode | null = null;
+  private _recBufs: Float32Array[] = [];
+  private _recRate = 44100;
+  private _cloneBlob: Blob | null = null;
+  private _cloneName = "voice.wav";
+
+  /** 开始录音：getUserMedia + AudioContext 采集 PCM（停止时编码 WAV，MiniMax 接受 wav）。 */
+  async startRecord() {
+    if (this.state.recording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      const ctx = new Ctx();
+      const src = ctx.createMediaStreamSource(stream);
+      const node = ctx.createScriptProcessor(4096, 1, 1);
+      this._recBufs = []; this._recRate = ctx.sampleRate;
+      node.onaudioprocess = (e: any) => { this._recBufs.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+      src.connect(node); node.connect(ctx.destination);
+      this._recStream = stream; this._recCtx = ctx; this._recNode = node;
+      this.setState({ recording: true, cloneStatus: "录音中…（建议 15 秒～1 分钟，吐字清晰、安静环境）", cloneDemoUrl: "" });
+    } catch (e: any) {
+      this.toastMsg("无法录音：" + (e && e.message || "请允许麦克风权限"));
+    }
+  }
+
+  /** 停止录音：拼接 PCM → 编码 16bit WAV，存为待克隆片段。 */
+  stopRecord() {
+    if (!this.state.recording) return;
+    try { this._recNode?.disconnect(); } catch { /* noop */ }
+    try { this._recStream?.getTracks().forEach((t) => t.stop()); } catch { /* noop */ }
+    try { this._recCtx?.close(); } catch { /* noop */ }
+    const blob = this._encodeWav(this._recBufs, this._recRate);
+    this._recNode = null; this._recStream = null; this._recCtx = null; this._recBufs = [];
+    const secs = blob ? Math.round((blob.size - 44) / 2 / this._recRate) : 0;
+    if (!blob || secs < 8) { this.setState({ recording: false, cloneStatus: "录音太短（至少 8 秒），请重录" }); this._cloneBlob = null; return; }
+    this._cloneBlob = blob; this._cloneName = "voice.wav";
+    this.setState({ recording: false, hasClip: true, cloneStatus: `已录 ${secs} 秒，可点「克隆并设为该角色音色」` });
+  }
+
+  /** 选本地音频文件（mp3/m4a/wav）作为克隆素材。 */
+  pickCloneFile(file: File) {
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { this.toastMsg("文件过大（≤20MB）"); return; }
+    this._cloneBlob = file; this._cloneName = file.name || "voice.wav";
+    this.setState({ hasClip: true, cloneStatus: `已选「${file.name}」，可点克隆`, cloneDemoUrl: "" });
+  }
+
+  /** 把 Float32 PCM 块编码成 16bit 单声道 WAV Blob。 */
+  private _encodeWav(bufs: Float32Array[], rate: number): Blob | null {
+    let len = 0; bufs.forEach((b) => (len += b.length));
+    if (len === 0) return null;
+    const pcm = new Float32Array(len); let off = 0;
+    bufs.forEach((b) => { pcm.set(b, off); off += b.length; });
+    const bytes = len * 2;
+    const buf = new ArrayBuffer(44 + bytes); const view = new DataView(buf);
+    const ws = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+    ws(0, "RIFF"); view.setUint32(4, 36 + bytes, true); ws(8, "WAVE"); ws(12, "fmt ");
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+    view.setUint32(24, rate, true); view.setUint32(28, rate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+    ws(36, "data"); view.setUint32(40, bytes, true);
+    let p = 44; for (let i = 0; i < len; i++) { const s = Math.max(-1, Math.min(1, pcm[i])); view.setInt16(p, s < 0 ? s * 0x8000 : s * 0x7fff, true); p += 2; }
+    return new Blob([buf], { type: "audio/wav" });
+  }
+
+  /** 调后端 /admin/voice-clone：复刻并把返回 voice_id 写进当前角色音色框。 */
+  async doClone() {
+    const d = this.state.detail;
+    if (!d || d.type !== "char") return;
+    if (!this._cloneBlob) { this.toastMsg("请先录音或选择音频文件"); return; }
+    if (this.state.cloning) return;
+    this.setState({ cloning: true, cloneStatus: "上传并克隆中…（首次复刻约十几秒，请稍候）", cloneDemoUrl: "" });
+    const cid = (this.chars.find((x) => x.id === d.id) as any)?.cid || "";
+    const previewName = (this.state.charEdit as any)?.name || "我";
+    const res = await cloneVoice(this._cloneBlob, cid, this._cloneName, `你好呀，我是${previewName}，这是我克隆出来的声音。`);
+    if (!res.ok) { this.setState({ cloning: false, cloneStatus: "克隆失败：" + (res.error || "未知错误") }); return; }
+    this.setCe("voice_id", res.voice_id || "");   // 自动填进音色框，保存即生效
+    this.setState({ cloning: false, cloneDemoUrl: res.demo_audio || "",
+      cloneStatus: `已克隆，voice_id=${res.voice_id}${res.set_to ? "（已设为该角色音色，记得点保存）" : "（请点保存让音色生效）"}` });
+    this.toastMsg("音色克隆成功，记得保存角色");
   }
 
   /** 删除当前角色：二次确认后执行（自定义直删 / 出厂隐藏，不可撤销）。 */
@@ -866,6 +953,15 @@ export class AdminLogic {
       ceLikes: (s.charEdit as any).likes || "", onCeLikes: (e: any) => this.setCe("likes", e.target.value),
       ceDislikes: (s.charEdit as any).dislikes || "", onCeDislikes: (e: any) => this.setCe("dislikes", e.target.value),
       ceVoice: (s.charEdit as any).voice_id || "", onCeVoice: (e: any) => this.setCe("voice_id", e.target.value),
+      // 音色克隆
+      recording: !!s.recording, cloning: !!s.cloning, hasClip: !!s.hasClip,
+      cloneStatus: s.cloneStatus || "", cloneDemoUrl: s.cloneDemoUrl || "", hasCloneDemo: !!s.cloneDemoUrl,
+      recLabel: s.recording ? "■ 停止录音" : "● 开始录音",
+      recColor: s.recording ? "#fff" : "#16161A", recBg: s.recording ? "#E0594F" : "#fff", recBorder: s.recording ? "#E0594F" : "#E6E7EB",
+      toggleRecord: () => (this.state.recording ? this.stopRecord() : this.startRecord()),
+      onClonePick: (e: any) => { const f = e.target.files && e.target.files[0]; if (f) this.pickCloneFile(f); },
+      doClone: () => this.doClone(),
+      cloneBtnLabel: s.cloning ? "克隆中…" : "克隆并设为该角色音色", cloneBtnOpacity: (s.cloning || !s.hasClip) ? ".5" : "1",
       ceBio: (s.charEdit as any).background_story || "", onCeBio: (e: any) => this.setCe("background_story", e.target.value),
       ceGender: (s.charEdit as any).gender || "", onCeGender: (e: any) => this.setCe("gender", e.target.value),
       ceAge: (s.charEdit as any).age || "", onCeAge: (e: any) => this.setCe("age", e.target.value),
