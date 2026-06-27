@@ -723,6 +723,33 @@ export class MiCallLogic {
     const r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16);
     return `rgba(${r},${g},${b},${a})`;
   }
+  /** 把一个 hex 颜色按 deg 旋转色相，得到「该角色的真实色」(与球上 hue-rotate 滤镜同源)，
+   *  返回 rgba 串。用于把角色气场染进整屏氛围而无需对内容套滤镜。a=alpha。 */
+  rotA(hex: string, deg: number, a: number) {
+    const h = (hex || "#AAB8FF").replace("#", "");
+    const n = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+    let r = parseInt(n.slice(0, 2), 16) / 255, g = parseInt(n.slice(2, 4), 16) / 255, b = parseInt(n.slice(4, 6), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+    let hh = 0, s = 0; const d = max - min;
+    if (d) {
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      hh = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      hh /= 6;
+    }
+    hh = (hh + (((deg % 360) + 360) % 360) / 360) % 1;
+    const hue2 = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1; if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    if (s) {
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+      r = hue2(p, q, hh + 1 / 3); g = hue2(p, q, hh); b = hue2(p, q, hh - 1 / 3);
+    } else { r = g = b = l; }
+    return `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${a})`;
+  }
   sheets() {
     return { favOpen: false, langOpen: false, settingsOpen: false, charDetailOpen: false, charOpen: false, scenarioOpen: false, billsOpen: false, inviteOpen: false, rechargeOpen: false, historyOpen: false, contactOpen: false, termsOpen: false, privacyOpen: false, moreOpen: false, authOpen: false, pwResetOpen: false, autoHangupOpen: false };
   }
@@ -1208,6 +1235,15 @@ export class MiCallLogic {
     const orbHue = this.charsReady ? `hue-rotate(${char.hue}deg)` : "hue-rotate(0deg)";
     // 头像：有则圆圈显真实头像（大球/列表/详情都填满），无则回退渐变球（色相光晕始终保留）。
     const orbAvatar = (this.charsReady && char.avatar) ? char.avatar : "";
+    // 乐章②+⑦ 气场与暗场：整屏氛围染上「这个角色」的色（换角色换气氛），叠一层暗角让球更聚光；
+    // 通话时更浓、更私密。纯背景层叠在 var(--bg) 之上，不影响内容；未就绪用中性 tint 不抢色。
+    const isDark = theme === "dark";
+    const auraA = (isDark ? 0.20 : 0.12) + (connected ? 0.05 : 0);
+    const auraColor = this.charsReady ? this.rotA(tint, char.hue, auraA) : this.hexA(tint, auraA * 0.5);
+    const vignette = isDark
+      ? `radial-gradient(125% 115% at 50% 33%, transparent 50%, rgba(0,0,0,${connected ? 0.36 : 0.24}))`
+      : `radial-gradient(125% 118% at 50% 38%, transparent 60%, rgba(22,14,42,${connected ? 0.075 : 0.05}))`;
+    const screenBg = `${vignette}, radial-gradient(130% 92% at 50% 12%, ${auraColor}, transparent 58%), var(--bg)`;
     const charTab = this.state.charTab;
     const charList = this.chars.map((c, i) => ({
       name: c.name,
@@ -1310,6 +1346,7 @@ export class MiCallLogic {
       orbHue, showOrbStatus, showTagline, showUnderOrb, charDots,
       orbAvatar, hasOrbAvatar: !!orbAvatar, noOrbAvatar: !orbAvatar,   // 有头像→只显头像层(下方渐变球不渲染)；无头像→渐变球兜底
       connectRitual: !!this.state.justConnected,   // 接通瞬间：一次性绽放光环（挂载即播一次）
+      screenBg,   // 乐章②+⑦：每角色气场 + 暗场，叠在 var(--bg) 之上
 
       charTagline: char.desc,
       charDetail: {
