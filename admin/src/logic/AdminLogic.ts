@@ -466,7 +466,7 @@ export class AdminLogic {
       ns.recording = false; ns.cloning = false; ns.hasClip = false; ns.cloneStatus = ""; ns.cloneDemoUrl = "";
       // 头像预览：进来先显该角色【已有】头像（has_avatar 才显，避免没生成时一个破图标）；状态清空。
       ns.avatarBusy = false; ns.avatarStatus = "";
-      ns.avatarPreview = (c.has_avatar && (c.cid || c.id)) ? adminAvatarUrl(c.cid || c.id) : "";
+      ns.avatarPreview = (c.has_avatar && (c.cid || c.id)) ? adminAvatarUrl(c.cid || c.id, true) : "";
     }
     if (type === "ticket") ns.replyDraft = "";
     this.setState(ns);
@@ -591,7 +591,8 @@ export class AdminLogic {
     const res = await generateAvatar(cid);
     if (!res.ok) { this.setState({ avatarBusy: false, avatarStatus: "生成失败：" + (res.error || "未知错误") }); return; }
     // 用同域 /admin/avatar 预览（带 cache-bust），生成/重生后立刻看到最新。
-    this.setState({ avatarBusy: false, avatarStatus: "已生成（全站下一通/刷新即用真实头像）", avatarPreview: adminAvatarUrl(cid) });
+    this.chars.forEach((x) => { if ((x.cid || x.id) === cid) x.has_avatar = true; });   // 角色列表卡片即时显头像
+    this.setState({ avatarBusy: false, avatarStatus: "已生成（全站下一通/刷新即用真实头像）", avatarPreview: adminAvatarUrl(cid, true) });
     this.toastMsg("头像已生成");
   }
 
@@ -850,6 +851,7 @@ export class AdminLogic {
     const voiceIdMap: Record<string, string> = { c1: "female-shaonv-01", c2: "male-cixing-02", c3: "female-yuanqi-03", c4: "male-chenwen-04", c5: "female-tianmei-05" };
     const charMatched: Record<string, number> = { c1: 230, c2: 96, c3: 142, c4: 61, c5: 58 };
     const charsView = this.chars.filter((c) => !q || (c.name + c.desc + c.bio).toLowerCase().includes(q)).map((c) => ({ ...c, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: genderColor(c.gender),
+      avatar: c.has_avatar ? adminAvatarUrl(c.cid || c.id) : "", avatarDisplay: c.has_avatar ? "block" : "none",   // 卡片有头像就显真实头像（稳定 URL，不每帧重拉），没有则渐变球
       voiceId: voiceIdMap[c.id] || "default", voiceMatched: this.realStats ? "—" : (charMatched[c.id] || 0) + " 次匹配", playVoice: async (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); if (!usingBackend()) { this.toastMsg("接入后端后可真实试听"); return; } this.toastMsg("正在合成试听…"); const ok = await playVoicePreview({ characterId: c.cid || "" }); this.toastMsg(ok ? "" : "试听失败：请确认 TTS 接口已配置"); },
       // 默认角色：用户端进来先选它。当前为默认显徽标；非默认给「设为默认」按钮。
       isDefault: !!c.cid && c.cid === this.defaultCharId,

@@ -359,9 +359,10 @@ export async function generateAvatar(id: string): Promise<{ ok: boolean; avatar?
   }
 }
 
-/** 后台预览头像的同域 URL（admin nginx 反代 /admin/ → adminapi 的 /admin/avatar），带 cache-bust。 */
-export function adminAvatarUrl(cid: string): string {
-  return `${base()}/admin/avatar?c=${encodeURIComponent(cid)}&t=${Date.now()}`;
+/** 后台头像的同域 URL（admin nginx 反代 /admin/ → adminapi 的 /admin/avatar）。
+ *  bust=true 加时间戳强制取最新（生成/重生后预览用）；列表里用 bust=false 的稳定 URL，避免每次渲染都重拉。 */
+export function adminAvatarUrl(cid: string, bust = false): string {
+  return `${base()}/admin/avatar?c=${encodeURIComponent(cid)}${bust ? "&t=" + Date.now() : ""}`;
 }
 
 /** 删除角色。 */
