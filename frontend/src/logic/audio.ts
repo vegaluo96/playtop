@@ -87,6 +87,46 @@ export class AudioPlayer {
   private playhead = 0;
   private sources = new Set<AudioBufferSourceNode>();
   private logged = false;
+  // 声纹分析：所有下行 TTS 经一个常驻 AnalyserNode 汇入输出，供「活球」读取真实语音包络（不改音质、
+  // 不加延迟——analyser 是旁路读取）。level() 返回平滑后的 0..1 振幅，渲染层每帧拿它驱动球的呼吸/发光。
+  private analyser: AnalyserNode | null = null;
+  private levelBuf: Uint8Array<ArrayBuffer> | null = null;
+  private smooth = 0;   // attack/decay 平滑，防抖
+
+  /** 懒建并返回汇流 analyser（连到 destination）；每个播放源都接它而非直连，从而能读到实时包络。 */
+  private sink(): AudioNode {
+    if (!this.ctx) return (this.ctx = audioCtx()).destination;
+    if (!this.analyser) {
+      try {
+        const an = this.ctx.createAnalyser();
+        an.fftSize = 1024;
+        an.smoothingTimeConstant = 0.6;
+        an.connect(this.ctx.destination);
+        this.analyser = an;
+        this.levelBuf = new Uint8Array(an.fftSize);
+      } catch {
+        return this.ctx.destination;   // 不支持 analyser 的环境：直连输出，活球退化为静态（不报错）
+      }
+    }
+    return this.analyser;
+  }
+
+  /** 实时语音振幅 0..1（已 attack/decay 平滑）。无音频/未播放时趋近 0。渲染层每帧调用，开销极小。 */
+  level(): number {
+    const an = this.analyser, buf = this.levelBuf;
+    let target = 0;
+    if (an && buf && this.isPlaying(120)) {
+      an.getByteTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+      const rms = Math.sqrt(sum / buf.length);            // 0..~0.7（语音）
+      target = Math.min(1, rms * 3.2);                    // 归一到 0..1，留头
+    }
+    // 起声快(attack .35)、收声慢(decay .12)：像真人呼吸，不是机械抖动
+    const k = target > this.smooth ? 0.35 : 0.12;
+    this.smooth += (target - this.smooth) * k;
+    return this.smooth < 0.004 ? 0 : this.smooth;
+  }
   // 抖动缓冲（jitter buffer）：网络（尤其大陆→香港、移动网）抖动时，音频块到达忽快忽慢；若每块只提前
   // 20ms 排程，一旦某块迟到就接不上上一块 → 出空档 = 用户听到的「卡卡的」。这里在【起播/欠载】时把落点
   // 抬到「现在 + JITTER_LEAD」，先攒一小段再放，用 ~180ms 提前量吸收抖动；正常排程仍紧接 playhead，不累积延迟。
@@ -121,7 +161,7 @@ export class AudioPlayer {
       buf.getChannelData(0).set(f32);
       const node = this.ctx.createBufferSource();
       node.buffer = buf;
-      node.connect(this.ctx.destination);   // 直连输出：稳、无杂音（MediaStream+<audio> 那条 AEC 路径在部分机型出电流声，已撤）
+      node.connect(this.sink());   // 经常驻 analyser 汇入输出：稳、无杂音，且能读实时包络驱动活球（旁路、不改音质）
       // 紧接上一块的终点(playhead)排程；但若 playhead 已被 currentTime 追上（起播 / 网络抖动致欠载），
       // 不再贴着「现在+20ms」勉强起播（下一次抖动立刻又断），而是抬到「现在+JITTER_LEAD」攒一段缓冲，吸收抖动。
       const now = this.ctx.currentTime;
@@ -229,5 +269,6 @@ export class AudioPlayer {
     this.hangupEl = null;
     try { void this.ctx?.close(); } catch { /* noop */ }
     this.ctx = null;
+    this.analyser = null; this.levelBuf = null; this.smooth = 0;   // 随 ctx 作废，下次 sink() 重建
   }
 }

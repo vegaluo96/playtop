@@ -21,6 +21,9 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes coreGlow{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
     @keyframes ripple{0%{transform:scale(.82);opacity:.55}100%{transform:scale(1.7);opacity:0}}
+    @keyframes connectBloom{0%{transform:scale(.62);opacity:0}22%{opacity:.85}100%{transform:scale(1.62);opacity:0}}
+    @keyframes connectCore{0%{transform:scale(.7);opacity:0}30%{opacity:.9}100%{transform:scale(1.12);opacity:0}}
+    @keyframes caretPulse{0%,100%{opacity:.15}50%{opacity:.7}}
     @keyframes dotPulse{0%,72%,100%{opacity:.22;transform:translateY(0)}36%{opacity:1;transform:translateY(-3px)}}
     @keyframes sheetIn{from{opacity:0;transform:scale(.955) translateY(-8px)}to{opacity:1;transform:scale(1) translateY(0)}}
     @keyframes sheetInCenter{from{opacity:0;transform:translateY(-50%) scale(.955)}to{opacity:1;transform:translateY(-50%) scale(1)}}
@@ -131,9 +134,16 @@
             <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,transparent 58%,rgba(255,79,160,.18) 70%,transparent 80%);filter:blur(6px);animation:ripple 3s ease-out infinite 1.5s;"></div>
           </sc-if>
           <div style="position:absolute;width:420px;height:420px;border-radius:50%;background:{{ haloBg }};filter:blur(8px) {{ orbHue }};animation:{{ haloAnim }};"></div>
+          <!-- 「活球」声纹光晕：通话时随真实语音(--voice)涨落发光、按角色色相染色。idle/挂断时 --voice=0 → 隐形。 -->
+          <div style="position:absolute;width:420px;height:420px;border-radius:50%;background:{{ haloBg }};filter:blur(15px) {{ orbHue }};opacity:calc(var(--voice,0) * .92);transform:scale(calc(1 + var(--voice,0) * .17));mix-blend-mode:screen;pointer-events:none;will-change:opacity,transform;"></div>
+          <!-- 接通仪式：线路接通瞬间，一道光环向外散开 + 球心一次绽放（挂载即播一次，~900ms 后卸载）。 -->
+          <sc-if value="{{ connectRitual }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,transparent 56%,rgba(255,255,255,.5) 68%,transparent 80%);filter:blur(3px) {{ orbHue }};mix-blend-mode:screen;pointer-events:none;animation:connectBloom .85s cubic-bezier(.16,1,.3,1) both;"></div>
+            <div style="position:absolute;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.6),rgba(255,255,255,.12) 50%,transparent 70%);mix-blend-mode:screen;pointer-events:none;animation:connectCore .8s ease-out both;"></div>
+          </sc-if>
           <!-- 渐变球只在「无头像」时作兜底渲染；有头像时整层不渲染（不再留作底层垃圾）。 -->
           <sc-if value="{{ noOrbAvatar }}" hint-placeholder-val="{{ true }}">
-          <div onClick="{{ orbTap }}" style="position:relative;width:288px;height:288px;border-radius:50%;overflow:hidden;-webkit-clip-path:circle(50%);clip-path:circle(50%);cursor:{{ orbCursor }};pointer-events:auto;background:radial-gradient(circle at 50% 48%,#16161f,#070709 78%);box-shadow:{{ orbShadow }}, inset 0 0 30px rgba(0,0,0,.6);filter:{{ orbHue }};animation:{{ orbAnim }};">
+          <div onClick="{{ orbTap }}" style="position:relative;width:288px;height:288px;border-radius:50%;overflow:hidden;-webkit-clip-path:circle(50%);clip-path:circle(50%);cursor:{{ orbCursor }};pointer-events:auto;background:radial-gradient(circle at 50% 48%,#16161f,#070709 78%);box-shadow:{{ orbShadow }}, inset 0 0 30px rgba(0,0,0,.6);filter:{{ orbHue }};transform:scale(calc(1 + var(--voice,0) * .045));will-change:transform;animation:{{ orbAnim }};">
             <div style="position:absolute;inset:-22%;animation:{{ fieldAnim }};">
               <div style="position:absolute;top:-8%;left:-4%;width:78%;height:78%;border-radius:50%;background:radial-gradient(circle,#2E7BFF,transparent 70%);filter:blur(15px);mix-blend-mode:screen;"></div>
               <div style="position:absolute;bottom:-12%;right:-8%;width:80%;height:80%;border-radius:50%;background:radial-gradient(circle,#6E5CFF,transparent 70%);filter:blur(16px);mix-blend-mode:screen;"></div>
@@ -147,10 +157,12 @@
           <!-- 头像层：有头像就「填满大球」。独立于渐变球那层的 hue-rotate（否则人脸会被染色），
                靠 inset 暗角把背景边缘糊进暗场、各角色一致不漂移；外圈色相光晕(haloBg)仍在，保留招牌光球感。 -->
           <sc-if value="{{ hasOrbAvatar }}" hint-placeholder-val="{{ false }}">
-            <div onClick="{{ orbTap }}" style="position:relative;width:288px;height:288px;border-radius:50%;overflow:hidden;-webkit-clip-path:circle(50%);clip-path:circle(50%);pointer-events:auto;cursor:{{ orbCursor }};background:radial-gradient(circle at 50% 48%,#16161f,#070709 78%);box-shadow:{{ orbShadow }}, inset 0 0 26px rgba(0,0,0,.42);animation:{{ orbAnim }};">
+            <div onClick="{{ orbTap }}" style="position:relative;width:288px;height:288px;border-radius:50%;overflow:hidden;-webkit-clip-path:circle(50%);clip-path:circle(50%);pointer-events:auto;cursor:{{ orbCursor }};background:radial-gradient(circle at 50% 48%,#16161f,#070709 78%);box-shadow:{{ orbShadow }}, inset 0 0 26px rgba(0,0,0,.42);transform:scale(calc(1 + var(--voice,0) * .045));will-change:transform;animation:{{ orbAnim }};">
               <img src="{{ orbAvatar }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;background:radial-gradient(circle at 50% 48%,#16161f,#070709 78%);" />
             </div>
           </sc-if>
+          <!-- 「活球」核心绽放：TA 说话时球心随声音点亮（叠在头像/渐变球之上，screen 混合，只在通话出声时显）。 -->
+          <div style="position:absolute;top:50%;left:50%;width:64%;height:64%;transform:translate(-50%,-50%) scale(calc(1 + var(--voice,0) * .22));border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.72),rgba(255,255,255,.16) 45%,transparent 66%);opacity:calc(var(--voice,0) * .5);mix-blend-mode:screen;pointer-events:none;will-change:opacity,transform;"></div>
           </div>
         </div>
         <div style="min-height:28px;display:flex;align-items:center;justify-content:center;">
@@ -184,7 +196,7 @@
              让最新一句贴底显示（聊天式），多出的旧消息向上滚走，绝不溢出盖住下方通话按钮。 -->
         <div style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;padding:16px 36px;">
           <sc-for list="{{ lines }}" as="line" hint-placeholder-count="2">
-            <div style="align-self:{{ line.align }};text-align:{{ line.textAlign }};max-width:86%;font-size:17px;line-height:1.55;letter-spacing:.2px;color:{{ line.color }};transition:color .4s ease;text-wrap:pretty;">{{ line.text }}</div>
+            <div style="align-self:{{ line.align }};text-align:{{ line.textAlign }};max-width:86%;font-size:{{ line.fontSize }};font-weight:{{ line.weight }};opacity:{{ line.opacity }};line-height:1.5;letter-spacing:.2px;color:{{ line.color }};transition:font-size .45s cubic-bezier(.16,1,.3,1),opacity .55s ease,color .4s ease;text-wrap:pretty;">{{ line.text }}<span style="display:{{ line.caretDisplay }};width:2px;height:1em;margin-left:3px;vertical-align:-2px;border-radius:1px;background:currentColor;opacity:.55;animation:caretPulse 1.1s ease-in-out infinite;"></span></div>
           </sc-for>
           <sc-if value="{{ showTextHint }}" hint-placeholder-val="{{ false }}">
             <div style="font-size:16px;color:var(--dim);letter-spacing:.4px;">{{ textHint }}</div>

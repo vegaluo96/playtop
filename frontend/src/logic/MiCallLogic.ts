@@ -92,7 +92,7 @@ export class MiCallLogic {
   charsReady = true;
   private _scenesBuilt = false;
 
-  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 60, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false };
+  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 60, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false, justConnected: false };
 
   t: Timer[] = [];
   i = 0;
@@ -102,6 +102,7 @@ export class MiCallLogic {
   private micStream: MediaStream | null = null;
   private micCapture: MicCapture | null = null;  // 麦克风 → 上行 PCM 帧
   private player = new AudioPlayer();             // 下行 TTS PCM → 播放
+  private voiceRAF: number | null = null;        // 「活球」：每帧把真实语音振幅写进 --voice 供球呼吸/发光
   private halfDuplex = true;                      // 默认半双工（AI 外放时不上行，稳·无回声·无杂音）；?duplex=full 才关
   private rtcEnabled = false;                      // ?rtc=1：实验性服务端 WebRTC 媒体面（真全双工，可随时打断、外放硬件 AEC）
   private pc: RTCPeerConnection | null = null;     // WebRTC 媒体连接（仅 rtc 模式）
@@ -631,7 +632,7 @@ export class MiCallLogic {
     try { const id = this.chars[i]?.id; if (id) localStorage.setItem("micall_lastchar", id); } catch { /* noop */ }
   }
 
-  clearTimers() { (this.t || []).forEach(clearTimeout); this.t = []; if (this.autoHangupTimer) { clearTimeout(this.autoHangupTimer); this.autoHangupTimer = null; } this._stopReveal(); }
+  clearTimers() { (this.t || []).forEach(clearTimeout); this.t = []; if (this.autoHangupTimer) { clearTimeout(this.autoHangupTimer); this.autoHangupTimer = null; } if (this.connectTimer) { clearTimeout(this.connectTimer); this.connectTimer = null; } this._stopReveal(); }
 
   // ── 字幕逐字揭开：按后端给的这句预估时长(dur 秒)在该时长内把文字揭完，让字幕跟住真实语音，
   //    而不是整句一下全出来再把后面顶走。无 dur（旧后端）→ 直接显全，优雅降级。 ──
@@ -658,6 +659,7 @@ export class MiCallLogic {
   // ── 无人说话自动挂断：通话中持续静默（用户/AI 都无新转写）达 autoHangupMin 分钟则自动结束。
   // 每次有人说话（subtitle / 被打断）就重新计时；设为「关闭」(0) 则不启用。 ──
   private autoHangupTimer: ReturnType<typeof setTimeout> | null = null;
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;   // 接通仪式：justConnected 短暂为真，触发一次性绽放
   private callActive(): boolean {
     return ["calling", "listening", "thinking", "speaking"].includes(this.state.phase);
   }
@@ -666,12 +668,38 @@ export class MiCallLogic {
   private goLive() {
     if (this.state.phase !== "calling") return;
     this.player.stopRing();    // 接通提示音停（传输已就绪）
-    this.setState({ phase: "listening", seconds: 0, subtitle: "", lines: [], callFailed: false });
+    this.startVoiceMeter();    // 「活球」启动：球随真实语音呼吸/发光
+    this.setState({ phase: "listening", seconds: 0, subtitle: "", lines: [], callFailed: false, justConnected: true });
+    // 接通仪式：一次性绽放（声纳般的光环向外散开），~900ms 后收起标记，绽放层卸载
+    if (this.connectTimer) clearTimeout(this.connectTimer);
+    this.connectTimer = setTimeout(() => { this.connectTimer = null; this.setState({ justConnected: false }); }, 900);
     // 告诉后端「传输已就绪」→ AI 接起来主动开口（开场白走在已就绪传输上）。phase 守卫保证整通只发一次。
     try { this.ensureSignaling().send({ type: "ready" }); } catch { /* noop */ }
     this.armAutoHangup();      // 进入可对话才开始静默计时
     this.maybeEarphoneTip();   // 首通一次性提示：戴耳机打断更灵
   }
+
+  // 「活球」声纹驱动：每帧读真实语音振幅 → 写 CSS 变量 --voice(0..1)，球的呼吸/发光/核心亮度跟着它走。
+  // 不走 setState（避免每帧整树重渲）——直接改 :root 自定义属性，CSS 自行响应。尊重 prefers-reduced-motion。
+  private startVoiceMeter() {
+    if (this.voiceRAF !== null) return;
+    if (typeof window === "undefined" || typeof requestAnimationFrame === "undefined" || typeof document === "undefined") return;
+    try { if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; } catch { /* noop */ }
+    const root = document.documentElement;
+    const tick = () => {
+      if (!this.callActive()) { this.voiceRAF = null; root.style.setProperty("--voice", "0"); return; }
+      const v = this.player.level();
+      root.style.setProperty("--voice", v.toFixed(3));
+      this.voiceRAF = requestAnimationFrame(tick);
+    };
+    this.voiceRAF = requestAnimationFrame(tick);
+  }
+  private stopVoiceMeter() {
+    if (this.voiceRAF !== null && typeof cancelAnimationFrame !== "undefined") cancelAnimationFrame(this.voiceRAF);
+    this.voiceRAF = null;
+    try { if (typeof document !== "undefined") document.documentElement.style.setProperty("--voice", "0"); } catch { /* noop */ }
+  }
+
   private armAutoHangup() {
     if (this.autoHangupTimer) { clearTimeout(this.autoHangupTimer); this.autoHangupTimer = null; }
     const mins = Number(this.state.autoHangupMin) || 0;
@@ -898,6 +926,7 @@ export class MiCallLogic {
     this.micStream.getAudioTracks().forEach((tr) => { tr.enabled = enabled; });
   }
   private stopMic() {
+    this.stopVoiceMeter();   // 「活球」停：--voice 归 0，球回静息
     this.stopMicUplink();
     this.teardownRtc();
     this.player.flush(); // 挂断/失败：停掉残留下行音频
@@ -1155,12 +1184,20 @@ export class MiCallLogic {
       const full = typeof m === "string" ? m : m.text;
       // 仅「最后一句 AI」按 dur 逐字揭开；前面的句子（已说完）一律显全。
       const animating = idx === arr.length - 1 && !isUser && full === this._revealText && this._revealLen < full.length;
+      // 景深排版：最新一句是主角（大、实、weight 稍重），旧句按距离层层后退（字号小、透明度递减），
+      // 像声音从远处飘来。最新 AI 句在逐字揭开时尾部带一个呼吸光标。颜色仍按你/TA 区分。
+      const dist = arr.length - 1 - idx;                       // 0=最新
+      const fontSize = dist === 0 ? "19px" : dist === 1 ? "16.5px" : "15px";
+      const opacity = dist === 0 ? "1" : String(Math.max(0.34, 0.8 - (dist - 1) * 0.16).toFixed(2));
+      const weight = dist === 0 ? "460" : "400";
       return {
         text: animating ? full.slice(0, this._revealLen) : full,   // 兼容旧的纯字符串
         align: isUser ? "flex-end" : "flex-start",   // 块靠右/靠左（align-self）
         // 文字本身也右排：长句换行时末行才会贴右边缘，否则块虽靠右但文字左排 → 看着像没对齐（用户反馈）。
         textAlign: isUser ? "right" : "left",
-        color: isUser ? "#6E5CFF" : (idx === arr.length - 1 ? "var(--fg)" : "var(--dim)"),
+        color: isUser ? "#6E5CFF" : "var(--fg)",     // 深浅交给 opacity，颜色只分你(紫)/TA(前景)
+        fontSize, opacity, weight,
+        caretDisplay: animating ? "inline-block" : "none",   // 仅最新 AI 逐字揭开时显呼吸光标
       };
     });
 
@@ -1272,6 +1309,8 @@ export class MiCallLogic {
       title: p === "ended" ? "通话结束" : (this.charsReady ? charName : " "),   // 未就绪显空(占位高度不塌)，不闪占位名
       orbHue, showOrbStatus, showTagline, showUnderOrb, charDots,
       orbAvatar, hasOrbAvatar: !!orbAvatar, noOrbAvatar: !orbAvatar,   // 有头像→只显头像层(下方渐变球不渲染)；无头像→渐变球兜底
+      connectRitual: !!this.state.justConnected,   // 接通瞬间：一次性绽放光环（挂载即播一次）
+
       charTagline: char.desc,
       charDetail: {
         name: char.name, tagline: char.desc, bio: char.bio, traits: char.traits, hueFilter: orbHue,
