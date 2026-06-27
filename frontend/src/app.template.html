@@ -144,8 +144,8 @@
           <!-- 头像层：有头像就盖在渐变球上「填满大球」。独立于上面那层的 hue-rotate（否则人脸会被染色），
                靠 inset 暗角把背景边缘糊进暗场、各角色一致不漂移；外圈色相光晕(haloBg)仍在，保留招牌光球感。 -->
           <sc-if value="{{ hasOrbAvatar }}" hint-placeholder-val="{{ false }}">
-            <div onClick="{{ orbTap }}" style="position:absolute;width:288px;height:288px;border-radius:50%;overflow:hidden;-webkit-clip-path:circle(50%);clip-path:circle(50%);pointer-events:auto;cursor:{{ orbCursor }};box-shadow:{{ orbShadow }}, inset 0 0 26px rgba(0,0,0,.42);animation:{{ orbAnim }};">
-              <img src="{{ orbAvatar }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />
+            <div onClick="{{ orbTap }}" style="position:absolute;width:288px;height:288px;border-radius:50%;overflow:hidden;-webkit-clip-path:circle(50%);clip-path:circle(50%);pointer-events:auto;cursor:{{ orbCursor }};background:radial-gradient(circle at 50% 48%,#16161f,#070709 78%);box-shadow:{{ orbShadow }}, inset 0 0 26px rgba(0,0,0,.42);animation:{{ orbAnim }};">
+              <img src="{{ orbAvatar }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;background:radial-gradient(circle at 50% 48%,#16161f,#070709 78%);" />
             </div>
           </sc-if>
           </div>
@@ -289,7 +289,7 @@
           <sc-if value="{{ hasFavs }}" hint-placeholder-val="{{ true }}">
             <sc-for list="{{ favList }}" as="c" hint-placeholder-count="2">
               <div onClick="{{ c.pick }}" style="display:flex;align-items:center;gap:13px;padding:10px 12px;border-radius:16px;cursor:pointer;">
-                <div style="width:40px;height:40px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,.14);"><div style="position:absolute;inset:0;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};"></div><img src="{{ c.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ c.avatarDisplay }};" /></div>
+                <div style="width:40px;height:40px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,.14);"><div style="position:absolute;inset:0;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};"></div><img src="{{ c.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ c.avatarDisplay }};background:#0b0b11;" /></div>
                 <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
                   <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;">{{ c.name }}</span>
                   <span style="font-size:12.5px;color:var(--dim);">{{ c.desc }}</span>
@@ -475,7 +475,7 @@
         <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 0 0;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 6px;flex:none;"></div>
           <div style="flex:none;padding:0 20px 14px;display:flex;flex-direction:column;align-items:center;gap:12px;">
-              <div style="width:96px;height:96px;border-radius:50%;position:relative;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.18);"><div style="position:absolute;inset:0;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ charDetail.hueFilter }};"></div><img src="{{ charDetail.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ charDetail.avatarDisplay }};" /></div>
+              <div style="width:96px;height:96px;border-radius:50%;position:relative;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.18);"><div style="position:absolute;inset:0;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ charDetail.hueFilter }};"></div><img src="{{ charDetail.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ charDetail.avatarDisplay }};background:#0b0b11;" /></div>
               <div style="display:flex;align-items:center;gap:10px;">
                 <span style="font-size:23px;font-weight:700;color:var(--fg);letter-spacing:.5px;">{{ charDetail.name }}</span>
                 <span style="display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:{{ charDetail.genderColor }};background:var(--ctrl);padding:4px 10px;border-radius:11px;">{{ charDetail.gender }} {{ charDetail.age }}</span>
@@ -626,7 +626,7 @@
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
           <sc-for list="{{ charList }}" as="c" hint-placeholder-count="6">
             <div onClick="{{ c.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:10px;border-radius:18px;cursor:pointer;background:{{ c.bg }};border:{{ c.border }};transition:all .2s ease;" style-active="transform:scale(.98)">
-              <div style="width:46px;height:46px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,.12);"><div style="position:absolute;inset:0;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};"></div><img src="{{ c.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ c.avatarDisplay }};" /></div>
+              <div style="width:46px;height:46px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,.12);"><div style="position:absolute;inset:0;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};"></div><img src="{{ c.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ c.avatarDisplay }};background:#0b0b11;" /></div>
               <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
                 <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;display:inline-flex;align-items:center;gap:6px;">{{ c.name }}<svg width="13" height="13" viewBox="0 0 24 24" fill="#FF4F7B" stroke="#FF4F7B" stroke-width="1.8" style="opacity:{{ c.favOp }};"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
                 <span style="font-size:12.5px;color:var(--dim);">{{ c.desc }}</span>
