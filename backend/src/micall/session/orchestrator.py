@@ -239,10 +239,6 @@ class CallSession:
         # 窗口内【AI 正在播】时一律丢弃 ASR（不触发回合、不打断、不上字幕），等收敛了再正常全双工。
         # AI 不在播时用户真说话照常处理（不丢真话）。可在 turn.aec_warmup_s 调。
         self._aec_warmup_s = float(turn.get("aec_warmup_s", 1.8))
-        # 热身期不再「一刀切丢 ASR」（会把你想说的话也吞掉），改「选择性丢」：热身窗内只丢与 AI 刚说的话
-        # 明显重叠的（=没消干净的回声，用更激进的低阈值判），明显不重叠的当你真说话放行（不吞话）。
-        # 调小=更狠地判回声（治「开头把 AI 自己的话当你说」），调大=更少误判（治「开头吞了你的话」）。
-        self._aec_warmup_echo_overlap = float(turn.get("aec_warmup_echo_overlap", 0.6))
         self._aec_warmup_until = 0.0
         # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
@@ -315,7 +311,7 @@ class CallSession:
                 return
             yield frame
 
-    def _looks_like_echo(self, text: str, overlap_threshold: float | None = None) -> bool:
+    def _looks_like_echo(self, text: str) -> bool:
         """识别到的"用户"文本是不是 AI 自己声音的回灌。两段窗口、两种力度：
           • 子串命中（AI 说过的原话被原样转写回来）→ 任何回声窗内都判回声（高置信）。
           • 模糊重叠（ASR 把回声转写得不全字对字）→ 仅在音频「仍在播放」时启用；此刻真实用户多在打断、
@@ -338,8 +334,7 @@ class CallSession:
         if now <= self._audio_until:        # 音频还在播：模糊重叠也判回声（含 AEC，防自我打断）
             chars = set(nt)
             overlap = sum(1 for ch in chars if ch in said) / len(chars)
-            thr = self._echo_overlap if overlap_threshold is None else overlap_threshold
-            return overlap >= thr
+            return overlap >= self._echo_overlap
         return False
 
     # ── task A：实时 ASR 感知（partial 回显 / final 触发一轮 / 开口即打断 §1.4-1.5）──
@@ -351,12 +346,8 @@ class CallSession:
                 t = (text or "").strip()
                 if not t or self.sm.phase in (Phase.IDLE, Phase.ENDED):
                     continue
-                # 开场白播放期：整段丢 ASR（不打断/不触发轮次/不上字幕）。开场白头一两秒 AEC 还没收敛、
-                # 它自己的回声会漏回麦克风被当成「你插话」→ 若不挡死，开场白会被自己的回声切断（实测「讲到嗯/
-                # 第二杯就停」）。这一两秒分不清乱码回声和你的真话，故宁可让开场白完整说完——你想插话等它说完即可
-                # （开场白之后 warmup=0，随时能打断）。这是「AI 绝不自我切断」与「能打断开场白」的取舍，取前者。
                 if self._opening_active:
-                    continue
+                    continue  # 开场白播放期：整段丢 ASR（不打断/不触发轮次/不上字幕）——防 AI 把自己的开场白当用户插话
                 if self._looks_like_echo(t):
                     continue  # AI 自己的声音回灌麦克风（前端半双工漏掉的残余），忽略：不打断、不触发新一轮
                 if _is_filler(t):
@@ -370,10 +361,7 @@ class CallSession:
                 ai_playing = time.monotonic() <= self._audio_until
                 # AEC 热身窗内 + AI 正在播：浏览器回声消除还没收敛，此刻录到的多是没消干净的 AI 余音，
                 # 整条丢弃（不上字幕、不打断、不触发回合）→ 治「一上来几句识别成错字」。AI 不在播时照常处理（不丢真话）。
-                # 热身期（硬件 AEC 还没收敛）：不一刀切丢 ASR（会把你想说的话也吞了），改「选择性丢」——
-                # 只丢和 AI 刚说的话明显重叠的（=没消干净的回声，用更激进的低阈值）；明显不重叠的当你真说话放行。
-                if (ai_playing and self._full_duplex_aec and time.monotonic() < self._aec_warmup_until
-                        and self._looks_like_echo(t, overlap_threshold=self._aec_warmup_echo_overlap)):
+                if ai_playing and self._full_duplex_aec and time.monotonic() < self._aec_warmup_until:
                     continue
                 if ai_playing and _is_laughter(t):
                     continue  # AI 说话时你笑一声/附和（哈哈/嘻嘻）：是捧场不是插话，不打断、不另起一轮，让她说完
