@@ -696,7 +696,8 @@ export class AdminLogic {
   renderVals(): Vals {
     const s = this.state;
     const planStyle = (p: string) => p === "无限会员" ? { c: "#E0954F", b: "rgba(224,149,79,.12)" } : (p === "畅聊会员" ? { c: "#6E5CFF", b: "rgba(110,92,255,.1)" } : (p === "轻享会员" ? { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } : (p === "已封禁" ? { c: "#E0594F", b: "rgba(224,89,79,.1)" } : { c: "#878B95", b: "#F0F0F3" })));
-    const hf = (name: string) => this.hueOf[name] || "none";
+    // 全站统一：圈里显真实头像（稳定 URL，浏览器按 immutable 缓存，不每帧重拉）；无头像则暗底占位，不再用渐变球。
+    const avatarByName = (name: string) => { const ch = this.chars.find((c: any) => c.name === name); return ch && (ch as any).has_avatar ? adminAvatarUrl((ch as any).cid || ch.id) : ""; };
 
     const nav = [
       { key: "dashboard", label: "数据概览", icon: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" },
@@ -732,13 +733,14 @@ export class AdminLogic {
           const used: string[] = v.used_by || [];
           const inUse = used.length > 0;
           const ch = this.chars.find((c: any) => used.includes(c.name));
+          const vav = ch && (ch as any).has_avatar ? adminAvatarUrl((ch as any).cid || ch.id) : "";
           return { matched: v.voice_id, name: v.name, engine: "MiniMax", engColor: mmStyle.c, engBg: mmStyle.b,
             meta: v.gender + " · " + v.group, char: inUse ? used.join("、") : "—",
-            hueFilter: ch ? "hue-rotate(" + (ch.hue || 0) + "deg)" : "none", hasChar: inUse,
+            avatar: vav, avatarDisplay: vav ? "block" : "none", hasChar: inUse,
             status: inUse ? "已启用" : "可用", stColor: inUse ? "#1FA971" : "#878B95",
             stBg: inUse ? "rgba(31,169,113,.1)" : "#F0F0F3", preview: previewVid(v.voice_id) };
         })
-      : this.voices.map((v) => { const es = engStyle(v.engine); const m = matchedBy[v.id] || 0; return { matched: this.realStats ? "—" : (m ? m.toLocaleString() + " 次" : "—"), name: v.name, engine: v.engine, engColor: es.c, engBg: es.b, meta: v.gender + " · " + v.lang, char: v.char || "—", hueFilter: v.char ? "hue-rotate(" + (v.hue || 0) + "deg)" : "none", hasChar: !!v.char, status: v.status, stColor: v.status === "启用" ? "#1FA971" : "#878B95", stBg: v.status === "启用" ? "rgba(31,169,113,.1)" : "#F0F0F3", preview: () => this.toastMsg("音色试听功能开发中") }; });
+      : this.voices.map((v) => { const es = engStyle(v.engine); const m = matchedBy[v.id] || 0; return { matched: this.realStats ? "—" : (m ? m.toLocaleString() + " 次" : "—"), name: v.name, engine: v.engine, engColor: es.c, engBg: es.b, meta: v.gender + " · " + v.lang, char: v.char || "—", avatar: "", avatarDisplay: "none", hasChar: !!v.char, status: v.status, stColor: v.status === "启用" ? "#1FA971" : "#878B95", stBg: v.status === "启用" ? "rgba(31,169,113,.1)" : "#F0F0F3", preview: () => this.toastMsg("音色试听功能开发中") }; });
     const voicePresetCount = this.realVoices ? this.realVoices.length : this.voices.length;
     const voiceCloneCount = this.chars.reduce((a, c) => a + c.customVoices, 0).toLocaleString();
     const voiceMatchTotal = this.realVoices
@@ -841,13 +843,13 @@ export class AdminLogic {
     const dateChips = ([["today", "今日"], ["7d", "近 7 日"], ["30d", "近 30 日"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ dateRange: k }), bg: s.dateRange === k ? "#16161A" : "#fff", color: s.dateRange === k ? "#fff" : "#5A5E6B", border: s.dateRange === k ? "#16161A" : "#E6E7EB" }));
     // 热门角色：this.chars 的 calls 在接后端时已是真实通话数（loadRealData 写入），演示时为内置数。
     const topChars = this.chars.slice().sort((a, b) => parseFloat(b.calls) - parseFloat(a.calls)).slice(0, 5)
-      .map((c, i) => ({ rank: i + 1, name: c.name, hueFilter: "hue-rotate(" + c.hue + "deg)", calls: this.realStats ? c.calls + " 次" : c.calls }));
+      .map((c, i) => ({ rank: i + 1, name: c.name, avatar: (c as any).has_avatar ? adminAvatarUrl((c as any).cid || c.id) : "", avatarDisplay: (c as any).has_avatar ? "block" : "none", calls: this.realStats ? c.calls + " 次" : c.calls }));
     const SCENE_NAME: Record<string, string> = { heart: "心情树洞", chat: "随便聊聊", interview: "模拟面试", idiom: "成语接龙", english: "英语陪练", study: "陪我学习", sleep: "睡前故事", meditation: "解压冥想", coffee: "咖啡馆", story: "睡前故事" };
     // 热门场景：从 calls.scenario 真实聚合（无数据则空，不再用演示数字）。
     const scEnt = Object.entries((this.realSceneCalls || {}) as Record<string, number>).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const scMax = Math.max(1, ...scEnt.map(([, n]) => n));
     const topScenes = scEnt.map(([k, n]) => ({ name: SCENE_NAME[k] || k, uses: String(n), pct: Math.round(n / scMax * 100) + "%" }));
-    const recentCalls = this.calls.slice(0, 4).map((c) => ({ char: c.char, hueFilter: hf(c.char), scene: c.scene, dur: c.dur, open: () => this.open("call", c.id) }));
+    const recentCalls = this.calls.slice(0, 4).map((c) => { const av = avatarByName(c.char); return { char: c.char, avatar: av, avatarDisplay: av ? "block" : "none", scene: c.scene, dur: c.dur, open: () => this.open("call", c.id) }; });
 
     const ufDefs: [string, string][] = [["all", "全部"], ["无限会员", "无限会员"], ["畅聊会员", "畅聊会员"], ["轻享会员", "轻享会员"], ["免费", "免费"], ["已封禁", "已封禁"]];
     const userFilters = ufDefs.map(([k, label]) => ({
@@ -879,7 +881,7 @@ export class AdminLogic {
       toggleOnline: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.toggleCharOnline(c.cid || c.id, c.status === "下架"); },
       ...((st: string) => st === "上线" ? { stColor: "#1FA971", stBg: "rgba(31,169,113,.1)" } : { stColor: "#878B95", stBg: "#F0F0F3" })(c.status), open: () => this.open("char", c.id) }));
 
-    const callsView = this.calls.filter((c) => !q || (c.char + c.user + c.scene).toLowerCase().includes(q)).map((c) => ({ char: c.char, hueFilter: hf(c.char), user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time, open: () => this.open("call", c.id) }));
+    const callsView = this.calls.filter((c) => !q || (c.char + c.user + c.scene).toLowerCase().includes(q)).map((c) => { const av = avatarByName(c.char); return { char: c.char, avatar: av, avatarDisplay: av ? "block" : "none", user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time, open: () => this.open("call", c.id) }; });
 
     const tStyle = (st: string) => st === "已回复" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : { c: "#E0954F", b: "rgba(224,149,79,.12)" };
     const ticketsView = this.tickets.filter((t) => !q || (t.type + t.user + t.msg).toLowerCase().includes(q)).map((t) => {
@@ -910,7 +912,8 @@ export class AdminLogic {
     } else if (d && d.type === "call") {
       const c = this.calls.find((x) => x.id === d.id);
       // 只展示后端真实留存的字段（角色/用户/场景/时长/结束方式/时间）。通话文字内容出于隐私不落库 → 不伪造回放。
-      dCall = { char: c.char, hueFilter: hf(c.char), user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time };
+      const dav = avatarByName(c.char);
+      dCall = { char: c.char, avatar: dav, avatarDisplay: dav ? "block" : "none", user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time };
       detailTitle = "通话详情";
     } else if (d && d.type === "ticket") {
       const t = this.tickets.find((x) => x.id === d.id);

@@ -128,7 +128,7 @@
               <sc-for list="{{ topChars }}" as="c" hint-placeholder-count="5">
                 <div style="display:flex;align-items:center;gap:11px;padding:9px 0;">
                   <span style="font-size:13px;font-weight:700;color:#C2C4CC;width:14px;">{{ c.rank }}</span>
-                  <div style="width:30px;height:30px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};"></div>
+                  <div style="width:30px;height:30px;border-radius:50%;flex:none;position:relative;overflow:hidden;"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ c.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ c.avatarDisplay }};background:#0b0b11;" /></div>
                   <span style="flex:1;font-size:13.5px;font-weight:500;">{{ c.name }}</span>
                   <span style="font-size:13px;color:#878B95;font-variant-numeric:tabular-nums;">{{ c.calls }} 次</span>
                 </div>
@@ -151,7 +151,7 @@
               <div style="font-size:15px;font-weight:600;margin-bottom:6px;">最近通话</div>
               <sc-for list="{{ recentCalls }}" as="r" hint-placeholder-count="4">
                 <div onClick="{{ r.open }}" style="display:flex;align-items:center;gap:11px;padding:10px 8px;border-top:1px solid #F2F2F5;cursor:pointer;border-radius:8px;" style-hover="background:#F7F7FA">
-                  <div style="width:28px;height:28px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ r.hueFilter }};"></div>
+                  <div style="width:28px;height:28px;border-radius:50%;flex:none;position:relative;overflow:hidden;"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ r.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ r.avatarDisplay }};background:#0b0b11;" /></div>
                   <span style="font-size:13px;font-weight:500;width:50px;">{{ r.char }}</span>
                   <span style="flex:1;font-size:12.5px;color:#878B95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.scene }}</span>
                   <span style="font-size:12.5px;color:#878B95;font-variant-numeric:tabular-nums;">{{ r.dur }}</span>
@@ -205,7 +205,7 @@
             <sc-for list="{{ charsView }}" as="c" hint-placeholder-count="6">
               <div onClick="{{ c.open }}" style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.03);cursor:pointer;" style-hover="border-color:#D9D6FF;box-shadow:0 6px 18px rgba(110,92,255,.1)">
                 <div style="display:flex;align-items:center;gap:13px;">
-                  <div style="width:46px;height:46px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.12);"><div style="position:absolute;inset:0;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};"></div><img src="{{ c.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ c.avatarDisplay }};background:#0b0b11;" /></div>
+                  <div style="width:46px;height:46px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.12);"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ c.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ c.avatarDisplay }};background:#0b0b11;" /></div>
                   <div style="flex:1;min-width:0;">
                     <div style="display:flex;align-items:center;gap:7px;"><span style="font-size:15px;font-weight:600;">{{ c.name }}</span><span style="font-size:11px;font-weight:600;color:{{ c.genderColor }};background:rgba(0,0,0,.04);border-radius:6px;padding:1px 7px;">{{ c.genderAge }}</span><sc-if value="{{ c.isDefault }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:600;color:#6E5CFF;background:rgba(110,92,255,.12);border-radius:6px;padding:1px 7px;">默认</span></sc-if></div>
                     <div style="font-size:12.5px;color:#9A9DA7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">{{ c.desc }}</div>
@@ -253,7 +253,7 @@
             </div>
             <sc-for list="{{ callsView }}" as="c" hint-placeholder-count="8">
               <div onClick="{{ c.open }}" style="display:grid;grid-template-columns:1.1fr 1.3fr 1fr .9fr .9fr 1.1fr 30px;gap:12px;padding:13px 20px;border-bottom:1px solid #F4F4F6;align-items:center;cursor:pointer;" style-hover="background:#F8F8FB">
-                <div style="display:flex;align-items:center;gap:10px;"><div style="width:30px;height:30px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};"></div><span style="font-size:13.5px;font-weight:500;">{{ c.char }}</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><div style="width:30px;height:30px;border-radius:50%;flex:none;position:relative;overflow:hidden;"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ c.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ c.avatarDisplay }};background:#0b0b11;" /></div><span style="font-size:13.5px;font-weight:500;">{{ c.char }}</span></div>
                 <span style="font-size:13px;color:#5A5E6B;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ c.user }}</span>
                 <span style="font-size:12.5px;color:#6E5CFF;background:rgba(110,92,255,.08);border-radius:7px;padding:3px 9px;justify-self:start;">{{ c.scene }}</span>
                 <span style="font-size:13px;font-variant-numeric:tabular-nums;color:#5A5E6B;">{{ c.dur }}</span>
@@ -376,7 +376,7 @@
                 <span><span style="font-size:12px;font-weight:600;color:{{ v.engColor }};background:{{ v.engBg }};border-radius:7px;padding:3px 9px;">{{ v.engine }}</span></span>
                 <span style="font-size:13px;color:#5A5E6B;">{{ v.meta }}</span>
                 <div style="display:flex;align-items:center;gap:8px;">
-                  <sc-if value="{{ v.hasChar }}" hint-placeholder-val="{{ false }}"><div style="width:22px;height:22px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ v.hueFilter }};"></div></sc-if>
+                  <sc-if value="{{ v.hasChar }}" hint-placeholder-val="{{ false }}"><div style="width:22px;height:22px;border-radius:50%;flex:none;position:relative;overflow:hidden;"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ v.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ v.avatarDisplay }};background:#0b0b11;" /></div></sc-if>
                   <span style="font-size:13px;color:#5A5E6B;">{{ v.char }}</span>
                 </div>
                 <span style="font-size:11.5px;color:#5A5E6B;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;user-select:all;cursor:text;">{{ v.matched }}</span>
@@ -638,7 +638,7 @@
       <!-- character detail -->
       <sc-if value="{{ dChar }}" hint-placeholder-val="{{ false }}">
         <div style="display:flex;align-items:center;gap:14px;padding-bottom:20px;border-bottom:1px solid #F0F0F3;">
-          <div style="width:54px;height:54px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.14);"><div style="position:absolute;inset:0;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ dChar.hueFilter }};"></div><img src="{{ avatarPreview }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ avatarPreviewDisplay }};background:#0b0b11;" /></div>
+          <div style="width:54px;height:54px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.14);"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ avatarPreview }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ avatarPreviewDisplay }};background:#0b0b11;" /></div>
           <div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:17px;font-weight:600;">{{ dChar.name }}</span><span style="font-size:11.5px;font-weight:600;color:{{ dChar.genderColor }};background:rgba(0,0,0,.04);border-radius:7px;padding:2px 8px;">{{ dChar.genderAge }}</span></div><div style="font-size:13px;color:#9A9DA7;margin-top:3px;">{{ dChar.desc }}</div></div>
           <span style="font-size:11.5px;font-weight:600;color:{{ dChar.stColor }};background:{{ dChar.stBg }};border-radius:7px;padding:3px 9px;">{{ dChar.status }}</span>
         </div>
@@ -739,9 +739,9 @@
           </div>
           <div style="border:1px dashed #D9DBE3;border-radius:13px;padding:13px 14px;background:#FBFBFD;">
             <div style="font-size:12px;font-weight:600;color:#5A5E6B;margin-bottom:3px;">🖼️ 角色头像（半写实·柔光影棚）</div>
-            <div style="font-size:11px;color:#A8ABB5;line-height:1.6;margin-bottom:10px;">用「接口配置 · 生图」里配的模型生成。构图/风格/背景已<b>锁死规范</b>，各角色放进同一个圆里不漂移。生成后全站圆圈（主页大球/列表/详情）自动显示真实头像，没生成则用渐变球兜底。<b>新角色请先保存再生成。</b></div>
+            <div style="font-size:11px;color:#A8ABB5;line-height:1.6;margin-bottom:10px;">用「接口配置 · 生图」里配的模型生成。构图/风格/背景已<b>锁死规范</b>，各角色放进同一个圆里不漂移。生成后全站圆圈（主页大球/列表/详情）自动显示真实头像，没生成则显示暗底占位。<b>新角色请先保存再生成。</b></div>
             <div style="display:flex;gap:14px;align-items:center;">
-              <div style="flex:none;width:84px;height:84px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);box-shadow:0 4px 12px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;">
+              <div style="flex:none;width:84px;height:84px;border-radius:50%;overflow:hidden;background:#0b0b11;box-shadow:0 4px 12px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;">
                 <sc-if value="{{ hasAvatarPreview }}" hint-placeholder-val="{{ false }}">
                   <img src="{{ avatarPreview }}" style="width:100%;height:100%;object-fit:cover;" />
                 </sc-if>
@@ -800,7 +800,7 @@
       <!-- call detail -->
       <sc-if value="{{ dCall }}" hint-placeholder-val="{{ false }}">
         <div style="display:flex;align-items:center;gap:13px;padding-bottom:18px;border-bottom:1px solid #F0F0F3;">
-          <div style="width:46px;height:46px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ dCall.hueFilter }};"></div>
+          <div style="width:46px;height:46px;border-radius:50%;flex:none;position:relative;overflow:hidden;"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ dCall.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ dCall.avatarDisplay }};background:#0b0b11;" /></div>
           <div style="flex:1;"><div style="font-size:16px;font-weight:600;">{{ dCall.char }}</div><div style="font-size:12.5px;color:#9A9DA7;">用户 {{ dCall.user }}</div></div>
           <div style="text-align:right;"><div style="font-size:12.5px;color:#A8ABB5;">{{ dCall.dur }} · {{ dCall.time }}</div></div>
         </div>

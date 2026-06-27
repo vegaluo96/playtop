@@ -1243,7 +1243,7 @@ export class MiCallLogic {
       edgeVisible: edgeOpacity > 0,
       title: p === "ended" ? "通话结束" : (this.charsReady ? charName : " "),   // 未就绪显空(占位高度不塌)，不闪占位名
       orbHue, showOrbStatus, showTagline, showUnderOrb, charDots,
-      orbAvatar, hasOrbAvatar: !!orbAvatar,
+      orbAvatar, hasOrbAvatar: !!orbAvatar, noOrbAvatar: !orbAvatar,   // 有头像→只显头像层(下方渐变球不渲染)；无头像→渐变球兜底
       charTagline: char.desc,
       charDetail: {
         name: char.name, tagline: char.desc, bio: char.bio, traits: char.traits, hueFilter: orbHue,
