@@ -507,34 +507,27 @@ export class MiCallLogic {
 
   profileOf(idx: number) {
     const c = this.chars[idx];
-    const genders = ["女", "男", "女", "男", "女"];
-    const gender = genders[idx % genders.length];
-    const tagPool = ["治愈系", "深夜", "倾听", "陪伴", "温柔", "理性", "元气", "文艺", "俏皮", "知性", "邻家", "成熟", "腹黑", "高冷", "暖男", "御姐", "学长", "学妹", "病娇", "天然呆"];
-    const likePool = ["安静的深夜", "认真听你说话", "下雨天", "一杯热可可", "你今天的好心情", "老电影", "散步", "手写信"];
-    const dislikePool = ["被敷衍", "嘈杂的人群", "冷场", "被打断", "敷衍的回答", "深夜的孤独", "争吵"];
-    const nats = ["中国", "日本", "美国", "英国", "法国", "韩国"];
-    const races = ["东亚人", "欧裔", "混血", "东亚人"];
-    const pick = (arr: string[], n: number, seed: number) => { const out: string[] = []; for (let k = 0; k < n; k++) out.push(arr[(seed * 7 + k * 13 + idx * 5) % arr.length]); return [...new Set(out)]; };
-    // 优先用后端真值（运营在后台设的）；缺省才退回按下标编的占位，避免「前台和后台对不上」。
+    // 一律以后端真值（运营在后台设的）为准；缺省如实显「—」/留空，不再前端按下标编假数据。
+    // （去掉与后端并行的假数据池=去重；前台所见 = 后台所设=对齐。slogan 也去掉：头部已显示 tagline，
+    //  原 slogan 用静态场景文案、还会按 idx%5 多个角色撞同一句，属重复+假数据。）
     const cc: any = c;
     const has = (v: any) => v !== undefined && v !== null && v !== "";
     const fmtBirthday = (b: string) => { const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(b || ""); return m ? `${m[1]}年${+m[2]}月${+m[3]}日` : b; };
-    const realGender = has(cc?.gender) ? cc.gender : gender;
-    const realTags = Array.isArray(cc?.traits) ? cc.traits.slice(0, 4) : [];
+    const dash = "—";
+    const g = has(cc?.gender) ? cc.gender : "";
     return {
-      gender: realGender,
-      genderColor: realGender === "女" ? "#FF6FA5" : "#5B8DEF",
-      age: has(cc?.age) ? cc.age : 18 + (idx * 3) % 13,
-      height: has(cc?.height) ? cc.height : 156 + (idx * 5) % 30,
-      weight: has(cc?.weight) ? cc.weight : 44 + (idx * 3) % 22,
-      birthday: has(cc?.birthday) ? fmtBirthday(cc.birthday) : (2006 - (idx % 12)) + "年" + (1 + idx % 12) + "月" + (1 + (idx * 7) % 27) + "日",
-      nationality: has(cc?.nationality) ? cc.nationality : nats[idx % nats.length],
-      race: has(cc?.race) ? cc.race : races[idx % races.length],
+      gender: g || dash,
+      genderColor: g === "女" ? "#FF6FA5" : (g === "男" ? "#5B8DEF" : "#9A9DA7"),
+      age: has(cc?.age) ? cc.age : dash,
+      height: has(cc?.height) ? cc.height : dash,
+      weight: has(cc?.weight) ? cc.weight : dash,
+      birthday: has(cc?.birthday) ? fmtBirthday(cc.birthday) : dash,
+      nationality: has(cc?.nationality) ? cc.nationality : dash,
+      race: has(cc?.race) ? cc.race : dash,
       nickname: c.name,
-      tags: realTags.length ? realTags : pick(tagPool, 4, idx + 1),
-      slogan: (this.scenarioDefs[idx % 5] && this.scenarioDefs[idx % 5].lines[0]) || "嗯……你好。",
-      likes: (Array.isArray(cc?.likes) && cc.likes.length) ? cc.likes.join("、") : pick(likePool, 5, idx + 2).join("、"),
-      dislikes: (Array.isArray(cc?.dislikes) && cc.dislikes.length) ? cc.dislikes.join("、") : pick(dislikePool, 4, idx + 3).join("、"),
+      tags: Array.isArray(cc?.traits) ? cc.traits.slice(0, 4) : [],
+      likes: (Array.isArray(cc?.likes) && cc.likes.length) ? cc.likes.join("、") : dash,
+      dislikes: (Array.isArray(cc?.dislikes) && cc.dislikes.length) ? cc.dislikes.join("、") : dash,
       personality: (c.traits || []).join("、"),
     };
   }

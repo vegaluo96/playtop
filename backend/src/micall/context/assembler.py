@@ -113,6 +113,7 @@ def _identity_line(idt: dict) -> str:
         idt.get("gender", ""),
         f"{idt['age']}岁" if idt.get("age") not in (None, "") else "",
         idt.get("nationality", ""),
+        prof.get("race", ""),                                  # 族裔：角色卡有、后台能设，过去漏注入 → 补上对齐
         f"外貌：{idt['appearance']}" if idt.get("appearance") else "",
         f"生日 {prof['birthday']}" if prof.get("birthday") else "",
         f"身高{prof['height_cm']}cm" if prof.get("height_cm") else "",
