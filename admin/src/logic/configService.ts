@@ -290,6 +290,22 @@ export async function setUserBanned(userId: string, banned: boolean): Promise<bo
   }
   return false;
 }
+/** 清某用户的记忆（事实层+理解层）。characterId 留空=清该用户对所有角色的记忆；指定=只清那一个。
+ *  保留账号/账单/通话记录。返回 {ok, 清了几个角色}。 */
+export async function resetUserMemory(userId: string, characterId = ""): Promise<{ ok: boolean; cleared: number }> {
+  const b = base();
+  if (!b) return { ok: false, cleared: 0 };
+  try {
+    const r = await fetch(`${b}/admin/reset-memory`, {
+      method: "POST", headers: authHeaders(true), credentials: "include",
+      body: JSON.stringify({ user_id: userId, character_id: characterId }),
+    });
+    if (r.ok) { const d = await r.json(); return { ok: !!(d && d.ok), cleared: Number(d && d.cleared) || 0 }; }
+  } catch {
+    /* noop */
+  }
+  return { ok: false, cleared: 0 };
+}
 export async function createRedeemCode(code: string, minutes: number, maxUses: number): Promise<{ ok: boolean; code?: string; error?: string }> {
   const b = base();
   if (!b) return { ok: false, error: "需接入后端" };

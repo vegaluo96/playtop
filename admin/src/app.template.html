@@ -637,6 +637,8 @@
         </sc-for>
         <sc-if value="{{ dUser.noRecharge }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:#A8ABB5;padding:8px 0;border-top:1px solid #F4F4F6;">暂无充值记录</div></sc-if>
         <div onClick="{{ toggleBan }}" style="margin-top:24px;text-align:center;font-size:14px;font-weight:600;color:{{ banColor }};background:{{ banBg }};border-radius:11px;padding:12px;cursor:pointer;" style-active="transform:scale(.98)">{{ banLabel }}</div>
+        <div onClick="{{ clearMemory }}" style="margin-top:10px;text-align:center;font-size:13.5px;font-weight:600;color:#878B95;background:#F4F4F6;border-radius:11px;padding:11px;cursor:pointer;" style-active="transform:scale(.98)">清除该用户记忆</div>
+        <div style="text-align:center;font-size:12px;color:#B0B3BC;margin-top:7px;">让所有角色像初识 TA 一样重新开始（保留账号/账单/通话）</div>
       </sc-if>
 
       <!-- character detail -->

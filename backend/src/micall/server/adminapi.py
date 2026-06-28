@@ -585,6 +585,30 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "error": "缺少 user_id"})
             _REPO.set_user_banned(uid, bool(b.get("banned")))
             return self._json(200, {"ok": True})
+        if route == "/admin/reset-memory":       # 清某用户的记忆（事实层+理解层），运营/客服纠错用；保留账号/账单/通话
+            if _REPO is None:
+                return self._json(200, {"ok": False, "error": "no repo"})
+            b = self._body()
+            uid = (b.get("user_id") or "").strip()
+            cid = (b.get("character_id") or "").strip()   # 指定角色 = 只清这一个；空/“*” = 清该用户对所有角色的记忆
+            if not uid:
+                return self._json(400, {"ok": False, "error": "缺少 user_id"})
+            if cid and cid != "*":
+                cids = [cid]
+            else:
+                try:
+                    from .characters_admin import effective_specs
+                    cids = list(effective_specs().keys())
+                except Exception:
+                    cids = []
+            cleared = 0
+            for c in cids:
+                try:
+                    _REPO.reset_memory(uid, c)
+                    cleared += 1
+                except Exception:
+                    pass
+            return self._json(200, {"ok": True, "cleared": cleared})
         if route == "/admin/tickets/reply":     # 回复工单
             if _REPO is None:
                 return self._json(200, {"ok": False, "error": "no repo"})

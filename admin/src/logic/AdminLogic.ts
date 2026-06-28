@@ -16,7 +16,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          createCharacter, deleteCharacter, generateCharacter, generateCore, setCharacterOnline,
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
-         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, cloneVoice,
+         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, resetUserMemory, cloneVoice,
          generateAvatar, uploadAvatar, adminAvatarUrl } from "./configService";
 
 export interface AdminProps {
@@ -306,6 +306,24 @@ export class AdminLogic {
     u.banned = next;
     this.setState({});
     this.toastMsg(next ? "已封禁该用户（登录/通话将被拒）" : "已解除封禁");
+  }
+
+  /** 清除该用户的全部角色记忆（事实层+理解层）——运营/客服纠错用。危险写操作 → 二次确认。
+   *  只清记忆，账号/账单/通话记录全保留；清后这些角色像初识 TA 一样重新认识。 */
+  clearMemory(userId?: string) {
+    if (!userId) return;
+    const u = this.users.find((x) => x.id === userId);
+    this.askConfirm({
+      title: "清除该用户记忆",
+      body: `确定清除「${(u && (u.name || u.email)) || userId}」与所有角色之间的记忆（事实/画像/关系）？清除后这些角色会像第一次认识 TA 一样重新开始；账号、账单、通话记录都保留。不可撤销。`,
+      okLabel: "清除", danger: true, action: () => this._doClearMemory(userId),
+    });
+  }
+  private async _doClearMemory(userId: string) {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const res = await resetUserMemory(userId, "");   // 空角色 = 清该用户对所有角色的记忆
+    if (!res.ok) { this.toastMsg("操作失败"); return; }
+    this.toastMsg(`已清除该用户记忆（${res.cleared} 个角色）`);
   }
 
   /** 删除兑换码：二次确认后执行（删除即失效，不可撤销）。 */
@@ -1014,6 +1032,7 @@ export class AdminLogic {
       detailOpen: !!d, closeDetail: () => this.setState({ detail: null }), detailTitle,
       dUser, dChar, dCall, dTicket,
       banLabel, banColor, banBg, toggleBan: () => this.toggleBan(d && d.id),
+      clearMemory: () => this.clearMemory(d && d.id),
       charBioLen, saveChar: () => this.saveChar(),
       savingChar: !!s.savingChar, saveCharOpacity: s.savingChar ? ".6" : "1",
       saveCharLabel: s.savingChar ? "保存中…" : ((s.detail && s.detail.id === "__new__") ? "创建角色" : "保存修改"),
