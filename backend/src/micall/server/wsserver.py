@@ -94,12 +94,15 @@ class SignalingServer:
         _slow_ok = bool(_slow.api_key.strip() and _slow.endpoint.strip())
         _emb = self.config.node("embedding")
         _emb_ok = bool(_emb.api_key.strip() and _emb.endpoint.strip())
+        _eval = self.config.node("llm_eval")
+        _eval_ok = bool(_eval.api_key.strip() and _eval.endpoint.strip())
         log.info(
-            "🧠 跨通记忆诊断：持久化=%s（%s）| 离线理解(慢脑 llm_slow)=%s | 语义记忆(embedding)=%s。%s",
+            "🧠 跨通记忆诊断：持久化=%s（%s）| 离线理解(慢脑 llm_slow)=%s | 语义记忆(embedding)=%s | 评测脑(llm_eval)=%s。%s",
             "✅Postgres" if _persisted else "❌内存(重启即丢)",
             type(self.repo).__name__,
             "✅已配" if _slow_ok else "❌未配",
             "✅已配" if _emb_ok else "⚠️未配(退关键词召回)",
+            (f"✅{_eval.params.get('model', '')}" if _eval_ok else "⚠️未配(回退慢脑/快脑)"),
             "" if (_persisted and _slow_ok) else
             "→ 持久化+慢脑缺一，登录用户画像就长不出来/留不住、角色「不了解你」，配 database.dsn + llm_slow 即修；"
             "embedding 仅影响记忆召回精度，缺了退关键词、不致命。",

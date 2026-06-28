@@ -24,6 +24,20 @@ def make_llm(node: NodeConfig) -> LLMProvider:
     return StubLLM()
 
 
+def make_eval_llm(config):
+    """评测/分析脑（图灵测试裁判·分析师、后台 AI 生成）：优先用配了的顶级 llm_eval，
+    未配则回退 llm_slow→llm_fast，都没配才 StubLLM。判断力=结论可信度，离线/偶发调用、可上最强模型。
+    传整个 Config（而非单 NodeConfig），因为要按优先级在多个节点里挑第一个 configured 的。"""
+    for key in ("llm_eval", "llm_slow", "llm_fast"):
+        try:
+            node = config.node(key)
+        except KeyError:
+            continue
+        if node.configured:
+            return make_llm(node)
+    return StubLLM()
+
+
 def make_embedding(node: NodeConfig):
     """记忆检索向量化（Embedding 节点）。未配置/未知 provider → None（仓储退关键词召回）。"""
     if not node.configured:
@@ -78,5 +92,5 @@ def make_realtime_asr(node: NodeConfig, *, on_event=None):
 __all__ = [
     "ASRProvider", "LLMProvider", "TTSProvider",
     "StubASR", "StubLLM", "StubTTS",
-    "make_asr", "make_llm", "make_tts", "make_realtime_asr", "make_embedding",
+    "make_asr", "make_llm", "make_tts", "make_realtime_asr", "make_embedding", "make_eval_llm",
 ]

@@ -30,7 +30,7 @@ sys.path.insert(0, "src")
 from micall.config import load_config                                  # noqa: E402
 from micall.context.assembler import ContextAssembler                  # noqa: E402
 from micall.context.models import AutonomousState, CharacterRuntime, UserProfile  # noqa: E402
-from micall.providers import make_llm                                  # noqa: E402
+from micall.providers import make_eval_llm, make_llm                   # noqa: E402
 from micall.server.characters_admin import effective_specs            # noqa: E402
 
 _STRIP = re.compile(r"\[emotion:[^\]]*\]|\((?:laughs|sighs|sniffs|gasps|breath|chuckles|coughs)\)|<#[\d.]+#>", re.I)
@@ -130,7 +130,7 @@ async def _interro_ask(jllm, isys, view, rnd) -> str:
 
 async def _interro_verdict(jllm, view) -> dict:
     body = "\n".join(f"第{i}轮 你问：{t['q']}\n   玩家A：{t['A']}\n   玩家B：{t['B']}" for i, t in enumerate(view, 1))
-    raw = await _say(jllm, [{"role": "system", "content": _VERDICT_SYS}, {"role": "user", "content": body}], max_tokens=200)
+    raw = await _say(jllm, [{"role": "system", "content": _VERDICT_SYS}, {"role": "user", "content": body}], max_tokens=320)
     try:
         return json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
     except (ValueError, KeyError):
@@ -165,16 +165,16 @@ async def run(cids, games, rounds) -> int:
         print("── 跳过：未配 llm_fast key。图灵测试必须用真模型。线上：")
         print("   set -a; . config/micall.env; set +a && PYTHONPATH=src python3 scripts/turing_test.py")
         return 0
-    llm = make_llm(fnode)                                   # 角色：快脑 DeepSeek，走真实管线
-    snode = cfg.node("llm_slow")
-    jllm = make_llm(snode) if (snode.api_key.strip() and snode.endpoint.strip()) else llm  # 审问/人类/裁判：异源慢脑
+    llm = make_llm(fnode)                                   # 被测角色：快脑 DeepSeek，走真实管线（不动）
+    jllm = make_eval_llm(cfg)                               # 审问者/人类/弱AI/裁判/分析师：顶级评测脑 llm_eval（未配回退 llm_slow→llm_fast）
+    eval_model = next((f"{k}·{cfg.node(k).params.get('model', '')}" for k in ("llm_eval", "llm_slow")
+                       if cfg.node(k).configured), "llm_fast（回退·与角色同模型，鉴别力打折）")
     specs = effective_specs()
     cids = [c for c in cids if c in specs] or (["vega"] if "vega" in specs else [next(iter(specs))])
     now = datetime.datetime(2026, 6, 28, 15, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=8)))
-    same = jllm is llm
 
-    print(f"图灵测试（三方·完整版）· 角色 {cids} · 每角色 {games} 局 + 弱AI对照 2 局/角色 · 每局 {rounds} 轮"
-          + (" · ⚠裁判与角色同模型(未配慢脑)" if same else " · 角色=快脑/审问裁判=慢脑(异源)"))
+    print(f"图灵测试（三方·完整版）· 角色 {cids} · 每角色 {games} 局 + 弱AI对照 2 局/角色 · 每局 {rounds} 轮")
+    print(f"评测脑（审问/裁判/分析师）= {eval_model}　｜　被测角色 = 快脑 {fnode.params.get('model', '')}")
     print("═" * 64)
 
     log_lines = []   # 给分析师：策略|结果|破绽
@@ -218,7 +218,7 @@ async def run(cids, games, rounds) -> int:
     # 破绽聚合 → 优化方向（分析师 LLM）
     print("\n【分析师：下一步优化方向】")
     raw = await _say(jllm, [{"role": "system", "content": _META_SYS},
-                            {"role": "user", "content": "\n".join(log_lines)}], max_tokens=700)
+                            {"role": "user", "content": "\n".join(log_lines)}], max_tokens=1500)
     try:
         m = json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
         print(f"  最脆攻击面：{m.get('weakest_strategy')}")

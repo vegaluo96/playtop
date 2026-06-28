@@ -20,8 +20,9 @@ from typing import Any
 
 _REPO_DEFAULT = Path(__file__).resolve().parents[2] / "config" / "default.json"
 
-# Admin「接口配置」的 5 个节点（docs/02 §7.9）。
-NODE_KEYS = ("asr", "llm_fast", "tts", "llm_slow", "embedding", "image")
+# Admin「接口配置」的节点（docs/02 §7.9）。llm_eval=顶级评测/分析脑（图灵测试裁判·分析师、后台 AI 生成），
+# 离线/偶发调用、延迟无所谓 → 配最强模型；未配则按 make_eval_llm 回退 llm_slow→llm_fast。
+NODE_KEYS = ("asr", "llm_fast", "tts", "llm_slow", "embedding", "image", "llm_eval")
 
 
 def _header_safe(s: str) -> str:

@@ -177,6 +177,45 @@ class TestLlmSqueeze(unittest.TestCase):
         self.assertTrue(fast.get("report_usage"))
 
 
+class TestEvalLlmNode(unittest.TestCase):
+    """顶级评测脑 llm_eval：节点存在 + 未配自动回退 llm_slow→llm_fast（不因没配而断）。"""
+
+    def _cfg(self, **nodes):
+        from micall.config import Config, NodeConfig
+        base = {k: NodeConfig(name=k) for k in ("llm_eval", "llm_slow", "llm_fast")}
+        base.update(nodes)
+        return Config(nodes=base, global_defaults={}, server={}, billing={}, turn={}, database={})
+
+    def test_node_present_and_apiyi_default(self):
+        from micall.config import NODE_KEYS, load_config
+        self.assertIn("llm_eval", NODE_KEYS)
+        self.assertEqual(load_config().node("llm_eval").provider, "apiyi")   # 出厂经 apiyi 接前沿
+
+    def test_all_unconfigured_falls_to_stub(self):
+        from micall.providers import make_eval_llm
+        from micall.providers.stub import StubLLM
+        self.assertIsInstance(make_eval_llm(self._cfg()), StubLLM)
+
+    def test_fallback_order_prefers_eval_then_slow(self):
+        # 不构造真 LLM（无 httpx 也能跑）：打桩 make_llm 记录被选中的节点名，验证优先级 eval>slow>fast。
+        import micall.providers as P
+        from micall.config import NodeConfig
+
+        def mk(name):
+            return NodeConfig(name=name, provider="deepseek",
+                              endpoint="https://x/v1/chat/completions", api_key="k")
+        picked, orig = {}, P.make_llm
+        P.make_llm = lambda node: picked.__setitem__("n", node.name) or "LLM"
+        try:
+            P.make_eval_llm(self._cfg(llm_eval=mk("llm_eval"), llm_slow=mk("llm_slow"), llm_fast=mk("llm_fast")))
+            self.assertEqual(picked["n"], "llm_eval")            # 配了评测脑 → 用它
+            picked.clear()
+            P.make_eval_llm(self._cfg(llm_slow=mk("llm_slow"), llm_fast=mk("llm_fast")))
+            self.assertEqual(picked["n"], "llm_slow")            # 没评测脑 → 回退慢脑
+        finally:
+            P.make_llm = orig
+
+
 class TestInviteRewardSeconds(unittest.TestCase):
     def test_reads_config_minutes(self):
         # 默认配置（default.json invite.reward_minutes=60）→ 3600 秒。

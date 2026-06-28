@@ -39,6 +39,7 @@ SECTION_TO_NODE: dict[str, tuple[str, dict[str, str]]] = {
     "memory": ("llm_slow",  {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "maxContext": "max_context"}),
     "embed":  ("embedding", {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "vectorDB": "vector_db", "topK": "top_k"}),
     "image":  ("image",     {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "size": "size"}),
+    "eval":   ("llm_eval",  {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "temp": "temperature", "maxTokens": "reply_max_tokens"}),
 }
 _NUMERIC = {"temperature": float, "reply_max_tokens": int, "sample_rate": int, "top_k": int, "max_context": int}
 
@@ -188,7 +189,7 @@ def test_section(section: str, sec: dict) -> dict:
     if not (endpoint and key.strip()):
         return {"ok": False, "error": "endpoint / key 未填全"}
     try:
-        if node_key in ("llm_fast", "llm_slow"):
+        if node_key in ("llm_fast", "llm_slow", "llm_eval"):
             return asyncio.run(_ping_llm(node))
         if node_key == "tts":
             return asyncio.run(_ping_tts(node))
@@ -624,10 +625,10 @@ class _Handler(BaseHTTPRequestHandler):
         if route == "/admin/characters/generate":  # AI 一键生成角色
             import asyncio
 
-            from ..providers import make_llm
+            from ..providers import make_eval_llm
             from .characters_admin import generate_character
             try:
-                llm = make_llm(load_config().node("llm_slow"))
+                llm = make_eval_llm(load_config())   # 顶级评测脑（未配回退 llm_slow→llm_fast）
                 fields = asyncio.run(generate_character((self._body().get("prompt") or "").strip(), llm))
                 return self._json(200, {"ok": True, "fields": fields})
             except Exception as e:
@@ -635,10 +636,10 @@ class _Handler(BaseHTTPRequestHandler):
         if route == "/admin/characters/generate-core":  # AI 一键生成内核（按现有维度提炼，填现成角色）
             import asyncio
 
-            from ..providers import make_llm
+            from ..providers import make_eval_llm
             from .characters_admin import generate_core
             try:
-                llm = make_llm(load_config().node("llm_slow"))
+                llm = make_eval_llm(load_config())   # 顶级评测脑（未配回退 llm_slow→llm_fast）
                 core = asyncio.run(generate_core(self._body() or {}, llm))
                 return self._json(200, {"ok": True, "core": core})
             except Exception as e:

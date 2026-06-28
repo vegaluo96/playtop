@@ -78,6 +78,7 @@ export class AdminLogic {
       memory: { provider: "apiyi_qwen_long", endpoint: "https://api.apiyi.com/v1/chat/completions", key: "", model: "qwen-max", maxContext: "32000" },
       embed: { provider: "bailian_embedding", endpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings", key: "", model: "text-embedding-v4", vectorDB: "pgvector", topK: "5" },
       image: { provider: "", endpoint: "https://api.apiyi.com/v1/images/generations", key: "", model: "gpt-image-1", size: "1024x1024" },
+      eval: { provider: "apiyi", endpoint: "https://api.apiyi.com/v1/chat/completions", key: "", model: "gpt-4o", temp: "0.6", maxTokens: "1500" },
     },
   };
 
@@ -110,6 +111,7 @@ export class AdminLogic {
       { key: "memory", name: "LLM · 长记忆脑（通话后）", chain: "慢链路", desc: "通话后总结、提取长期记忆、生成开场白 · 默认 qwen-max（经 apiyi，可在「模型」改 qwen-plus 等；离线不要求快）", icon: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20", req: "准 · 稳 · 长上下文（不要求快）", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型（如 qwen-max / qwen-plus）" }, { k: "maxContext", label: "最大上下文" }] },
       { key: "embed", name: "Embedding · 记忆检索", chain: "慢链路", desc: "向量化记忆并快速检索相关片段 · 存储 Postgres + pgvector", icon: "M21 5c0 1.66-4 3-9 3S3 6.66 3 5s4-3 9-3 9 1.34 9 3zM3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5M3 12c0 1.66 4 3 9 3s9-1.34 9-3", req: "快检索 · 高召回", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "vectorDB", label: "向量数据库" }, { k: "topK", label: "检索 Top-K" }] },
       { key: "image", name: "生图 · 角色头像", chain: "离线", desc: "给角色生成头像（半写实·柔光影棚，规范锁死防全站漂移）· OpenAI 兼容 images 接口（经 apiyi，可填 gpt-image-1 / flux 等）", icon: "M21 15l-5-5L5 21M3 5h18a0 0 0 0 1 0 0v14a0 0 0 0 1 0 0H3a0 0 0 0 1 0 0V5a0 0 0 0 1 0 0zM8.5 8.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z", req: "1:1 正方 · 头肩居中 · 不要求快", fields: [{ k: "endpoint", label: "接口地址（…/v1/images/generations）", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "生图模型（如 gpt-image-1 / flux）" }, { k: "size", label: "尺寸（如 1024x1024）" }] },
+      { key: "eval", name: "LLM · 评测脑（分析/判定）", chain: "离线", desc: "图灵测试的审问者/裁判/分析师 + 后台「AI 生成角色/内核」用 · 离线偶发调用、配最强模型（经 apiyi 接 GPT/Claude 级前沿，判断力=结论可信度）· 留空则自动回退长记忆脑", icon: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3M11 8v3l2 2", req: "顶级判断力 · 不要求快", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型（填你 apiyi 最强的，如 gpt-5 / claude-sonnet-4 等）" }, { k: "temp", label: "温度" }, { k: "maxTokens", label: "回复上限 Token" }] },
     ];
     this.inviters = [];
     this.inviteRecords = [];
