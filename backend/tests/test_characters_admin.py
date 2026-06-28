@@ -154,6 +154,23 @@ class TestCharactersAdmin(unittest.TestCase):
         self.assertEqual(fields["core"], "你怕被遗忘。")
         self.assertEqual(fields["name"], "小柔")
 
+    def test_per_character_knobs_roundtrip_and_clear(self):
+        # 角色级旋钮（话长/记忆深度）后台可编辑：写入 runtime_overrides、回显、空字符串清空回退全局。
+        cid, _ = _a_factory_char()
+        ca.write_character_from_admin({"id": cid, "reply_max_tokens": "800", "memory_depth": "12"})
+        eff = ca.effective_specs()[cid]["runtime_overrides"]
+        self.assertEqual(eff["reply_max_tokens"], 800)
+        self.assertEqual(eff["memory_depth"], 12)
+        row = next(r for r in ca.read_characters_for_admin() if r["id"] == cid)
+        self.assertEqual(row["reply_max_tokens"], 800)
+        # 上限钳制
+        ca.write_character_from_admin({"id": cid, "reply_max_tokens": "99999"})
+        self.assertEqual(ca.effective_specs()[cid]["runtime_overrides"]["reply_max_tokens"], 4096)
+        # 空字符串=清空覆盖、回退全局（出厂 spec 该键常为 null，清后 effective 为 falsy → 编排层走全局默认）
+        ca.write_character_from_admin({"id": cid, "reply_max_tokens": ""})
+        self.assertFalse(ca.effective_specs()[cid]["runtime_overrides"].get("reply_max_tokens"))
+        self.assertEqual(next(r for r in ca.read_characters_for_admin() if r["id"] == cid)["reply_max_tokens"], "")
+
     def test_nonnumeric_age_is_rejected_not_stored(self):
         # num() 此前对 "abc" 原样返回 → 会把非数字落进 identity（提示词出现「年龄abc」）。现应跳过、保留出厂值。
         cid, _ = _a_factory_char()

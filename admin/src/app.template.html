@@ -789,6 +789,16 @@
             <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:8px;">本角色口吻提示（实时通话用，叠加在全局原则之上，让各角色口吻有别）</div>
             <textarea value="{{ cePromptExtra }}" onInput="{{ onCePromptExtra }}" placeholder="如 多用短句、偶尔毒舌；称呼用「你」不用「您」；句尾爱带语气词" style="width:100%;box-sizing:border-box;min-height:56px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
           </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:8px;">单轮话长上限（reply_max_tokens，留空=全局默认；话痨角色调大、惜字调小）</div>
+              <input value="{{ ceReplyMax }}" onInput="{{ onCeReplyMax }}" inputmode="numeric" placeholder="留空=全局默认" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+            </div>
+            <div>
+              <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:8px;">记忆召回深度（memory_depth，留空=全局默认；记忆型角色调大）</div>
+              <input value="{{ ceMemDepth }}" onInput="{{ onCeMemDepth }}" inputmode="numeric" placeholder="留空=全局默认" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+            </div>
+          </div>
         </div>
 
         <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 10px;">数据</div>

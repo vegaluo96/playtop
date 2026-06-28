@@ -168,6 +168,8 @@ export class AdminLogic {
         if (row.likes != null) c.likes = row.likes;
         if (row.dislikes != null) c.dislikes = row.dislikes;
         if ((row as any).prompt_extra != null) c.prompt_extra = (row as any).prompt_extra;  // 本角色实时口吻补充
+        if ((row as any).reply_max_tokens != null) c.reply_max_tokens = (row as any).reply_max_tokens;  // 角色级话长
+        if ((row as any).memory_depth != null) c.memory_depth = (row as any).memory_depth;              // 角色级记忆深度
         c.speaking_style = row.speaking_style || "";
         c.voiceId = row.voice_id || "";
         // 基础资料取真值覆盖内置 mock（过去后台显示的是写死假数据，和通话用的出厂 spec 对不上）。
@@ -462,6 +464,7 @@ export class AdminLogic {
         hidden_layer: c.hidden_layer || "", values: c.values || "", soft_spot: c.soft_spot || "",
         hobbies: c.hobbies || "", catchphrases: c.catchphrases || "", quirks: c.quirks || "",
         prompt_extra: c.prompt_extra || "",
+        reply_max_tokens: (c.reply_max_tokens ?? "") + "", memory_depth: (c.memory_depth ?? "") + "",
         likes: c.likes || "", dislikes: c.dislikes || "", voice_id: c.voiceId || "",
       };
       // 切角色清空上一个的克隆片段/状态
@@ -482,7 +485,7 @@ export class AdminLogic {
   /** 打开「新建角色」表单（空白 + AI 生成入口）。 */
   openNewChar() {
     this.setState({ detail: { type: "char", id: "__new__" }, charBio: "", charAiPrompt: "",
-      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", occupation: "", residence: "", mbti: "", summary: "", core: "", traits: "", speaking_style: "", background_story: "", hidden_layer: "", values: "", soft_spot: "", hobbies: "", catchphrases: "", quirks: "", prompt_extra: "", likes: "", dislikes: "", voice_id: "" } });
+      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", occupation: "", residence: "", mbti: "", summary: "", core: "", traits: "", speaking_style: "", background_story: "", hidden_layer: "", values: "", soft_spot: "", hobbies: "", catchphrases: "", quirks: "", prompt_extra: "", reply_max_tokens: "", memory_depth: "", likes: "", dislikes: "", voice_id: "" } });
   }
 
   /** AI 一键生成角色字段，填进编辑表单（运营可再微调）。 */
@@ -677,6 +680,7 @@ export class AdminLogic {
           hobbies: e.hobbies || "", catchphrases: e.catchphrases || "", quirks: e.quirks || "", soft_spot: e.soft_spot || "",
           traits: this._splitList(e.traits), tags: [], slogan: "", likes: e.likes || "", dislikes: e.dislikes || "",
           bio: e.background_story || "", speaking_style: e.speaking_style || "", prompt_extra: e.prompt_extra || "", voiceId: e.voice_id || "",
+          reply_max_tokens: e.reply_max_tokens || "", memory_depth: e.memory_depth || "",
           calls: "0", customVoices: 0, favs: "0", status: "上线" });
         this.setState({ detail: null });
         this.toastMsg("角色已创建，下一通通话生效");
@@ -698,12 +702,14 @@ export class AdminLogic {
         hobbies: e.hobbies, catchphrases: e.catchphrases, quirks: e.quirks, soft_spot: e.soft_spot,
         speaking_style: e.speaking_style, background_story: e.background_story,
         hidden_layer: e.hidden_layer, values: e.values, prompt_extra: e.prompt_extra,
+        reply_max_tokens: e.reply_max_tokens, memory_depth: e.memory_depth,
         likes: e.likes, dislikes: e.dislikes, voice_id: e.voice_id,
       });
       if (ok) {  // 本地同步，列表/详情立即反映
         c.name = e.name; c.desc = e.tagline; c.traits = this._splitList(e.traits);
         c.bio = e.background_story; c.likes = e.likes; c.dislikes = e.dislikes;
         c.hidden_layer = e.hidden_layer; c.values = e.values; c.prompt_extra = e.prompt_extra;
+        c.reply_max_tokens = e.reply_max_tokens; c.memory_depth = e.memory_depth;
         c.speaking_style = e.speaking_style; c.voiceId = e.voice_id;
         c.occupation = e.occupation; c.residence = e.residence; c.mbti = e.mbti; c.summary = e.summary; c.core = e.core;
         c.hobbies = e.hobbies; c.catchphrases = e.catchphrases; c.quirks = e.quirks; c.soft_spot = e.soft_spot;
@@ -1063,6 +1069,8 @@ export class AdminLogic {
       ceQuirks: (s.charEdit as any).quirks || "", onCeQuirks: (e: any) => this.setCe("quirks", e.target.value),
       ceSoftSpot: (s.charEdit as any).soft_spot || "", onCeSoftSpot: (e: any) => this.setCe("soft_spot", e.target.value),
       cePromptExtra: (s.charEdit as any).prompt_extra || "", onCePromptExtra: (e: any) => this.setCe("prompt_extra", e.target.value),
+      ceReplyMax: (s.charEdit as any).reply_max_tokens || "", onCeReplyMax: (e: any) => this.setCe("reply_max_tokens", e.target.value),
+      ceMemDepth: (s.charEdit as any).memory_depth || "", onCeMemDepth: (e: any) => this.setCe("memory_depth", e.target.value),
       replyDraft: s.replyDraft, onReplyDraft: (e: any) => this.setState({ replyDraft: e.target.value }), ticketNeedsReply,
       sendReply: async () => { const v = (s.replyDraft || "").trim(); if (!v) { this.toastMsg("请输入回复内容"); return; } const id = d.id; const ok = await replyTicket(id, v); if (!ok && usingBackend()) { this.toastMsg("回复失败，请重试"); return; } const t = this.tickets.find((x) => x.id === id); if (t) { t.reply = v; t.status = "已回复"; } this.setState((p) => ({ ticketReplies: { ...p.ticketReplies, [id]: v }, replyDraft: "" })); this.toastMsg("回复已发送"); },
       toast: s.toast,

@@ -200,6 +200,10 @@ def read_characters_for_admin() -> list[dict]:
             "dislikes": _join(persona.get("dislikes")),
             "voice_id": voice.get("voice_id", ""),
             "prompt_extra": ro.get("realtime_prompt_extra", "") or "",
+            # 角色级旋钮（runtime_overrides，空=走全局默认）：话长 / 记忆召回深度。出厂 spec 里这俩常为 null，
+            # coerce 成 "" 便于后台空着显示「走全局默认」。
+            "reply_max_tokens": ro.get("reply_max_tokens") or "",
+            "memory_depth": ro.get("memory_depth") or "",
             # 富化维度：身份(职业/现居/MBTI) + 人设(性子/兴趣/口头禅/小习惯/软肋)。列表 join 成可编辑串。
             "occupation": ident.get("occupation", ""), "residence": ident.get("residence", ""),
             "mbti": ident.get("mbti", ""), "summary": persona.get("summary", ""),
@@ -269,6 +273,15 @@ def write_character_from_admin(payload: dict) -> None:
     if "dislikes" in p:        persona["dislikes"] = _split(p["dislikes"])[:30]
     if "voice_id" in p:        voice["voice_id"] = cap(p["voice_id"], 200)
     if "prompt_extra" in p:    ro["realtime_prompt_extra"] = cap(p["prompt_extra"], 2000)
+    # 角色级旋钮：空字符串=清空覆盖、回退全局默认；有效数字=按角色生效（话长上限 4096、记忆深度上限 50）。
+    if "reply_max_tokens" in p:
+        v = num(p["reply_max_tokens"])
+        if v is not None and v > 0:   ro["reply_max_tokens"] = min(4096, v)
+        elif s(p["reply_max_tokens"]) == "": ro.pop("reply_max_tokens", None)
+    if "memory_depth" in p:
+        v = num(p["memory_depth"])
+        if v is not None and v >= 0:  ro["memory_depth"] = min(50, v)
+        elif s(p["memory_depth"]) == "": ro.pop("memory_depth", None)
     # 富化维度
     if "occupation" in p:      ident["occupation"] = cap(p["occupation"], 100)
     if "residence" in p:       ident["residence"] = cap(p["residence"], 100)
@@ -320,7 +333,9 @@ def _spec_from_flat(cid: str, p: dict) -> dict:
                     "quirks": _split(p.get("quirks", "")), "soft_spot": s(p.get("soft_spot")),
                     "likes": _split(p.get("likes", "")), "dislikes": _split(p.get("dislikes", ""))},
         "voice": {"voice_id": s(p.get("voice_id"))},
-        "runtime_overrides": {"realtime_prompt_extra": s(p.get("prompt_extra"))},
+        "runtime_overrides": {"realtime_prompt_extra": s(p.get("prompt_extra")),
+                              **({"reply_max_tokens": n(p.get("reply_max_tokens"))} if n(p.get("reply_max_tokens")) != "" else {}),
+                              **({"memory_depth": n(p.get("memory_depth"))} if n(p.get("memory_depth")) != "" else {})},
     }
 
 
