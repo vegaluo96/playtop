@@ -513,6 +513,7 @@ export class AdminLogic {
       reply_max_tokens: parseInt(l.reply_max_tokens, 10),
       incall_max_turns: parseInt(l.incall_max_turns, 10),
       budget_chars: parseInt(l.budget_chars, 10),
+      memory_facts_cap: parseInt(l.memory_facts_cap, 10),
       world_refresh_hours: parseFloat(l.world_refresh_hours),
     });
     if (ok) { const lim = await loadLimits(); if (lim) this.setState({ limitsCfg: lim }); }
@@ -1126,6 +1127,7 @@ export class AdminLogic {
       rlReply: String(L.reply_max_tokens ?? ""), onRlReply: (e: any) => this.setLimit("reply_max_tokens", e.target.value),
       rlTurns: String(L.incall_max_turns ?? ""), onRlTurns: (e: any) => this.setLimit("incall_max_turns", e.target.value),
       rlBudget: String(L.budget_chars ?? ""), onRlBudget: (e: any) => this.setLimit("budget_chars", e.target.value),
+      rlFactsCap: String(L.memory_facts_cap ?? ""), onRlFactsCap: (e: any) => this.setLimit("memory_facts_cap", e.target.value),
       rlWorldHours: String(L.world_refresh_hours ?? ""), onRlWorldHours: (e: any) => this.setLimit("world_refresh_hours", e.target.value),
       saveRunLimits: () => this.saveRunLimits(),
       // 世界库（持久化常驻面板）—— 模板引擎不支持三元，按钮文案/底色在这里算好

@@ -285,6 +285,7 @@ def read_limits_for_admin() -> dict:
         "incall_max_turns": gi("incall_max_turns", 20),
         "budget_chars": gi("budget_chars", 16000),
         "memory_depth": gi("memory_depth", 5),
+        "memory_facts_cap": gi("memory_facts_cap", 600),
         "world_refresh_hours": wh,
         "guest_trial_seconds": guest,
         "register_gift_minutes": gift_min,
@@ -315,6 +316,7 @@ def write_limits_from_admin(payload: dict) -> None:
     put_int("incall_max_turns", 4, 60)
     put_int("budget_chars", 2000, 64000)
     put_int("memory_depth", 0, 30)
+    put_int("memory_facts_cap", 50, 5000)     # 记忆遗忘容量上限：超此条数按显著性忘掉最不要紧的（控住事实表膨胀）
     if "world_refresh_hours" in p:
         try:
             wh = float(p["world_refresh_hours"])
