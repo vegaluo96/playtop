@@ -18,6 +18,15 @@ const TTS_RATE = 24000;
 // 而不是死寂。改 false 即整体关闭（连同挂断音）。
 const RING_ENABLED = true;
 
+// 生产环境保持 console 干净：例行诊断日志（如首帧到达）只在排障开关开启时输出
+// （?debug=1 或 localStorage.micall_debug=1）。真·错误仍照常 console.warn，不受此开关影响。
+const DEBUG = (() => {
+  try {
+    return localStorage.getItem("micall_debug") === "1" ||
+           new URLSearchParams(location.search).get("debug") === "1";
+  } catch { return false; }
+})();
+
 type Ctor = { new (): AudioContext };
 function audioCtx(): AudioContext {
   const C = (window.AudioContext || (window as unknown as { webkitAudioContext: Ctor }).webkitAudioContext) as Ctor;
@@ -150,7 +159,7 @@ export class AudioPlayer {
     if (!this.ctx || frame.byteLength < 2) return;
     if (!this.logged) {
       this.logged = true;
-      console.info("[micall] 收到下行 TTS 音频，开始播放（首帧", frame.byteLength, "bytes）");
+      if (DEBUG) console.info("[micall] 收到下行 TTS 音频，开始播放（首帧", frame.byteLength, "bytes）");
     }
     try {
       const n = frame.byteLength >> 1; // 偶数对齐：丢弃可能的半个样本，避免构造异常
