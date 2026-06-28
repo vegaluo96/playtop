@@ -67,6 +67,18 @@ class Relationship:
 
 
 @dataclass
+class Bond:
+    """角色【自己这一侧】对这段关系的内在状态——与 UserProfile(用户侧) 对称、会随相处演化。
+    填补「角色不生长」的洞（双向身份）：让 TA 不只是「懂你」，而是「因为认识你而长出了对你的感情、
+    被你改变、有自己惦记着要跟你说/做的事」。per-user×char，挂在 UserProfile 上。"""
+
+    feeling: str = ""        # 现在对 TA 的感觉/感情（越来越信任 / 有点心疼 / 被 TA 的认真打动）
+    changed_by: str = ""     # 这段相处把「我」改变了什么（以前嫌麻烦，现在会主动想起 TA 的事）
+    own_threads: list[str] = field(default_factory=list)  # 「我」这侧惦记着想跟 TA 说/做/问的事（角色自己的议程，跨通连续）
+    closeness: float = 0.0   # 角色 POV 的亲近度 0..1（慢慢长，给「关系在加深」一个连续量）
+
+
+@dataclass
 class UserProfile:
     user_id: str
     character_id: str
@@ -75,6 +87,7 @@ class UserProfile:
     interaction_prefs: dict[str, Any] = field(default_factory=dict)  # 该怎么对待 TA
     open_hypotheses: list[Hypothesis] = field(default_factory=list)  # 待验证假设
     relationship: Relationship = field(default_factory=Relationship)
+    bond: "Bond" = field(default_factory=lambda: Bond())  # 角色这一侧的关系内在状态（双向身份，会演化）
     next_strategy: str = ""  # 理解引擎产出的「本轮对话策略」（§3.3 → §2.3 注入）
 
 

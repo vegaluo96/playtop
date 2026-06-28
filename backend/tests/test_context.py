@@ -171,6 +171,23 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("阿哲", turn)          # 名字被现学并折进当轮
         self.assertIn("这通你从 TA 话里听到的", turn)
 
+    def test_bond_block_injected_character_side(self):
+        # 双向身份：角色侧关系内在状态（感情/被改变/角色议程）进 system 前缀，和「你对 TA 的了解」并列。
+        from micall.context.models import UserProfile, Bond
+        prof = UserProfile("u", "x")
+        prof.bond = Bond(feeling="越来越想护着 TA", changed_by="以前懒得管别人，现在会记挂",
+                         own_threads=["想跟 TA 说上次没说完的话"])
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "维佳"}, "persona": {}})
+        a = ContextAssembler(char, profile=prof)
+        sysmsg = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertIn("越来越想护着 TA", sysmsg)
+        self.assertIn("自己这一侧", sysmsg)        # 措辞是「角色这侧的真心」
+        self.assertIn("想跟 TA 说上次没说完的话", sysmsg)
+        # 空 bond 不该凭空出现该块
+        bare = ContextAssembler(CharacterRuntime.from_spec({"identity": {"character_id": "y", "name": "小语"}, "persona": {}}),
+                                profile=UserProfile("u", "y"))
+        self.assertNotIn("自己这一侧", bare.build(character_id="y", scenario="", history=[{"role": "user", "content": "hi"}])[0]["content"])
+
     def test_window_trims_oldest(self):
         a = ContextAssembler(CharacterRuntime("c", "N", {}), budget_chars=300)
         hist = [{"role": "user", "content": "x" * 50} for _ in range(20)]

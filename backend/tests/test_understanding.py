@@ -103,6 +103,23 @@ class TestMerge(unittest.TestCase):
             merge_profile(p, {"fact_profile": {f"k{i}": f"v{i}"}})
         self.assertLessEqual(len(p.fact_profile), 30)
 
+    def test_merge_bond_character_side_evolves(self):
+        # 角色侧关系内在状态（双向身份）：感情/被改变/角色议程/亲近度随每通演化、亲近度钳到 [0,1]。
+        p = UserProfile("u", "c")
+        merge_profile(p, {"bond": {"feeling": "越来越信任 TA", "changed_by": "以前嫌麻烦，现在会主动想起 TA 的事",
+                                   "own_threads": ["想问问 TA 上次面试结果"], "closeness_delta": 0.15}})
+        self.assertEqual(p.bond.feeling, "越来越信任 TA")
+        self.assertIn("想起 TA", p.bond.changed_by)
+        self.assertEqual(p.bond.own_threads, ["想问问 TA 上次面试结果"])
+        self.assertAlmostEqual(p.bond.closeness, 0.15, places=3)
+        # 单次涨幅封顶 0.3、总量钳到 1.0
+        for _ in range(20):
+            merge_profile(p, {"bond": {"closeness_delta": 0.9}})
+        self.assertLessEqual(p.bond.closeness, 1.0)
+        # 空 bond 不抹掉已有
+        merge_profile(p, {"bond": {}})
+        self.assertEqual(p.bond.feeling, "越来越信任 TA")
+
     def test_process_call_heuristic_backfills_fact_profile(self):
         # 慢脑没产出 fact_profile 时，启发式从用户原话兜底抽客观事实，跨通「记得你」不落空。
         import asyncio

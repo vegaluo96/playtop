@@ -15,7 +15,7 @@ import logging
 from pathlib import Path
 
 from ..context.models import (
-    AutonomousState, Hypothesis, Insight, Relationship, UserProfile,
+    AutonomousState, Bond, Hypothesis, Insight, Relationship, UserProfile,
 )
 from .repository import MemoryRepository
 
@@ -42,11 +42,13 @@ def _profile_to_json(p: UserProfile) -> str:
         "interaction_prefs": p.interaction_prefs,
         "open_hypotheses": [dataclasses.asdict(h) for h in p.open_hypotheses],
         "relationship": dataclasses.asdict(p.relationship),
+        "bond": dataclasses.asdict(p.bond),   # 角色侧关系内在状态（双向身份）
     }, ensure_ascii=False)
 
 
 def _profile_from_json(user_id: str, character_id: str, raw: dict, next_strategy: str) -> UserProfile:
     rel = raw.get("relationship") or {}
+    bnd = raw.get("bond") or {}
     return UserProfile(
         user_id=user_id, character_id=character_id,
         fact_profile=raw.get("fact_profile") or {},
@@ -54,6 +56,7 @@ def _profile_from_json(user_id: str, character_id: str, raw: dict, next_strategy
         interaction_prefs=raw.get("interaction_prefs") or {},
         open_hypotheses=[Hypothesis(**h) for h in (raw.get("open_hypotheses") or []) if isinstance(h, dict)],
         relationship=Relationship(**{k: rel[k] for k in rel if k in Relationship.__dataclass_fields__}),
+        bond=Bond(**{k: bnd[k] for k in bnd if k in Bond.__dataclass_fields__}),
         next_strategy=next_strategy or "",
     )
 

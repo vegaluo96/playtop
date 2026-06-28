@@ -42,6 +42,7 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "personality_model": [vars(i) for i in profile.personality_model],
         "open_hypotheses": [vars(h) for h in profile.open_hypotheses],
         "relationship": vars(profile.relationship),
+        "bond": vars(profile.bond),
     }
     system = (
         "你是离线理解引擎。基于本次通话与现有画像，推断并修正你对这个人的理解。"
@@ -56,7 +57,14 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "hypotheses([{guess,confidence,next}]，带着假设进下次对话去验证)、"
         "relationship({stage,last_topic,open_threads,last_mood,shared_refs}，"
         "last_mood 用一句话概括 TA 这次的情绪基调与挂电话时的状态，供下次开场自然接住)、"
-        "next_strategy(string，下次开场接哪个线头、验证哪个假设、哪些话题小心、怎么回应)。"
+        "next_strategy(string，下次开场接哪个线头、验证哪个假设、哪些话题小心、怎么回应)、"
+        # bond：从【角色本人】视角看这段关系——填补「角色不生长」的洞（双向身份）。
+        "bond(对象{feeling, changed_by, own_threads, closeness_delta}；这是从【角色本人】视角看你们的关系，不是用户的——"
+        "feeling=角色现在对 TA 的真实感觉/感情（信任/心疼/被打动/想护着/觉得有意思…，按角色性格来）、"
+        "changed_by=认识 TA 让角色【自己】有了什么变化、"
+        "own_threads=角色【自己这一侧】惦记着下次想跟 TA 说/做/问的事（角色的小心思/议程，1-3 条）、"
+        "closeness_delta=亲近度变化 -0.2~0.2（聊得走心就+，被冒犯/疏远就-）；"
+        "【严格贴角色人设】——冷淡/高冷角色别写得热络交心，关系还浅别写深情，没真实进展就别硬涨、留空即可)。"
         "【铁律】只记录本次通话里【明确出现过】的信息：不要把推测/脑补/'可能'当成事实写进 "
         "new_facts 或 last_topic——拿不准的一律放进 hypotheses（带 confidence）。"
         "绝不要虚构'谈过合作/约定过/一起做过/答应过'之类对话里没真实发生的共同经历或承诺。"
@@ -157,6 +165,21 @@ def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
             r.shared_refs = list(rel["shared_refs"])
     if update.get("next_strategy"):
         profile.next_strategy = str(update["next_strategy"])
+    # 角色侧关系内在状态（双向身份）：随每通演化——感情/被改变/角色自己的议程/亲近度。
+    bnd = update.get("bond")
+    if isinstance(bnd, dict):
+        if str(bnd.get("feeling", "")).strip():
+            profile.bond.feeling = str(bnd["feeling"]).strip()[:300]
+        if str(bnd.get("changed_by", "")).strip():
+            profile.bond.changed_by = str(bnd["changed_by"]).strip()[:300]
+        ot = bnd.get("own_threads")
+        if isinstance(ot, list) and ot:
+            profile.bond.own_threads = [str(t).strip()[:80] for t in ot if str(t).strip()][:6]
+        try:
+            d = float(bnd.get("closeness_delta", 0) or 0)
+            profile.bond.closeness = round(max(0.0, min(1.0, profile.bond.closeness + max(-0.3, min(0.3, d)))), 3)
+        except (TypeError, ValueError):
+            pass
     return profile
 
 

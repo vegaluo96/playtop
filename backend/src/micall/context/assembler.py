@@ -395,6 +395,25 @@ def _profile_block(profile: UserProfile) -> str:
     return "\n".join(out)
 
 
+def _bond_block(bond: Any, name: str) -> str:
+    """角色【自己这一侧】对这段关系的真心（双向身份）：感情/被改变/角色自己惦记的事。
+    与「你对 TA 的了解」对称——前者是「我懂你」，这里是「我因为认识你而长出的感情和心思」。"""
+    bits: list[str] = []
+    if getattr(bond, "feeling", ""):
+        bits.append("你现在对 TA 的感觉：" + bond.feeling)
+    if getattr(bond, "changed_by", ""):
+        bits.append("这段相处把你（" + name + "）改变了：" + bond.changed_by)
+    if getattr(bond, "own_threads", None):
+        bits.append("你【自己这边】一直惦记着、想跟 TA 说或做的：" + "、".join(bond.own_threads))
+    if not bits:
+        return ""
+    return (
+        "你和 TA 之间（这是你【自己这一侧】的真心——你这个人因为认识 TA 而长出来的感情和心思，会随相处慢慢变，不是设定）：\n"
+        + "\n".join(bits)
+        + "\n（自然地活出来：该惦记就惦记、心里那件事到了由头就主动提一句，像真的在乎一个人，别像念档案。）"
+    )
+
+
 def _autonomous_block(s: AutonomousState) -> str:
     bits = [b for b in (
         f"今天的心情：{s.mood}" if s.mood else "",
@@ -455,6 +474,7 @@ class ContextAssembler:
             parts.append(_autonomous_block(self.autonomous))
         if self.profile:
             parts.append(_profile_block(self.profile))
+            parts.append(_bond_block(self.profile.bond, self.character.name))   # 角色侧关系内在状态（双向身份）
         if scenario:
             parts.append(f"当前情境：{scenario}（情境只定空间/由头，画面与背景固定不变）。")
         # 角色级实时口吻微调（spec.runtime_overrides.realtime_prompt_extra）：让同一套原则下各角色口吻有别。
