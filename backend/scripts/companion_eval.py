@@ -206,7 +206,7 @@ async def run(cids, rounds) -> int:
 
     print("\n【分析师：怎么让用户更想长期留下】")
     raw = await _say(jllm, [{"role": "system", "content": _META_SYS},
-                            {"role": "user", "content": "\n".join(log_lines)}], max_tokens=1200)
+                            {"role": "user", "content": "\n".join(log_lines)}], max_tokens=1600)
     try:
         m = json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
         print(f"  最能打动人：{m.get('strongest')}")
