@@ -57,9 +57,47 @@ class TestParse(unittest.TestCase):
         self.assertEqual(s.energy, "有点累")
         self.assertEqual(s.anticipating, "周末去看海")   # 新维度解析
 
+    def test_parse_local_context(self):
+        s = parse_autonomous_state('{"mood":"还行","local_context":"上海梅雨季，闷湿"}')
+        self.assertEqual(s.local_context, "上海梅雨季，闷湿")
+
     def test_parse_garbage(self):
         s = parse_autonomous_state("没有 JSON")
-        self.assertEqual((s.mood, s.recent_experience, s.energy, s.anticipating), ("", "", "", ""))
+        self.assertEqual((s.mood, s.recent_experience, s.energy, s.anticipating, s.local_context),
+                         ("", "", "", "", ""))
+
+
+class TestLocalContext(unittest.TestCase):
+    """现居地近况：让「现居X」有意义——慢脑按真实日期+城市生成季节/时令感（无实时联网）。"""
+
+    def test_city_parsing(self):
+        from micall.offline.autonomy import _city_of
+        def char(res):
+            return CharacterRuntime("c", "维佳", {}, {"residence": res})
+        self.assertEqual(_city_of(char("现居上海")), "上海")
+        self.assertEqual(_city_of(char("上海·徐汇")), "上海")
+        self.assertEqual(_city_of(char("北京 朝阳区")), "北京")
+        self.assertEqual(_city_of(char("")), "")
+        self.assertEqual(_city_of(CharacterRuntime("c", "维佳", {})), "")   # 无 identity
+
+    def test_prompt_has_local_context_when_residence(self):
+        char = CharacterRuntime("c", "维佳", {"core_traits": ["飒"]}, {"residence": "上海"})
+        sys = build_autonomy_prompt(char, 6)[0]["content"]
+        self.assertIn("local_context", sys)
+        self.assertIn("上海", sys)
+        self.assertIn("没有实时网络", sys)   # 诚实边界：不编新闻/精确天气
+
+    def test_prompt_no_local_context_without_residence(self):
+        char = CharacterRuntime("c", "维佳", {"core_traits": ["飒"]})   # 无现居
+        sys = build_autonomy_prompt(char, 6)[0]["content"]
+        self.assertNotIn("local_context", sys)
+
+    def test_autonomous_block_injects_local_context(self):
+        from micall.context.assembler import _autonomous_block
+        block = _autonomous_block(AutonomousState(mood="还行", local_context="上海入秋，早晚凉"))
+        self.assertIn("上海入秋，早晚凉", block)
+        self.assertIn("当家常", block)             # 框成「可自然聊起来」
+        self.assertIn("别假设 TA 也在这座城", block)  # 守卫：别替用户安地点
 
 
 class TestEngine(unittest.TestCase):

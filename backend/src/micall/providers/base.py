@@ -17,9 +17,12 @@ class LLMProvider(ABC):
 
     @abstractmethod
     def stream(
-        self, messages: Sequence[Message], *, temperature: float = 0.8, max_tokens: int = 256
+        self, messages: Sequence[Message], *, temperature: float = 0.8, max_tokens: int = 256,
+        response_format: dict | None = None,
     ) -> AsyncIterator[str]:
-        """逐 token 异步产出。实现为 `async def ... yield`。"""
+        """逐 token 异步产出。实现为 `async def ... yield`。
+        response_format：仅离线·要 JSON 的调用点传 {"type":"json_object"}（理解/自主/AI生成），
+        让模型只吐合法 JSON、少掉解析失败；实时口语路径不传（自由文本）。"""
         raise NotImplementedError
 
 

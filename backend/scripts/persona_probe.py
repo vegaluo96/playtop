@@ -75,7 +75,8 @@ def report_coverage(cfg) -> int:
     repo.add_fact("audit_user", "audit", "哨情节记忆")          # 情节记忆层
     a = ContextAssembler(char, profile=_full_profile(),
                          autonomous=AutonomousState(mood="哨心情", recent_experience="哨近况",
-                                                    energy="哨精力", anticipating="哨期待"),
+                                                    energy="哨精力", anticipating="哨期待",
+                                                    local_context="哨现居地近况"),
                          memory=repo, budget_chars=int(cfg.global_defaults.get("budget_chars", 16000)))
     a.set_client_timezone(480)
     a.set_user_voice_emotion("sad")                            # ASR 声音情绪
@@ -102,6 +103,7 @@ def report_coverage(cfg) -> int:
         ("画像·本次策略", "哨本次策略"), ("画像·稳定原则", "哨稳定原则"), ("画像·好奇缺口", "哨好奇缺口"),
         ("Bond·角色感觉", "哨角色感觉"), ("Bond·被改变", "哨被改变"), ("Bond·角色议程", "哨角色议程"),
         ("自主·心情", "哨心情"), ("自主·近况", "哨近况"), ("自主·精力", "哨精力"), ("自主·期待", "哨期待"),
+        ("自主·现居地近况", "哨现居地近况"),
         ("情境scenario", "哨情境"),
         ("每轮·现实时间", "现实时间"), ("ASR·现学名字", "哨现学名"), ("ASR·声音情绪", "低落"),
         ("记忆·情节召回", "哨情节记忆"),

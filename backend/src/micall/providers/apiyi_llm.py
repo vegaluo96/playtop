@@ -52,6 +52,18 @@ def _chat_endpoint(ep: str) -> str:
 from ._http import is_retryable, loop_client, pool_limits, retry_backoff_s
 
 
+def _is_bad_request(exc: Exception) -> bool:
+    """HTTP 400（请求体被拒）——用于 response_format 不被某模型/网关接受时去掉该字段重试。纯函数，便于测。
+    用 getattr 取 HTTPStatusError（httpx 在测试里可能被替身对象顶替，直接取属性会 AttributeError）。"""
+    cls = getattr(httpx, "HTTPStatusError", None) if httpx is not None else None
+    if cls is not None and isinstance(exc, cls):
+        try:
+            return exc.response.status_code == 400
+        except Exception:  # pragma: no cover
+            return False
+    return "HTTP 400" in repr(exc)
+
+
 def _shared_client() -> "httpx.AsyncClient":
     """共享 HTTP 连接池，按事件循环隔离（见 providers/_http.loop_client）。
     管理端连通性测试走 asyncio.run（一次性循环），通话走 wsserver 常驻循环；同一 httpx client 跨循环复用
@@ -90,8 +102,10 @@ class ApiyiLLM(LLMProvider):
         self._retry_base_s = as_float(node.params.get("retry_base_s"), 0.4)
         self.last_usage: dict = {}   # 最近一轮用量（供计费/诊断读取）
 
-    def _payload(self, messages: Sequence[Message], temperature: float, max_tokens: int) -> dict:
-        """组 chat/completions 请求体（抽出便于单测：确认新能力字段真带上了）。核心字段在 extra_body 之后，永不被覆盖。"""
+    def _payload(self, messages: Sequence[Message], temperature: float, max_tokens: int,
+                 response_format: dict | None = None) -> dict:
+        """组 chat/completions 请求体（抽出便于单测：确认新能力字段真带上了）。核心字段在 extra_body 之后，永不被覆盖。
+        response_format：离线·要 JSON 的调用点传 {"type":"json_object"}，让模型只吐合法 JSON。"""
         payload: dict = {
             **self._extra_body,          # 配置透传字段（如关思考）；核心字段在后，永不被覆盖
             "model": self._model,
@@ -100,6 +114,8 @@ class ApiyiLLM(LLMProvider):
             "max_tokens": max_tokens,
             "stream": True,
         }
+        if response_format:
+            payload["response_format"] = response_format
         if self._freq_penalty:
             payload["frequency_penalty"] = self._freq_penalty
         if self._pres_penalty:
@@ -109,17 +125,22 @@ class ApiyiLLM(LLMProvider):
         return payload
 
     async def stream(
-        self, messages: Sequence[Message], *, temperature: float = 0.8, max_tokens: int = 256
+        self, messages: Sequence[Message], *, temperature: float = 0.8, max_tokens: int = 256,
+        response_format: dict | None = None,
     ) -> AsyncIterator[str]:  # pragma: no cover  （需真实网络/密钥，不在测试路径）
-        payload = self._payload(messages, temperature, max_tokens)
         headers = {
             "Authorization": f"Bearer {self._node.api_key}",
             "Content-Type": "application/json",
         }
         # OpenAI 兼容 SSE：逐行 data: {json}，token 在 choices[0].delta.content；末块 choices=[] 带 usage。
         # 瞬时错误（限流/网关抖/连接超时）在【吐出首字节前】退避重试；一旦开吐就只能抛给上层（重连会重复输出）。
-        for attempt in range(self._max_retries + 1):
+        # response_format 兜底：有的推理模型/网关不接受 response_format（如部分 deepseek 推理档会回 400）→
+        # 在【未吐字节】时去掉该字段重试一次（不消耗瞬时重试预算），离线 JSON 调用不会因此整个崩，后端容错解析照样兜住。
+        rf = response_format
+        attempt = 0
+        while True:
             yielded = False
+            payload = self._payload(messages, temperature, max_tokens, rf)
             try:
                 async with _shared_client().stream(
                     "POST", self._endpoint, headers=headers, json=payload
@@ -148,6 +169,11 @@ class ApiyiLLM(LLMProvider):
                             yield delta
                 return
             except Exception as e:
+                # response_format 不被接受（400，且还没吐字节）→ 去掉它重试一次，不算瞬时重试。
+                if not yielded and rf is not None and _is_bad_request(e):
+                    log.warning("response_format 不被该模型/网关接受，去掉后重试：%r", e)
+                    rf = None
+                    continue
                 # 已开吐 / 重试用尽 / 非瞬时错误 → 抛给上层兜底（_generate_turn 会优雅回 listening）。
                 if yielded or attempt >= self._max_retries or not is_retryable(e):
                     raise
@@ -155,3 +181,4 @@ class ApiyiLLM(LLMProvider):
                 log.warning("LLM 瞬时错误，%.1fs 后重试(%d/%d)：%r",
                             delay, attempt + 1, self._max_retries, e)
                 await asyncio.sleep(delay)
+                attempt += 1

@@ -276,7 +276,9 @@ class UnderstandingEngine:
 
     async def _run_llm(self, messages: list[Message]) -> str:
         chunks: list[str] = []
-        async for tok in self.llm.stream(messages, max_tokens=self.max_tokens):
+        # 离线·要 JSON → 开 json_object（模型不接受会自动去掉重试，容错解析照样兜住）。
+        async for tok in self.llm.stream(messages, max_tokens=self.max_tokens,
+                                         response_format={"type": "json_object"}):
             chunks.append(tok)
         return "".join(chunks)
 

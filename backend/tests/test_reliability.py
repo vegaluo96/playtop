@@ -78,6 +78,17 @@ class _FakeClient:
         return _FakeStreamCtx(resp)
 
 
+class _CapClient(_FakeClient):
+    """记录每次请求的 json payload，便于断言 response_format 是否被带上/去掉。"""
+    def __init__(self, scripted):
+        super().__init__(scripted)
+        self.payloads = []
+
+    def stream(self, method, url, **kw):
+        self.payloads.append(kw.get("json") or {})
+        return super().stream(method, url, **kw)
+
+
 def _tok(text):
     return 'data: {"choices":[{"delta":{"content":"%s"}}]}' % text
 
@@ -137,6 +148,28 @@ class TestLLMRetry(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RuntimeError):
             await self._collect(llm)
         self.assertEqual(fake.calls, 1)   # 鉴权错不重试
+
+    def test_payload_response_format_optional(self):
+        """离线 JSON 调用传 response_format 才进 payload；不传则没有（实时口语路径不带）。"""
+        llm = self._make_llm(_FakeClient([]))
+        msgs = [{"role": "user", "content": "hi"}]
+        self.assertNotIn("response_format", llm._payload(msgs, 0.8, 100))
+        p = llm._payload(msgs, 0.8, 100, {"type": "json_object"})
+        self.assertEqual(p["response_format"], {"type": "json_object"})
+
+    async def test_response_format_400_drops_and_retries(self):
+        """模型/网关不接受 response_format(400) → 去掉该字段重试一次，不算瞬时重试，离线 JSON 不崩。"""
+        fake = _CapClient([
+            _FakeResp(status_exc=RuntimeError("HTTP 400 · response_format unsupported")),
+            _FakeResp(lines=[_tok("{}"), "data: [DONE]"]),
+        ])
+        llm = self._make_llm(fake)
+        out = "".join([t async for t in llm.stream(
+            [{"role": "user", "content": "hi"}], response_format={"type": "json_object"})])
+        self.assertEqual(out, "{}")
+        self.assertEqual(fake.calls, 2)
+        self.assertIn("response_format", fake.payloads[0])      # 第一次带
+        self.assertNotIn("response_format", fake.payloads[1])   # 去掉后重试
 
 
 # ────────────────────────── ③ /api/health 快照 ──────────────────────────

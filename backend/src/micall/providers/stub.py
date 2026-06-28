@@ -27,7 +27,8 @@ class StubLLM(LLMProvider):
         self._turn = 0
 
     async def stream(
-        self, messages: Sequence[Message], *, temperature: float = 0.8, max_tokens: int = 256
+        self, messages: Sequence[Message], *, temperature: float = 0.8, max_tokens: int = 256,
+        response_format: dict | None = None,
     ) -> AsyncIterator[str]:
         reply = self._replies[self._turn % len(self._replies)]
         self._turn += 1

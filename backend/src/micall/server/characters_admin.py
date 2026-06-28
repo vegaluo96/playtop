@@ -405,7 +405,7 @@ async def generate_character(prompt: str, llm) -> dict:
     buf = ""
     async for tok in llm.stream([{"role": "system", "content": sys},
                                  {"role": "user", "content": prompt or "生成一个温柔治愈的角色"}],
-                                max_tokens=1000):
+                                max_tokens=1000, response_format={"type": "json_object"}):
         buf += tok
     m = re.search(r"\{.*\}", buf, re.S)
     if not m:
@@ -444,7 +444,7 @@ async def generate_core(fields: dict, llm) -> str:
     buf = ""
     async for tok in llm.stream([{"role": "system", "content": sys},
                                  {"role": "user", "content": digest}],
-                                max_tokens=600):
+                                max_tokens=600, response_format={"type": "json_object"}):
         buf += tok
     m = re.search(r"\{.*\}", buf, re.S)
     if m:

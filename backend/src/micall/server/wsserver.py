@@ -40,7 +40,9 @@ _THREAD_TAIL = 8               # 续接时回灌的最近对话条数（≈4 轮
 # 离线任务（挂断后的理解/自主推进）并发闸：N 通同时挂断会一齐砸慢脑(llm_slow)→打满连接池、抢在线接话的
 # 事件循环/CPU。封顶到 N 个同时跑、其余排队；单个超时即放弃（卡住也不长期占名额）。
 _OFFLINE_MAX_CONCURRENCY = 2
-_OFFLINE_TASK_TIMEOUT_S = 90.0
+# 慢脑换成推理模型（deepseek-v4-pro）后，离线一轮要先「思考」再吐答案，比 qwen-max 慢不少 → 把兜底超时
+# 从 90s 放宽到 180s（离线、无人等，宁可多等也别半截砍掉推理）。想更稳可再调大。
+_OFFLINE_TASK_TIMEOUT_S = 180.0
 
 
 def _client_ip(websocket: Any) -> str:
@@ -241,7 +243,9 @@ class SignalingServer:
         except Exception as e:
             log.warning("自主状态推进取角色失败 char=%s：%r", char, e)
             return
-        engine = AutonomyEngine(make_llm(self.config.node("llm_slow")), self.repo)
+        # 推理模型(deepseek-v4-pro)会先思考再吐 JSON，completion 预算要给够，否则思考吃光额度→JSON 被截断。
+        engine = AutonomyEngine(make_llm(self.config.node("llm_slow")), self.repo,
+                                max_tokens=int(self.config.global_defaults.get("offline_autonomy_max_tokens", 1500)))
 
         async def run() -> None:
             try:
@@ -280,6 +284,8 @@ class SignalingServer:
             make_llm(self.config.node("llm_slow")),
             self.repo,
             embedder=make_embedding(self.config.node("embedding")),
+            # 推理模型(deepseek-v4-pro)思考+大画像 JSON 都吃 completion 预算，给足别截断（离线、不在意成本）。
+            max_tokens=int(self.config.global_defaults.get("offline_understanding_max_tokens", 3000)),
         )
 
         async def run() -> None:
