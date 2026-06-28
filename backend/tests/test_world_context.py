@@ -65,6 +65,30 @@ class TestHotRecords(unittest.TestCase):
         self.assertEqual(recs[0]["url"], "http://b/1")
 
 
+class TestWikiParse(unittest.TestCase):
+    """维基『历史上的今天』/『今日热门词条』解析（带真实词条链接）。"""
+
+    def test_onthisday(self):
+        data = {"selected": [
+            {"text": "阿波罗11号成功登月", "year": 1969, "pages": [
+                {"title": "阿波罗11号", "content_urls": {"desktop": {"page": "https://zh.wikipedia.org/wiki/阿波罗11号"}}}]}]}
+        out = wc._parse_wiki_onthisday(data)
+        self.assertEqual(out[0]["title"], "1969年的今天，阿波罗11号成功登月")
+        self.assertIn("阿波罗11号", out[0]["url"])
+
+    def test_mostread(self):
+        data = {"mostread": {"articles": [
+            {"normalizedtitle": "某热门词条", "extract": "这是简介。", "views": 12345,
+             "content_urls": {"desktop": {"page": "https://zh.wikipedia.org/wiki/X"}}}]}}
+        out = wc._parse_wiki_mostread(data)
+        self.assertIn("某热门词条", out[0]["title"])
+        self.assertIn("zh.wikipedia.org", out[0]["url"])
+
+    def test_empty(self):
+        self.assertEqual(wc._parse_wiki_onthisday({}), [])
+        self.assertEqual(wc._parse_wiki_mostread({}), [])
+
+
 class TestFetchTopics(unittest.IsolatedAsyncioTestCase):
     """真实热点 → 安全闸 → grounded 改写；真实性来自数据源，LLM 只改写、不编。"""
 
@@ -75,7 +99,7 @@ class TestFetchTopics(unittest.IsolatedAsyncioTestCase):
         wc.fetch_hot_items = self._orig
 
     def _stub_items(self, items):
-        async def fake(endpoints=None, limit=60):
+        async def fake(*a, **k):
             return items
         wc.fetch_hot_items = fake
 
@@ -121,7 +145,7 @@ class TestRefreshAndRead(unittest.IsolatedAsyncioTestCase):
             wc._WORLD[k] = d[k]
 
     async def test_refresh_fills_shared_store(self):
-        async def fake(endpoints=None, limit=60):
+        async def fake(*a, **k):
             return [{"title": "端午粽子上市", "url": "http://a"}, {"title": "新番开播", "url": "http://b"}]
         wc.fetch_hot_items = fake
         res = await refresh_world([], NOW, None)           # 无城市 → 只拉话题；无改写脑 → 真实标题

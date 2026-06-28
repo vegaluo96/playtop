@@ -486,6 +486,21 @@ export async function worldRefresh(): Promise<WorldPull> {
   }
 }
 
+/** 一键测试每个免费热点源是否可达 + 拿到几条 + 样例。无后端 → null。 */
+export type SourceRow = { source: string; ok: boolean; count?: number; safe?: number; error?: string;
+  sample?: { text: string; url: string }[] };
+export async function testHotSources(): Promise<{ ok: boolean; sources?: SourceRow[]; error?: string } | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/world-test-source`, { method: "POST", headers: authHeaders(true), credentials: "include" });
+    if (r.ok) return (await r.json()) as { ok: boolean; sources?: SourceRow[] };
+    return { ok: false, error: `HTTP ${r.status}` };
+  } catch {
+    return { ok: false, error: "无法连接服务器" };
+  }
+}
+
 /** 读取【已保存】的世界库快照（持久化那份，重启/重拉都在）：日期/话题/各城天气/历史天数。无后端 → null。 */
 export type WorldLib = { date?: string; fresh?: boolean; persisted?: boolean;
   topics?: string[]; topics_src?: { text: string; url: string }[];

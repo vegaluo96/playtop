@@ -152,7 +152,7 @@ class TestTopicsBreadthAndRotation(unittest.IsolatedAsyncioTestCase):
         # 真实热点 20 条（无改写脑→真实标题原样），上限 14
         orig = wc.fetch_hot_items
 
-        async def fake(endpoints=None, limit=60):
+        async def fake(*a, **k):
             return [{"title": f"真实热点{i}", "url": f"http://x/{i}"} for i in range(20)]
         wc.fetch_hot_items = fake
         try:

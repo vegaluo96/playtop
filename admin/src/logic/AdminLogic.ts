@@ -17,7 +17,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, resetUserMemory, cloneVoice,
-         worldRefresh, loadWorld, loadLimits, saveLimits,
+         worldRefresh, loadWorld, testHotSources, loadLimits, saveLimits,
          generateAvatar, uploadAvatar, adminAvatarUrl } from "./configService";
 
 export interface AdminProps {
@@ -66,7 +66,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, limitsCfg: null,
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null,
     confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
@@ -453,7 +453,7 @@ export class AdminLogic {
     this.setState((p) => ({ apiStatus: { ...p.apiStatus, [sectionKey]: "testing" }, apiTestDetail: { ...p.apiTestDetail, [sectionKey]: null } }));
     const res = await testApiSection(sectionKey, this.state.apiCfg[sectionKey]);
     const st = res.ok === false ? "fail" : "ok";   // ok===null（无后端）当通过；false 才算失败
-    // 把真实结果（联网脑的真实答案/live 初判、或后端 note/错误）留在卡下方，不再只闪一下 toast。
+    // 把真实结果（后端 note/错误 + ms）留在卡下方，不再只闪一下 toast。
     const detail = res.ok === false
       ? { kind: "fail", text: res.error || "未知错误" }
       : (res.answer != null
@@ -466,7 +466,7 @@ export class AdminLogic {
     else this.toastMsg(name + " 测试成功" + (res.ms ? ` · ${res.ms}ms` : ""));
   }
 
-  /** 手动拉取联网脑（世界库）：真跑一遍 open-meteo 天气 + 联网脑话题，把真实结果亮在面板上「看效果」。 */
+  /** 手动拉取世界库：真跑一遍 open-meteo 天气 + 免费热榜/维基真实热点抓取，把真实结果亮在面板上「看效果」。 */
   async pullWorld() {
     if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
     if (this.state.worldPulling) return;
@@ -478,6 +478,17 @@ export class AdminLogic {
     if (res.ok === null) this.toastMsg("需接入后端");
     else if (res.ok === false) this.toastMsg("拉取失败：" + (res.error || "未知错误"));
     else this.toastMsg(`真实热点 ${res.topics_count || 0} 条 · 天气 ${res.weather_cities || 0} 城` + (res.rewriter_configured ? "" : "（改写脑未配·用真实标题原样）"));
+  }
+
+  /** 一键测试所有免费热点源：逐源探可达性 + 拿到几条 + 样例，亮在面板上，方便据此增删源。 */
+  async testSources() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    if (this.state.srcTesting) return;
+    this.setState({ srcTesting: true, srcTest: null });
+    const res = await testHotSources();
+    this.setState({ srcTesting: false, srcTest: res });
+    if (!res || res.ok === false) this.toastMsg("测试失败：" + ((res && res.error) || "未知错误"));
+    else { const rows = res.sources || []; const up = rows.filter((r: any) => r.ok).length; this.toastMsg(`热点源 ${up}/${rows.length} 可用`); }
   }
 
   /** 自定义自动拉取间隔（小时）：写进 global_defaults.world_refresh_hours，约 10 分钟内生效（不用重启）。 */
@@ -517,7 +528,7 @@ export class AdminLogic {
     return { statusLabel: "未测试", statusColor: "#878B95", statusBg: "#F0F0F3" };
   }
 
-  /** 把上次「测试连接」的真实结果折成卡下方一行：联网脑亮真实答案 + live 徽标，其它节点显 note/错误。 */
+  /** 把上次「测试连接」的真实结果折成卡下方一行：显 note/ms 或错误。 */
   _apiTestDetailView(key: string) {
     const d = (this.state.apiTestDetail || {})[key];
     if (!d || !d.text) return { hasTestDetail: false, testDetailText: "", testDetailTag: "", testDetailColor: "", testDetailBg: "" };
@@ -919,7 +930,7 @@ export class AdminLogic {
     ];
     const byNode = (cost && cost.by_node) || {};   // 今日各节点成本（micros）
     const nodeCost = (k: string) => usd(byNode[k] || 0);
-    // 节点状态：按【后台是否配了 key】判活/未配（之前一律写死「正常」会误导）。评测脑/联网脑是可选节点，未配=未配。
+    // 节点状态：按【后台是否配了 key】判活/未配（之前一律写死「正常」会误导）。评测脑/热点改写脑是可选节点，未配=未配。
     const nst = (sec: string) => stp(((s.apiCfg as any)[sec] && (s.apiCfg as any)[sec].key) ? "正常" : "未配置");
     const nodeCards = [
       { name: "ASR · 语音识别", role: "听 · 通话中", model: "", ...nst("asr"), latency: "—", calls: "—", cost: nodeCost("asr") },
@@ -972,6 +983,15 @@ export class AdminLogic {
         : (!worldFresh && worldDate ? `当前是 ${worldDate} 的库（今天还没刷新，点「立即拉取」更新）`
           : ((wp && wp.ok && !wp.rewriter_configured) ? "改写脑未配 → 话题用真实标题原样（仍真实，只是没改成口语）" : "")));
     const worldSummary = worldHasResult ? `话题 ${worldTopics.length} 条 · 天气 ${worldWeather.length} 城` : "";
+    // 测试热点源结果
+    const _st = s.srcTest;
+    const hasSrcTest = !!(_st && _st.sources);
+    const srcErr = (_st && _st.ok === false) ? (_st.error || "测试失败") : "";
+    const srcRows = ((_st && _st.sources) || []).map((r: any) => ({
+      source: String(r.source || ""), ok: !!r.ok,
+      statusText: r.ok ? `可用 · ${r.count || 0} 条（安全 ${r.safe || 0}）` : ("失败：" + (r.error || "未知")),
+      statusColor: r.ok ? "#1FA971" : "#E0594F", statusBg: r.ok ? "rgba(31,169,113,.1)" : "rgba(224,89,79,.1)",
+      sampleText: ((r.sample || [])[0] || {}).text || "", hasSample: !!((r.sample || [])[0] || {}).text }));
 
     const titles: Record<string, [string, string]> = {
       dashboard: ["数据概览", "MiCall.ai 运营核心指标"],
@@ -1114,6 +1134,10 @@ export class AdminLogic {
       worldTopics, worldWeather, hasWorldTopics: worldTopics.length > 0, hasWorldWeather: worldWeather.length > 0,
       pullWorld: () => this.pullWorld(),
       saveWorldInterval: () => this.saveWorldInterval(),
+      // 测试热点源（逐源体检，据此增删）
+      testSources: () => this.testSources(), srcTesting: !!s.srcTesting,
+      srcTestLabel: s.srcTesting ? "测试中…" : "测试热点源",
+      hasSrcTest, srcErr, srcRows,
       ioOpen: s.ioOpen, exportSample,
       openExport: () => this.setState({ ioOpen: true, ioMode: "export" }), closeIO: () => this.setState({ ioOpen: false }),
       runExport: () => this.exportChars(),

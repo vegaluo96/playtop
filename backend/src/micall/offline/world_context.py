@@ -141,11 +141,26 @@ async def fetch_weather(city: str) -> dict | None:
 #    【grounded 改写】成口语闲聊。第一性原理：真实性来自【真实数据源】，不靠模型"联网"——
 #    让 LLM 凭空"联网找热点"只会编（grok-4.3/qwen-long 都没有真·网络检索）。这里 LLM 只当【改写器】：
 #    输入真实标题、输出口语说法，绝不新增/编造事实。每条都带【原文链接】，后台可点开核对、铁证是真的。
+# 一批【免费、无注册、长期稳定】的热点/内容源（都是资产，越多越广越不尬；某个挂了其它顶上）。
+# 全部返回 JSON 且含 title/url；由 _iter_hot_records 通吃。可在 global_defaults.hot_api_endpoints 增删。
 _HOT_ENDPOINTS_DEFAULT = (
-    "https://api.vvhan.com/api/hotlist/all",    # vvhan 聚合多平台热榜，免 key、免注册
-    "https://api-hot.imsyy.top/all",            # 今日热榜 DailyHot，免 key（备用源）
+    "https://api.vvhan.com/api/hotlist/all",        # vvhan 聚合多平台热榜（独立源·域1）
+    "https://api-hot.imsyy.top/all",                # 今日热榜 DailyHot 聚合（独立源·域2）
+    "https://api-hot.imsyy.top/bilibili",           # B站热门（生活/二次元/知识）
+    "https://api-hot.imsyy.top/douyin",             # 抖音热点
+    "https://api-hot.imsyy.top/zhihu",              # 知乎热榜
+    "https://api-hot.imsyy.top/douban-movie",       # 豆瓣电影（影视）
+    "https://api-hot.imsyy.top/weread",             # 微信读书（书）
+    "https://api-hot.imsyy.top/sspai",              # 少数派（数码/生活方式）
+    "https://api-hot.imsyy.top/ithome",             # IT之家（科技数码）
+    "https://api-hot.imsyy.top/juejin",             # 掘金（科技）
+    "https://api-hot.imsyy.top/hupu",               # 虎扑（运动/体育）
 )
+# 维基百科（REST v1，免 key，香港可直连）：隽永/知识类素材，独立于热榜，真实可核对。
+_WIKI_ONTHISDAY = "https://zh.wikipedia.org/api/rest_v1/feed/onthisday/selected/{mm}/{dd}"  # 历史上的今天
+_WIKI_FEATURED = "https://zh.wikipedia.org/api/rest_v1/feed/featured/{yyyy}/{mm}/{dd}"        # 今日热门词条等
 _HOT_TIMEOUT_S = 12.0
+_UA = "MiCall/1.0 (world-context companion bot)"
 _TITLE_KEYS = ("title", "word", "query", "hotword", "keyword", "desc")
 _URL_KEYS = ("url", "mobileUrl", "mobilUrl", "link", "href")
 
@@ -166,30 +181,118 @@ def _iter_hot_records(obj: Any):
             yield from _iter_hot_records(v)
 
 
-async def fetch_hot_items(endpoints: Any = None, limit: int = 60) -> list[dict]:
-    """逐个免费热榜 API 拉真实热点 → [{title, url}]（按标题去重）。无 httpx/全失败 → []。免 key、免注册。"""
+def _parse_wiki_onthisday(data: Any) -> list[dict]:
+    """从维基『历史上的今天』REST 响应抠出 [{title, url}]：标题=『X年的今天，<事件>』、url=词条页。纯函数。"""
+    out: list[dict] = []
+    evs = (data.get("selected") or data.get("events") or []) if isinstance(data, dict) else []
+    for ev in evs:
+        if not isinstance(ev, dict):
+            continue
+        text = str(ev.get("text") or "").strip()
+        if not text:
+            continue
+        year = ev.get("year")
+        pages = ev.get("pages") or []
+        url = ""
+        if pages and isinstance(pages[0], dict):
+            url = (((pages[0].get("content_urls") or {}).get("desktop") or {}).get("page")) or ""
+        title = f"{year}年的今天，{text}" if isinstance(year, int) else f"历史上的今天，{text}"
+        out.append({"title": title[:120], "url": str(url or "")})
+    return out
+
+
+async def _fetch_generic(cl: Any, ep: str) -> list[dict]:
+    r = await asyncio.wait_for(cl.get(ep, headers={"User-Agent": _UA}), timeout=_HOT_TIMEOUT_S)
+    r.raise_for_status()
+    return list(_iter_hot_records(r.json()))
+
+
+def _parse_wiki_mostread(data: Any) -> list[dict]:
+    """从维基『今日精选』里抠出【今日最多人查的词条】→ [{title, url}]：标题=『最近不少人在查「X」：<简介>』。纯函数。"""
+    out: list[dict] = []
+    arts = ((data.get("mostread") or {}).get("articles") or []) if isinstance(data, dict) else []
+    for a in arts:
+        if not isinstance(a, dict):
+            continue
+        title = str(a.get("normalizedtitle") or a.get("title") or "").replace("_", " ").strip()
+        if not title:
+            continue
+        url = (((a.get("content_urls") or {}).get("desktop") or {}).get("page")) or ""
+        extract = str(a.get("extract") or "").strip()
+        text = f"最近不少人在查「{title}」" + (f"：{extract[:36]}" if extract else "")
+        out.append({"title": text[:120], "url": str(url or "")})
+    return out
+
+
+async def _fetch_wiki(cl: Any, now: datetime.datetime) -> list[dict]:
+    url = _WIKI_ONTHISDAY.format(mm=f"{now.month:02d}", dd=f"{now.day:02d}")
+    r = await asyncio.wait_for(cl.get(url, headers={"User-Agent": _UA}), timeout=_HOT_TIMEOUT_S)
+    r.raise_for_status()
+    return _parse_wiki_onthisday(r.json())
+
+
+async def _fetch_wiki_mostread(cl: Any, now: datetime.datetime) -> list[dict]:
+    url = _WIKI_FEATURED.format(yyyy=now.year, mm=f"{now.month:02d}", dd=f"{now.day:02d}")
+    r = await asyncio.wait_for(cl.get(url, headers={"User-Agent": _UA}), timeout=_HOT_TIMEOUT_S)
+    r.raise_for_status()
+    return _parse_wiki_mostread(r.json())
+
+
+async def fetch_hot_items(endpoints: Any = None, limit: int = 60,
+                          now: datetime.datetime | None = None, wiki: bool = True) -> list[dict]:
+    """【并发】拉所有免费数据源真实素材 → [{title, url}]（按标题去重）：多个热榜 API + 维基(历史上的今天/今日热门词条)。
+    并发(gather)让源再多也不慢；某个挂了 return_exceptions 兜住、其它顶上。无 httpx/全失败 → []。免 key、免注册。"""
     if httpx is None:
         return []
     cl = _client()
+    coros = [_fetch_generic(cl, ep) for ep in (endpoints or _HOT_ENDPOINTS_DEFAULT)]
+    if wiki and now is not None:
+        coros.append(_fetch_wiki(cl, now))
+        coros.append(_fetch_wiki_mostread(cl, now))
+    results = await asyncio.gather(*coros, return_exceptions=True)
     seen: set[str] = set()
     items: list[dict] = []
-    for ep in (endpoints or _HOT_ENDPOINTS_DEFAULT):
-        try:
-            r = await asyncio.wait_for(
-                cl.get(ep, headers={"User-Agent": "Mozilla/5.0"}), timeout=_HOT_TIMEOUT_S)
-            r.raise_for_status()
-            data = r.json()
-        except Exception as e:
-            log.info("热榜 API 拉取失败 ep=%s：%r", ep, e)
+    for res in results:
+        if isinstance(res, BaseException):
+            log.info("数据源拉取失败：%r", res)
             continue
-        for rec in _iter_hot_records(data):
-            t = rec["title"]
+        for rec in res:
+            t = rec.get("title", "")
             if t and t not in seen:
                 seen.add(t)
                 items.append(rec)
             if len(items) >= limit:
-                return items
-    return items
+                break
+        if len(items) >= limit:
+            break
+    return items[:limit]
+
+
+async def probe_sources(endpoints: Any = None, now: datetime.datetime | None = None) -> list[dict]:
+    """【并发】逐源测试可达性 + 拿到几条 + 过安全闸剩几条 + 2 条样例（含链接）。给后台「测试热点源」按钮，可据此增删源。"""
+    if httpx is None:
+        return [{"source": "httpx", "ok": False, "error": "缺少 httpx 依赖"}]
+    cl = _client()
+    when = now or datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+    targets: list[tuple[str, str, str]] = [("generic", ep, ep) for ep in (endpoints or _HOT_ENDPOINTS_DEFAULT)]
+    targets.append(("wiki_otd", "维基·历史上的今天", ""))
+    targets.append(("wiki_most", "维基·今日热门词条", ""))
+
+    async def _probe(kind: str, label: str, ep: str) -> dict:
+        try:
+            if kind == "wiki_otd":
+                recs = await _fetch_wiki(cl, when)
+            elif kind == "wiki_most":
+                recs = await _fetch_wiki_mostread(cl, when)
+            else:
+                recs = await _fetch_generic(cl, ep)
+            safe = [r for r in recs if _is_safe(r.get("title", ""))]
+            return {"source": label, "ok": True, "count": len(recs), "safe": len(safe),
+                    "sample": [{"text": r["title"][:60], "url": r.get("url", "")} for r in safe[:2]]}
+        except Exception as e:
+            return {"source": label, "ok": False, "error": str(e)[:200]}
+
+    return list(await asyncio.gather(*[_probe(k, lbl, ep) for k, lbl, ep in targets]))
 
 
 def _rewrite_prompt(titles: list[str]) -> list[dict]:
@@ -207,7 +310,7 @@ def _rewrite_prompt(titles: list[str]) -> list[dict]:
 async def fetch_topics(rewrite_llm: Any, now: datetime.datetime, endpoints: Any = None) -> list[dict]:
     """真实热点话题池（全站共享）：免费热榜 API 抓真实热点 → 过安全闸 → 有 LLM 则 grounded 改写成口语。
     返回 [{text, url}]（最多 14，带原文链接）。LLM 只负责改写、不负责"找热点"——拉不到真实热点就返回空，绝不编。"""
-    items = await fetch_hot_items(endpoints)
+    items = await fetch_hot_items(endpoints, now=now)
     safe = [it for it in items if _is_safe(it["title"])][:16]   # 先过安全闸（去政治/灾难/负面等）
     if not safe:
         return []

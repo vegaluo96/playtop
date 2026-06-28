@@ -394,7 +394,7 @@
         <div style="animation:adRise .3s ease;display:flex;flex-direction:column;gap:16px;">
           <div style="display:contents;">
           <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-            <div style="display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:15px;font-weight:600;">总链路状态</div><div style="font-size:12.5px;color:#9A9DA7;margin-top:2px;">AI 运行链路 · 通话中(快脑) → 通话后(慢脑·记忆检索) → 离线每日(联网脑·评测脑)</div></div><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#1FA971;background:rgba(31,169,113,.1);border-radius:8px;padding:5px 12px;"><span style="width:7px;height:7px;border-radius:50%;background:#1FA971;"></span>整体正常</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:15px;font-weight:600;">总链路状态</div><div style="font-size:12.5px;color:#9A9DA7;margin-top:2px;">AI 运行链路 · 通话中(快脑) → 通话后(慢脑·记忆检索) → 离线每日(真实热点·改写脑·评测脑)</div></div><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#1FA971;background:rgba(31,169,113,.1);border-radius:8px;padding:5px 12px;"><span style="width:7px;height:7px;border-radius:50%;background:#1FA971;"></span>整体正常</span></div>
             <div style="margin-top:14px;border:1px solid #E7E3FF;background:rgba(110,92,255,.04);border-radius:12px;padding:13px 15px;">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span style="font-size:12.5px;font-weight:600;color:#6E5CFF;background:rgba(110,92,255,.1);border-radius:7px;padding:2px 9px;">快链路 · 通话中</span><span style="font-size:11.5px;color:#A8ABB5;">快 · 短 · 低延迟 · 可打断</span></div>
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
@@ -421,9 +421,10 @@
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span style="font-size:12.5px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:7px;padding:2px 9px;">离线链路 · 每日</span><span style="font-size:11.5px;color:#A8ABB5;">独立于通话 · 让角色活在真实世界 · 全站共享</span></div>
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
                 <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">每日定时</span><span style="color:#C2C4CC;">→</span>
-                <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">真实天气 · open-meteo 免费按城</span><span style="color:#C2C4CC;">＋</span>
-                <span style="font-size:12px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:8px;padding:4px 9px;">联网脑 · 时事话题</span><span style="color:#C2C4CC;">→</span>
+                <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">真实天气 · open-meteo 按城</span><span style="color:#C2C4CC;">＋</span>
+                <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">真实热点 · 免费热榜+维基(带原文链接)</span><span style="color:#C2C4CC;">→</span>
                 <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">安全闸过滤</span><span style="color:#C2C4CC;">→</span>
+                <span style="font-size:12px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:8px;padding:4px 9px;">热点改写脑 · 润成口语</span><span style="color:#C2C4CC;">→</span>
                 <span style="font-size:12px;font-weight:600;color:#F5A623;background:rgba(245,166,35,.1);border-radius:8px;padding:4px 9px;">世界库 · 全站共享</span><span style="color:#C2C4CC;">→</span>
                 <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">注入 快脑 / 慢脑</span>
               </div>
@@ -491,8 +492,31 @@
                 <div style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;">世界库 · 角色「活在世界里」的共享素材<span style="font-size:11px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:7px;padding:2px 8px;">{{ worldDate }}</span></div>
                 <div style="font-size:12.5px;color:#9A9DA7;margin-top:3px;">每天全站拉一批：open-meteo 各城真实天气 + 免费热榜 API 的【真实热点】（带原文链接、过安全闸、改写脑润成口语）。话题旁有原文链接，点开即可核对是不是真的。已持久化、重启不丢。点「立即拉取」即刻更新。</div>
               </div>
-              <div onClick="{{ pullWorld }}" style="flex:none;font-size:13.5px;font-weight:600;color:#fff;background:{{ worldPullBtnBg }};border-radius:10px;padding:10px 22px;cursor:pointer;box-shadow:0 6px 14px rgba(224,149,79,.26);" style-active="transform:scale(.97)">{{ worldPullLabel }}</div>
+              <div style="flex:none;display:flex;gap:9px;align-items:center;">
+                <div onClick="{{ testSources }}" style="font-size:13.5px;font-weight:600;color:#5A5E6B;background:#F2F3F5;border-radius:10px;padding:10px 18px;cursor:pointer;" style-active="transform:scale(.97)">{{ srcTestLabel }}</div>
+                <div onClick="{{ pullWorld }}" style="font-size:13.5px;font-weight:600;color:#fff;background:{{ worldPullBtnBg }};border-radius:10px;padding:10px 22px;cursor:pointer;box-shadow:0 6px 14px rgba(224,149,79,.26);" style-active="transform:scale(.97)">{{ worldPullLabel }}</div>
+              </div>
             </div>
+            <sc-if value="{{ srcErr }}" hint-placeholder-val="{{ '' }}">
+              <div style="margin-top:13px;border-radius:10px;padding:11px 13px;background:rgba(224,89,79,.06);font-size:12.5px;color:#C0453B;">测试失败：{{ srcErr }}</div>
+            </sc-if>
+            <sc-if value="{{ hasSrcTest }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:13px;border:1px solid #EEF0F3;border-radius:10px;padding:11px 13px;">
+                <div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">热点源体检（可据此在后端 hot_api_endpoints 增删源）</div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <sc-for list="{{ srcRows }}" as="r" hint-placeholder-count="6">
+                    <div style="display:flex;align-items:center;gap:10px;font-size:12px;">
+                      <span style="flex:none;width:8px;height:8px;border-radius:50%;background:{{ r.statusColor }};"></span>
+                      <span style="flex:none;width:200px;color:#3A3D47;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.source }}</span>
+                      <span style="flex:none;font-weight:600;color:{{ r.statusColor }};">{{ r.statusText }}</span>
+                      <sc-if value="{{ r.hasSample }}" hint-placeholder-val="{{ false }}">
+                        <span style="flex:1;min-width:0;color:#9A9DA7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">例：{{ r.sampleText }}</span>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;border-top:1px solid #F4ECDC;padding-top:14px;">
               <span style="font-size:12.5px;color:#878B95;">自动拉取间隔</span>
               <input value="{{ rlWorldHours }}" onInput="{{ onRlWorldHours }}" style="width:72px;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:9px;padding:8px 11px;font-size:13.5px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;text-align:center;" style-focus="border-color:#E0B36A;background:#fff" />
@@ -574,7 +598,7 @@
               <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">AI 单次回复上限（tokens）</div><input value="{{ rlReply }}" onInput="{{ onRlReply }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
               <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">通话内记忆轮数</div><input value="{{ rlTurns }}" onInput="{{ onRlTurns }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
               <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">上下文预算（字符）</div><input value="{{ rlBudget }}" onInput="{{ onRlBudget }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
-              <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">联网脑/天气刷新（小时）</div><input value="{{ rlWorldHours }}" onInput="{{ onRlWorldHours }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
+              <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">热点/天气刷新（小时）</div><input value="{{ rlWorldHours }}" onInput="{{ onRlWorldHours }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
             </div>
             <div style="margin-top:16px;border-top:1px solid #F0F0F3;padding-top:14px;display:grid;grid-template-columns:repeat(2,1fr);gap:9px 20px;">
               <sc-for list="{{ limitItems }}" as="li" hint-placeholder-count="8">

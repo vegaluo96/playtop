@@ -336,7 +336,23 @@ def read_world_for_admin() -> dict:
     return world_snapshot(now)
 
 
-# ── 手动拉取联网脑（世界库）：运营点一下就【真的】跑一遍 open-meteo 天气 + 联网脑话题，亮出真实结果 ──
+# ── 一键测试热点源：逐个数据源探一下可达性 + 拿到几条 + 样例（不写库、轻量），给运营核对数据源是否可用 ──
+def admin_test_sources() -> dict:
+    import asyncio
+    import datetime
+
+    from ..offline.world_context import probe_sources
+
+    cfg = load_config()
+    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+    try:
+        rows = asyncio.run(probe_sources(cfg.global_defaults.get("hot_api_endpoints"), now))
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
+    return {"ok": True, "sources": rows}
+
+
+# ── 手动拉取（世界库）：运营点一下就【真的】跑一遍 open-meteo 天气 + 真实热点抓取，亮出真实结果 ──
 def admin_world_refresh() -> dict:
     """立即跑一次全站世界库刷新（与每日定时同一条路）：从免费热榜 API 抓【真实热点(带原文链接)】+ 各城真实天气，
     返回给运营当场核对（话题旁有原文链接，可点开验真）。更新进程内共享世界库，拉完角色立刻能用。失败诚实回带。"""
@@ -689,9 +705,14 @@ class _Handler(BaseHTTPRequestHandler):
         if route == "/admin/api-config/test":
             b = self._body()
             return self._json(200, test_section(b.get("section", ""), b.get("config", {}) or {}))
-        if route == "/admin/world-refresh":      # 手动拉取联网脑（世界库）：真跑一遍，亮出真实话题+天气
+        if route == "/admin/world-refresh":      # 手动拉取（世界库）：真跑一遍，亮出真实热点+天气
             try:
                 return self._json(200, admin_world_refresh())
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
+        if route == "/admin/world-test-source":  # 一键测试每个免费热点源是否可达 + 拿到几条 + 样例
+            try:
+                return self._json(200, admin_test_sources())
             except Exception as e:
                 return self._json(500, {"ok": False, "error": str(e)[:200]})
         if route == "/admin/redeem-codes":      # 自定义码 + 份数 + 时长
