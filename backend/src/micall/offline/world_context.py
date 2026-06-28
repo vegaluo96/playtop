@@ -160,7 +160,8 @@ _HOT_ENDPOINTS_DEFAULT = (
 _WIKI_ONTHISDAY = "https://zh.wikipedia.org/api/rest_v1/feed/onthisday/selected/{mm}/{dd}"  # 历史上的今天
 _WIKI_FEATURED = "https://zh.wikipedia.org/api/rest_v1/feed/featured/{yyyy}/{mm}/{dd}"        # 今日热门词条等
 _HOT_TIMEOUT_S = 12.0
-_UA = "MiCall/1.0 (world-context companion bot)"
+# 维基百科强制要求【带联系方式】的 User-Agent，否则 403（policy: meta.wikimedia.org/wiki/User-Agent_policy）。
+_UA = "MiCallBot/1.0 (+https://zsky.com; AI companion world-context) python-httpx"
 _TITLE_KEYS = ("title", "word", "query", "hotword", "keyword", "desc")
 _URL_KEYS = ("url", "mobileUrl", "mobilUrl", "link", "href")
 
