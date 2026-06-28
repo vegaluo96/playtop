@@ -29,6 +29,7 @@ except ImportError:  # pragma: no cover
     ConnectionPool = None  # type: ignore
 
 _SCHEMA = Path(__file__).with_name("schema.sql")
+_FORGET_HORIZON_S = 90 * 24 * 3600   # 记忆遗忘新近宽限地平线：更老的事实新近项触底，只剩重要性/情感主导
 
 
 def _vec_literal(v: list[float] | None) -> str | None:
@@ -193,6 +194,37 @@ class PgRepository(MemoryRepository):
         except Exception as e:
             log.warning("recall_vec 失败，退关键词：%r", e)
             return self.recall(user_id, character_id, query, top_k=top_k)
+
+    def prune_facts(self, user_id, character_id, *, cap=600) -> int:
+        """记忆遗忘（容量封顶）：超 cap 时按遗忘分忘掉最不显著的，留 cap 条最该记的。仅超容才动、平时 no-op。
+        遗忘分 = 重要性 × 情感权重 × 新近宽限(0.6~1.0，90 天后触底) —— 与 repository._forget_score 同义。
+        第一性原理：人脑会淡忘流水账、留要紧事，事实表才不无界膨胀（向量索引/召回/存储长期可控）。失败不影响通话。"""
+        if cap <= 0:
+            return 0
+        try:
+            with self.pool.connection() as c:
+                row = c.execute("SELECT count(*) FROM facts WHERE user_id=%s AND character_id=%s",
+                                (user_id, character_id)).fetchone()
+                total = int(row[0]) if row else 0
+                if total <= cap:
+                    return 0
+                # ranked 给每条算遗忘分；按分降序、跳过要留的前 cap 条（OFFSET），其余（最不显著）删掉。
+                cur = c.execute(
+                    "WITH ranked AS ("
+                    "  SELECT id, importance * emotion_weight * "
+                    "         (0.6 + 0.4 * (1.0 - LEAST(EXTRACT(EPOCH FROM (now() - created_at)) / %s, 1.0))) AS s "
+                    "  FROM facts WHERE user_id=%s AND character_id=%s) "
+                    "DELETE FROM facts WHERE id IN (SELECT id FROM ranked ORDER BY s DESC OFFSET %s)",
+                    (_FORGET_HORIZON_S, user_id, character_id, cap),
+                )
+                deleted = int(getattr(cur, "rowcount", 0) or 0)
+            if deleted:
+                log.info("记忆遗忘：user=%s char=%s 超 %d 条，忘掉最不显著的 %d 条（留要紧事）",
+                         user_id, character_id, cap, deleted)
+            return max(0, deleted)
+        except Exception as e:
+            log.warning("prune_facts 失败（不影响通话）：%r", e)
+            return 0
 
     def has_facts(self, user_id, character_id) -> bool:
         try:

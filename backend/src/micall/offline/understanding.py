@@ -289,11 +289,13 @@ def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
 
 
 class UnderstandingEngine:
-    def __init__(self, llm: LLMProvider, repo: Any, *, max_tokens: int = 1024, embedder=None) -> None:
+    def __init__(self, llm: LLMProvider, repo: Any, *, max_tokens: int = 1024, embedder=None,
+                 facts_cap: int = 600) -> None:
         self.llm = llm
         self.repo = repo
         self.max_tokens = max_tokens
         self.embedder = embedder  # 配了 Embedding 节点：事实入库时一并向量化（供余弦召回）
+        self.facts_cap = int(facts_cap) if facts_cap else 0  # 记忆遗忘容量上限（0=不遗忘）
 
     async def _run_llm(self, messages: list[Message]) -> str:
         chunks: list[str] = []
@@ -343,6 +345,14 @@ class UnderstandingEngine:
         vectors = await self._vectors(uniq)
         for text, vec in zip(uniq, vectors):
             self.repo.add_fact(user_id, character_id, text, importance=seen[text], vector=vec)
+
+        # 记忆遗忘（容量封顶）：写完这批后，若该 user×char 事实超容，按显著性(重要性×情感×新近)忘掉
+        # 最不要紧的流水账、留最该记的——事实表不无界膨胀，向量召回/索引/存储长期可控。仅超容才动、平时 no-op。
+        if self.facts_cap:
+            try:
+                self.repo.prune_facts(user_id, character_id, cap=self.facts_cap)
+            except Exception as e:
+                log.warning("prune_facts 调用失败（忽略，不影响通话）：%r", e)
 
         merged = merge_profile(profile, update)
         # 启发式兜底：从本通用户话里抽客观事实（名字/在做/喜欢…）补进 fact_profile，

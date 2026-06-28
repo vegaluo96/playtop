@@ -291,6 +291,8 @@ class SignalingServer:
             embedder=make_embedding(self.config.node("embedding")),
             # 推理模型(deepseek-v4-pro)思考+大画像 JSON 都吃 completion 预算，给足别截断（离线、不在意成本）。
             max_tokens=int(self.config.global_defaults.get("offline_understanding_max_tokens", 3000)),
+            # 记忆遗忘容量上限：每通写完事实后，超容则忘掉最不显著的（控住事实表无界膨胀）。
+            facts_cap=int(self.config.global_defaults.get("memory_facts_cap", 600)),
         )
         # Layer C：把今天的真实世界（共享话题 + 本城真实天气）交给慢脑——这次【真聊到】的那部分会沉淀成你俩的
         # 共同记忆(shared_refs，带时令落款)，日后能回味。零额外成本：只是把已拉好的世界库读出来传进去。

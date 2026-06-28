@@ -32,6 +32,19 @@ def stable_invite_code(user_id: str, attempt: int = 0) -> str:
     return "MI" + hashlib.blake2b(key, salt=b"micall-inv", digest_size=4).hexdigest().upper()
 
 
+_FORGET_RECENCY_FLOOR = 0.6   # 新近最多影响 ±40%：让「老而重要」压过「新而琐碎」（importance 主导、新近只宽限）
+
+
+def _forget_score(importance: float | None, emotion_weight: float | None, recency_norm: float) -> float:
+    """遗忘打分（越低越先忘）= 重要性 × 情感权重 × 新近宽限(0.6~1.0)。recency_norm∈[0,1]（1=最新,0=最旧）。
+    第一性原理：人脑记忆有限，会把流水账淡忘、留要紧事。新近只当宽限项，importance/emotion 主导——
+    老而重要的(0.9)始终压过新而琐碎的(0.3)，记得准而非记得新。纯函数、与 pg_repository 同义、便于测试。"""
+    imp = max(0.0, min(1.0, importance if importance is not None else 0.5))
+    emo = max(0.0, emotion_weight if emotion_weight is not None else 1.0)
+    rec = max(0.0, min(1.0, recency_norm))
+    return imp * emo * (_FORGET_RECENCY_FLOOR + (1.0 - _FORGET_RECENCY_FLOOR) * rec)
+
+
 def _cosine(a: list[float], b: list[float]) -> float:
     """余弦相似度；维度不一致/零向量 → 0。"""
     if not a or not b or len(a) != len(b):
@@ -69,6 +82,12 @@ class MemoryRepository(ABC):
     def has_facts(self, user_id: str, character_id: str) -> bool:
         """是否有可检索的事实。无则编排层跳过 query 向量化（省一次实时往返）。默认保守返 True。"""
         return True
+
+    def prune_facts(self, user_id: str, character_id: str, *, cap: int = 600) -> int:
+        """记忆遗忘（容量封顶）：当某 user×char 的事实超过 cap，按遗忘分(重要性×情感×新近)忘掉最不显著的，
+        只留 cap 条最该记的。第一性原理：人脑记忆有限、会淡忘流水账、留要紧事——事实表才不会无界膨胀，
+        向量索引/召回/存储长期可控。仅超容时才动、平时 no-op。返回删除条数。基类 no-op（子类按存储实现）。"""
+        return 0
 
     def reset_memory(self, user_id: str, character_id: str) -> None:
         """忘记这段关系：清空该 user×char 的事实层 + 理解层（画像/关系/策略）。前端「重置记忆」。
@@ -337,6 +356,19 @@ class InMemoryRepository(MemoryRepository):
 
     def has_facts(self, user_id: str, character_id: str) -> bool:
         return bool(self._facts.get((user_id, character_id)))
+
+    def prune_facts(self, user_id: str, character_id: str, *, cap: int = 600) -> int:
+        key = (user_id, character_id)
+        items = self._facts.get(key)
+        if not items or cap <= 0 or len(items) <= cap:
+            return 0
+        n = len(items)
+        # items 为追加序（旧→新）：i 越大越新 → recency_norm=i/(n-1)。留遗忘分最高的 cap 条。
+        keep = set(sorted(range(n), key=lambda i: _forget_score(items[i][3], items[i][1], i / max(1, n - 1)),
+                          reverse=True)[:cap])
+        kept = [it for i, it in enumerate(items) if i in keep]   # 保留原追加序（召回的新近 tiebreaker 仍成立）
+        self._facts[key] = kept
+        return n - len(kept)
 
     def reset_memory(self, user_id: str, character_id: str) -> None:
         self._facts.pop((user_id, character_id), None)       # 事实层
