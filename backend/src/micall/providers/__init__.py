@@ -38,6 +38,16 @@ def make_eval_llm(config):
     return StubLLM()
 
 
+def make_search_llm(config):
+    """联网脑（自带网络检索的模型，如 apiyi 的 grok-4-all）：离线给角色抓「现居地真实天气+安全话题」。
+    未配 llm_search 的 api_key → None（角色现居地近况退回慢脑的季节推测，不联网）。传整个 Config。"""
+    try:
+        node = config.node("llm_search")
+    except KeyError:
+        return None
+    return make_llm(node) if node.configured else None
+
+
 def make_embedding(node: NodeConfig):
     """记忆检索向量化（Embedding 节点）。未配置/未知 provider → None（仓储退关键词召回）。"""
     if not node.configured:

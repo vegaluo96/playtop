@@ -12,6 +12,7 @@ from .understanding import (
     merge_profile,
     parse_profile_update,
 )
+from .world_context import fetch_world_context
 
 __all__ = [
     "UnderstandingEngine",
@@ -24,4 +25,5 @@ __all__ = [
     "describe_gap",
     "due_to_advance",
     "parse_autonomous_state",
+    "fetch_world_context",
 ]

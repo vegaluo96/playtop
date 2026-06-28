@@ -22,7 +22,9 @@ _REPO_DEFAULT = Path(__file__).resolve().parents[2] / "config" / "default.json"
 
 # Admin「接口配置」的节点（docs/02 §7.9）。llm_eval=顶级评测/分析脑（图灵测试裁判·分析师、后台 AI 生成），
 # 离线/偶发调用、延迟无所谓 → 配最强模型；未配则按 make_eval_llm 回退 llm_slow→llm_fast。
-NODE_KEYS = ("asr", "llm_fast", "tts", "llm_slow", "embedding", "image", "llm_eval")
+# llm_search=联网脑（自带网络检索的模型，如 apiyi 的 grok-4-all）：离线给角色抓「现居地真实天气+安全话题」
+# →写进自主状态，让 TA 像真活在世界里；未配则角色现居地近况退回慢脑的季节推测（不联网）。
+NODE_KEYS = ("asr", "llm_fast", "tts", "llm_slow", "embedding", "image", "llm_eval", "llm_search")
 
 
 def _header_safe(s: str) -> str:

@@ -19,6 +19,7 @@ from typing import Any
 from ..context.models import AutonomousState, CharacterRuntime
 from ..providers.base import LLMProvider
 from .understanding import parse_profile_update  # 复用容错 JSON 抠取
+from .world_context import fetch_world_context   # 联网脑抓现居地真实近况
 
 _CN_WEEKDAY = "一二三四五六日"
 
@@ -57,14 +58,24 @@ def describe_gap(hours_since_last_call: float) -> str:
 
 
 def build_autonomy_prompt(character: CharacterRuntime, hours_since_last_call: float,
-                          now: datetime.datetime | None = None) -> list[dict]:
+                          now: datetime.datetime | None = None,
+                          real_local: str | None = None) -> list[dict]:
     gap = describe_gap(hours_since_last_call)
     if now is None:
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
     city = _city_of(character)
-    # 现居地一行：把真实日期 + 现居城市交给慢脑，让它生成「这座城此刻的季节/时令感」，使「现居X」这个属性有意义。
-    # 诚实边界：模型没有实时联网 → 只到季节/气候/时令级（六月底的江南＝梅雨闷热），【绝不】编具体新闻/精确气温/某天某事。
-    if city:
+    # 现居地：让「现居X」这个属性有意义。两种来源——
+    #  ① real_local（联网脑刚抓到的【真实】天气/话题）：作为地面真相喂进去，让 mood/近况贴着它；local_context 我们
+    #     在 advance 里直接用真实串覆盖，故这里不要求模型再产出 local_context。
+    #  ② 没联网脑 → 让慢脑按【真实日期+城市】推季节/时令感（笃定层面，不编具体新闻/精确气温）。
+    if real_local:
+        loc = (
+            f"\n你现居在【{city or '你所在的城市'}】，今天是{_date_line(now)}。下面是【刚联网查到的、你这座城此刻的真实情况】："
+            f"「{real_local}」。把你的 mood / recent_experience 自然地贴着它——这座城此刻的天气和气氛会真实影响你今天的状态"
+            "（别硬塞、别像报天气，就当是你身边正在发生的事）。"
+        )
+        loc_field = ""
+    elif city:
         loc = (
             f"\n你现居在【{city}】，今天是{_date_line(now)}。再生成一个字段 local_context："
             f"按【这个真实日期 + {city} 这座城】此刻**最可能**的样子——季节、时令、典型天气/氛围（如『梅雨季，闷湿』"
@@ -105,10 +116,12 @@ def parse_autonomous_state(raw: str) -> AutonomousState:
 
 
 class AutonomyEngine:
-    def __init__(self, llm: LLMProvider, repo: Any, *, max_tokens: int = 512) -> None:
+    def __init__(self, llm: LLMProvider, repo: Any, *, max_tokens: int = 512, search_llm: Any = None) -> None:
         self.llm = llm
         self.repo = repo
         self.max_tokens = max_tokens
+        # 联网脑（自带网络检索，如 grok-4-all）：配了就给角色抓现居地【真实】天气/话题；没配则慢脑推季节感。
+        self.search_llm = search_llm
 
     async def _run_llm(self, messages: list[dict]) -> str:
         chunks: list[str] = []
@@ -121,8 +134,19 @@ class AutonomyEngine:
     async def advance(
         self, character: CharacterRuntime, hours_since_last_call: float
     ) -> AutonomousState:
-        """推进一次时间：生成 TA 这段时间的近况（含现居地此刻的季节/时令感）并持久化（per-character，独立于用户）。"""
-        raw = await self._run_llm(build_autonomy_prompt(character, hours_since_last_call))
+        """推进一次时间：生成 TA 这段时间的近况（含现居地此刻的真实/季节感）并持久化（per-character，独立于用户）。"""
+        now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+        # 配了联网脑 → 先抓现居地【真实】天气+安全话题（过安全闸，失败返回 ""）。
+        real = ""
+        if self.search_llm is not None:
+            try:
+                real = await fetch_world_context(_city_of(character), now, self.search_llm)
+            except Exception:
+                real = ""
+        raw = await self._run_llm(
+            build_autonomy_prompt(character, hours_since_last_call, now=now, real_local=real or None))
         state = parse_autonomous_state(raw)
+        if real:
+            state.local_context = real   # 真实联网串覆盖：现居地近况以真实为准
         self.repo.save_autonomous(character.character_id, state)
         return state

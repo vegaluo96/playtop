@@ -40,6 +40,7 @@ SECTION_TO_NODE: dict[str, tuple[str, dict[str, str]]] = {
     "embed":  ("embedding", {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "vectorDB": "vector_db", "topK": "top_k"}),
     "image":  ("image",     {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "size": "size"}),
     "eval":   ("llm_eval",  {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "temp": "temperature", "maxTokens": "reply_max_tokens"}),
+    "search": ("llm_search",{"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "maxTokens": "reply_max_tokens"}),
 }
 _NUMERIC = {"temperature": float, "reply_max_tokens": int, "sample_rate": int, "top_k": int, "max_context": int}
 
