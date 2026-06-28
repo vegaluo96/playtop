@@ -45,6 +45,10 @@ const RTC_DISCONNECT_GRACE_MS = 4000;
 // （接通即用 WS 起通话，见 onServerEvent:connected），故拉长看门狗只影响后台何时放弃 RTC，不再拖慢启动。
 const RTC_CONNECT_WATCHDOG_MS = 5000;
 
+// 续接重拨：网络掉线后这么久内重拨【同一角色】，后端会回灌上一通的最近几轮、AI 接着聊（不重新自我介绍）。
+// 前端据此【保留字幕不清空】，让重拨画面承接旧对话、不闪空屏。窗口与后端 _CONTINUATION_WINDOW_S 对齐（4 分钟）。
+const CONTINUATION_WINDOW_MS = 240000;
+
 interface Char {
   name: string;
   hue: number;
@@ -110,6 +114,8 @@ export class MiCallLogic {
   private rtcWatchdog: ReturnType<typeof setTimeout> | null = null;  // 连不通就回退 WS 的看门狗
   private rtcDiscoTimer: ReturnType<typeof setTimeout> | null = null;  // 中途 disconnected 宽限计时器：到点仍未自愈才回退 WS
   private rtcFellBack = false;                     // 本通是否已回退（防重复回退）
+  private _lostAt = 0;                              // 上次「非自愿掉线」时刻（ms）：窗口内重拨同一角色→续接、保留字幕
+  private _lostCharIndex = -1;                      // 掉线时的角色下标：重拨须同一角色才续接
   private _authBusy = false;                        // 登录/注册请求进行中（防快速双击发两次）
 
   bills: any[] = [];
@@ -669,7 +675,12 @@ export class MiCallLogic {
     if (this.state.phase !== "calling") return;
     this.player.stopRing();    // 接通提示音停（传输已就绪）
     this.startVoiceMeter();    // 「活球」启动：球随真实语音呼吸/发光
-    this.setState({ phase: "listening", seconds: 0, subtitle: "", lines: [], callFailed: false, justConnected: true });
+    // 续接重拨：若是窗口内重拨【同一角色】（上次非自愿掉线），保留字幕承接旧对话、不闪空屏（后端会回灌上下文接着聊）。
+    const continuing = this._lostAt > 0 && (Date.now() - this._lostAt) < CONTINUATION_WINDOW_MS
+                       && this._lostCharIndex === this.state.charIndex;
+    this._lostAt = 0; this._lostCharIndex = -1;   // 一次性消费，避免后续误判
+    this.setState({ phase: "listening", seconds: 0, subtitle: "",
+                    lines: continuing ? this.state.lines : [], callFailed: false, justConnected: true });
     // 接通仪式：一次性绽放（声纳般的光环向外散开），~900ms 后收起标记，绽放层卸载
     if (this.connectTimer) clearTimeout(this.connectTimer);
     this.connectTimer = setTimeout(() => { this.connectTimer = null; this.setState({ justConnected: false }); }, 900);
@@ -1139,10 +1150,13 @@ export class MiCallLogic {
         this.setState({ phase: "idle", callFailed: true });
         break;
       case "connection_lost":
-        // 接通后网络掉线：收掉这通、回到可重拨状态，并明确告知（别让用户对着冻屏）。
+        // 接通后网络掉线（非自愿）：收掉这通、回到可重拨状态。记下时刻+角色，窗口内重拨同一角色即续接
+        // （后端回灌最近几轮、AI 接着聊；前端保留字幕不闪空屏）。文案也把「接着聊」的预期立住。
         this.clearTimers();
         this.stopMic();
-        this.setState({ phase: "idle", callFailed: true, toast: "连接中断，请重新拨打" });
+        this._lostAt = Date.now();
+        this._lostCharIndex = this.state.charIndex;
+        this.setState({ phase: "idle", callFailed: true, toast: "信号断了，重新拨入就能接着聊" });
         this.clearToastSoon(3200);
         break;
       case "ended":

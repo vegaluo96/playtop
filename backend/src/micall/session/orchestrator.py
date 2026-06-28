@@ -198,6 +198,8 @@ class CallSession:
         audio_emit: AudioEmit | None = None,
         realtime_asr: ASRProvider | None = None,
         embedder=None,
+        seed_history: list[dict] | None = None,
+        continuation: bool = False,
     ) -> None:
         self.config = config
         self._emit_raw = emit
@@ -240,7 +242,10 @@ class CallSession:
         # → 越聊越延迟、还容易把旧片段重判（与"一句被当五遍"同源）。满则丢最旧、永远喂最新（见 push_audio）。
         self._mic_q: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=64)
         self._turn_lock = asyncio.Lock()  # 串行化一轮生成，防并发触发
-        self.history: list[dict] = []      # 对话滑窗（assistant 只记实际播出，§1.5）
+        # 对话滑窗（assistant 只记实际播出，§1.5）。续接重拨：用上一通掉线前的尾巴播种，
+        # 让 AI 接着聊而非从头自我介绍（_continuation 控制开场走「续接指令」+ 允许带 history 也开口）。
+        self.history: list[dict] = list(seed_history or [])
+        self._continuation = bool(continuation)
         self.emotion_tag = "neutral"
         self._usage = {"llm_in_chars": 0, "llm_out_chars": 0, "tts_chars": 0}  # 成本埋点累计（整通）
         self._ai_said = ""                  # 本轮 AI 已说出的文本（用于回声判定）
@@ -307,6 +312,12 @@ class CallSession:
             "别审问、别太满；若是老相识，可自然带出你记得或惦记的某件事，让 TA 觉得被记着。"
             "但绝不要编造没真实发生过的共同经历或'上次谈过的事'——拿不准就只温暖地打个招呼。"
             "别等 TA 先开口、别太长，一两句即可。）"))
+        # 续接重拨开场：上一通刚因网络断了、TA 又拨回来（上面对话里就是你们刚聊的）。别重新开场。
+        self._continuation_directive = str(turn.get("continuation_directive",
+            "（你们这通电话刚因为网络断了、TA 又拨回来——上面就是你们断线前正聊着的话。"
+            "【绝不要】重新打招呼、自我介绍、或问『你好/在吗/想聊点什么』；就当从没断过，"
+            "自然接住刚才那个话茬继续说下去。最多极轻地带一句『刚信号断了下』，但别复述刚才说过的、"
+            "也别问『刚说到哪了』。一两句即可。）"))
 
     # ── 下行封装：状态未结束才发（结束后丢弃迟到事件）──
     async def _emit(self, ev: dict) -> None:
@@ -532,12 +543,15 @@ class CallSession:
         （「说到一半声音被切断」）。故用 _audio_until 等到播完再解除。"""
         try:
             async with self._turn_lock:
-                if self.history or self.sm.phase != Phase.LISTENING:
+                # 续接模式即使带着上一通的 history 也要先开口（接住话茬）；非续接则 history 非空=用户已先说→让位。
+                if (self.history and not self._continuation) or self.sm.phase != Phase.LISTENING:
                     return
                 self._opening_active = True
                 try:
-                    # 每通随机换个开场角度 + 明确反重复，治「每次开头都同一句」（静态指令+静态自主状态导致的强 mode）。
-                    await self._generate_turn(_varied_opening(self._opening_directive), opening=True)
+                    # 续接重拨：用「续接指令」接着聊、别重新自我介绍；否则每通随机换开场角度+反重复（治开头同一句）。
+                    directive = (self._continuation_directive if self._continuation
+                                 else _varied_opening(self._opening_directive))
+                    await self._generate_turn(directive, opening=True)
                     # 等开场音频真正播完（_audio_until 是已发音频播放到的终点），这段尾巴继续抑制 ASR 防回声切断。
                     tail = self._audio_until - time.monotonic()
                     if tail > 0:

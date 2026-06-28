@@ -34,6 +34,9 @@ _WS_CTRL_LIMIT = 50
 _WS_CTRL_WINDOW = 10.0
 _ANON = "anon"            # 骨架无鉴权；真实从登录态取 user_id
 _AUTONOMY_THROTTLE_S = 3 * 3600  # 角色自主状态最多每 3 小时推进一次（节流慢脑成本 + 近况不过快变）
+# 续接重拨：网络掉线后窗口内重拨【同一角色】→ 回灌上一通的最近几轮、AI 接着聊（不重新自我介绍）。
+_CONTINUATION_WINDOW_S = 240   # 窗口期（秒）：超出则按正常新通话开场
+_THREAD_TAIL = 8               # 续接时回灌的最近对话条数（≈4 轮，够接住话茬又不撑爆上下文）
 
 
 def _client_ip(websocket: Any) -> str:
@@ -87,6 +90,9 @@ class SignalingServer:
         self.config = config
         self.repo = repo or make_repository(config)   # 配了 database.dsn → Postgres 持久化，否则内存
         self.characters = _load_characters()
+        # 续接重拨：非自愿掉线时暂存「最近几轮对话」，窗口内重拨同一角色即回灌接着聊（见 _on_call_end/_make_session）。
+        # key=(principal, character_id)，principal=登录 user_id 或 游客 ip:<client_ip>。短窗、单机内存即可。
+        self._recent_thread: dict[tuple[str, str], dict] = {}
         # 「了解你」诊断（一眼看清跨通记忆为何不生效）：画像/记忆要真正持久 + 离线理解要能跑。
         # 缺任一，角色就「每通从头、记不住你」——grep 🧠 即可定位是没配库还是没配慢脑。
         _persisted = type(self.repo).__name__ != "InMemoryRepository"
@@ -151,8 +157,12 @@ class SignalingServer:
         except Exception as e:
             log.warning("用量记录失败：%r", e)
 
-    def _on_call_end(self, user_id: str, session: "CallSession", client_ip: str = "") -> None:
-        """通话收尾统一入口：扣费 + 记通话 + 记用量成本 + 触发离线理解。三处结束点共用。"""
+    def _on_call_end(self, user_id: str, session: "CallSession", client_ip: str = "",
+                     *, deliberate: bool = False) -> None:
+        """通话收尾统一入口：扣费 + 记通话 + 记用量成本 + 触发离线理解。三处结束点共用。
+        deliberate=用户主动结束（挂断/换角色）→ 不暂存续接；False=非自愿掉线 → 暂存最近几轮供窗口内重拨接着聊。"""
+        if not deliberate:
+            self._stash_thread(user_id, client_ip, session)
         if user_id == _ANON:
             consumed = int(getattr(getattr(session, "billing", None), "elapsed", 0) or 0)
             if consumed > 0:   # 游客：按 IP 累计试用消耗，刷新/重连不再白送（防刷）
@@ -166,6 +176,40 @@ class SignalingServer:
         self._record_usage(user_id, session)
         self._schedule_understanding(session, user_id)
         self._schedule_autonomy(session)
+
+    def _thread_key(self, user_id: str, client_ip: str, character_id: str) -> tuple[str, str]:
+        """续接暂存的 key：登录按 user_id、游客按 IP（同设备重拨能续上）。"""
+        principal = user_id if user_id != _ANON else f"ip:{client_ip}"
+        return (principal, character_id)
+
+    def _stash_thread(self, user_id: str, client_ip: str, session: "CallSession") -> None:
+        """非自愿掉线时暂存最近几轮对话，供窗口内重拨同一角色「接着聊」。无实质内容不存；顺手清过期。"""
+        try:
+            hist = list(getattr(session, "history", None) or [])
+            if len(hist) < 2:
+                return  # 没实质对话，不值得续接
+            now = time.time()
+            for k, v in list(self._recent_thread.items()):   # 顺手清过期，防无界增长
+                if now - v.get("ts", 0) > _CONTINUATION_WINDOW_S:
+                    self._recent_thread.pop(k, None)
+            key = self._thread_key(user_id, client_ip, session.character_id)
+            self._recent_thread[key] = {"ts": now, "tail": hist[-_THREAD_TAIL:]}
+            log.info("💾 续接暂存 key=%s 尾%d条（窗口%ds）", key, len(hist[-_THREAD_TAIL:]), _CONTINUATION_WINDOW_S)
+        except Exception as e:
+            log.warning("续接暂存失败（忽略）：%r", e)
+
+    def _take_continuation(self, user_id: str, client_ip: str, character_id: str) -> list[dict] | None:
+        """新通话开始时取出可续接的最近对话（命中且在窗口内→pop 一次性返回 tail，否则 None）。"""
+        key = self._thread_key(user_id, client_ip, character_id)
+        ent = self._recent_thread.get(key)
+        if not ent:
+            return None
+        if time.time() - ent.get("ts", 0) > _CONTINUATION_WINDOW_S:
+            self._recent_thread.pop(key, None)
+            return None
+        self._recent_thread.pop(key, None)   # 一次性消费，避免反复续接
+        tail = ent.get("tail") or []
+        return list(tail) if tail else None
 
     def _schedule_autonomy(self, session: "CallSession") -> None:
         """通话结束 → 后台推进「角色自己这段时间的近况」（§4.2，per-character，独立于用户）。fire-and-forget。
@@ -300,6 +344,10 @@ class SignalingServer:
         # 余额：登录用户读 users.remaining_seconds（服务端权威，§5）；游客按 IP 给剩余试用（刷新不重置，防刷）。
         remaining = (self.repo.remaining_seconds(user_id) if user_id != _ANON
                      else self.repo.guest_trial_remaining(client_ip, _GUEST_TRIAL_SECONDS))
+        # 续接重拨：上一通因网络掉线、窗口内重拨同一角色 → 回灌最近几轮 + 进续接开场（不重新自我介绍）。
+        seed = self._take_continuation(user_id, client_ip, char.character_id)
+        if seed:
+            log.info("🔗 续接上一通 char=%s 回灌%d条 → AI 接着聊", char.character_id, len(seed))
         return CallSession(
             config=self.config,
             emit=emit,
@@ -314,6 +362,8 @@ class SignalingServer:
             scenario_prompt=scenario_prompt or "",
             remaining_seconds=remaining,
             voice_id=voice_id,
+            seed_history=seed,
+            continuation=bool(seed),
         )
 
     async def handle(self, websocket: Any) -> None:
@@ -432,7 +482,7 @@ class SignalingServer:
                 elif msg.type == "switch_character":
                     if session:
                         await session.end(emit_ended=False)  # 切角色 = 结束 + 新建（docs/03 §3）
-                        self._on_call_end(user_id, session, client_ip)
+                        self._on_call_end(user_id, session, client_ip, deliberate=True)  # 主动换角色，不续接
                     self._reload_config()
                     try:
                         session = self._make_session(
@@ -448,7 +498,7 @@ class SignalingServer:
                 elif msg.type == "end_call":
                     if session:
                         await session.end()
-                        self._on_call_end(user_id, session, client_ip)
+                        self._on_call_end(user_id, session, client_ip, deliberate=True)  # 用户主动挂断，不续接
                         session = None
                     if rtc is not None:   # 挂断同时关掉 RTC 媒体面，否则僵尸 transport 泄漏到下一通：
                         await rtc.close()  # 第二通的 rtc_offer 会落到已断的旧 transport → 异常断连 → 计时卡 00:00
