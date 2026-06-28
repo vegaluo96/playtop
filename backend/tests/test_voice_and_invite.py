@@ -136,6 +136,47 @@ class TestAsrEmotion(unittest.TestCase):
         self.assertEqual(_extract_emotion("notadict"), "")
 
 
+class TestLlmSqueeze(unittest.TestCase):
+    """榨干 LLM：缓存命中诊断 + 抗重复惩罚 + usage 上报，都按配置带上（白捡，不加延迟）。"""
+
+    def test_usage_brief_cache_hit_rate(self):
+        from micall.providers.apiyi_llm import _usage_brief
+        s = _usage_brief({"prompt_tokens": 1000, "completion_tokens": 50,
+                          "prompt_cache_hit_tokens": 900, "prompt_cache_miss_tokens": 100})
+        self.assertIn("90%", s)          # 命中率算对（验证 §1.7 前缀缓存是否真生效）
+        self.assertIn("completion=50", s)
+        s2 = _usage_brief({"prompt_tokens": 10, "completion_tokens": 5})
+        self.assertIn("未回缓存字段", s2)   # 没有缓存字段 → 提示网关没透传
+
+    def test_payload_includes_new_capabilities(self):
+        try:
+            import httpx  # noqa: F401
+        except ImportError:
+            self.skipTest("httpx 未安装（线上有；本地跳过）")
+        from micall.config import NodeConfig
+        from micall.providers.apiyi_llm import ApiyiLLM
+        on = ApiyiLLM(NodeConfig(name="llm_fast", provider="deepseek",
+                                 endpoint="https://api.deepseek.com/v1/chat/completions", api_key="sk-x",
+                                 params={"frequency_penalty": 0.3, "report_usage": True}))
+        p = on._payload([{"role": "user", "content": "hi"}], 0.8, 100)
+        self.assertEqual(p["frequency_penalty"], 0.3)
+        self.assertEqual(p["stream_options"], {"include_usage": True})
+        # 关掉就不带（默认 0/未配 → 不画蛇添足）
+        off = ApiyiLLM(NodeConfig(name="llm_fast", provider="deepseek",
+                                  endpoint="https://x/v1/chat/completions", api_key="sk-x",
+                                  params={"report_usage": False}))
+        p2 = off._payload([], 0.8, 50)
+        self.assertNotIn("stream_options", p2)
+        self.assertNotIn("frequency_penalty", p2)
+
+    def test_default_config_squeezes_llm_fast(self):
+        # 出厂配置就把 llm_fast 的抗重复 + 用量上报打开（对齐 ASR 免费升级的做法）。
+        from micall.config import load_config
+        fast = load_config().node("llm_fast").params
+        self.assertEqual(float(fast.get("frequency_penalty", 0)), 0.3)
+        self.assertTrue(fast.get("report_usage"))
+
+
 class TestInviteRewardSeconds(unittest.TestCase):
     def test_reads_config_minutes(self):
         # 默认配置（default.json invite.reward_minutes=60）→ 3600 秒。
