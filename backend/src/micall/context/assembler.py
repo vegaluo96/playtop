@@ -555,6 +555,18 @@ def _autonomous_block(s: AutonomousState) -> str:
     )
 
 
+def _world_topics_line(topics: list[str]) -> str:
+    """全站共享的「最近大家在聊的」时事话题池，折进开场轮 user（不进缓存）。角色按【自己性子】挑感兴趣的
+    自然带出/反问 TA——相关性在说话时免费发生，不靠每角色单独联网。空池 → 空串。纯函数，便于测试。"""
+    ts = [t for t in (topics or []) if str(t).strip()][:6]
+    if not ts:
+        return ""
+    return (
+        "（最近外面大家都在聊的几件事——挑一两件【合你性子、你真会感兴趣】的，自然地带出来或顺口问问 TA，"
+        "别全聊、别一条条念、别像播新闻；都不感兴趣就不用提）：" + "；".join(ts) + "\n"
+    )
+
+
 class ContextAssembler:
     def __init__(
         self,
@@ -673,10 +685,20 @@ class ContextAssembler:
         # 故仅开场轮（历史里 ≤1 条 user）带间隔/节日，之后只给时间感。折进末轮 user（不进 prefix 缓存）。
         opening = sum(1 for m in history if m.get("role") == "user") <= 1
         human = self._human_context(character_id, opening=opening)
+        # 全站共享时事话题（联网脑每天批量拉的一池）：仅开场轮折进，角色按性子挑感兴趣的自然带出（→ 快脑打通）。
+        topics_line = ""
+        if opening:
+            try:
+                from ..offline.world_context import topics_now
+                off = self._client_tz_min if self._client_tz_min is not None else 480
+                _now = datetime.datetime.now(datetime.timezone(datetime.timedelta(minutes=off)))
+                topics_line = _world_topics_line(topics_now(_now))
+            except Exception:
+                topics_line = ""
         if hist and hist[-1].get("role") == "user":
             *head, last = hist
             messages.extend(head)
-            messages.append({"role": "user", "content": human + guard + "\n" + recall_preamble + live + voice_emo + last["content"]})
+            messages.append({"role": "user", "content": human + guard + "\n" + topics_line + recall_preamble + live + voice_emo + last["content"]})
         else:
             messages.extend(hist)
             content = human + guard if guard else human

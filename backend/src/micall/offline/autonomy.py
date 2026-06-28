@@ -13,26 +13,19 @@ from __future__ import annotations
 
 import datetime
 import json
-import re
 from typing import Any
 
 from ..context.models import AutonomousState, CharacterRuntime
 from ..providers.base import LLMProvider
-from .understanding import parse_profile_update  # 复用容错 JSON 抠取
-from .world_context import fetch_world_context   # 联网脑抓现居地真实近况
+from .understanding import parse_profile_update    # 复用容错 JSON 抠取
+from .world_context import clean_city, weather_for  # 城市名清洗 + 读全站共享世界库里本城真实天气（零联网）
 
 _CN_WEEKDAY = "一二三四五六日"
 
 
 def _city_of(character: CharacterRuntime) -> str:
-    """从角色 identity.residence 取一个干净城市名（去「现居」前缀/区县后缀），用于「现居地近况」。取不到返回 ""。"""
-    raw = str((character.identity or {}).get("residence", "") or "").strip()
-    if not raw:
-        return ""
-    raw = re.sub(r"^现居[于在]?", "", raw).strip()
-    # 取第一个分隔符前的主体（「上海·徐汇」「北京 朝阳」→ 上海/北京），再去掉末尾的 市/区/县/省
-    raw = re.split(r"[·,，、/\s]", raw)[0].strip()
-    return raw[:20]
+    """从角色 identity.residence 取干净城市名（复用 world_context.clean_city，与全站世界库去重口径一致）。"""
+    return clean_city((character.identity or {}).get("residence", ""))
 
 
 def _date_line(now: datetime.datetime) -> str:
@@ -116,12 +109,10 @@ def parse_autonomous_state(raw: str) -> AutonomousState:
 
 
 class AutonomyEngine:
-    def __init__(self, llm: LLMProvider, repo: Any, *, max_tokens: int = 512, search_llm: Any = None) -> None:
+    def __init__(self, llm: LLMProvider, repo: Any, *, max_tokens: int = 512) -> None:
         self.llm = llm
         self.repo = repo
         self.max_tokens = max_tokens
-        # 联网脑（自带网络检索，如 grok-4-all）：配了就给角色抓现居地【真实】天气/话题；没配则慢脑推季节感。
-        self.search_llm = search_llm
 
     async def _run_llm(self, messages: list[dict]) -> str:
         chunks: list[str] = []
@@ -136,17 +127,13 @@ class AutonomyEngine:
     ) -> AutonomousState:
         """推进一次时间：生成 TA 这段时间的近况（含现居地此刻的真实/季节感）并持久化（per-character，独立于用户）。"""
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
-        # 配了联网脑 → 先抓现居地【真实】天气+安全话题（过安全闸，失败返回 ""）。
-        real = ""
-        if self.search_llm is not None:
-            try:
-                real = await fetch_world_context(_city_of(character), now, self.search_llm)
-            except Exception:
-                real = ""
+        # 读全站共享世界库里本城【真实天气】（open-meteo 每天批量拉的，零联网、零额外成本）；
+        # 有就拿它给慢脑定心情/近况、并作为现居地近况；没有（库没刷到/拉失败）→ 慢脑按季节推测。
+        real = weather_for(_city_of(character), now)
         raw = await self._run_llm(
             build_autonomy_prompt(character, hours_since_last_call, now=now, real_local=real or None))
         state = parse_autonomous_state(raw)
         if real:
-            state.local_context = real   # 真实联网串覆盖：现居地近况以真实为准
+            state.local_context = real   # 真实天气覆盖：现居地近况以真实为准
         self.repo.save_autonomous(character.character_id, state)
         return state

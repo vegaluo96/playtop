@@ -12,7 +12,7 @@ from .understanding import (
     merge_profile,
     parse_profile_update,
 )
-from .world_context import fetch_world_context
+from .world_context import refresh_world, topics_now, weather_for
 
 __all__ = [
     "UnderstandingEngine",
