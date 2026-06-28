@@ -33,7 +33,9 @@ from micall.context.models import AutonomousState, CharacterRuntime, UserProfile
 from micall.providers import make_eval_llm, make_llm                   # noqa: E402
 from micall.server.characters_admin import effective_specs            # noqa: E402
 
-_STRIP = re.compile(r"\[emotion:[^\]]*\]|\((?:laughs|sighs|sniffs|gasps|breath|chuckles|coughs)\)|<#[\d.]+#>", re.I)
+# [方括号]里的标签（[emotion:tag]/[sighs]/[listening]/[微笑]…）+ 英文拟声 + 停顿，都会变成声音，
+# 用户耳朵听到的是干净的话——审问者/裁判也只该看这个，别拿"听不到的音频提示"误判角色露馅。
+_STRIP = re.compile(r"\[[^\]\n]{1,20}\]|\((?:laughs|sighs|sniffs|gasps|breath|chuckles|coughs)\)|<#[\d.]+#>", re.I)
 
 
 def _spoken(text: str) -> str:

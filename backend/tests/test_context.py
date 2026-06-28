@@ -253,6 +253,18 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("传染", sysmsg)
         self.assertIn("起伏弧线", sysmsg)
 
+    def test_anti_ai_tells_in_prefix(self):
+        # 图灵测试治 AI 露馅：少机械反问 / AI任务露怯 / 不写[方括号]标签 / 绝不主动提科技元话题 / 不复读时段词。
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "维佳"}, "persona": {}})
+        a = ContextAssembler(char)
+        msgs = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])
+        sysmsg, turn = msgs[0]["content"], msgs[-1]["content"]
+        self.assertIn("别把反问", sysmsg)            # 破每轮机械反问（病灶之首）
+        self.assertIn("懒得算", sysmsg)               # AI 任务露怯（别秒答全对）
+        self.assertIn("机器·科技元话题", sysmsg)      # 绝不主动提 AI/代码/留存/Claude
+        self.assertIn("[方括号]", sysmsg)             # 禁方括号状态标签（[sighs]/[listening]）
+        self.assertIn("同一个时段词", turn)            # _now_line 折进当轮：别复读「傍晚」
+
     def test_principles_curiosity_and_initiative_injected(self):
         # 前沿C 稳定原则 + 前沿B 好奇缺口进画像块；内驱主动 _INITIATIVE 进 prefix。
         from micall.context.models import UserProfile
