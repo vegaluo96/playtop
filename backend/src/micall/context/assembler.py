@@ -467,7 +467,10 @@ class ContextAssembler:
         profile: UserProfile | None = None,
         autonomous: AutonomousState | None = None,
         memory: Any | None = None,        # MemoryRepository（情节检索），骨架可空
-        budget_chars: int = 6000,
+        # 「系统前缀 + 滑窗历史」的总字符预算。6000 太小：人设/画像膨胀后系统前缀就把它吃光
+        # （max(0,6000-len(system))≈0），历史被饿死 → 通话内 LLM 几乎看不到前几轮。放宽到 16000，
+        # 系统前缀走 prefix 缓存、重复轮近乎免费，主要增量是历史 token（正是要喂的）。可经 config 调。
+        budget_chars: int = 16000,
         memory_top_k: int = 5,
     ) -> None:
         self.character = character

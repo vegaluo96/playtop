@@ -291,6 +291,8 @@ class SignalingServer:
             autonomous=effective_autonomous(self.repo, char.character_id),  # §4.1 TA 今天的状态（无 DB 状态时用出厂初始近况）
             memory=self.repo,
             memory_top_k=_mem_depth,
+            # 上下文总预算（系统前缀+滑窗历史）：膨胀的人设/画像会吃光预算饿死历史 → 放宽并 config 化。
+            budget_chars=int(self.config.global_defaults.get("budget_chars", 16000)),
         )
         # 余额：登录用户读 users.remaining_seconds（服务端权威，§5）；游客按 IP 给剩余试用（刷新不重置，防刷）。
         remaining = (self.repo.remaining_seconds(user_id) if user_id != _ANON

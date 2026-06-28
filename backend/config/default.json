@@ -11,7 +11,7 @@
     "embedding": { "provider": "bailian_embedding", "endpoint": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings", "api_key": "", "model": "text-embedding-v4", "vector_db": "pgvector", "top_k": 5, "realtime": false, "_comment": "记忆检索向量化：百炼直连 text-embedding-v4（统一只用 v4）。检索侧每轮一跳要低延迟 → 走新加坡区，与 ASR 同区，可复用国际站 DashScope key。写入与检索须同一模型（同一向量空间），切了模型旧向量作废。若 v4 在该区不可用，endpoint 去掉 -intl 走北京区。配了即余弦语义召回，否则关键词近似。" }
   },
 
-  "global_defaults": { "tts_model": "speech-2.8-turbo", "default_voice": "female-shaonv", "memory_depth": 5, "reply_max_tokens": 400, "incall_max_turns": 20, "_comment_reply": "reply_max_tokens 由 2048 收到 400：语音陪伴单轮就该短（1~3句）。2048 是约 1500 字的独白上限，模型偶尔长篇大论→TTS 要播很久且越聊越容易中途变慢卡顿。400(约300~500字)留足正常回复余量、只砍掉异常长篇。incall_max_turns=20：通话内滑窗 30→20 条(10 轮)，长聊时每轮喂给快脑的历史更短→首字更快、不越聊越慢；更久远的上下文交给 L3 记忆召回兜底。想更连贯可调回 30，想更快可调更小。" },
+  "global_defaults": { "tts_model": "speech-2.8-turbo", "default_voice": "female-shaonv", "memory_depth": 5, "reply_max_tokens": 400, "incall_max_turns": 20, "budget_chars": 16000, "_comment_budget": "上下文总预算(系统前缀+滑窗历史，按字符；中文约2字/token)。原 6000 太小：人设/画像膨胀后系统前缀≈6000 已把预算吃光→max(0,6000-system)≈0→历史被饿死、通话内 LLM 看不到前几轮(实测老用户只剩~1.5轮)。放宽到 16000≈8000token：系统前缀走 DeepSeek prefix 缓存、重复轮近乎免费，主要增量是历史 token(正是要喂的)；incall_max_turns=20 仍是硬上限、预算够后由它定。想更省调小、想记更久调大。", "_comment_reply": "reply_max_tokens 由 2048 收到 400：语音陪伴单轮就该短（1~3句）。2048 是约 1500 字的独白上限，模型偶尔长篇大论→TTS 要播很久且越聊越容易中途变慢卡顿。400(约300~500字)留足正常回复余量、只砍掉异常长篇。incall_max_turns=20：通话内滑窗 30→20 条(10 轮)，长聊时每轮喂给快脑的历史更短→首字更快、不越聊越慢；更久远的上下文交给 L3 记忆召回兜底。想更连贯可调回 30，想更快可调更小。" },
 
   "billing": { "free_seconds_on_register": 3600, "low_minutes_threshold_seconds": 60 },
 
