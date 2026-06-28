@@ -805,6 +805,9 @@ class CallSession:
         if self.sm.phase not in (Phase.THINKING, Phase.SPEAKING):
             return
         self._interrupt.set()                 # task B/C 在 token/句边界退出
+        # 打断即停播（前端 flush TTS）→ 立刻关回声守卫窗：否则 _audio_until 仍指向「本该播完的时刻」，
+        # 那段时间用户【打断后说的话】会被 now<=_audio_until 的模糊重叠判成回声、吞掉开头。
+        self._audio_until = time.monotonic()
         await self._emit(ServerEvent.interrupted())
         if self.sm.can(Phase.LISTENING):
             self.sm.to(Phase.LISTENING)

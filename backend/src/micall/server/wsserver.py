@@ -37,6 +37,10 @@ _AUTONOMY_THROTTLE_S = 3 * 3600  # 角色自主状态最多每 3 小时推进一
 # 续接重拨：网络掉线后窗口内重拨【同一角色】→ 回灌上一通的最近几轮、AI 接着聊（不重新自我介绍）。
 _CONTINUATION_WINDOW_S = 240   # 窗口期（秒）：超出则按正常新通话开场
 _THREAD_TAIL = 8               # 续接时回灌的最近对话条数（≈4 轮，够接住话茬又不撑爆上下文）
+# 离线任务（挂断后的理解/自主推进）并发闸：N 通同时挂断会一齐砸慢脑(llm_slow)→打满连接池、抢在线接话的
+# 事件循环/CPU。封顶到 N 个同时跑、其余排队；单个超时即放弃（卡住也不长期占名额）。
+_OFFLINE_MAX_CONCURRENCY = 2
+_OFFLINE_TASK_TIMEOUT_S = 90.0
 
 
 def _client_ip(websocket: Any) -> str:
@@ -93,6 +97,8 @@ class SignalingServer:
         # 续接重拨：非自愿掉线时暂存「最近几轮对话」，窗口内重拨同一角色即回灌接着聊（见 _on_call_end/_make_session）。
         # key=(user_id, character_id)，【仅登录用户】（游客按 IP 会在 NAT 下串台→隐私风险，排除）。短窗、单机内存即可。
         self._recent_thread: dict[tuple[str, str], dict] = {}
+        # 离线任务并发闸（见 _schedule_understanding/_schedule_autonomy）：高峰挂断不砸满慢脑、不拖慢在线接话。
+        self._offline_sem = asyncio.Semaphore(_OFFLINE_MAX_CONCURRENCY)
         # 「了解你」诊断（一眼看清跨通记忆为何不生效）：画像/记忆要真正持久 + 离线理解要能跑。
         # 缺任一，角色就「每通从头、记不住你」——grep 🧠 即可定位是没配库还是没配慢脑。
         _persisted = type(self.repo).__name__ != "InMemoryRepository"
@@ -239,8 +245,13 @@ class SignalingServer:
 
         async def run() -> None:
             try:
-                await engine.advance(character, hours_since_last_call=hours)
+                async with self._offline_sem:   # 并发闸：高峰挂断排队、不砸满慢脑
+                    await asyncio.wait_for(
+                        engine.advance(character, hours_since_last_call=hours),
+                        timeout=_OFFLINE_TASK_TIMEOUT_S)
                 log.info("自主状态推进完成 char=%s", char)
+            except asyncio.TimeoutError:
+                log.warning("自主状态推进超时(>%.0fs)放弃 char=%s", _OFFLINE_TASK_TIMEOUT_S, char)
             except Exception as e:  # 离线失败不影响任何实时路径
                 log.warning("自主状态推进失败 char=%s：%r", char, e)
 
@@ -273,8 +284,13 @@ class SignalingServer:
 
         async def run() -> None:
             try:
-                await engine.process_call(user_id, char, history)
+                async with self._offline_sem:   # 并发闸：高峰挂断排队、不砸满慢脑
+                    await asyncio.wait_for(
+                        engine.process_call(user_id, char, history),
+                        timeout=_OFFLINE_TASK_TIMEOUT_S)
                 log.info("离线理解完成 char=%s user=%s", char, user_id)
+            except asyncio.TimeoutError:
+                log.warning("离线理解超时(>%.0fs)放弃 char=%s user=%s", _OFFLINE_TASK_TIMEOUT_S, char, user_id)
             except Exception as e:  # 离线失败不影响任何实时路径
                 log.warning("离线理解失败：%r", e)
 

@@ -99,6 +99,10 @@ CREATE TABLE IF NOT EXISTS calls (
 );
 -- 兼容已有库：旧 calls 表补 hidden_by_user 列（幂等，_init_schema 逐句执行）
 ALTER TABLE calls ADD COLUMN IF NOT EXISTS hidden_by_user BOOLEAN NOT NULL DEFAULT false;
+-- 后台看板高频查询：用户列表/通话列表按 user_id JOIN、stats/成本趋势按 started_at 过滤排序。
+-- calls 原本只有主键 → 随通话量增长退化为全表扫，看板刷新越来越卡。加二级索引（幂等）。
+CREATE INDEX IF NOT EXISTS calls_user_idx    ON calls (user_id);
+CREATE INDEX IF NOT EXISTS calls_started_idx ON calls (started_at DESC);
 
 CREATE TABLE IF NOT EXISTS billing_ledger (
     id            BIGSERIAL PRIMARY KEY,
@@ -107,6 +111,8 @@ CREATE TABLE IF NOT EXISTS billing_ledger (
     reason        TEXT NOT NULL,                   -- call / recharge / invite_reward / register_gift
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- 账单流水按 user_id 查（用户端「账单」+ 后台），加索引防全表扫。
+CREATE INDEX IF NOT EXISTS billing_ledger_user_idx ON billing_ledger (user_id, created_at DESC);
 
 -- ───────────────────────── 充值订单（支付）─────────────────────────
 -- 真实支付接入时由网关回调把 status 置 paid 并写 billing_ledger（+seconds）。

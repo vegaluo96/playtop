@@ -30,7 +30,7 @@ def _embed_endpoint(ep: str) -> str:
     return ep
 
 
-from ._http import loop_client
+from ._http import loop_client, pool_limits
 
 
 def _shared_client() -> "httpx.AsyncClient":
@@ -40,7 +40,7 @@ def _shared_client() -> "httpx.AsyncClient":
     故每个循环各持一个 client（此前本 provider 缺该隔离，是连通性测试后召回卡死的隐患）。"""
     return loop_client(lambda: httpx.AsyncClient(
         timeout=httpx.Timeout(10.0, connect=5.0, pool=5.0),
-        limits=httpx.Limits(max_connections=16, max_keepalive_connections=4, keepalive_expiry=15.0),
+        limits=pool_limits(),
     ))
 
 

@@ -49,7 +49,7 @@ def _chat_endpoint(ep: str) -> str:
     return ep
 
 
-from ._http import is_retryable, loop_client, retry_backoff_s
+from ._http import is_retryable, loop_client, pool_limits, retry_backoff_s
 
 
 def _shared_client() -> "httpx.AsyncClient":
@@ -58,7 +58,7 @@ def _shared_client() -> "httpx.AsyncClient":
     会污染连接池 → PoolTimeout。每个循环各持一个 client（常驻循环零重建，一次性循环用完即弃）。"""
     return loop_client(lambda: httpx.AsyncClient(
         timeout=httpx.Timeout(30.0, connect=5.0, pool=5.0),
-        limits=httpx.Limits(max_connections=32, max_keepalive_connections=8, keepalive_expiry=15.0),
+        limits=pool_limits(),
     ))
 
 

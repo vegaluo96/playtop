@@ -5,6 +5,7 @@
   ② _make_session 命中续接 → 播种 history + _continuation；无暂存 → 全新空 history。
   ③ CallSession 续接构造 + _run_opening 守卫逻辑（续接模式带 history 也放行先开口）。
 """
+import asyncio
 import time
 import unittest
 from types import SimpleNamespace
@@ -111,6 +112,39 @@ class TestContinuationSession(unittest.TestCase):
         self.assertFalse(bool(cont.history) and not cont._continuation)   # 放行
         fresh = self._session(hist, False)
         self.assertTrue(bool(fresh.history) and not fresh._continuation)  # 拦截
+
+
+class TestOfflineConcurrencyCap(unittest.IsolatedAsyncioTestCase):
+    async def test_understanding_concurrency_capped(self):
+        # 离线理解并发闸：N 通同时挂断 → 后台任务峰值并发不超过 _offline_sem 闸值（不砸满慢脑、不抢在线接话）。
+        s = SignalingServer(load_config(), repo=InMemoryRepository())
+        s._offline_sem = asyncio.Semaphore(2)   # 显式设 2，防默认变动影响断言
+        peak = {"cur": 0, "max": 0}
+
+        class _FakeEngine:
+            def __init__(self, *a, **k):
+                pass
+
+            async def process_call(self, *a, **k):
+                peak["cur"] += 1
+                peak["max"] = max(peak["max"], peak["cur"])
+                await asyncio.sleep(0.03)
+                peak["cur"] -= 1
+
+        orig = ws.UnderstandingEngine
+        ws.UnderstandingEngine = _FakeEngine
+        try:
+            sess = SimpleNamespace(   # 内容须 ≥24 字，否则被「过短无实质」跳过、不进离线理解
+                history=[{"role": "user", "content": "我今天升职了好开心，想第一个把这个好消息告诉你"},
+                         {"role": "assistant", "content": "恭喜你呀，真为你高兴，你这么努力值得的"}],
+                character_id="vega")
+            for _ in range(6):
+                s._schedule_understanding(sess, user_id="u1")
+            await asyncio.gather(*list(s._bg_tasks), return_exceptions=True)
+        finally:
+            ws.UnderstandingEngine = orig
+        self.assertGreaterEqual(peak["max"], 1)   # 确实跑了
+        self.assertLessEqual(peak["max"], 2)      # 峰值并发不超过闸值
 
 
 if __name__ == "__main__":

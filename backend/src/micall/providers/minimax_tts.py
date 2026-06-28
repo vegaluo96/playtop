@@ -55,7 +55,7 @@ def _is_param_error(e: Exception) -> bool:
 _RICH_OK = True
 
 
-from ._http import is_retryable, loop_client, retry_backoff_s
+from ._http import is_retryable, loop_client, pool_limits, retry_backoff_s
 
 
 def _shared_client() -> "httpx.AsyncClient":
@@ -66,7 +66,7 @@ def _shared_client() -> "httpx.AsyncClient":
     limits：连接数封顶、闲置 15s 即弃（防半死 keep-alive）。"""
     return loop_client(lambda: httpx.AsyncClient(
         timeout=httpx.Timeout(30.0, connect=5.0, pool=10.0),
-        limits=httpx.Limits(max_connections=32, max_keepalive_connections=8, keepalive_expiry=15.0),
+        limits=pool_limits(),
     ))
 
 

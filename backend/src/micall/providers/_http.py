@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import weakref
 from typing import Callable, Dict, Optional, Tuple
 
@@ -20,6 +21,23 @@ try:
     import httpx
 except ImportError:  # pragma: no cover
     httpx = None  # type: ignore
+
+
+def pool_limits(max_connections: int = 96, max_keepalive: int = 24) -> "httpx.Limits":
+    """共享连接池上限（三家 provider 共用）。单进程 N 通并发时，LLM/TTS/Embedding 各自一个池；池满即
+    PoolTimeout → 直接限制能扛多少并发通话。从原 32/8 提到 96/24（阿里云不限连接、受内核 ulimit -n 约束，
+    通常 65535），并发头寸从 ~10-15 通提到 ~30-50 通。运维可经 MICALL_HTTP_MAX_CONN /
+    MICALL_HTTP_MAX_KEEPALIVE 整体覆盖，无需改代码。"""
+    def _envint(name: str, default: int) -> int:
+        try:
+            return int(os.environ.get(name, "") or default)
+        except (ValueError, TypeError):
+            return default
+    return httpx.Limits(
+        max_connections=_envint("MICALL_HTTP_MAX_CONN", max_connections),
+        max_keepalive_connections=_envint("MICALL_HTTP_MAX_KEEPALIVE", max_keepalive),
+        keepalive_expiry=15.0,
+    )
 
 # id(loop) -> (loop 弱引用 或 None, client)。弱引用避免把已结束的一次性循环钉在内存里。
 _CLIENTS: "Dict[int, Tuple[Optional[weakref.ref], 'httpx.AsyncClient']]" = {}

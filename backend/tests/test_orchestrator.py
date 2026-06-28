@@ -49,6 +49,25 @@ class TestInitialBalanceZero(unittest.TestCase):
         self.assertIsNone(s._listen_task)             # 没起监听
 
 
+class TestInterruptClosesEchoWindow(unittest.TestCase):
+    def test_interrupt_resets_audio_until(self):
+        # 打断即停播 → 立刻关回声守卫窗，否则 _audio_until 仍指向「本该播完的时刻」、
+        # 用户打断后说的话会被 now<=_audio_until 的模糊重叠误判成回声、吞掉开头。
+        import time as _t
+        from micall.session.state import Phase
+        events = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        s = _make_session(emit)
+        s.sm.phase = Phase.SPEAKING               # 打断只在 THINKING/SPEAKING 生效
+        s._audio_until = _t.monotonic() + 100     # 模拟 AI 正在播：回声窗推到未来
+        asyncio.run(s.interrupt())
+        self.assertLessEqual(s._audio_until, _t.monotonic())   # 已关回声窗
+        self.assertTrue(any(e.get("type") == "interrupted" for e in events))
+
+
 class TestVariedOpening(unittest.TestCase):
     def test_opening_varies_each_call(self):
         # 修「每次开头都重复一样的话」：每通随机叠一个开场角度 + 反重复要求。
