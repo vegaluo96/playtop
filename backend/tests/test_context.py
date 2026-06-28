@@ -171,6 +171,16 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("阿哲", turn)          # 名字被现学并折进当轮
         self.assertIn("这通你从 TA 话里听到的", turn)
 
+    def test_emotion_dynamics_in_prefix(self):
+        # 情绪状态机：惯性/传染/修复/余温的指令进 prefix（情绪是状态、不是逐句标签）。
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "维佳"}, "persona": {}})
+        sysmsg = ContextAssembler(char).build(
+            character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertIn("有连续性的状态", sysmsg)
+        self.assertIn("惯性", sysmsg)
+        self.assertIn("传染", sysmsg)
+        self.assertIn("起伏弧线", sysmsg)
+
     def test_principles_curiosity_and_initiative_injected(self):
         # 前沿C 稳定原则 + 前沿B 好奇缺口进画像块；内驱主动 _INITIATIVE 进 prefix。
         from micall.context.models import UserProfile
