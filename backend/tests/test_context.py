@@ -182,6 +182,25 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("小姐", sysmsg)        # 明确点名禁用的性别称呼之一
         self.assertIn("立刻彻底", sysmsg)    # 被纠正后必须彻底放下错设定（治「我是个男的」她还接着叫错）
 
+    def test_voice_emotion_folded_into_turn(self):
+        # 免费升级：实时 ASR 听出的 TA 声音情绪折进当轮 user，让角色顺着语气接（neutral/未知不注入）。
+        from micall.context.assembler import _voice_emotion_line
+        self.assertIn("低落", _voice_emotion_line("sad"))
+        self.assertIn("高兴", _voice_emotion_line("HAPPY"))     # 大小写不敏感
+        self.assertIn("低落", _voice_emotion_line("难过"))       # 中文标签也认
+        self.assertEqual(_voice_emotion_line("neutral"), "")    # 中性不提
+        self.assertEqual(_voice_emotion_line(""), "")
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "维佳"}, "persona": {}})
+        a = ContextAssembler(char)
+        a.set_user_voice_emotion("sad")
+        turn = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "没事"}])[-1]["content"]
+        self.assertIn("语气声调", turn)
+        self.assertIn("低落", turn)
+        # 每轮覆盖：设回 neutral 即清空，上一句的情绪不赖到下一句
+        a.set_user_voice_emotion("neutral")
+        turn2 = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "嗯嗯"}])[-1]["content"]
+        self.assertNotIn("语气声调", turn2)
+
     def test_addressing_guard_fires_on_correction(self):
         # 被纠正的当轮强力提醒（per-turn，权重高于上方静态块）：治「我是个男的/我又不是模特」却接着叫错。
         from micall.context.assembler import _addressing_guard_line

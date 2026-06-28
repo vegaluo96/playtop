@@ -121,6 +121,21 @@ class TestInviteRewardChain(unittest.TestCase):
         self.assertEqual(saved["chars_per_token"], 4)                   # 合理值原样
 
 
+class TestAsrEmotion(unittest.TestCase):
+    """免费升级：实时 ASR 在转写之外把 TA 这句话的【声音情绪】抽出来（防御式多处探测）。"""
+
+    def test_extract_emotion_shapes(self):
+        from micall.providers.qwen_realtime_asr import _extract_emotion
+        self.assertEqual(_extract_emotion({"emotion": "happy"}), "happy")
+        self.assertEqual(_extract_emotion({"annotations": [{"emotion": "sad"}]}), "sad")
+        self.assertEqual(_extract_emotion({"annotations": [{"type": "emotion", "value": "angry"}]}), "angry")
+        self.assertEqual(_extract_emotion({"annotation": {"emotion": "fear"}}), "fear")
+        # 没有情绪字段 / 非法输入 → 空，绝不抛
+        self.assertEqual(_extract_emotion({"transcript": "你好"}), "")
+        self.assertEqual(_extract_emotion({}), "")
+        self.assertEqual(_extract_emotion("notadict"), "")
+
+
 class TestInviteRewardSeconds(unittest.TestCase):
     def test_reads_config_minutes(self):
         # 默认配置（default.json invite.reward_minutes=60）→ 3600 秒。

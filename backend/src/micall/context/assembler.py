@@ -436,6 +436,31 @@ def _live_facts_line(facts: dict[str, str]) -> str:
     )
 
 
+# 「免费升级」：实时 ASR(qwen3-asr-flash-realtime)在转写之外还能给 TA 这句话的【语气情绪】——
+# 我们过去只取了文字、把这条信号丢了。把它折进当轮 user，让角色像真人那样从你「声调」里听出你高兴/烦/低落，
+# 顺着情绪接话，而不只读字面（不换模型、不加延迟，纯白捡）。tag 来自 ASR，归一到下面这些自然描述。
+_VOICE_EMOTION = {
+    "happy": "挺高兴、心情不错", "开心": "挺高兴、心情不错", "高兴": "挺高兴、心情不错", "愉快": "挺高兴、心情不错",
+    "sad": "有点低落、不太开心", "难过": "有点低落、不太开心", "伤心": "有点低落、不太开心", "depressed": "有点低落、不太开心",
+    "angry": "有些不耐烦、带着火气", "生气": "有些不耐烦、带着火气", "愤怒": "有些不耐烦、带着火气", "annoyed": "有些不耐烦、带着火气",
+    "fear": "有点紧张、不安", "fearful": "有点紧张、不安", "害怕": "有点紧张、不安", "紧张": "有点紧张、不安", "anxious": "有点紧张、不安",
+    "surprise": "带着点惊讶", "surprised": "带着点惊讶", "惊讶": "带着点惊讶",
+    "disgust": "有点不悦、嫌弃", "disgusted": "有点不悦、嫌弃", "厌恶": "有点不悦、嫌弃",
+}
+
+
+def _voice_emotion_line(tag: str) -> str:
+    """把 ASR 从【声音】里听出的情绪标签 → 一行软提示，折进当轮 user。neutral/未知/空 → 空（不提）。纯函数，便于测试。"""
+    raw = (tag or "").strip()
+    desc = _VOICE_EMOTION.get(raw.lower()) or _VOICE_EMOTION.get(raw)
+    if not desc:
+        return ""
+    return (
+        "（你从 TA 说话的【语气声调】里，感觉 TA 此刻好像" + desc + "——这是声音里听来的感觉、可能不准；"
+        "自然地体察着、顺这份情绪去接，别生硬点破「你听起来很…」、也别当成事实复述。）\n"
+    )
+
+
 def _emotion_instruction(emotion_map: dict[str, str]) -> str:
     # 逐句情绪 + 拟声 + 停顿（精简版，控前缀长度=控延迟）。标签/拟声/停顿只给语音引擎，用户看不到。
     return (
@@ -543,6 +568,9 @@ class ContextAssembler:
         # 客户端真实时区（UTC 偏移分钟，如 UTC+8=480）：前端 ready 时下发，让「现在几点」按用户本地算，
         # 而非一律服务器 UTC+8。None=按 UTC+8（国内用户无差）。见 _human_context。
         self._client_tz_min: int | None = None
+        # 实时 ASR 从 TA 这句话【声音语气】里听出的情绪标签（happy/sad/angry…）：编排层每轮从 ASR 读到后
+        # set_user_voice_emotion 进来，折进当轮 user（不进缓存）→ 角色顺着语气接话。空=neutral/未知/未配，不注入。
+        self._user_voice_emotion: str = ""
 
     def prefix(self, scenario: str) -> str:
         """通话内不变的前缀（L1 人设 + 原则 + 情绪指令 + L2 画像/关系/自主/策略 + 情境）。
@@ -626,6 +654,8 @@ class ContextAssembler:
             if _m.get("role") == "user":
                 self._live_facts.update(_extract_user_facts(_m.get("content", "")))
         live = _live_facts_line(self._live_facts)
+        # 「免费升级」：实时 ASR 听出的 TA 声音情绪，折进当轮（不进缓存）→ 角色顺着语气接话。
+        voice_emo = _voice_emotion_line(self._user_voice_emotion)
 
         # 「真实感」上下文：现实时间（每轮新算）+ 距上次通话的间隔感 + 当天节日。
         # 间隔感/节日是**开场寒暄**提示（「TA又拨进来了，开场可轻轻带一句」「今天是XX节」），只该在第一轮给；
@@ -636,12 +666,17 @@ class ContextAssembler:
         if hist and hist[-1].get("role") == "user":
             *head, last = hist
             messages.extend(head)
-            messages.append({"role": "user", "content": human + guard + "\n" + recall_preamble + live + last["content"]})
+            messages.append({"role": "user", "content": human + guard + "\n" + recall_preamble + live + voice_emo + last["content"]})
         else:
             messages.extend(hist)
             content = human + guard if guard else human
             messages.append({"role": "system", "content": content})
         return messages
+
+    def set_user_voice_emotion(self, tag: Any) -> None:
+        """编排层每轮把实时 ASR 听出的 TA【声音情绪】标签传进来（happy/sad/angry…），折进下一轮（不进缓存）。
+        每轮覆盖：neutral/未知传空即清空，避免上一句的情绪赖到下一句。"""
+        self._user_voice_emotion = str(tag or "")
 
     def set_client_timezone(self, offset_min: int | None) -> None:
         """前端 ready 下发的客户端 UTC 偏移（分钟，UTC+8=480）。让「现在几点」按用户本地算。

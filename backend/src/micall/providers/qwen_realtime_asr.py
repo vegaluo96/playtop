@@ -16,12 +16,38 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import logging
 from typing import AsyncIterator, Callable
 
 from ..config import NodeConfig, as_float, as_int
 from .base import ASRProvider
 from .bailian_asr import _collapse_repeat
 from .realtime_asr import region_ws_base
+
+log = logging.getLogger("micall.asr.qwen_realtime")
+
+
+def _extract_emotion(evt: dict) -> str:
+    """从实时转写事件里尽力抽出【声音情绪】标签（百炼可能放在 annotations[].emotion、顶层 emotion 等处，
+    且各版本字段名有别）→ 防御式多处探测。抽不到返回空，绝不让解析失败拖垮 ASR 流。纯函数，便于测试。"""
+    if not isinstance(evt, dict):
+        return ""
+    e = evt.get("emotion")
+    if isinstance(e, str) and e.strip():
+        return e.strip()
+    for key in ("annotations", "annotation"):
+        anns = evt.get(key)
+        if isinstance(anns, list):
+            for a in anns:
+                if isinstance(a, dict):
+                    em = a.get("emotion") or (a.get("value") if a.get("type") == "emotion" else "")
+                    if isinstance(em, str) and em.strip():
+                        return em.strip()
+        elif isinstance(anns, dict):
+            em = anns.get("emotion")
+            if isinstance(em, str) and em.strip():
+                return em.strip()
+    return ""
 
 
 class QwenRealtimeASR(ASRProvider):
@@ -39,6 +65,9 @@ class QwenRealtimeASR(ASRProvider):
         self.vad_prefix_ms = as_int(node.params.get("vad_prefix_padding_ms"), 250)
         self.vad_silence_ms = as_int(node.params.get("vad_silence_ms"), 550)
         self._on_event = on_event
+        # 「免费升级」：实时 ASR 在转写之外还会给这句话的【声音情绪】。每条 final 更新，编排层读它喂角色。
+        # 空=本句 neutral/未识别/该版本不产出（静默降级，对通话零影响）。
+        self.last_emotion = ""
 
     async def stream(
         self, frames: AsyncIterator[bytes]
@@ -112,6 +141,10 @@ class QwenRealtimeASR(ASRProvider):
                         ready.set()
                     elif "input_audio_transcription" in et:
                         if et.endswith(".completed"):
+                            emo = _extract_emotion(evt)   # 顺带取这句的声音情绪（有就更新，供编排层喂角色）
+                            if emo:
+                                self.last_emotion = emo
+                                log.info("🎙️ 从声音听出语气情绪：%s", emo)
                             final = _collapse_repeat(evt.get("transcript") or text)
                             text = ""
                             if final:

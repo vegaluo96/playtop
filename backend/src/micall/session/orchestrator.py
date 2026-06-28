@@ -440,6 +440,11 @@ class CallSession:
                     continue
                 recent[nt] = now
                 log.info("⟵ 用户说完：%r", t)
+                # 「免费升级」：把这句话从声音里听出的情绪交给 assembler，折进本轮 → 角色顺着你的语气接话。
+                try:
+                    self.assembler.set_user_voice_emotion(getattr(self._asr_rt, "last_emotion", ""))
+                except Exception:
+                    pass
                 if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
                     await self.interrupt()
                 await self._begin_turn(t)
