@@ -605,15 +605,12 @@ async def _world_refresh_loop(config: Config) -> None:
     【轮询+每轮重载配置】：后台改了拉取间隔/联网脑 key/角色现居城，最多一个轮询周期(≈10min)后即生效，不用重启。"""
     import time as _time
 
-    from ..config import _REPO_DEFAULT, load_config
-    from ..offline import configure_store, refresh_world
+    from ..config import load_config
+    from ..offline import refresh_world
     from ..offline.world_context import clean_city
     from ..providers import make_search_llm
     from .characters_admin import effective_specs
-    # 世界库落盘：让天气滚动历史 + 已拉话题跨【重启/重新部署】存活——否则每次重启只剩「今天」、连续性/话题全丢。
-    # 默认存到 config 目录（与 admin_overrides.json 同处，必可写）；可由 global_defaults.world_store_path 覆盖。
-    store_path = str(config.global_defaults.get("world_store_path", "") or "").strip()
-    configure_store(store_path or str(_REPO_DEFAULT.parent / "world_store.json"))
+    # 落盘已在 serve_forever 启动时 configure_store 开好（保证手动拉取从第一秒就持久化，无启动竞态）。
     _POLL_S = 600.0          # 每 10 分钟看一次是否到点（让后台改的「拉取间隔」最多 10min 后生效）
     last_mono: float | None = None
     while True:
@@ -640,6 +637,14 @@ async def serve_forever(config: Config) -> None:
     host = config.server.get("ws_host", "0.0.0.0")
     port = int(config.server.get("ws_port", 8787))
     path = config.server.get("path", "/realtime/signal")
+    # 世界库持久化：启动即开（在 admin/世界库刷新可用之前），保证手动「立即拉取」从第一秒就落盘、不丢。
+    try:
+        from ..config import _REPO_DEFAULT
+        from ..offline import configure_store
+        _wsp = str(config.global_defaults.get("world_store_path", "") or "").strip()
+        configure_store(_wsp or str(_REPO_DEFAULT.parent / "world_store.json"))
+    except Exception as e:
+        log.warning("世界库持久化启用失败（不影响运行）：%r", e)
     # 后台「接口配置」HTTP API（本地监听，nginx 反代 /admin/api-config）。
     admin_host = config.server.get("admin_host", "127.0.0.1")
     admin_port = int(config.server.get("admin_port", 8788))

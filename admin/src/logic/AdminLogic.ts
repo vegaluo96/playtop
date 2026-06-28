@@ -497,6 +497,7 @@ export class AdminLogic {
   async saveWorldInterval() {
     if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
     const h = parseFloat((this.state.limitsCfg || {}).world_refresh_hours);
+    if (!isFinite(h) || h < 1) { this.toastMsg("请填 ≥1 的小时数"); return; }
     const ok = await saveLimits({ world_refresh_hours: h });
     if (ok) { const lim = await loadLimits(); if (lim) this.setState({ limitsCfg: lim }); }
     this.toastMsg(ok ? `已设为每 ${h} 小时自动拉取（约 10 分钟内生效）` : "保存失败");
