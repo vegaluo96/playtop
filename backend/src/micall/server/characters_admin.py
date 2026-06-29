@@ -413,10 +413,11 @@ def set_character_order(ids) -> bool:
     return True
 
 
-def _apply_char_order(items: list[dict]) -> list[dict]:
+def _apply_char_order(items: list[dict], order: list[str] | None = None) -> list[dict]:
     """把一组带 id 的角色 dict 按运营自定义顺序重排（stable：未列入的保持原相对序、排在后面）。
-    无自定义顺序 → 原样返回（由调用方各自决定默认排法）。"""
-    order = load_character_order()
+    无自定义顺序 → 原样返回（由调用方各自决定默认排法）。order 可由调用方预读传入，避免重复读盘。"""
+    if order is None:
+        order = load_character_order()
     if not order:
         return items
     rank = {cid: i for i, cid in enumerate(order)}
@@ -618,7 +619,8 @@ def public_characters() -> list[dict]:
             "avatar": avatar_url(cid),   # 后台生成的头像下发 URL（无则空串 → 前端回退渐变球）
             "default": cid == default_id,
         })
-    if load_character_order():
-        return _apply_char_order(out)            # 运营自定义了顺序 → 完全按其排（默认角色仍带 default 标，前端据此预选）
+    order = load_character_order()               # /api/characters 是热路径：只读一次顺序文件
+    if order:
+        return _apply_char_order(out, order)     # 运营自定义了顺序 → 完全按其排（默认角色仍带 default 标，前端据此预选）
     out.sort(key=lambda c: 0 if c.get("default") else 1)  # 未自定义：默认排首位，其余保持原序
     return out

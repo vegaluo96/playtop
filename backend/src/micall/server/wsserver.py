@@ -48,16 +48,21 @@ _OFFLINE_TASK_TIMEOUT_S = 180.0
 
 
 def _client_ip(websocket: Any) -> str:
-    """客户端真实 IP：优先 nginx 转发的 X-Forwarded-For / X-Real-IP，回退握手对端地址。游客防刷按它计配额。"""
+    """客户端真实 IP（游客防刷按它计配额 + 后台归属地）。
+    优先 X-Real-IP：nginx 用 $remote_addr 覆盖写入，客户端伪造不了；其次取 X-Forwarded-For 的【最后一跳】
+    （$proxy_add_x_forwarded_for 把真实对端追加在末尾，取首段会被客户端 `X-Forwarded-For: 伪造` 绕过配额）；
+    都没有再回退握手对端地址。"""
     try:
         headers = getattr(getattr(websocket, "request", None), "headers", None)
         if headers:
+            xri = headers.get("X-Real-IP") or headers.get("x-real-ip")
+            if xri and xri.strip():
+                return xri.strip()
             xff = headers.get("X-Forwarded-For") or headers.get("x-forwarded-for")
             if xff:
-                return xff.split(",")[0].strip()
-            xri = headers.get("X-Real-IP") or headers.get("x-real-ip")
-            if xri:
-                return xri.strip()
+                hops = [p.strip() for p in xff.split(",") if p.strip()]
+                if hops:
+                    return hops[-1]   # 取可信反代追加的最后一跳，而非客户端可伪造的首段
     except Exception:
         pass
     addr = getattr(websocket, "remote_address", None)
