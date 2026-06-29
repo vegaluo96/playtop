@@ -250,8 +250,8 @@
               <!-- 状态：TA 当下的心情/近况/精力 -->
               <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
                 <div onClick="{{ openStatus }}" role="button" aria-label="状态·TA的近况" style="position:relative;width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">
-                  <!-- 近况/心情：用闪烁的星芒（sparkle）替代原来的对话气泡，气泡太像「发言」不贴「状态」 -->
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2l1.9 5.4 5.4 1.9-5.4 1.9L12 17.8l-1.9-5.4L4.7 10.5l5.4-1.9z"/><path d="M18.6 15.4l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>
+                  <!-- 近况/状态：脉搏线（活着的当下/精力/近况动态），线条与「回忆/发现」统一；比对话气泡/星芒都更贴「状态」 -->
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                   <sc-if value="{{ statusDot }}" hint-placeholder-val="{{ false }}"><div aria-label="有新近况" style="position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;background:#FF4D4F;box-shadow:0 0 0 2px var(--ctrl);"></div></sc-if>
                 </div>
                 <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">状态</span>
