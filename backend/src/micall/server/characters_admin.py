@@ -156,6 +156,20 @@ def autonomous_seed(cid: str) -> dict | None:
     return seed if isinstance(seed, dict) and any(seed.values()) else None
 
 
+def reset_autonomous_state(repo, cid: str) -> bool:
+    """清掉某角色在 DB 里【已生长】的自主状态（心情/近况/精力/期待），回落到出厂『开局近况』(autonomous_seed)。
+    用途：角色被重定位（如把『沈渡·电台主播』改名成『安杰·AI 战略官』）后，旧的 DB 近况还赖着、每通被注入
+    （典型症状：新角色老提起前一个设定里的事，如『歌单』）。后台『重置自主状态』即调它。返回是否成功。"""
+    cid = str(cid or "").strip()
+    if not cid or cid not in effective_specs():
+        return False
+    try:
+        repo.save_autonomous(cid, AutonomousState())   # 存空态 → effective_autonomous 下次回落到 spec 的 autonomous_seed
+        return True
+    except Exception:
+        return False
+
+
 def effective_autonomous(repo, cid: str) -> AutonomousState:
     """生效中的自主状态：DB 有（真实通话后由慢脑推进的）→ 用 DB；否则回退 spec 的出厂种子。"""
     st = repo.get_autonomous(cid)

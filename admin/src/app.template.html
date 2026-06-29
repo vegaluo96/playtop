@@ -984,6 +984,7 @@
 
         <div onClick="{{ saveChar }}" style="margin-top:22px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;opacity:{{ saveCharOpacity }};box-shadow:0 6px 16px rgba(110,92,255,.28);" style-active="transform:scale(.98)">{{ saveCharLabel }}</div>
         <sc-if value="{{ dChar.notNew }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ resetAutonomy }}" style="margin-top:10px;text-align:center;font-size:13px;font-weight:600;color:#6E5CFF;background:rgba(110,92,255,.08);border-radius:11px;padding:11px;cursor:pointer;" style-active="transform:scale(.98)">重置自主状态（清掉 TA 现在的近况，回到出厂开局近况）</div>
           <div onClick="{{ delChar }}" style="margin-top:10px;text-align:center;font-size:13.5px;font-weight:600;color:#E0594F;background:rgba(224,89,79,.08);border-radius:11px;padding:11px;cursor:pointer;" style-active="transform:scale(.98)">删除角色</div>
         </sc-if>
       </sc-if>

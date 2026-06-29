@@ -423,6 +423,16 @@ export async function setCharacterOnline(id: string, online: boolean): Promise<b
   } catch { /* noop */ }
   return false;
 }
+/** 重置角色自主状态：清掉 DB 里已生长的近况，回落到出厂『开局近况』（治角色改过定位后老提旧设定的事）。 */
+export async function resetCharAutonomous(id: string): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/characters/reset-autonomous`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ id }) });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
+}
 /** AI 一键生成角色字段。 */
 export async function generateCharacter(prompt: string): Promise<{ ok: boolean; fields?: any; error?: string }> {
   const b = base();

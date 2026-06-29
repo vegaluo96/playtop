@@ -13,7 +13,7 @@ import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
          loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
          loadRedeemCodes, createRedeemCode, deleteRedeemCode,
-         createCharacter, deleteCharacter, generateCharacter, generateCore, setCharacterOnline,
+         createCharacter, deleteCharacter, generateCharacter, generateCore, setCharacterOnline, resetCharAutonomous,
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, resetUserMemory, cloneVoice,
@@ -817,6 +817,24 @@ export class AdminLogic {
     this.toastMsg("角色已删除，下一通通话生效");
   }
 
+  /** 重置该角色的「自主状态/近况」：清掉 DB 里已生长的心情/近况（如改过定位后老提旧设定的事），
+   *  下一通通话回落到出厂『开局近况』。二次确认（会丢掉 TA 攒下的近况）。 */
+  resetAutonomy() {
+    const d = this.state.detail;
+    if (!d || d.type !== "char" || d.id === "__new__") return;
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const c = this.chars.find((x) => x.id === d.id);
+    this.askConfirm({ title: "重置自主状态", body: `把「${c?.name || "该角色"}」当前的心情/近况清空，回到出厂开局近况？（用于角色改过定位后老提起旧设定里的事）`,
+      okLabel: "重置", action: () => this._doResetAutonomy() });
+  }
+  private async _doResetAutonomy() {
+    const d = this.state.detail;
+    if (!d || d.type !== "char" || d.id === "__new__") return;
+    const c = this.chars.find((x) => x.id === d.id);
+    const ok = await resetCharAutonomous(c?.cid || c?.id || d.id);
+    this.toastMsg(ok ? "已重置，下一通通话回到出厂开局近况" : "重置失败");
+  }
+
   /** 保存角色人设到后端（新建走 create，编辑走 update）；同步更新本地展示。 */
   async saveChar() {
     const d = this.state.detail;
@@ -1292,6 +1310,7 @@ export class AdminLogic {
       confirmOk: () => this.confirmOk(), confirmCancel: () => this.confirmCancel(),
       stop: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); },   // 阻止点卡片冒泡到遮罩误关
       openNewChar: () => this.openNewChar(), genCharAI: () => this.genCharAI(), delChar: () => this.delChar(),
+      resetAutonomy: () => this.resetAutonomy(),
       isNewChar: !!(s.detail && s.detail.type === "char" && s.detail.id === "__new__"),
       charAiPrompt: s.charAiPrompt || "", onCharAiPrompt: (e: any) => this.setState({ charAiPrompt: e.target.value }),
       ceName: (s.charEdit as any).name || "", onCeName: (e: any) => this.setCe("name", e.target.value),
