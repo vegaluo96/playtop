@@ -180,6 +180,15 @@ _HOT_TIMEOUT_S = 12.0
 _UA = "MiCallBot/1.0 (+https://zsky.com; AI companion world-context) python-httpx"
 _TITLE_KEYS = ("title", "word", "query", "hotword", "keyword", "desc")
 _URL_KEYS = ("url", "mobileUrl", "mobilUrl", "link", "href")
+# 原文简介/摘要字段：抠出来喂改写脑，让改写【据真实内容】说，而不是只看标题瞎编（用户："是否真看到原文")。
+_DESC_KEYS = ("description", "summary", "abstract", "content", "digest", "excerpt")
+
+
+def _strip_html(s: str) -> str:
+    """去掉 RSS 简介里的 HTML 标签/实体/多余空白，留纯文本（喂改写脑前清一遍）。纯函数。"""
+    s = re.sub(r"<[^>]+>", " ", s or "")
+    s = re.sub(r"&[#0-9a-zA-Z]+;", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
 
 
 def _iter_hot_records(obj: Any):
@@ -189,7 +198,10 @@ def _iter_hot_records(obj: Any):
         title = next((obj[k] for k in _TITLE_KEYS if isinstance(obj.get(k), str) and obj[k].strip()), "")
         if title:
             url = next((obj[k] for k in _URL_KEYS if isinstance(obj.get(k), str) and obj[k].strip()), "")
-            yield {"title": title.strip()[:120], "url": str(url or "").strip()}
+            desc = next((obj[k] for k in _DESC_KEYS
+                         if isinstance(obj.get(k), str) and obj[k].strip() and obj[k].strip() != title.strip()), "")
+            yield {"title": title.strip()[:120], "url": str(url or "").strip(),
+                   "desc": _strip_html(str(desc))[:220]}
         for v in obj.values():
             if isinstance(v, (list, dict)):
                 yield from _iter_hot_records(v)
@@ -275,15 +287,17 @@ def _parse_rss(text: str) -> list[dict]:
     for node in root.iter():
         if _local(node.tag) not in ("item", "entry"):
             continue
-        title, url = "", ""
+        title, url, desc = "", "", ""
         for ch in node:
             lt = _local(ch.tag)
             if lt == "title" and not title:
                 title = "".join(ch.itertext()).strip()
             elif lt == "link" and not url:
                 url = (ch.get("href") or ch.text or "").strip()   # Atom 用 href 属性、RSS 用文本
+            elif lt in ("description", "summary", "content", "encoded", "subtitle") and not desc:
+                desc = _strip_html("".join(ch.itertext()))        # RSS<description>/Atom<summary>/<content> 原文简介
         if title:
-            out.append({"title": title[:120], "url": url})
+            out.append({"title": title[:120], "url": url, "desc": desc[:220]})
     return out
 
 
@@ -422,27 +436,34 @@ _TOPIC_POOL_CAP = 120      # 滚动池封顶（再大也无妨，超了按新鲜
 _TOPIC_AGE_DAYS = 3        # 话题在池子里最多活几天（更老=旧闻，淡出；天气还看当天，话题看几天）
 
 
-def _rewrite_prompt(titles: list[str]) -> list[dict]:
-    numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(titles))
+def _rewrite_prompt(items: list[dict]) -> list[dict]:
+    def _one(i: int, it: dict) -> str:
+        t = str(it.get("title", "")).strip()
+        d = str(it.get("desc", "")).strip()
+        return f"{i + 1}. {t}" + (f"  ::: {d[:200]}" if d else "")
+    numbered = "\n".join(_one(i, it) for i, it in enumerate(items))
     cats = "/".join(_CATS)
     sys = (
-        "下面是今天来自各处的【真实热搜/热门标题】（中英文混合），给一群【中文】虚拟陪伴角色当聊天话题。逐条处理：\n"
-        "• 适合轻松闲聊的 → 【翻译成中文（若是外文）并改写成口语闲聊】，15~40 字，忠于原意、绝不新增/编造/夸大，"
-        "并给它标一个【领域】（从这些里选一个：" + cats + "）；\n"
+        "下面是今天来自各处的【真实热搜/热门标题】（中英文混合，多数标题后跟着『 ::: 原文简介』——那是来自原文的"
+        "真实内容），给一群【中文】虚拟陪伴角色当聊天话题。逐条处理：\n"
+        "• 适合轻松闲聊的 → 【翻译成中文（若是外文）并改写成一句口语闲聊】，15~40 字，"
+        "【必须忠于标题＋简介里的真实信息：有简介就据简介把这件事说准、说出点真实由头，绝不新增/编造/夸大/脑补"
+        "标题之外的情节】，并给它标一个【领域】（从这些里选一个：" + cats + "）；\n"
         "• 涉及政治/时政/领导人/灾难/事故/死亡/暴力/血腥/色情/犯罪/疾病/股市/负面/敏感的 → 那一条输出空字符串 \"\""
         "（直接丢弃，不要翻译、不要改写）；\n"
         "• 看不懂、太小众、纯标点数字、或不适合闲聊的 → 也输出 \"\"。\n"
         "严格只输出 JSON：{lines:[...], cats:[...]}，两个数组的【条数和顺序都必须与输入完全一致】，逐条一一对应"
         "（丢弃的位置 lines 放 \"\"、cats 也放 \"\"）。"
     )
-    user = f"真实标题（按编号）：\n{numbered}\n\n逐条处理（翻译+改写+标领域，或丢弃），两数组条数顺序与上面完全一致。"
+    user = (f"真实标题与简介（按编号，『::: 』后是原文简介）：\n{numbered}\n\n"
+            "逐条处理（据标题+简介翻译+改写成一句口语+标领域，或丢弃），两数组条数顺序与上面完全一致。")
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 
 
 async def fetch_topics(rewrite_llm: Any, now: datetime.datetime, endpoints: Any = None) -> list[dict]:
-    """真实热点话题池（全站共享）：免费数据源抓真实热点 → 过安全闸 → 改写脑【翻译成中文口语 + 兼做安全闸】。
-    返回 [{text, url}]（最多 14，带原文链接）。改写脑只翻译/改写、不"找热点"——真实性来自数据源，绝不编。
-    没配改写脑：外文无法翻译、也无法用中文关键词闸 vet → 只用中文标题原样（仍真实、仍安全）。"""
+    """真实热点话题池（全站共享）：免费数据源抓【标题+原文简介】→ 过安全闸 → 改写脑【据简介翻译改写成口语+兼做安全闸】。
+    返回 [{text,url,cat,date}]（带原文链接+领域）。改写【据真实简介】说、不是只看标题瞎编——真实性来自数据源，绝不脑补。
+    没配改写脑：外文无法翻译/vet → 只用中文标题原样（仍真实、仍安全，但只到标题级、说不深）。"""
     items = await fetch_hot_items(endpoints, now=now)
     safe = [it for it in items if _is_safe(it["title"])]        # 先过中文关键词安全闸（对外文几乎不拦，靠下面改写脑兜）
     date_str = _date(now)
@@ -456,16 +477,15 @@ async def fetch_topics(rewrite_llm: Any, now: datetime.datetime, endpoints: Any 
     if rewrite_llm is None:
         return _cn_only(safe)
     cand = safe[:_TOPIC_REWRITE_CAND]                          # 多给候选，改写脑丢掉不安全/不合适的，留够一池
-    titles = [it["title"] for it in cand]
     try:
         async def _run() -> str:
             return "".join([t async for t in rewrite_llm.stream(
-                _rewrite_prompt(titles), max_tokens=4000, response_format={"type": "json_object"})])
+                _rewrite_prompt(cand), max_tokens=4000, response_format={"type": "json_object"})])
         raw = await asyncio.wait_for(_run(), timeout=_SEARCH_TIMEOUT_S)
         upd = parse_profile_update(raw)
         lines = [str(x).strip() for x in (upd.get("lines") or [])]
         cats = [str(x).strip() for x in (upd.get("cats") or [])]
-        if len(lines) == len(titles):                          # 对齐成功：丢弃的位置是 ""，跳过它、其余配 URL+领域
+        if len(lines) == len(cand):                            # 对齐成功：丢弃的位置是 ""，跳过它、其余配 URL+领域
             out: list[dict] = []
             for i, (text, it) in enumerate(zip(lines, cand)):
                 if text and _meaningful(text) and _is_safe(text):   # 改写后再过一道：垃圾残渣闸 + 中文关键词闸

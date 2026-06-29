@@ -71,13 +71,22 @@ class TestParseRss(unittest.TestCase):
     def test_rss_item(self):
         xml = """<?xml version="1.0"?><rss version="2.0"><channel>
             <title>The Verge</title>
-            <item><title>New phone launches today</title><link>https://x/1</link></item>
+            <item><title>New phone launches today</title><link>https://x/1</link>
+                  <description>&lt;p&gt;The flagship ships with a bigger battery and a brighter screen.&lt;/p&gt;</description></item>
             <item><title>Studio Ghibli film returns</title><link>https://x/2</link></item>
         </channel></rss>"""
         out = wc._parse_rss(xml)
         self.assertEqual([o["title"] for o in out], ["New phone launches today", "Studio Ghibli film returns"])
         self.assertEqual(out[0]["url"], "https://x/1")
+        self.assertIn("bigger battery", out[0]["desc"])             # 抠出原文简介（喂改写脑→据真实内容说）
+        self.assertNotIn("<p>", out[0]["desc"])                     # HTML 标签已剥掉
         self.assertNotIn("The Verge", [o["title"] for o in out])   # channel 标题不当条目
+
+    def test_json_record_captures_desc(self):
+        data = [{"title": "新框架发布", "url": "http://d/1", "description": "号称比上一代快 3 倍、内存省一半。"}]
+        rec = list(wc._iter_hot_records(data))[0]
+        self.assertEqual(rec["title"], "新框架发布")
+        self.assertIn("快 3 倍", rec["desc"])                       # dev.to 式 description 也抠进来
 
     def test_atom_entry_href_link(self):
         xml = """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
@@ -106,6 +115,15 @@ class TestCategoryAndGarbage(unittest.TestCase):
     def test_cat_for_prefers_given(self):
         self.assertEqual(wc._cat_for("https://dev.to/x", "美食"), "美食")     # 改写脑给的优先
         self.assertEqual(wc._cat_for("https://dev.to/x", "瞎填的"), "科技")   # 非白名单 → 回退源
+
+    def test_rewrite_prompt_carries_desc_for_grounding(self):
+        # 改写脑收到【标题 + 原文简介】→ 据真实内容说，而非只看标题瞎编（用户："是否真看到原文")
+        msgs = wc._rewrite_prompt([{"title": "Mars rover update", "url": "u",
+                                    "desc": "It found unusual rock formations near the crater."}])
+        blob = msgs[0]["content"] + msgs[1]["content"]
+        self.assertIn("Mars rover update", blob)
+        self.assertIn("unusual rock formations", blob)   # 简介进了 prompt
+        self.assertIn("简介", blob)                       # 指令明确要据简介、不脑补
 
     def test_meaningful_drops_garbage(self):
         self.assertFalse(wc._meaningful("."))
