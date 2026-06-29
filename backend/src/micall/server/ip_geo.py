@@ -81,8 +81,13 @@ def ip_location(ip: str) -> str:
     return loc
 
 
-def ip_locations(ips) -> dict[str, str]:
-    """批量解析一组 IP → {ip: 归属地}。已缓存/内网的直接出；未缓存公网的走小线程池并发外呼。"""
+_MAX_LOOKUPS_PER_CALL = 24   # 单次批量解析最多外呼这么多未缓存公网 IP：既封住后台页首屏延迟（≤几秒），
+                             # 也避免一次性把免费库（ip-api.com ~45 次/分）打爆。超出的先空着，下次请求再渐进补齐（缓存随之变热）。
+
+
+def ip_locations(ips, max_lookups: int = _MAX_LOOKUPS_PER_CALL) -> dict[str, str]:
+    """批量解析一组 IP → {ip: 归属地}。已缓存/内网的直接出；未缓存公网的走小线程池并发外呼，
+    单次外呼数封顶 max_lookups（超出的本次留空、不外呼），防后台页卡顿/被免费库限流。"""
     out: dict[str, str] = {}
     todo: list[str] = []
     for raw in ips:
@@ -97,8 +102,10 @@ def ip_locations(ips) -> dict[str, str]:
             cached = _cache.get(ip)
         if cached is not None:
             out[ip] = cached
-        else:
+        elif len(todo) < max_lookups:
             todo.append(ip)
+        else:
+            out[ip] = ""   # 超出本次外呼上限：先留空（前端回退显原始 IP），下次请求再补
     if todo:
         with ThreadPoolExecutor(max_workers=min(8, len(todo))) as ex:
             futs = {ex.submit(ip_location, ip): ip for ip in todo}
