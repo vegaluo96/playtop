@@ -227,6 +227,31 @@ class TestAssembler(unittest.TestCase):
         turn2 = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "嗯嗯"}])[-1]["content"]
         self.assertNotIn("语气声调", turn2)
 
+    def test_dedup_recalls_against_live_facts(self):
+        # 召回事实 vs 本通现学事实去重：同一件事（你叫王小明）别注入两遍；召回带更多信息则保留。
+        from micall.context.assembler import _dedup_recalls, _norm_fact
+        self.assertEqual(_norm_fact("我叫王小明"), "王小明")
+        self.assertEqual(_norm_fact("我的名字是王小明"), "王小明")
+        live = {"名字": "王小明", "在做": "做设计"}
+        recalls = ["我叫王小明", "我喜欢爬山", "我叫王小明，是程序员"]
+        out = _dedup_recalls(recalls, live)
+        self.assertNotIn("我叫王小明", out)              # 纯复述 live 值 → 丢
+        self.assertIn("我喜欢爬山", out)                  # 无关 → 留
+        self.assertIn("我叫王小明，是程序员", out)        # 带了更多信息 → 留（不误删更丰富的旧记忆）
+
+    def test_dedup_recalls_in_build_no_double_name(self):
+        # 端到端：本通说了名字 + 历史也召回同一名字 → 当轮 user 里「王小明」只出现一次（不重复注入）。
+        from micall.memory import InMemoryRepository
+        repo = InMemoryRepository()
+        repo.add_fact("u", "x", "我叫王小明")    # 历史事实（关键词召回会命中）
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "维佳"}, "persona": {}})
+        a = ContextAssembler(char, profile=repo.get_profile("u", "x"), memory=repo)
+        turn = a.build(character_id="x", scenario="",
+                       history=[{"role": "user", "content": "我叫王小明，你还记得我吗"}])[-1]["content"]
+        # 召回里的「我叫王小明」与本通现学的「名字：王小明」是同一件事 → 召回前言被去掉，不再注入第三遍。
+        self.assertNotIn("你大概记得的一些事", turn)   # 没有冗余的召回前言
+        self.assertEqual(turn.count("王小明"), 2)       # 仅 = 现学事实行 + 用户原话本身（去重前会是 3）
+
     def test_addressing_guard_fires_on_correction(self):
         # 被纠正的当轮强力提醒（per-turn，权重高于上方静态块）：治「我是个男的/我又不是模特」却接着叫错。
         from micall.context.assembler import _addressing_guard_line

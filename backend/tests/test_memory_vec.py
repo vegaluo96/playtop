@@ -52,6 +52,16 @@ class TestRecallVec(unittest.TestCase):
         hits = r.recall_vec("u", "c", [], query="猫", top_k=3)
         self.assertTrue(any("猫" in h for h in hits))
 
+    def test_vec_recency_surfaces_correction(self):
+        # 语义同样近（同向量）时，新近项让【改口/新事实】翻出来，不被旧表述永久盖住（与 pg 同口径 0.8~1.0）。
+        r = InMemoryRepository()
+        emb = _FakeEmbedder()
+        r.add_fact("u", "c", "以前不太爱喝咖啡", vector=asyncio.run(emb.embed_one("咖啡")))   # 老
+        r.add_fact("u", "c", "现在爱上咖啡了", vector=asyncio.run(emb.embed_one("咖啡")))      # 新
+        qv = asyncio.run(emb.embed_one("咖啡"))
+        hits = r.recall_vec("u", "c", qv, query="咖啡", top_k=1)
+        self.assertEqual(hits, ["现在爱上咖啡了"])   # 同等语义下，较新的改口表述胜出
+
     def test_recall_relevance_beats_recency(self):
         # 新近降权后：同等字符重叠下，较要紧的【老】事实压过较琐碎的【新】事实 → 记得准而非记得新。
         # 旧公式(新近最高2×)会让新而琐碎的那条胜出；新公式让相关度×重要性主导。
@@ -104,7 +114,8 @@ class TestFactoryAndEngine(unittest.TestCase):
         engine = UnderstandingEngine(
             StubLLM([json.dumps(update, ensure_ascii=False)]), repo, embedder=_FakeEmbedder()
         )
-        history = [{"role": "user", "content": "最近在准备面试"}]
+        # 历史须真聊到猫，慢脑产出的「养了一只猫」才过信而核验闸入库（否则查无实据被丢）。
+        history = [{"role": "user", "content": "最近在准备面试，还养了一只猫"}]
         asyncio.run(engine.process_call("u", "lin_wan", history))
         # 事实带上了向量 → recall_vec 走余弦，能按语义命中。
         qv = asyncio.run(_FakeEmbedder().embed_one("猫"))

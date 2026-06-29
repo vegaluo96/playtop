@@ -248,6 +248,64 @@ class TestFactImportance(unittest.TestCase):
         self.assertEqual(hits[0], "下周要去医院做手术")   # 高重要性排前
 
 
+class TestGroundingGate(unittest.TestCase):
+    """信而核验（trust-but-verify）：慢脑凭空造的共同经历/事实，落不到对话里的就丢——治本，停掉打地鼠。"""
+
+    def test_content_tokens_strips_framing(self):
+        from micall.offline.understanding import _content_tokens
+        toks = _content_tokens("那天一起聊到杨梅季")
+        # 落款套话（那天/一起/聊到）不计，只留有辨识度的内容（杨梅 等）
+        self.assertNotIn("那天", toks)
+        self.assertNotIn("一起", toks)
+        self.assertIn("杨梅", toks)
+
+    def test_grounded_true_when_content_present(self):
+        from micall.offline.understanding import _grounded_in_history
+        h = [{"role": "user", "content": "最近杨梅上市了，酸得很"}, {"role": "assistant", "content": "是吗"}]
+        self.assertTrue(_grounded_in_history("6月底一起聊到杨梅季", h))
+
+    def test_ungrounded_when_fabricated_entity(self):
+        from micall.offline.understanding import _grounded_in_history
+        h = [{"role": "user", "content": "今天上班好累，开了一天会"}, {"role": "assistant", "content": "辛苦了"}]
+        self.assertFalse(_grounded_in_history("你答应过老周一起去爬山", h))   # 老周/爬山对话里查无实据
+
+    def test_no_content_token_kept_conservatively(self):
+        from micall.offline.understanding import _grounded_in_history
+        h = [{"role": "user", "content": "随便聊聊"}]
+        # 抠不出任何可判定的内容词（纯落款套话）→ 保守判 True（不误删真记忆）
+        self.assertTrue(_grounded_in_history("聊到", h))
+
+    def test_merge_drops_ungrounded_shared_ref(self):
+        # 慢脑硬塞一条对话里没发生的共同经历 → 核验后被丢；真聊到的那条保留。
+        p = UserProfile("u", "c")
+        history = [{"role": "user", "content": "今天去看了新出的科幻片，特效炸裂"},
+                   {"role": "assistant", "content": "听着就过瘾"}]
+        update = {"relationship": {"shared_refs": ["一起聊到那部科幻片的特效", "你答应过老周去钓鱼"]}}
+        merge_profile(p, update, history)
+        refs = p.relationship.shared_refs
+        self.assertIn("一起聊到那部科幻片的特效", refs)      # 真聊到 → 留
+        self.assertNotIn("你答应过老周去钓鱼", refs)         # 凭空造 → 丢
+
+    def test_merge_without_history_keeps_all_refs(self):
+        # 不传 history（如直接单元调用/旧路径）→ 不做核验，保持向后兼容、不误删。
+        p = UserProfile("u", "c")
+        merge_profile(p, {"relationship": {"shared_refs": ["你答应过老周去钓鱼"]}})
+        self.assertIn("你答应过老周去钓鱼", p.relationship.shared_refs)
+
+    def test_process_call_drops_ungrounded_slow_fact(self):
+        # 慢脑新增事实落不到对话里 → 丢；但用户原话仍全量兜底入库（信息不丢）。
+        repo = InMemoryRepository()
+        update = {"new_facts": [{"text": "在上海开了家咖啡馆", "importance": 0.9}]}
+        engine = UnderstandingEngine(StubLLM([json.dumps(update, ensure_ascii=False)]), repo)
+        history = [{"role": "user", "content": "今天加班到很晚，累瘫了"},
+                   {"role": "assistant", "content": "早点歇"}]
+        asyncio.run(engine.process_call("u", "c", history))
+        # 凭空的「咖啡馆」事实不该入库
+        self.assertFalse(any("咖啡馆" in r for r in repo.recall("u", "c", "咖啡馆", top_k=5)))
+        # 用户原话兜底仍在
+        self.assertTrue(any("加班" in r for r in repo.recall("u", "c", "加班", top_k=5)))
+
+
 class TestEngine(unittest.TestCase):
     def test_process_call_writes_both_layers(self):
         repo = InMemoryRepository()
@@ -260,7 +318,7 @@ class TestEngine(unittest.TestCase):
         llm = StubLLM([json.dumps(update, ensure_ascii=False)])  # 注入返回 JSON 的慢脑
         engine = UnderstandingEngine(llm, repo)
         history = [
-            {"role": "user", "content": "我在准备一场面试，有点紧张"},
+            {"role": "user", "content": "我在准备一场面试，有点紧张，家里还养了只猫"},
             {"role": "assistant", "content": "我陪着你。"},
         ]
         profile = asyncio.run(engine.process_call("u", "lin_wan", history))

@@ -55,6 +55,51 @@ def extract_facts(history: Sequence[Message]) -> list[str]:
     return out
 
 
+# 框架/连接/时令词：共同记忆的「落款」常爱用这些（那天/一起/聊到/月底…），它们不是【实质内容】。
+# 核验一条记忆是否真发生时要剔掉它们，只看候选里【有辨识度的名词/实体】（人名/地名/具体事物）是否真在对话里出现过。
+_GROUND_STOP = {
+    "今天", "昨天", "前天", "明天", "那天", "这天", "当天", "最近", "这几", "几天",
+    "前阵", "这阵", "那阵", "上午", "下午", "晚上", "早上", "中午", "夜里", "周末",
+    "时候", "一起", "我们", "你俩", "咱俩", "俩人", "聊到", "聊过", "说到", "说过",
+    "提到", "提起", "谈到", "谈起", "讲到", "讨论", "关于", "那个", "这个", "还有",
+    "然后", "当时", "现在", "之前", "后来", "刚才", "已经", "可能", "应该", "好像",
+    "有点", "一下", "一些", "什么", "怎么", "这样", "那样", "知道", "觉得", "事情",
+    "东西", "时令", "落款", "天气", "一段", "一件", "一场", "一次",
+}
+
+
+def _content_tokens(text: str) -> list[str]:
+    """从一段文本里抠出【有辨识度的内容词】：≥2 字的中文片段滑 2-gram（剔框架/连接/时令词）+ ≥2 位英文/数字串。
+    用于核验候选记忆是否真落在对话里——人名/地名/具体名词才是判据，落款式套话（那天/一起聊到）不算。
+    不依赖分词：对人名（老周）、地名（上海）、专名（杨梅/Tesla）友好；常见连接词进 _GROUND_STOP 不计。"""
+    if not text:
+        return []
+    toks: list[str] = []
+    for seg in re.findall(r"[一-鿿]{2,}", text):
+        for i in range(len(seg) - 1):
+            bg = seg[i:i + 2]
+            if bg not in _GROUND_STOP:
+                toks.append(bg)
+    for w in re.findall(r"[A-Za-z0-9]{2,}", text):
+        toks.append(w.lower())
+    return toks
+
+
+def _grounded_in_history(text: str, history: Sequence[Message]) -> bool:
+    """信而核验（trust-but-verify）：候选记忆里【有辨识度的内容词】是否真在本通对话里出现过。
+    第一性原理——记忆只能来自真实记录，不能靠 LLM 凭空断言。判据是「有没有实质重合」：
+      · 抠不出可判定的内容词（全是落款套话）→ 保守判 True（不误删真记忆）；
+      · 有内容词、但【一个都没】落在对话全文里 → False（多半是慢脑凭空造的「我们聊过 X / 你答应过老周」）。
+    宽进严出：只要命中一个辨识度内容词就放行，最大限度不误删；零重合才丢——专治「整条无中生有」。"""
+    distinct = set(_content_tokens(text))
+    if not distinct:
+        return True
+    convo = "".join((m.get("content") or "") for m in history).lower()
+    if not convo:
+        return True
+    return any(t in convo for t in distinct)
+
+
 def _speaker_label(role: str) -> str:
     """把对话双方在转写里标清楚：user=被画像的「对方(TA)」，assistant=AI 陪伴角色「角色本人」。
     防止慢脑把【角色本人】说的自己的事（今天干了啥/脚磨破皮/在忙什么）错记成【对方】的事
@@ -214,8 +259,10 @@ def _apply_removals(profile: UserProfile, remove_facts: Any) -> int:
     return removed
 
 
-def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
-    """把模型产出合并进画像：先按 remove_facts 删纠错项，再洞察去重累积、假设替换、关系/策略更新。"""
+def merge_profile(profile: UserProfile, update: dict[str, Any],
+                  history: Sequence[Message] | None = None) -> UserProfile:
+    """把模型产出合并进画像：先按 remove_facts 删纠错项，再洞察去重累积、假设替换、关系/策略更新。
+    传入 history → 对 shared_refs（共同经历）逐条信而核验，丢掉对话里查无实据的（堵慢脑凭空造共同经历）。"""
     # 纠错优先：先删 TA 纠正/否认的旧事实，再 merge 新/改值——这样若同键有更正值会被重新写回、不被误删。
     _apply_removals(profile, update.get("remove_facts"))
     # 客观事实 + 相处偏好：过去读了没人写的两个死字段，现在增改落库（跨通记得你是谁、怎么待你）。
@@ -259,8 +306,16 @@ def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
         if rel.get("open_threads"):
             r.open_threads = list(rel["open_threads"])
         if rel.get("shared_refs"):
+            refs = [str(x).strip()[:80] for x in rel["shared_refs"] if str(x).strip()]
+            if history is not None:
+                # 信而核验：丢掉对话里【根本没出现过】的共同经历——堵住慢脑凭空造「我们聊过 X / 你答应过老周」
+                # 写进库、下一通当真注入。这是治本闸（停掉「一个症状一条提示词」的打地鼠），不靠提示词自觉。
+                kept = [s for s in refs if _grounded_in_history(s, history)]
+                if len(kept) != len(refs):
+                    log.info("🧹 共同记忆核验：丢弃 %d 条对话里查无实据的 shared_ref", len(refs) - len(kept))
+                refs = kept
             # Layer D 显著性/遗忘：慢脑已按鲜活度排序并淡出久未提起的；这里硬性封顶，防共同记忆无限膨胀稀释注意力。
-            r.shared_refs = [str(x).strip()[:80] for x in rel["shared_refs"] if str(x).strip()][:_MAX_SHARED_REFS]
+            r.shared_refs = refs[:_MAX_SHARED_REFS]
     if update.get("next_strategy"):
         profile.next_strategy = str(update["next_strategy"])
     # 前沿B 好奇缺口：角色最想弄明白 TA 的那一个点（驱动主动）。
@@ -334,10 +389,19 @@ class UnderstandingEngine:
         # 原话默认 0.3（低floor）：每句用户原话都存=确定性底座(慢脑漏抽也不丢)，但多是闲聊寒暄→给低分，
         # 让慢脑标注的「要紧事」(爱/怕/承诺，0.7~0.9)在召回里【压过】成堆原话，记得准而非记得杂。
         scored_facts: list[tuple[str, float]] = [(t, 0.3) for t in extract_facts(history)]
+        dropped_facts = 0
         for f in update.get("new_facts", []) or []:
             text, imp = _fact_text_importance(f)
-            if text:
-                scored_facts.append((text, imp))
+            if not text:
+                continue
+            # 信而核验：慢脑【新增/改写】的事实必须能在对话里找到由头；查无实据的丢弃。
+            # 安全：用户原话已由 extract_facts 全量兜底入库（默认 0.3），丢掉的只是慢脑可能脑补的转写，信息不丢。
+            if not _grounded_in_history(text, history):
+                dropped_facts += 1
+                continue
+            scored_facts.append((text, imp))
+        if dropped_facts:
+            log.info("🧹 事实核验：丢弃 %d 条对话里查无实据的慢脑事实", dropped_facts)
         seen: dict[str, float] = {}
         for text, imp in scored_facts:  # 去重保序：同一句保留较高的重要性
             seen[text] = max(seen.get(text, 0.0), imp)
@@ -354,7 +418,7 @@ class UnderstandingEngine:
             except Exception as e:
                 log.warning("prune_facts 调用失败（忽略，不影响通话）：%r", e)
 
-        merged = merge_profile(profile, update)
+        merged = merge_profile(profile, update, history)
         # 启发式兜底：从本通用户话里抽客观事实（名字/在做/喜欢…）补进 fact_profile，
         # 即使慢脑漏抽也有确定性底座，让跨通「记得你」不落空。不覆盖慢脑更精确的同名值。
         from ..context.assembler import _extract_user_facts

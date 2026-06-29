@@ -449,6 +449,33 @@ def _extract_user_facts(text: str) -> dict[str, str]:
     return out
 
 
+# 去重规整：把召回事实里第一人称引子/标点剥掉，好和本通现学的 live 值（如「王小明」）比对是否在说同一件事。
+_DEDUP_LEADINS = ("我的名字是", "我的名字叫", "我名字叫", "我叫做", "名字是", "名字叫",
+                  "我的", "我叫", "我是", "我在", "我家", "叫做", "我", "叫", "是", "在")
+
+
+def _norm_fact(s: str) -> str:
+    """规整一条事实文本：去标点空格、剥掉开头的第一人称引子、去掉句尾语气词。供去重比对（纯函数）。"""
+    t = re.sub(r"[\s，,。.！!？?、…~（）()\"'：:；;]+", "", s or "")
+    for lead in _DEDUP_LEADINS:   # 引子表已按长→短排，最长匹配优先
+        if t.startswith(lead) and len(t) > len(lead):
+            t = t[len(lead):]
+            break
+    return t.strip("的了吧呢啊呀嘛")
+
+
+def _dedup_recalls(recalls: list[str], live_facts: dict[str, str]) -> list[str]:
+    """本通现学事实（live_facts）已折进当轮、更新鲜；把语义上重复的召回事实去掉，免得同一件事
+    （如「你叫王小明」）注入两遍、浪费 token 又显呆。保守：仅当召回规整后【正好等于】某条 live 值才丢，
+    召回带了更多信息（如「我叫王小明，是程序员」）则保留——不误删更丰富的旧记忆。纯函数，便于测试。"""
+    if not recalls or not live_facts:
+        return recalls
+    live_norm = {_norm_fact(str(v)) for v in live_facts.values() if len(str(v).strip()) >= 2}
+    if not live_norm:
+        return recalls
+    return [r for r in recalls if _norm_fact(r) not in live_norm]
+
+
 def _live_facts_line(facts: dict[str, str]) -> str:
     """把本通现学到的用户事实拼成一行，折进当轮 user。措辞软、自我纠偏（可能听岔），别复述成档案。"""
     if not facts:
@@ -728,6 +755,7 @@ class ContextAssembler:
         # L3 情节记忆 Top-K（可伸缩）：语义相似 + 时间衰减 + 情感权重；经自然化（§3.5）。
         # per-user×per-char 隔离（铁律7），需 profile 提供 user_id。
         recall_preamble = ""
+        recalls: list[str] = []
         if self.memory is not None and self.profile is not None and history:
             last_user = next(
                 (m["content"] for m in reversed(history) if m.get("role") == "user"), ""
@@ -742,11 +770,11 @@ class ContextAssembler:
                 recalls = self.memory.recall(
                     self.profile.user_id, character_id, last_user, top_k=self.memory_top_k
                 )
-            if recalls:
-                recall_preamble = (
-                    "（你大概记得的一些事，模糊地，不要精确复述："
-                    + "；".join(recalls) + "）\n"
-                )
+            # 召回方法 + 命中数打日志：语义召回静默退化（embedding 异常→关键词→0 命中）能被运营发现，
+            # 而不是「记不住」只能靠用户撞见才知道（呼应 📰 诊断风格）。
+            if last_user:
+                log.info("🧠 召回 %s · 命中 %d 条", "向量" if query_vector else "关键词", len(recalls))
+        # （recall_preamble 在 live_facts 累积后再去重构建，见下方——确保拿到本轮完整的现学事实再比对）
 
         # 人设铁壁的当轮加固：检测到 TA 在套提示词/试探是不是 AI，就把更狠的提醒折进本轮
         # （静态 _INTEGRITY 已常驻，这层只在被试探时叠加，应对反复逼问）。基于真正的末轮 user 文本。
@@ -759,6 +787,11 @@ class ContextAssembler:
             if _m.get("role") == "user":
                 self._live_facts.update(_extract_user_facts(_m.get("content", "")))
         live = _live_facts_line(self._live_facts)
+        # 去重 + 构建召回前言：本通现学事实(live_facts)已累积齐、本轮已折进且更新鲜；把召回里只是复述同一件事的
+        # 丢掉（如「你叫王小明」别注入两遍）。放在 live_facts 累积之后做，确保比对的是本轮真正会注入的现学事实。
+        recalls = _dedup_recalls(recalls, self._live_facts)
+        if recalls:
+            recall_preamble = "（你大概记得的一些事，模糊地，不要精确复述：" + "；".join(recalls) + "）\n"
         # 「免费升级」：实时 ASR 听出的 TA 声音情绪，折进当轮（不进缓存）→ 角色顺着语气接话。
         voice_emo = _voice_emotion_line(self._user_voice_emotion)
 

@@ -183,12 +183,16 @@ class PgRepository(MemoryRepository):
             return self.recall(user_id, character_id, query, top_k=top_k)
         try:
             with self.pool.connection() as c:
-                # 余弦距离按「重要性 × 情感权重」缩放：要紧的记忆等效距离更小、更易被召回（importance 维，
-                # Generative Agents）。GREATEST 兜底防除零。距离越小越相关，故除以权重。
+                # 余弦距离按「重要性 × 情感权重 × 新近」缩放：要紧/较新的记忆等效距离更小、更易被召回
+                # （importance 维，Generative Agents）。GREATEST 兜底防除零。距离越小越相关，故除以权重。
+                # 新近项 0.8~1.0（90 天触底）= 与关键词 recall / 内存 recall_vec 同口径的轻 tiebreaker：
+                # 语义近似时让【改口/新事实】翻得出来，而不是被旧表述永久盖住；仍以语义相关度/重要性主导。
                 rows = c.execute(
                     "SELECT text FROM facts WHERE user_id=%s AND character_id=%s AND embedding IS NOT NULL "
-                    "ORDER BY (embedding <=> %s::vector) / GREATEST(importance * emotion_weight, 0.05) LIMIT %s",
-                    (user_id, character_id, _vec_literal(query_vector), top_k),
+                    "ORDER BY (embedding <=> %s::vector) / (GREATEST(importance * emotion_weight, 0.05) "
+                    "  * (0.8 + 0.2 * (1.0 - LEAST(EXTRACT(EPOCH FROM (now() - created_at)) / %s, 1.0)))) "
+                    "LIMIT %s",
+                    (user_id, character_id, _vec_literal(query_vector), _FORGET_HORIZON_S, top_k),
                 ).fetchall()
             return [r[0] for r in rows] or self.recall(user_id, character_id, query, top_k=top_k)
         except Exception as e:

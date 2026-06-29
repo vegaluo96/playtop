@@ -352,6 +352,11 @@ class SignalingServer:
         node = self.config.node("asr")
         if not (node.api_key.strip() and (node.endpoint.strip() or node.params.get("ws_endpoint"))):
             return None
+        # 声音情绪只在 qwen* 实时模型（qwen3-asr-flash-realtime）那条路抽取；若 ops 切到 paraformer-realtime，
+        # 「顺着语气接话」会【静默失效】（last_emotion 永远空）。这里显式告警，别让情绪特性变成无人知晓的空壳。
+        rt_model = str(node.params.get("realtime_model", "qwen3-asr-flash-realtime") or "")
+        if not rt_model.startswith("qwen"):
+            log.warning("实时 ASR 用 %r（非 qwen 路），不抽取声音情绪 → 「顺着语气接话」本通停用", rt_model)
         try:
             return make_realtime_asr(node)
         except Exception as e:  # 依赖缺失/构造失败：不阻断通话，退文字模式

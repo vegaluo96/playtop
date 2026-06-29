@@ -401,9 +401,10 @@ class InMemoryRepository(MemoryRepository):
         for i, (text, weight, vec, imp) in enumerate(items):
             if vec:
                 any_vec = True
-                # 余弦相似 × 情感权重 × 重要性 × 新近(轻 tiebreaker 0.9~1.0)。语义相关度主导，
-                # 新近只破平手——与 pg_repository.recall_vec（纯语义×重要性、无新近）的「相关优先」取向一致。
-                scored.append((_cosine(query_vector, vec) * weight * imp * (0.9 + 0.1 * i / max(1, n)), text))
+                # 余弦相似 × 情感权重 × 重要性 × 新近(0.8~1.0)。语义相关度/重要性主导，新近当一致的轻 tiebreaker
+                # ——与关键词 recall 同口径(0.8~1.0)、与 pg_repository.recall_vec 同口径：语义近似时让【改口/新事实】
+                # （如「我其实爱上咖啡了」）能压过旧表述翻出来，而不是被旧事实永久盖住。
+                scored.append((_cosine(query_vector, vec) * weight * imp * (0.8 + 0.2 * i / max(1, n)), text))
         if not any_vec:  # 库里还没有向量（旧数据/未向量化）→ 退关键词。
             return self.recall(user_id, character_id, query, top_k=top_k)
         scored.sort(key=lambda s: s[0], reverse=True)
