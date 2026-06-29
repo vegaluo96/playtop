@@ -124,10 +124,17 @@ _MEMORY_ANGLE = (
 )
 
 
-def _varied_opening(base: str, *, prefer_memory: bool = False) -> str:
+def _varied_opening(base: str, *, prefer_memory: bool = False, has_scene: bool = False) -> str:
     """给开场指令叠一个角度 + 反重复要求，治「每次开头都同一句」。纯函数，便于测试。
     有「未了的线头/上次聊到」时，约一半概率用【记忆回扣】开场（最强的『你还记得我』信号、直接拉留存）；
-    另一半仍随机换角度——既让"被记着"经常发生，又不至于每通都"上次你说…"变成新的套路（防跨通复读）。"""
+    另一半仍随机换角度——既让"被记着"经常发生，又不至于每通都"上次你说…"变成新的套路（防跨通复读）。
+    has_scene=有具体情境（模拟面试/哄睡/练口语…）：此时开场由情境定，绝不叠"就着天气随口起头/换个场景起头"
+    这类【随聊角度】——它们会和"顺着情境直接进入"自相矛盾，正是开场不丝滑的根。只保留"别一字不差复读"，
+    并把记忆回扣（若有线头）顺着情境带出来，让 TA 每通都被稳定地带进同一个场景、措辞又不机械重复。"""
+    if has_scene:
+        tail = (_MEMORY_ANGLE + "（但顺着当前情境把它自然带出来，别跳出场景去寒暄。）"
+                if (prefer_memory and random.random() < 0.5) else "")
+        return base + tail + "（同一情境每通也别用一字不差的同一句开场，措辞自然换换。）"
     angle = _MEMORY_ANGLE if (prefer_memory and random.random() < 0.5) else random.choice(_OPENING_ANGLES)
     return (base + angle
             + "（务必和你以往的开场【不一样】：别每次都同一句、同一件事、同一个场景起头。）")
@@ -560,8 +567,10 @@ class CallSession:
                     _prof = getattr(self.assembler, "profile", None)
                     _rel = getattr(_prof, "relationship", None) if _prof else None
                     _prefer_mem = bool(_rel and (getattr(_rel, "open_threads", None) or getattr(_rel, "last_topic", "")))
+                    # 有具体情境（模拟面试/哄睡/练口语…，非「随便聊」）→ 开场别再叠随聊角度，让 AI 稳定地顺着情境进场。
+                    _has_scene = bool(self.scenario_prompt) and self.scenario not in ("", "chat")
                     directive = (self._continuation_directive if self._continuation
-                                 else _varied_opening(self._opening_directive, prefer_memory=_prefer_mem))
+                                 else _varied_opening(self._opening_directive, prefer_memory=_prefer_mem, has_scene=_has_scene))
                     await self._generate_turn(directive, opening=True)
                     # 等开场音频真正播完（_audio_until 是已发音频播放到的终点），这段尾巴继续抑制 ASR 防回声切断。
                     tail = self._audio_until - time.monotonic()

@@ -91,6 +91,23 @@ class TestVariedOpening(unittest.TestCase):
         hits = sum("追一句上次没聊完" in _varied_opening(base, prefer_memory=True) for _ in range(200))
         self.assertTrue(0 < hits < 200)
 
+    def test_scene_opening_drops_casual_angles(self):
+        # 有具体情境（模拟面试/哄睡…）：开场由情境定，绝不叠"扯天气/换个场景起头"的随聊角度
+        # （它们会和"顺着情境直接进入"自相矛盾，是开场不丝滑的根）。
+        from micall.session.orchestrator import _varied_opening, _OPENING_ANGLES
+        base = "（开场基础指令）"
+        for _ in range(60):
+            o = _varied_opening(base, has_scene=True)
+            self.assertTrue(o.startswith(base))                       # 基础指令保留
+            self.assertFalse(any(ang in o for ang in _OPENING_ANGLES))  # 不叠任何随聊角度
+            self.assertNotIn("同一个场景起头", o)                      # 不再要求"换个场景"（情境要每通稳定地进）
+        # 有线头时仍可记忆回扣，但顺着情境带出来、不跳出场景
+        hits = sum("追一句上次没聊完" in _varied_opening(base, prefer_memory=True, has_scene=True) for _ in range(200))
+        self.assertTrue(0 < hits < 200)
+        self.assertTrue(all("别跳出场景" in o for o in
+                            [_varied_opening(base, prefer_memory=True, has_scene=True) for _ in range(200)]
+                            if "追一句上次没聊完" in o))
+
 
 class TestFiller(unittest.TestCase):
     def test_filler_detection(self):
