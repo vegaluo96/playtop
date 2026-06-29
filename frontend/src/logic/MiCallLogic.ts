@@ -736,6 +736,9 @@ export class MiCallLogic {
     const durMs = durSec * 1000;
     this._revealTimer = setInterval(() => {
       const n = Math.min(len, Math.floor((len * (Date.now() - start)) / durMs));
+      // 每 50ms 只是算一下进度（廉价）；只有【新揭出字】时才 notify 重渲染——
+      // 否则一句话内会白白整树重渲 20 次/秒。字数没推进就直接返回，省掉无变化的重渲染。
+      if (n === this._revealLen) { if (n >= len) this._stopReveal(); return; }
       this._revealLen = n;
       if (n >= len) this._stopReveal();
       this.notify();
