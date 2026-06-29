@@ -49,9 +49,8 @@ function check(label: string, html: string, needles: string[], absent: string[] 
 // 1) Idle screen: brand, current character, tagline, controls, copy.
 const idle = render();
 check("idle screen", idle, [
-  "MiCall", ".ai",
+  "载思",
   "林晚", "温柔的深夜倾听者",
-  "换个角色", "剩余 12 分钟", "充值",
   "viewBox", "stroke-linecap", // SVGs survived with correct attribute names
   "orbStill", // per-state orb animation name reached the inline style
 ]);
@@ -95,7 +94,7 @@ const sheets: [string, (l: any) => void, string[]][] = [
   ["settings", (l) => { l.state.settingsOpen = true; }, ["修改密码", "取消订阅", "隐私政策", "用户协议"]],
   ["language", (l) => { l.state.langOpen = true; }, ["English", "日本語", "한국어"]],
   ["contact", (l) => { l.state.contactOpen = true; }, ["联系我们", "建议反馈", "提交工单"]],
-  ["auth register", (l) => { l.state.authOpen = true; }, ["注册账号", "注册并开始"]],
+  ["auth register", (l) => { l.state.authOpen = true; }, ["登录 / 注册"]],
   ["char detail", (l) => { l.state.charDetailOpen = true; }, ["音色", "原本音色", "背景故事", "性格"]],
   ["perm dialog", (l) => { l.state.permOpen = true; }, ["允许使用麦克风", "允许"]],
   ["call failed", (l) => { l.state.callFailed = true; }, ["接通失败", "重试"]],

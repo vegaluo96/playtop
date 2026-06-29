@@ -251,6 +251,10 @@ class MemoryRepository(ABC):
         """每个角色的真实通话数 {character_id: count}。后台「角色」列表统计。"""
         return {}
 
+    def character_favorite_counts(self) -> dict:
+        """每个角色的真实被收藏数 {character_id: count}（全用户）。后台「角色」列表「被收藏」统计。"""
+        return {}
+
     def scenario_call_counts(self) -> dict:
         """每个场景的真实通话数 {scenario: count}。后台首页「热门场景」。"""
         return {}
@@ -629,6 +633,10 @@ class InMemoryRepository(MemoryRepository):
     def character_call_counts(self) -> dict:
         from collections import Counter
         return dict(Counter(c["character_id"] for c in self._calls))
+
+    def character_favorite_counts(self) -> dict:
+        from collections import Counter
+        return dict(Counter(cid for (_uid, cid) in self._favorites))
 
     def scenario_call_counts(self) -> dict:
         from collections import Counter

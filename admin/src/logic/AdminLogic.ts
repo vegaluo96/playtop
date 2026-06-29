@@ -371,7 +371,8 @@ export class AdminLogic {
       this.realInviteStats = dash.invite_stats || { total_invites: 0, reward_minutes: 0 };
       // 真实后端：每个角色用真实通话数（无则 0）；后台无来源的「自定义音色数/收藏」诚实置 0/—。
       const cc = dash.char_calls || {};
-      for (const c of this.chars) { c.calls = String(cc[c.cid] ?? cc[c.id] ?? 0); c.customVoices = 0; c.favs = "—"; }
+      const cf = dash.char_favs || {};
+      for (const c of this.chars) { c.calls = String(cc[c.cid] ?? cc[c.id] ?? 0); c.customVoices = 0; c.favs = String(cf[c.cid] ?? cf[c.id] ?? 0); }
     }
     const GRADS = ["linear-gradient(140deg,#A78BFF,#6E5CFF)", "linear-gradient(140deg,#FF8FC8,#FF4FA0)",
                    "linear-gradient(140deg,#5BE0A0,#1FA971)", "linear-gradient(140deg,#6FC8FF,#2E7BFF)",
@@ -1126,7 +1127,7 @@ export class AdminLogic {
       sampleText: ((r.sample || [])[0] || {}).text || "", hasSample: !!((r.sample || [])[0] || {}).text }));
 
     const titles: Record<string, [string, string]> = {
-      dashboard: ["数据概览", "MiCall.ai 运营核心指标"],
+      dashboard: ["数据概览", "载思 运营核心指标"],
       users: ["用户管理", this.users.length + " 名注册用户"],
       characters: ["角色管理", this.chars.length + " 个 AI 角色"],
       voices: ["音色管理", "MiniMax 系统音色库 · 试听并分配给角色"],

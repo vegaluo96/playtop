@@ -26,8 +26,8 @@ export function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
     <div style={S.page}>
       <div style={S.card}>
         <div style={S.brand}>
-          MiCall<span style={{ color: "#6E5CFF" }}>.ai</span>
-          <span style={S.brandTag}>Admin</span>
+          载思
+          <span style={S.brandTag}>管理后台</span>
         </div>
 
         <label style={S.label}>账号</label>

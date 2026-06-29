@@ -696,6 +696,15 @@ class PgRepository(MemoryRepository):
             log.warning("character_call_counts 失败：%r", e)
             return {}
 
+    def character_favorite_counts(self) -> dict:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute("SELECT character_id, count(*) FROM user_favorites GROUP BY character_id").fetchall()
+            return {r[0]: int(r[1]) for r in rows}
+        except Exception as e:
+            log.warning("character_favorite_counts 失败：%r", e)
+            return {}
+
     def scenario_call_counts(self) -> dict:
         try:
             with self.pool.connection() as c:

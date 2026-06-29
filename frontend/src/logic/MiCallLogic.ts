@@ -96,7 +96,7 @@ export class MiCallLogic {
   charsReady = true;
   private _scenesBuilt = false;
 
-  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 60, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false, justConnected: false };
+  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 0, remainingLoaded: false, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false, justConnected: false };
 
   t: Timer[] = [];
   i = 0;
@@ -455,11 +455,11 @@ export class MiCallLogic {
     if (!authApi.authConfigured()) return;
     try {
       const u = await authApi.me();
-      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds }); this.loadHistory(); this.loadVoices(); this.syncFavorites(); return; }
+      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds, remainingLoaded: true }); this.loadHistory(); this.loadVoices(); this.syncFavorites(); return; }
     } catch { /* 离线/后端不可达：维持游客态 */ }
     // 游客：按 IP 拉真实剩余试用（刷新不重置，防刷）。用完显示 0 → 通话即提示注册。
     const g = await authApi.getGuestTrial();
-    if (g != null) this.setState({ remaining: g });
+    if (g != null) this.setState({ remaining: g, remainingLoaded: true });
   }
 
   /** 登录态变化后丢弃旧信令连接，下一通电话用新 token（或匿名）重连。仅在空闲时重置。 */
@@ -478,10 +478,17 @@ export class MiCallLogic {
   private pendingInvite = "";                 // 注册时携带的邀请码（来自 ?invite= 链接）
 
   private realInviteReward: number | null = null;   // 后台配置的邀请奖励（分钟），公开接口拉取
+  private realRegisterGift: number | null = null;    // 后台配置的注册赠送（分钟），公开接口拉取（不再写死 60）
   private async loadInviteReward() {
     if (!authApi.authConfigured()) return;
     const m = await authApi.getInviteReward();
     if (m != null) { this.realInviteReward = m; this.notify(); }
+    const g = await authApi.getRegisterGift();
+    if (g != null) { this.realRegisterGift = g; this.notify(); }
+  }
+  /** 注册赠送时长（分钟）：以后台配置为准，拉到前兜底 60。用于注册/弹层文案，不写死。 */
+  private giftMin(): number {
+    return this.realRegisterGift != null ? this.realRegisterGift : 60;
   }
   private async loadInvite() {
     if (!authApi.authConfigured() || !this.state.loggedIn) { this.realInvite = null; return; }
@@ -555,7 +562,7 @@ export class MiCallLogic {
     const res = await authApi.redeem(code);
     if (!res.ok) { this.toast(res.error || "兑换失败"); return; }
     this.setState({ redeemCode: "", rechargeOpen: false,
-      remaining: res.remaining_seconds ?? this.state.remaining,
+      remaining: res.remaining_seconds ?? this.state.remaining, remainingLoaded: true,
       outOfMins: (res.remaining_seconds ?? 1) <= 0 ? this.state.outOfMins : false,
       toast: res.message || "充值成功" });
     this.clearToastSoon(2200);
@@ -1144,7 +1151,7 @@ export class MiCallLogic {
       case "billing":
         // 服务端权威余额：seconds=elapsed 驱动计时文案。游客通话中【不弹注册横幅】（先完整体验这 1 分钟试用），
         // 试用结束由 out_of_minutes 的用完弹层引导注册——故这里只更新计时/余额，没有横幅分支。
-        this.setState({ seconds: ev.elapsed, remaining: ev.remaining_seconds });
+        this.setState({ seconds: ev.elapsed, remaining: ev.remaining_seconds, remainingLoaded: true });
         break;
       case "low_minutes":
         // 仅对登录用户提示「快用完了」。游客试用就 1 分钟，阈值=60 秒会在第 1 秒就触发，
@@ -1154,7 +1161,7 @@ export class MiCallLogic {
       case "out_of_minutes":
         this.clearTimers();
         this.stopMic();
-        this.setState({ remaining: 0, outOfMins: true, phase: "idle", subtitle: "", lines: [] });
+        this.setState({ remaining: 0, remainingLoaded: true, outOfMins: true, phase: "idle", subtitle: "", lines: [] });
         break;
       case "asr_failed":
         // 实时语音识别断流：通话不中断（文字仍可发），提示用户改用文字继续，别让 TA 对着没反应的麦克风干等。
@@ -1240,7 +1247,8 @@ export class MiCallLogic {
     const actionGlow = isCall ? "rgba(51,195,118,.40)" : "rgba(242,85,78,.40)";
 
     const remainMin = Math.max(0, Math.round((this.state.remaining || 0) / 60));
-    const remainLabel = "剩余 " + remainMin + " 分钟";
+    // 真实余额/试用拉到后才显示「剩余 X 分钟」；拉到前留空，不再闪一个写死的「剩余 1 分钟」。
+    const remainLabel = this.state.remainingLoaded ? ("剩余 " + remainMin + " 分钟") : "";
     let hint = "";
     if (p === "idle") hint = remainLabel;
     else if (p === "ended") hint = "已保存";
@@ -1702,8 +1710,8 @@ export class MiCallLogic {
       outOfMins: this.state.outOfMins,
       // 时长用完弹层：游客没账号、充不了值——引导注册（注册即送 60 分钟）；登录用户照旧走充值。
       outTitle: this.state.loggedIn ? "通话时长已用完" : "试用时长用完了",
-      outBody: this.state.loggedIn ? "本月的通话时长用完了。充值后可以继续和 TA 聊。" : "注册即送 60 分钟免费时长，继续和 TA 聊。",
-      outPrimaryLabel: this.state.loggedIn ? "去充值" : "注册领 60 分钟",
+      outBody: this.state.loggedIn ? "本月的通话时长用完了。充值后可以继续和 TA 聊。" : ("注册即送 " + this.giftMin() + " 分钟免费时长，继续和 TA 聊。"),
+      outPrimaryLabel: this.state.loggedIn ? "去充值" : ("注册领 " + this.giftMin() + " 分钟"),
       outPrimary: () => { if (this.state.loggedIn) this.setState({ outOfMins: false, rechargeOpen: true }); else this.goRegister({ outOfMins: false }); },
       dismissOut: () => this.setState({ outOfMins: false }),
       settingsFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, settingsOpen: true }),
@@ -1734,11 +1742,12 @@ export class MiCallLogic {
       hasTickets: (this.realTickets ?? this.state.tickets).length > 0,
       loggedIn: this.state.loggedIn,
       authOpen: this.state.authOpen,
-      authIsRegister: this.state.authMode === "register",
-      authTitle: this.state.authMode === "register" ? "注册账号" : "登录",
-      authSubtitle: this.state.authMode === "register" ? "注册即送 60 分钟免费通话时长" : "欢迎回来,继续和 TA 聊聊",
-      authSubmitLabel: this.state.authMode === "register" ? "注册并开始" : "登录",
-      authSwitchLabel: this.state.authMode === "register" ? "已有账号？去登录" : "没有账号？去注册",
+      // 登录/注册共用一个弹窗：输入一样，一个按钮搞定——已注册→登录，未注册→自动创建账号并赠送时长。
+      authIsRegister: true,
+      authTitle: "登录 / 注册",
+      authSubtitle: "注册即送 " + this.giftMin() + " 分钟免费通话时长，老用户直接登录",
+      authSubmitLabel: "登录 / 注册",
+      authHint: "未注册的邮箱会自动创建账号，已注册则直接登录",
       authEmail: this.state.authEmail,
       authPw: this.state.authPw,
       onAuthEmail: (e: any) => this.setState({ authEmail: e.target.value }),
@@ -1755,29 +1764,32 @@ export class MiCallLogic {
           this.clearToastSoon(2000);
           return;
         }
-        const reg = this.state.authMode === "register";
-        const okMsg = reg ? "注册成功，已送 60 分钟免费时长" : "登录成功";
-        // 纯演示（未接后端）：保留原前端假登录。
+        // 纯演示（未接后端）：假登录，按后台配置的赠送时长给额度。
         if (!authApi.authConfigured()) {
-          this.setState((s) => ({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: reg ? Math.max(s.remaining, 3600) : s.remaining, toast: okMsg }));
+          this.setState((s) => ({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false,
+            remaining: Math.max(s.remaining, this.giftMin() * 60), remainingLoaded: true, toast: "登录成功" }));
           this.clearToastSoon(2200);
           return;
         }
-        // 真实后端：打 /api/auth/*，存 token，余额以服务端为准。
-        if (this._authBusy) return;   // 防快速双击发两次注册/登录
+        // 真实后端·登录注册合一：先按登录试；登录不成（多半是还没注册）→ 自动注册并赠送时长。
+        // 已注册+密码对→登录成功；已注册+密码错→登录失败、注册也失败→报登录的「密码错」；新邮箱→注册成功。
+        if (this._authBusy) return;   // 防快速双击
         this._authBusy = true;
-        this.setState({ toast: reg ? "注册中…" : "登录中…" });
+        this.setState({ toast: "处理中…" });
         try {
-          const res = reg ? await authApi.register(email, pw, this.pendingInvite) : await authApi.login(email, pw);
+          let res = await authApi.login(email, pw);
+          let isNew = false;
           if (!res.ok || !res.token) {
-            this.setState({ toast: res.error || "操作失败，请重试" });
-            this.clearToastSoon(2200);
-            return;
+            const reg = await authApi.register(email, pw, this.pendingInvite);
+            if (reg.ok && reg.token) { res = reg; isNew = true; }
+            else { this.setState({ toast: res.error || reg.error || "登录失败，请检查邮箱或密码" }); this.clearToastSoon(2400); return; }
           }
-          authApi.setToken(res.token);
-          if (reg) { this.pendingInvite = ""; try { localStorage.removeItem("micall_invite"); } catch { /* noop */ } }
+          authApi.setToken(res.token || "");
+          if (isNew) { this.pendingInvite = ""; try { localStorage.removeItem("micall_invite"); } catch { /* noop */ } }
           this.resetSignaling();   // 让下一通电话带上新 token 重连
-          this.setState({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: res.user?.remaining_seconds ?? this.state.remaining, toast: okMsg });
+          this.setState({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false,
+            remaining: res.user?.remaining_seconds ?? this.state.remaining, remainingLoaded: true,
+            toast: isNew ? ("注册成功，已送 " + this.giftMin() + " 分钟免费时长") : "登录成功" });
           this.loadVoices();       // 登录后拉本账号已选音色 → 音色页跨设备回显一致
           this.syncFavorites();    // 登录后把本地收藏并入账号 + 拉回账号全集 → 跨设备一致
           this.clearToastSoon(2200);
@@ -1820,6 +1832,7 @@ export class MiCallLogic {
       openTerms: () => this.setState({ settingsOpen: false, termsOpen: true }),
       termsClose: () => this.setState({ termsOpen: false }),
       regPromptVisible: this.state.regPromptShown && !this.state.loggedIn && !this.state.regPromptDismissed,
+      giftLabel: "注册即送 " + this.giftMin() + " 分钟",
       settingsOpen: this.state.settingsOpen,
       settingsClose: () => this.setState({ settingsOpen: false }),
       billFromMenu: () => this.requireAuth(() => { this.setState({ ...this.sheets(), menuOpen: false, billsOpen: true }); this.loadBills(); }, "登录后查看账单"),
@@ -1833,7 +1846,7 @@ export class MiCallLogic {
         iconColor: b.type === "sub" ? "#6E5CFF" : (b.type === "invite" ? "#FF4F7B" : "#2E7BFF"),
         iconPath: b.type === "sub" ? "M20 12V8H6a2 2 0 0 1 0-4h12v4M4 6v12a2 2 0 0 0 2 2h14v-4M18 12a2 2 0 0 0 0 4h4v-4z" : (b.type === "invite" ? "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M19 8v6M22 11h-6" : "M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24 11.36 11.36 0 0 0 3.57.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.24 1.02l-2.2 2.2z"),
       })),
-      inviteFromMenu: () => this.requireAuth(() => { this.setState({ ...this.sheets(), menuOpen: false, inviteOpen: true }); this.loadInvite(); }, "注册后生成你的专属邀请链接，邀请成功双方各得 60 分钟", "register"),
+      inviteFromMenu: () => this.requireAuth(() => { this.setState({ ...this.sheets(), menuOpen: false, inviteOpen: true }); this.loadInvite(); }, "注册后生成你的专属邀请链接，邀请成功双方各得 " + (this.realInviteReward != null ? this.realInviteReward : 60) + " 分钟", "register"),
       inviteOpen: this.state.inviteOpen,
       inviteClose: () => this.setState({ inviteOpen: false }),
       // 后台配置的邀请奖励（分钟）：优先登录态拉到的值，其次公开接口值，最后才兜底 60（不写死后台设置）。

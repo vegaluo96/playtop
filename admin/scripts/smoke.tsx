@@ -41,7 +41,7 @@ function check(label: string, html: string, needles: string[]) {
 }
 
 // Sidebar nav is always present.
-check("shell + nav", render(), ["MiCall", "数据概览", "用户管理", "角色管理", "场景管理", "通话记录", "工单反馈", "订单充值", "邀请裂变", "接口配置", "成本与限流", "权限管理"]);
+check("shell + nav", render(), ["载思", "数据概览", "用户管理", "角色管理", "场景管理", "通话记录", "工单反馈", "订单充值", "邀请裂变", "接口配置", "成本与限流", "权限管理"]);
 
 // Each of the 11 sections renders representative content.
 const sections: [string, string, string[]][] = [

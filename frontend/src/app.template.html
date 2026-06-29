@@ -53,7 +53,7 @@
 
 <div class="appwrap" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#86868b;padding:28px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;">
   <div class="deskside" data-theme="{{ theme }}" style="--fz:1;">
-    <div style="padding:0 14px 18px;font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span>MiCall</span><span style="color:#6E5CFF;">.ai</span></div>
+    <div style="padding:0 14px 18px;font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span>载思</span></div>
     <div onClick="{{ billFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h12l2 2v18l-3-2-3 2-3-2-3 2V4z"/><line x1="8" y1="8" x2="14" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/></svg><span style="font-size:15px;font-weight:500;">账单</span></div>
     <div onClick="{{ inviteFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span style="font-size:15px;font-weight:500;">邀请好友</span></div>
     <div onClick="{{ themeToggle }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span style="flex:1;font-size:15px;font-weight:500;">深色模式</span><span style="font-size:13px;color:rgba(0,0,0,.45);">{{ themeLabel }}</span></div>
@@ -331,7 +331,7 @@
       <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ menuClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
         <div class="dcx-drawer-left" style="position:absolute;top:0;bottom:0;left:0;width:74%;z-index:9;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:drawerLeft .34s cubic-bezier(.16,1,.3,1);border-radius:48px 0 0 48px;box-shadow:14px 0 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:58px 10px 22px;box-sizing:border-box;display:flex;flex-direction:column;">
-          <div style="padding:0 16px 18px;font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span style="color:var(--fg);">MiCall</span><span style="color:#6E5CFF;">.ai</span></div>
+          <div style="padding:0 16px 18px;font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span style="color:var(--fg);">载思</span></div>
           <div onClick="{{ billFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h12l2 2v18l-3-2-3 2-3-2-3 2V4z"/><line x1="8" y1="8" x2="14" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/></svg>
             <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">账单</span>
@@ -491,7 +491,7 @@
             </div>
             <div onClick="{{ settingsClose }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px 5px;cursor:pointer;border-top:1px solid var(--line);margin-top:7px;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">关于 MiCall.ai</span>
+              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">关于 载思</span>
               <span style="font-size:12px;color:var(--faint);letter-spacing:.2px;">{{ appVersion }}</span>
             </div>
           </div>
@@ -929,8 +929,8 @@
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">用户协议</div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.85;color:var(--fg);text-wrap:pretty;">
-            <p style="margin:0 0 14px;">欢迎使用 MiCall.ai。注册或使用即表示你已阅读并同意本协议。</p>
-            <p style="margin:0 0 14px;">1. <b>服务内容</b>:MiCall.ai 提供与 AI 角色的语音通话服务。AI 生成的内容仅供陪伴与娱乐,不构成任何专业(医疗、法律、心理等)建议。</p>
+            <p style="margin:0 0 14px;">欢迎使用 载思。注册或使用即表示你已阅读并同意本协议。</p>
+            <p style="margin:0 0 14px;">1. <b>服务内容</b>:载思 提供与 AI 角色的语音通话服务。AI 生成的内容仅供陪伴与娱乐,不构成任何专业(医疗、法律、心理等)建议。</p>
             <p style="margin:0 0 14px;">2. <b>账户</b>:你需对账户与密码安全负责。请勿将账户用于违法或骚扰用途。</p>
             <p style="margin:0 0 14px;">3. <b>时长与计费</b>:免费时长与会员时长按实际通话扣减;会员可随时取消,已消耗时长不退。</p>
             <p style="margin:0 0 14px;">4. <b>行为规范</b>:禁止利用本服务生成违法、仇恨或侵犯他人权益的内容,我们有权暂停违规账户。</p>
@@ -983,7 +983,7 @@
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">隐私政策</div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.85;color:var(--fg);text-wrap:pretty;">
-            <p style="margin:0 0 14px;">我们非常重视你的隐私。MiCall.ai 仅在通话进行时采集你的语音用于实时对话,<b>不会保存或用于训练</b>;通话结束即丢弃。</p>
+            <p style="margin:0 0 14px;">我们非常重视你的隐私。载思 仅在通话进行时采集你的语音用于实时对话,<b>不会保存或用于训练</b>;通话结束即丢弃。</p>
             <p style="margin:0 0 14px;">账户信息仅包含邮箱与加密后的密码,用于登录与时长管理,绝不出售或分享给第三方。</p>
             <p style="margin:0 0 14px;">我们使用必要的 Cookie 维持登录状态与基本偏好(主题、语言),不用于跨站追踪或广告。</p>
             <p style="margin:0 0 14px;">你可以随时在设置中退出登录、修改密码或注销账户,届时相关数据将被删除。</p>
@@ -1055,7 +1055,7 @@
       <sc-if value="{{ regPromptVisible }}" hint-placeholder-val="{{ false }}">
         <div style="position:absolute;top:88px;left:18px;right:18px;z-index:16;display:flex;align-items:center;gap:12px;padding:13px 14px 13px 16px;border-radius:16px;background:var(--sheet);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);box-shadow:0 8px 20px rgba(0,0,0,.12),0 2px 8px rgba(0,0,0,.06),inset 0 0 0 .5px rgba(255,255,255,.2);animation:toastDrop .4s cubic-bezier(.16,1,.3,1);">
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
-            <span style="font-size:14px;font-weight:600;color:var(--fg);">注册即送 60 分钟</span>
+            <span style="font-size:14px;font-weight:600;color:var(--fg);">{{ giftLabel }}</span>
             <span style="font-size:12px;color:var(--dim);">登录后这段对话和时长都会保留</span>
           </div>
           <div onClick="{{ openRegister }}" style="flex:none;font-size:13px;font-weight:600;color:#fff;background:#6E5CFF;padding:8px 16px;border-radius:12px;cursor:pointer;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">注册</div>
@@ -1080,7 +1080,7 @@
         <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:16;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 24px 30px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 18px;"></div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding-bottom:20px;">
-            <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span style="color:var(--fg);">MiCall</span><span style="color:#6E5CFF;">.ai</span></div>
+            <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span style="color:var(--fg);">载思</span></div>
             <div style="font-size:20px;font-weight:600;color:var(--fg);margin-top:8px;">{{ authTitle }}</div>
             <div style="font-size:13.5px;color:var(--dim);text-align:center;text-wrap:pretty;">{{ authSubtitle }}</div>
           </div>
@@ -1088,7 +1088,7 @@
             <input value="{{ authEmail }}" onInput="{{ onAuthEmail }}" type="email" placeholder="邮箱" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
             <input value="{{ authPw }}" onInput="{{ onAuthPw }}" type="password" placeholder="密码（至少 6 位）" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
             <div onClick="{{ submitAuth }}" style="margin-top:4px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.98)">{{ authSubmitLabel }}</div>
-            <div onClick="{{ switchAuthMode }}" style="text-align:center;font-size:13.5px;color:var(--dim);cursor:pointer;padding:8px;">{{ authSwitchLabel }}</div>
+            <div style="text-align:center;font-size:12.5px;color:var(--dim);padding:8px;">{{ authHint }}</div>
           </div>
         </div>
       </sc-if>

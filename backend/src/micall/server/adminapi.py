@@ -686,6 +686,7 @@ class _Handler(BaseHTTPRequestHandler):
                                     "top_characters": _REPO.top_characters(limit=5),
                                     "trends": _REPO.call_trends(),
                                     "char_calls": _REPO.character_call_counts(),
+                                    "char_favs": _REPO.character_favorite_counts(),
                                     "scene_calls": _REPO.scenario_call_counts(),
                                     "invite_stats": _REPO.invite_overview(),
                                     "cost": _REPO.cost_summary()})

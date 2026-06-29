@@ -6,7 +6,7 @@ import template from "./app.template.html?raw";
 
 // Default editor props from the prototype's data-props (theme/orbColor/aiName).
 const DEFAULT_PROPS: MiCallProps = {
-  theme: "light",
+  theme: "dark",   // 默认深色（用户未显式选过浅色时）；浅色仍可在设置里切换、并持久化
   orbColor: "#AAB8FF",
   aiName: "VEGAluo",
 };

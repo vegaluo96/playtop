@@ -174,6 +174,15 @@ export async function getInviteReward(): Promise<number | null> {
     return j && j.ok && typeof j.reward_minutes === "number" ? j.reward_minutes : null;
   } catch { return null; }
 }
+/** 后台配置的注册赠送时长（分钟）—— 公开接口（与邀请奖励同一端点），登录与否都返回真实值。失败 → null。 */
+export async function getRegisterGift(): Promise<number | null> {
+  try {
+    const r = await fetch(BASE + "/api/invite-reward");
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j && j.ok && typeof j.register_gift_minutes === "number" ? j.register_gift_minutes : null;
+  } catch { return null; }
+}
 export function login(email: string, password: string): Promise<AuthResult> {
   return postJSON("/api/auth/login", { email, password });
 }
