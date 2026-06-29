@@ -525,14 +525,16 @@ class PgRepository(MemoryRepository):
         except Exception as e:
             log.warning("consume_guest_trial 失败：%r", e)
 
-    def add_call(self, user_id, character_id, scenario, duration_seconds, ended_reason) -> None:
+    def add_call(self, user_id, character_id, scenario, duration_seconds, ended_reason,
+                 transcript=None) -> None:
         try:
             with self.pool.connection() as c:
                 c.execute(
-                    "INSERT INTO calls (user_id, character_id, scenario, started_at, duration_seconds, ended_reason) "
-                    "VALUES (%s,%s,%s, now() - make_interval(secs => %s), %s, %s)",
+                    "INSERT INTO calls (user_id, character_id, scenario, started_at, duration_seconds, ended_reason, transcript) "
+                    "VALUES (%s,%s,%s, now() - make_interval(secs => %s), %s, %s, %s::jsonb)",
                     (user_id, character_id, scenario or "", int(duration_seconds),
-                     int(duration_seconds), ended_reason or "ended"),
+                     int(duration_seconds), ended_reason or "ended",
+                     json.dumps(transcript or [], ensure_ascii=False)),
                 )
         except Exception as e:  # 角色 FK 不符（生成角色未入库）等：通话记录失败不影响主链路
             log.warning("add_call 失败（忽略）：%r", e)
@@ -644,13 +646,14 @@ class PgRepository(MemoryRepository):
         try:
             with self.pool.connection() as c:
                 rows = c.execute(
-                    "SELECT u.email, c.character_id, c.scenario, c.duration_seconds, c.ended_reason, c.started_at "
+                    "SELECT u.email, c.character_id, c.scenario, c.duration_seconds, c.ended_reason, c.started_at, c.transcript "
                     "FROM calls c LEFT JOIN users u ON u.user_id = c.user_id "
                     "ORDER BY c.started_at DESC LIMIT %s", (int(limit),),
                 ).fetchall()
             return [{
                 "user_email": r[0] or "", "character_id": r[1], "scenario": r[2],
                 "duration_seconds": r[3], "ended_reason": r[4], "started_at": r[5].isoformat() if r[5] else "",
+                "transcript": r[6] or [],   # JSONB → list[{role,content}]（psycopg 自动解析）
             } for r in rows]
         except Exception as e:
             log.warning("list_all_calls 失败：%r", e)

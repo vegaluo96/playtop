@@ -95,10 +95,13 @@ CREATE TABLE IF NOT EXISTS calls (
     started_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     duration_seconds INTEGER NOT NULL DEFAULT 0,
     ended_reason     TEXT NOT NULL DEFAULT '',     -- ended / out_of_minutes / call_failed
-    hidden_by_user   BOOLEAN NOT NULL DEFAULT false   -- 用户端删除=隐藏（账号级，跨设备一致）；后台统计仍计入
+    hidden_by_user   BOOLEAN NOT NULL DEFAULT false,  -- 用户端删除=隐藏（账号级，跨设备一致）；后台统计仍计入
+    transcript       JSONB                            -- 本通对话逐句 [{role,content}]，供后台查看；隐私关时为空/NULL
 );
 -- 兼容已有库：旧 calls 表补 hidden_by_user 列（幂等，_init_schema 逐句执行）
 ALTER TABLE calls ADD COLUMN IF NOT EXISTS hidden_by_user BOOLEAN NOT NULL DEFAULT false;
+-- 兼容已有库：补 transcript 列（幂等）。后台「查看对话内容」用；旧记录无内容则为空。
+ALTER TABLE calls ADD COLUMN IF NOT EXISTS transcript JSONB;
 -- 后台看板高频查询：用户列表/通话列表按 user_id JOIN、stats/成本趋势按 started_at 过滤排序。
 -- calls 原本只有主键 → 随通话量增长退化为全表扫，看板刷新越来越卡。加二级索引（幂等）。
 CREATE INDEX IF NOT EXISTS calls_user_idx    ON calls (user_id);

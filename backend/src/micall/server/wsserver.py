@@ -147,6 +147,22 @@ class SignalingServer:
             except Exception as e:
                 log.warning("扣费失败 user=%s：%r", user_id, e)
 
+    def _call_transcript(self, session: "CallSession") -> list[dict]:
+        """把本通对话逐句整理成 [{role,content}]，供后台查看对话内容。只留 user/assistant 的非空文本，
+        content 截断防超长，整体取末 N 条够看即可。受 global_defaults.store_call_transcripts 开关控制
+        （测试阶段默认开；上线要隐私时后台/配置关掉即不再留存）。"""
+        if not self.config.global_defaults.get("store_call_transcripts", True):
+            return []
+        out: list[dict] = []
+        for m in (getattr(session, "history", None) or []):
+            role = m.get("role")
+            if role not in ("user", "assistant"):
+                continue
+            content = (m.get("content") or "").strip()
+            if content:
+                out.append({"role": role, "content": content[:2000]})
+        return out[-160:]
+
     def _record_call(self, user_id: str, session: "CallSession") -> None:
         """登录用户挂断 → 落一条通话记录（前端「通话历史」数据源）。游客不记。"""
         if user_id == _ANON or not session:
@@ -157,7 +173,8 @@ class SignalingServer:
             return
         reason = "out_of_minutes" if getattr(meter, "exhausted", False) else "ended"
         try:
-            self.repo.add_call(user_id, session.character_id, getattr(session, "scenario", ""), dur, reason)
+            self.repo.add_call(user_id, session.character_id, getattr(session, "scenario", ""), dur, reason,
+                               transcript=self._call_transcript(session))
         except Exception as e:
             log.warning("通话记录失败 user=%s：%r", user_id, e)
 

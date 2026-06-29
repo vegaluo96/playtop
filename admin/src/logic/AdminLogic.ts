@@ -395,12 +395,28 @@ export class AdminLogic {
     }
     if (calls) {
       const REASON: Record<string, string> = { ended: "正常结束", out_of_minutes: "时长用尽", error: "异常中断" };
-      this.calls = calls.map((c: any, i: number) => ({
-        id: "rk" + i, char: charName(c.character_id), user: c.user_email || "—",
-        scene: c.scenario || "随便聊聊", dur: fmtDur(c.duration_seconds),
-        ended: REASON[c.ended_reason] || (c.ended_reason || "正常结束"),
-        time: fmtTime(c.started_at),
-      }));
+      this.calls = calls.map((c: any, i: number) => {
+        const cn = charName(c.character_id);
+        const tx = Array.isArray(c.transcript) ? c.transcript : [];
+        // 把逐句对话转成可直接渲染的气泡：用户右侧紫泡、角色左侧灰泡（测试期看真实对话内容用）。
+        const messages = tx
+          .filter((m: any) => m && String(m.content || "").trim())
+          .map((m: any) => {
+            const mine = m.role === "user";
+            return {
+              who: mine ? "用户" : cn, text: String(m.content || ""),
+              rowJustify: mine ? "flex-end" : "flex-start", whoAlign: mine ? "right" : "left",
+              bubbleBg: mine ? "#6E5CFF" : "#F2F2F5", bubbleColor: mine ? "#fff" : "#3A3D47",
+            };
+          });
+        return {
+          id: "rk" + i, char: cn, user: c.user_email || "—",
+          scene: c.scenario || "随便聊聊", dur: fmtDur(c.duration_seconds),
+          ended: REASON[c.ended_reason] || (c.ended_reason || "正常结束"),
+          time: fmtTime(c.started_at),
+          messages, hasTranscript: messages.length > 0, noTranscript: messages.length === 0,
+        };
+      });
     }
     if (orders) {
       this.orders = orders.map((o: any) => ({
@@ -1211,9 +1227,10 @@ export class AdminLogic {
       detailTitle = isNew ? "新建角色" : "角色编辑"; charBioLen = ((s.charEdit as any).background_story || "").length;
     } else if (d && d.type === "call") {
       const c = this.calls.find((x) => x.id === d.id);
-      // 只展示后端真实留存的字段（角色/用户/场景/时长/结束方式/时间）。通话文字内容出于隐私不落库 → 不伪造回放。
+      // 展示通话元数据 + 逐句对话内容（后端 transcript 留存，测试期默认开；上线要隐私可在配置关闭）。
       const dav = avatarByName(c.char);
-      dCall = { char: c.char, avatar: dav, avatarDisplay: dav ? "block" : "none", user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time };
+      dCall = { char: c.char, avatar: dav, avatarDisplay: dav ? "block" : "none", user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time,
+        messages: (c as any).messages || [], hasTranscript: !!(c as any).hasTranscript, noTranscript: !!(c as any).noTranscript };
       detailTitle = "通话详情";
     } else if (d && d.type === "ticket") {
       const t = this.tickets.find((x) => x.id === d.id);
