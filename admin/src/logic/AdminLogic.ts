@@ -1090,6 +1090,7 @@ export class AdminLogic {
       tickets: ["工单反馈", openTicketCount + " 条待处理"],
       orders: ["订单充值", "会员套餐与交易记录"],
       api: ["接口配置", "ASR · LLM · TTS 服务接入"],
+      world: ["世界库", "角色「活在世界里」· 源管理 · 话题池 · 天气"],
       cost: ["成本与限流", "成本结构与限流策略"],
       invites: ["邀请裂变", "邀请奖励规则与裂变数据"],
     };
