@@ -45,6 +45,9 @@ const RTC_DISCONNECT_GRACE_MS = 4000;
 // 落不到 RTC（丢硬件 AEC → WS 半双工自我打断「说一半停」）。放宽到 5s 提高 RTC 命中率。**已与 goLive 解耦**
 // （接通即用 WS 起通话，见 onServerEvent:connected），故拉长看门狗只影响后台何时放弃 RTC，不再拖慢启动。
 const RTC_CONNECT_WATCHDOG_MS = 5000;
+// 拨号兜底超时：发了 start_call 后这么久仍没收到后端任何 `connected`（服务端卡死/无响应）→ 别让用户
+// 永远停在「正在接通」，自动转「接通失败」给重试出口。RTC 看门狗只在 connected 之后才生效，盖不住这一段。
+const DIAL_WATCHDOG_MS = 12000;
 
 // 续接重拨：网络掉线后这么久内重拨【同一角色】，后端会回灌上一通的最近几轮、AI 接着聊（不重新自我介绍）。
 // 前端据此【保留字幕不清空】，让重拨画面承接旧对话、不闪空屏。窗口与后端 _CONTINUATION_WINDOW_S 对齐（4 分钟）。
@@ -113,8 +116,10 @@ export class MiCallLogic {
   private rtcWatchdog: ReturnType<typeof setTimeout> | null = null;  // 连不通就回退 WS 的看门狗
   private rtcDiscoTimer: ReturnType<typeof setTimeout> | null = null;  // 中途 disconnected 宽限计时器：到点仍未自愈才回退 WS
   private rtcFellBack = false;                     // 本通是否已回退（防重复回退）
+  private dialWatchdog: ReturnType<typeof setTimeout> | null = null;  // 拨号兜底超时：后端始终不应答即转接通失败
   private _lostAt = 0;                              // 上次「非自愿掉线」时刻（ms）：窗口内重拨同一角色→续接、保留字幕
   private _lostCharIndex = -1;                      // 掉线时的角色下标：重拨须同一角色才续接
+  private _lostScene = "";                          // 掉线时的场景 key：重拨须同角色【且同场景】才续接/保留字幕（与后端一致）
   private _authBusy = false;                        // 登录/注册请求进行中（防快速双击发两次）
 
   bills: any[] = [];
@@ -719,7 +724,7 @@ export class MiCallLogic {
     try { const id = this.chars[i]?.id; if (id) localStorage.setItem("micall_lastchar", id); } catch { /* noop */ }
   }
 
-  clearTimers() { (this.t || []).forEach(clearTimeout); this.t = []; if (this.autoHangupTimer) { clearTimeout(this.autoHangupTimer); this.autoHangupTimer = null; } if (this.connectTimer) { clearTimeout(this.connectTimer); this.connectTimer = null; } this._stopReveal(); }
+  clearTimers() { (this.t || []).forEach(clearTimeout); this.t = []; if (this.autoHangupTimer) { clearTimeout(this.autoHangupTimer); this.autoHangupTimer = null; } if (this.connectTimer) { clearTimeout(this.connectTimer); this.connectTimer = null; } if (this.dialWatchdog) { clearTimeout(this.dialWatchdog); this.dialWatchdog = null; } this._stopReveal(); }
 
   // ── 字幕逐字揭开：按后端给的这句预估时长(dur 秒)在该时长内把文字揭完，让字幕跟住真实语音，
   //    而不是整句一下全出来再把后面顶走。无 dur（旧后端）→ 直接显全，优雅降级。 ──
@@ -759,10 +764,12 @@ export class MiCallLogic {
     if (this.state.phase !== "calling") return;
     this.player.stopRing();    // 接通提示音停（传输已就绪）
     this.startVoiceMeter();    // 「活球」启动：球随真实语音呼吸/发光
-    // 续接重拨：若是窗口内重拨【同一角色】（上次非自愿掉线），保留字幕承接旧对话、不闪空屏（后端会回灌上下文接着聊）。
+    // 续接重拨：窗口内重拨【同一角色 + 同一场景】（上次非自愿掉线）才保留字幕承接旧对话、不闪空屏。
+    // 换了场景=新意图，后端也不会续接（_take_continuation 同场景才回灌）→ 前端跟着清屏、干净进新场景。
     const continuing = this._lostAt > 0 && (Date.now() - this._lostAt) < CONTINUATION_WINDOW_MS
-                       && this._lostCharIndex === this.state.charIndex;
-    this._lostAt = 0; this._lostCharIndex = -1;   // 一次性消费，避免后续误判
+                       && this._lostCharIndex === this.state.charIndex
+                       && this._lostScene === this.currentScenarioKey();
+    this._lostAt = 0; this._lostCharIndex = -1; this._lostScene = "";   // 一次性消费，避免后续误判
     this.setState({ phase: "listening", seconds: 0, subtitle: "",
                     lines: continuing ? this.state.lines : [], callFailed: false, justConnected: true });
     // 接通仪式：一次性绽放（声纳般的光环向外散开），~900ms 后收起标记，绽放层卸载
@@ -1020,6 +1027,16 @@ export class MiCallLogic {
       lang: this.state.lang,   // 对话语言：非中文则后端让 AI 改用该语言说（多语言生效）
     };
     this.send(msg);
+    // 拨号兜底：后端始终不应答（卡死/无 connected）→ 到点仍卡在 calling 就转「接通失败」给重试出口，
+    // 顺手补发 end_call（万一后端建了会话只是事件丢了，别留孤儿）。connected 一到即清（见 onServerEvent）。
+    this.dialWatchdog = setTimeout(() => {
+      this.dialWatchdog = null;
+      if (this.state.phase === "calling") {
+        this.stopMic();
+        try { this.send({ type: "end_call" }); } catch { /* noop */ }
+        this.setState({ phase: "idle", callFailed: true });
+      }
+    }, DIAL_WATCHDOG_MS);
   }
 
   retryDial() { this.setState({ callFailed: false }); void this.beginCall(); }
@@ -1032,6 +1049,16 @@ export class MiCallLogic {
     this.stopMic(); // release the microphone on hang-up (turns off the mic indicator)
     this.markUpdateDots();   // 这通聊过 → 回忆/近况红点，回到首页提示去看
     this.setState({ phase: "ended", textMode: false, rating: 0, feedback: [] });
+  }
+
+  /** 评分弹层「完成/跳过」：登录且打了星 → 上报评价（后端写进画像，下一通 AI 据此校准），再回首页。
+   *  fire-and-forget——上报与回首页解耦，网络慢/失败都不挡用户离开。 */
+  submitRating() {
+    const r = this.state.rating;
+    if (r >= 1 && this.state.loggedIn) {
+      void authApi.rateCall(this.characterId(this.state.charIndex), r, this.state.feedback);
+    }
+    this.resetIdle();
   }
 
   switchTo(idx: number, sceneKey: string) {
@@ -1170,6 +1197,8 @@ export class MiCallLogic {
     if (inCall && !this.callActive()) return;
     switch (ev.type) {
       case "connected":
+        // 后端已应答 → 撤拨号兜底超时（后续交给 RTC 看门狗/正常流程）。
+        if (this.dialWatchdog) { clearTimeout(this.dialWatchdog); this.dialWatchdog = null; }
         // 拨通=「接通中」loading：RTC 开启时只起 RTC、【停在 loading】，等真连上(或回退 WS)才 goLive
         // （见 onconnectionstatechange:"connected" / rtcFallback）——把 RTC 连好、AEC 热好，AI 才接起来开口，
         // 开场白直接走在已就绪传输上（不切通道=不顿、AEC 已在=不自我打断、loading 盖住建连=不冷场）。
@@ -1265,6 +1294,7 @@ export class MiCallLogic {
         this.stopMic();
         this._lostAt = Date.now();
         this._lostCharIndex = this.state.charIndex;
+        this._lostScene = this.currentScenarioKey();   // 记下掉线时的场景：重拨换了场景就不续接（与后端一致）
         this.setState({ phase: "idle", callFailed: true, toast: "信号断了，重新拨入就能接着聊" });
         this.clearToastSoon(3200);
         break;
@@ -1629,7 +1659,7 @@ export class MiCallLogic {
       stars, feedbackChips,
       rated: this.state.rating > 0,
       notRated: this.state.rating === 0,
-      finishRating: () => this.resetIdle(),
+      finishRating: () => this.submitRating(),
       chromeOpacity: phaseIdle ? 1 : 0,
       chromePE: phaseIdle ? "auto" : "none",
       muteBg, muteIcon, speakerBg, speakerIcon, textBtnBg, textBtnIcon,

@@ -46,6 +46,7 @@ def _profile_to_json(p: UserProfile) -> str:
         "bond": dataclasses.asdict(p.bond),   # 角色侧关系内在状态（双向身份）
         "curiosity": p.curiosity,             # 前沿B 好奇缺口
         "principles": p.principles,           # 前沿C 稳定原则
+        "reply_calibration": p.reply_calibration,  # 用户显式评价派生的校准句
     }, ensure_ascii=False)
 
 
@@ -63,6 +64,7 @@ def _profile_from_json(user_id: str, character_id: str, raw: dict, next_strategy
         curiosity=raw.get("curiosity") or "",
         principles=list(raw.get("principles") or []),
         next_strategy=next_strategy or "",
+        reply_calibration=raw.get("reply_calibration") or "",
     )
 
 

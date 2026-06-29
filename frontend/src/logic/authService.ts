@@ -241,6 +241,21 @@ export async function deleteCalls(ids: number[]): Promise<boolean> {
   } catch { /* noop */ }
   return false;
 }
+/** 通话评价（星级 1–5 + 反馈标签）→ 后端写进该用户×角色画像，下一通让 AI 据真人反馈校准。
+ *  仅登录用户、rating>0 才上报；fire-and-forget，失败静默（评分不该挡用户回首页）。 */
+export async function rateCall(characterId: string, rating: number, feedback: string[]): Promise<boolean> {
+  const tok = getToken();
+  if (!tok || !characterId || !(rating >= 1 && rating <= 5)) return false;
+  try {
+    const r = await fetch(BASE + "/api/rate-call", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+      body: JSON.stringify({ character_id: characterId, rating, feedback: feedback || [] }),
+    });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
+}
 /** 收藏/取消收藏某角色（账号级）。返回更新后的全集；失败 → null。 */
 export async function setFavorite(characterId: string, on: boolean): Promise<string[] | null> {
   const tok = getToken();

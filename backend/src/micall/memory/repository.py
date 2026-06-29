@@ -106,6 +106,19 @@ class MemoryRepository(ABC):
     @abstractmethod
     def save_profile(self, profile: UserProfile) -> None: ...
 
+    def record_call_feedback(self, user_id: str, character_id: str,
+                             rating: int, feedback: list[str] | None) -> str:
+        """用户挂断后的显式评价（星 1–5 + 标签）→ 派生一句校准写进画像，下一通注入让 AI 据真人反馈调整。
+        基类用 get_profile/save_profile 实现，Pg/内存都复用。非法 rating（不在 1–5）→ 不写、返回空串。"""
+        from .feedback import calibration_from_feedback
+        note = calibration_from_feedback(rating, feedback)
+        if not note:
+            return ""
+        prof = self.get_profile(user_id, character_id)
+        prof.reply_calibration = note
+        self.save_profile(prof)
+        return note
+
     # ── 用户自定义音色（§6.1）──
     @abstractmethod
     def get_user_voice(self, user_id: str, character_id: str) -> str | None: ...

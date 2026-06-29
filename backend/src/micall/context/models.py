@@ -93,6 +93,8 @@ class UserProfile:
     # 前沿C 自传式推理：从历次洞察慢慢综合出的「TA 这个人比较笃定的几条稳定原则」（高于逐通 insight，缓慢变）。
     principles: list[str] = field(default_factory=list)
     next_strategy: str = ""  # 理解引擎产出的「本轮对话策略」（§3.3 → §2.3 注入）
+    # 用户挂断后的显式评价（星级+标签）派生出的一句【校准】：下一通注入，让 AI 据真人反馈调整对这个用户的表现。
+    reply_calibration: str = ""
 
 
 # ───────────────────── 尺度四：角色自主状态（§4.1，独立于用户）─────────────────

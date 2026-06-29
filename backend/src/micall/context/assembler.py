@@ -579,6 +579,9 @@ def _profile_block(profile: UserProfile) -> str:
         out.append("你心里最想弄明白 TA 的：" + profile.curiosity + "（找个自然的由头主动问问，别审问、别硬转）")
     if profile.interaction_prefs:
         out.append("TA 希望被如何对待：" + str(profile.interaction_prefs))
+    # 用户上次挂断后的【显式评价】派生的校准——这是真人直接打的分，比慢脑推断更硬，优先照它调整（别照念）。
+    if profile.reply_calibration:
+        out.append("【据 TA 上次的当面反馈校准】" + profile.reply_calibration)
     for h in profile.open_hypotheses:
         out.append(f"- 待验证：{h.guess} → {h.next}")
     r = profile.relationship

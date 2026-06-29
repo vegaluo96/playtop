@@ -417,6 +417,22 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "error": "请描述你的问题"})
             tid = _REPO.add_ticket(uid, (b.get("type") or "").strip(), msg)
             return self._json(200, {"ok": True, "id": tid})
+        if route == "/api/rate-call":    # 通话评价：星级(1–5)+反馈标签 → 写进画像 reply_calibration，下一通让 AI 据真人反馈校准
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "请先登录"})
+            b = self._body()
+            cid = (b.get("character_id") or "").strip()
+            try:
+                rating = int(b.get("rating") or 0)
+            except (TypeError, ValueError):
+                rating = 0
+            fb = b.get("feedback")
+            feedback = [t for t in fb if isinstance(t, str)][:8] if isinstance(fb, list) else []
+            if not cid or not (1 <= rating <= 5):
+                return self._json(400, {"ok": False, "error": "无效评价"})
+            note = _REPO.record_call_feedback(uid, cid, rating, feedback)
+            return self._json(200, {"ok": True, "calibrated": bool(note)})
         self._json(404, {"error": "not found"})
 
     def log_message(self, *args) -> None:  # 静默
