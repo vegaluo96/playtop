@@ -902,6 +902,10 @@ class _Handler(BaseHTTPRequestHandler):
             b = self._body()
             ok = set_character_offline((b.get("id") or "").strip(), not bool(b.get("online", True)))
             return self._json(200 if ok else 400, {"ok": ok, "error": None if ok else "未知或已删除的角色"})
+        if route == "/admin/characters/order":     # 保存角色显示顺序（用户端「发现」列表 + 后台列表都按此排，下次拉角色即生效）
+            from .characters_admin import set_character_order
+            ok = set_character_order((self._body() or {}).get("ids") or [])
+            return self._json(200 if ok else 400, {"ok": ok, "error": None if ok else "顺序无效（空或无有效角色）"})
         if route == "/admin/characters/reset-autonomous":   # 重置角色自主状态：清掉 DB 里已生长的近况，回落出厂开局近况
             if _REPO is None:
                 return self._json(200, {"ok": False, "error": "no repo"})

@@ -424,6 +424,16 @@ export async function setCharacterOnline(id: string, online: boolean): Promise<b
   } catch { /* noop */ }
   return false;
 }
+/** 保存角色显示顺序：ids 为按运营期望排好的角色 id 列表。用户端「发现」列表与后台列表都按此排，下次拉角色即生效。 */
+export async function saveCharacterOrder(ids: string[]): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/characters/order`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ ids }) });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
+}
 /** 重置角色自主状态：清掉 DB 里已生长的近况，回落到出厂『开局近况』（治角色改过定位后老提旧设定的事）。 */
 export async function resetCharAutonomous(id: string): Promise<boolean> {
   const b = base();

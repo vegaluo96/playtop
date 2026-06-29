@@ -270,5 +270,42 @@ class TestCallSessionBuildWiring(unittest.TestCase):
         self.assertEqual(sess.character_id, cid)
 
 
+class TestCharacterOrder(unittest.TestCase):
+    """运营自定义角色显示顺序：用户端「发现」列表与后台列表都按其排（未自定义则回退默认置顶/自然序）。"""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp()) / "character_order.json"
+        self._orig = ca.CHAR_ORDER_PATH
+        ca.CHAR_ORDER_PATH = self.tmp
+
+    def tearDown(self):
+        ca.CHAR_ORDER_PATH = self._orig
+        if self.tmp.exists():
+            self.tmp.unlink()
+
+    def test_set_order_reorders_public_and_admin(self):
+        ids = list(ca.effective_specs().keys())
+        self.assertGreaterEqual(len(ids), 2)
+        want = [ids[1], ids[0]]          # 把第二个排到最前
+        self.assertTrue(ca.set_character_order(want))
+        pub = [c["id"] for c in ca.public_characters() if c["id"] in want]
+        self.assertEqual(pub[:2], want)  # 用户端发现列表头两个就是运营排的序
+        adm = [c["id"] for c in ca.read_characters_for_admin() if c["id"] in want]
+        self.assertEqual(adm[:2], want)  # 后台列表同序
+
+    def test_unlisted_chars_keep_natural_order_after(self):
+        ids = list(ca.effective_specs().keys())
+        ca.set_character_order([ids[-1]])             # 只显式排最后一个 → 它应被提到最前
+        order = [c["id"] for c in ca.public_characters()]
+        self.assertEqual(order[0], ids[-1])
+        self.assertEqual(len(order), len(ids))        # 其余角色仍全在、未丢
+
+    def test_invalid_or_empty_rejected(self):
+        self.assertFalse(ca.set_character_order([]))          # 空 → 不写
+        self.assertFalse(ca.set_character_order("x"))         # 非列表 → 不写
+        self.assertFalse(ca.set_character_order(["__nope__"]))  # 全是无效 id → 不写
+        self.assertEqual(ca.load_character_order(), [])       # 文件没被写脏
+
+
 if __name__ == "__main__":
     unittest.main()

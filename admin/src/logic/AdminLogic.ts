@@ -14,7 +14,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
          loadRedeemCodes, createRedeemCode, deleteRedeemCode,
          createCharacter, deleteCharacter, generateCharacter, generateCore, setCharacterOnline, resetCharAutonomous,
-         loadDefaultCharacter, saveDefaultCharacter,
+         loadDefaultCharacter, saveDefaultCharacter, saveCharacterOrder,
          loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, resetUserMemory, cloneVoice,
          worldRefresh, loadWorld, testHotSources, loadLimits, saveLimits,
@@ -287,6 +287,22 @@ export class AdminLogic {
     if (c) c.status = online ? "上线" : "下架";
     this.setState({});
     this.toastMsg(online ? "已上架（用户端可见）" : "已下架（用户端不再展示）");
+  }
+
+  /** 上移/下移角色：调整本地顺序后落库（保存整张顺序表）。用户端「发现」列表与后台列表都按此排，下次拉角色即生效。 */
+  async moveChar(cid: string, dir: number) {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const i = this.chars.findIndex((x) => (x.cid || x.id) === cid);
+    if (i < 0) return;
+    const j = i + dir;
+    if (j < 0 || j >= this.chars.length) return;
+    const arr = this.chars.slice();
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    this.chars = arr;
+    this.setState({});                          // 先即时反映新顺序，再异步落库
+    const ids = arr.map((x) => x.cid || x.id).filter(Boolean);
+    const ok = await saveCharacterOrder(ids);
+    this.toastMsg(ok ? "顺序已保存（用户端发现列表同步）" : "顺序保存失败");
   }
 
   setCost(k: string, v: string) { this.setState((p) => ({ costCfg: { ...(p as any).costCfg, [k]: v } })); }
@@ -1266,7 +1282,8 @@ export class AdminLogic {
     const genderColor = (g: string) => g === "女" ? "#FF6FA5" : "#5B8DEF";
     const voiceIdMap: Record<string, string> = { c1: "female-shaonv-01", c2: "male-cixing-02", c3: "female-yuanqi-03", c4: "male-chenwen-04", c5: "female-tianmei-05" };
     const charMatched: Record<string, number> = { c1: 230, c2: 96, c3: 142, c4: 61, c5: 58 };
-    const charsView = this.chars.filter((c) => !q || (c.name + c.desc + c.bio).toLowerCase().includes(q)).map((c) => ({ ...c, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: genderColor(c.gender),
+    const charCount = this.chars.length;
+    const charsView = this.chars.filter((c) => !q || (c.name + c.desc + c.bio).toLowerCase().includes(q)).map((c) => { const ci = this.chars.indexOf(c); return { ...c, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: genderColor(c.gender),
       avatar: c.has_avatar ? adminAvatarUrl(c.cid || c.id, (c as any).avatar_rev || 0) : "", avatarDisplay: c.has_avatar ? "block" : "none",   // 卡片有头像就显真实头像（&v=rev 稳定 URL，浏览器缓存命中、刷新不重拉）
       voiceId: voiceIdMap[c.id] || "default", voiceMatched: this.realStats ? "—" : (charMatched[c.id] || 0) + " 次匹配", playVoice: async (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); if (!usingBackend()) { this.toastMsg("接入后端后可真实试听"); return; } this.toastMsg("正在合成试听…"); const ok = await playVoicePreview({ characterId: c.cid || "" }); this.toastMsg(ok ? "" : "试听失败：请确认 TTS 接口已配置"); },
       // 默认角色：用户端进来先选它。当前为默认显徽标；非默认给「设为默认」按钮。
@@ -1278,7 +1295,12 @@ export class AdminLogic {
       isOnline: c.status !== "下架",
       onlineLabel: c.status === "下架" ? "上架" : "下架",
       toggleOnline: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.toggleCharOnline(c.cid || c.id, c.status === "下架"); },
-      ...((st: string) => st === "上线" ? { stColor: "#1FA971", stBg: "rgba(31,169,113,.1)" } : { stColor: "#878B95", stBg: "#F0F0F3" })(c.status), open: () => this.open("char", c.id) }));
+      // 上移/下移调显示顺序（搜索中不显，避免按可见邻居误判）。canUp/canDown 决定箭头是否亮。
+      canUp: !q && ci > 0,
+      canDown: !q && ci >= 0 && ci < charCount - 1,
+      moveUp: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.moveChar(c.cid || c.id, -1); },
+      moveDown: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.moveChar(c.cid || c.id, 1); },
+      ...((st: string) => st === "上线" ? { stColor: "#1FA971", stBg: "rgba(31,169,113,.1)" } : { stColor: "#878B95", stBg: "#F0F0F3" })(c.status), open: () => this.open("char", c.id) }; });
 
     const callsView = this.calls.filter((c) => !q || (c.char + c.user + c.scene).toLowerCase().includes(q)).map((c) => { const av = avatarByName(c.char); return { char: c.char, avatar: av, avatarDisplay: av ? "block" : "none", user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time, open: () => this.open("call", c.id) }; });
 

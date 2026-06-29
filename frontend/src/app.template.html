@@ -25,6 +25,9 @@
     @keyframes connectCore{0%{transform:scale(.7);opacity:0}30%{opacity:.9}100%{transform:scale(1.12);opacity:0}}
     @keyframes caretPulse{0%,100%{opacity:.15}50%{opacity:.7}}
     @keyframes dotPulse{0%,72%,100%{opacity:.22;transform:translateY(0)}36%{opacity:1;transform:translateY(-3px)}}
+    /* 「发现」icon：一双会东张西望的眼睛——瞳孔来回扫视(eyeLook) + 偶尔眨一下(eyeBlink)，比静态指南针更有趣、更勾人去逛角色。 */
+    @keyframes eyeLook{0%,16%{transform:translate(0,0)}25%,38%{transform:translate(2.6px,-1px)}47%,60%{transform:translate(-2.6px,1px)}69%,82%{transform:translate(1.6px,2px)}92%,100%{transform:translate(0,0)}}
+    @keyframes eyeBlink{0%,93%,100%{transform:scaleY(1)}96.5%{transform:scaleY(.12)}}
     @keyframes sheetIn{from{opacity:0;transform:scale(.955) translateY(-8px)}to{opacity:1;transform:scale(1) translateY(0)}}
     @keyframes sheetInCenter{from{opacity:0;transform:translateY(-50%) scale(.955)}to{opacity:1;transform:translateY(-50%) scale(1)}}
     @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
@@ -229,8 +232,14 @@
               </div>
               <!-- 发现：浏览/切换角色（接现成 charToggle，居中） -->
               <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                <div onClick="{{ charToggle }}" role="button" aria-label="发现·切换角色" style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">
-                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                <div onClick="{{ charToggle }}" role="button" aria-label="发现·切换角色" style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;transition:background .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">
+                  <!-- 会东张西望的一双眼睛（瞳孔 eyeLook 扫视 + eyeBlink 眨眼），比静态图标更勾人去「发现」角色 -->
+                  <div style="position:relative;width:11px;height:14px;border:1.7px solid currentColor;border-radius:50%;box-sizing:border-box;animation:eyeBlink 5.4s ease-in-out infinite;transform-origin:center;">
+                    <div style="position:absolute;top:50%;left:50%;width:4.4px;height:4.4px;margin:-2.2px 0 0 -2.2px;border-radius:50%;background:currentColor;animation:eyeLook 4.6s ease-in-out infinite;"></div>
+                  </div>
+                  <div style="position:relative;width:11px;height:14px;border:1.7px solid currentColor;border-radius:50%;box-sizing:border-box;animation:eyeBlink 5.4s ease-in-out infinite;transform-origin:center;">
+                    <div style="position:absolute;top:50%;left:50%;width:4.4px;height:4.4px;margin:-2.2px 0 0 -2.2px;border-radius:50%;background:currentColor;animation:eyeLook 4.6s ease-in-out infinite;"></div>
+                  </div>
                 </div>
                 <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">发现</span>
               </div>
