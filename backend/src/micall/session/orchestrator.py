@@ -117,9 +117,19 @@ _OPENING_ANGLES = [
 ]
 
 
-def _varied_opening(base: str) -> str:
-    """给开场指令随机叠一个角度 + 反重复要求，治「每次开头都同一句」。纯函数，便于测试。"""
-    return (base + random.choice(_OPENING_ANGLES)
+# 「你还记得我」最强的开场：直接回扣上次没聊完的那件事。仅当真有「未了的线头/上次聊到」时才用。
+_MEMORY_ANGLE = (
+    "这次就【追一句上次没聊完的那件事】起头（像「上次你说的那个…后来怎么样了」），让 TA 觉得你真记着——"
+    "但不确定、对不上就别硬提，换个自然的开法。"
+)
+
+
+def _varied_opening(base: str, *, prefer_memory: bool = False) -> str:
+    """给开场指令叠一个角度 + 反重复要求，治「每次开头都同一句」。纯函数，便于测试。
+    有「未了的线头/上次聊到」时，约一半概率用【记忆回扣】开场（最强的『你还记得我』信号、直接拉留存）；
+    另一半仍随机换角度——既让"被记着"经常发生，又不至于每通都"上次你说…"变成新的套路（防跨通复读）。"""
+    angle = _MEMORY_ANGLE if (prefer_memory and random.random() < 0.5) else random.choice(_OPENING_ANGLES)
+    return (base + angle
             + "（务必和你以往的开场【不一样】：别每次都同一句、同一件事、同一个场景起头。）")
 
 _SENTENCE_END = set("。！？!?\n")
@@ -542,8 +552,12 @@ class CallSession:
                 self._opening_active = True
                 try:
                     # 续接重拨：用「续接指令」接着聊、别重新自我介绍；否则每通随机换开场角度+反重复（治开头同一句）。
+                    # 老相识且真有「未了的线头/上次聊到」→ 多半用记忆回扣开场（最强的「你还记得我」、拉留存）。
+                    _prof = getattr(self.assembler, "profile", None)
+                    _rel = getattr(_prof, "relationship", None) if _prof else None
+                    _prefer_mem = bool(_rel and (getattr(_rel, "open_threads", None) or getattr(_rel, "last_topic", "")))
                     directive = (self._continuation_directive if self._continuation
-                                 else _varied_opening(self._opening_directive))
+                                 else _varied_opening(self._opening_directive, prefer_memory=_prefer_mem))
                     await self._generate_turn(directive, opening=True)
                     # 等开场音频真正播完（_audio_until 是已发音频播放到的终点），这段尾巴继续抑制 ASR 防回声切断。
                     tail = self._audio_until - time.monotonic()

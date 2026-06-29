@@ -584,6 +584,11 @@ def _profile_block(profile: UserProfile) -> str:
     r = profile.relationship
     topic = (f"印象里上次似乎聊到「{r.last_topic}」（不确定就别硬提）" if r.last_topic else "还没聊过什么具体的")
     out.append(f"关系：{r.stage}；{topic}；未了的线头：{r.open_threads or '无'}")
+    # 未了的线头是「你还记得我」最强的钩子：和 curiosity 一样要【主动追一句】，别只当资料躺着（探查发现的不对称）。
+    # 但仍受信而核验/防编造约束——不确定、对不上就别提，也别每通都用同一件起头（防跨通复读）。
+    if r.open_threads:
+        out.append(f"（这「未了的线头」是让 TA 觉得被记着的最好由头：找个自然的时机【主动追一句】"
+                   f"（「上次你说的那个…后来怎么样了」），别等 TA 提；但拿不准就别硬提、对方否认就立刻放下。）")
     if r.last_mood:
         out.append(f"上次通话 TA 的情绪：{r.last_mood}（若间隔不久，开场可自然关切地接一下，别像查记录）")
     if r.shared_refs:

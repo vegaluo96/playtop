@@ -43,6 +43,20 @@ def _is_trivial_utterance(text: str) -> bool:
     return bool(re.fullmatch(r"(?:哈|嘻|嘿|呵|嘻){2,}|嗯+|哦+|啊+|噢+", t))
 
 
+def repetition_score(ai_texts: Sequence[str], *, n: int = 4) -> float:
+    """整通里【AI 自己】说的话有多「车轱辘/啰嗦」：取所有 AI 文本的 n 元字组，
+    重复度 = 1 − 去重后数 / 总数（0=每句都新鲜，越高越是反复说同一段）。纯函数、零依赖、可单测。
+    供 _on_call_end 每通记一个 📊 数 → 重复回归在用户截图前就能从日志发现（把『啰嗦』变成可观测的数）。"""
+    grams: list[str] = []
+    for t in ai_texts:
+        s = re.sub(r"\[emotion:[a-zA-Z]+\]|[\s，。！？、,.!?…—~（）()\[\]【】「」<>#0-9.]+", "", str(t or ""))
+        if len(s) >= n:
+            grams.extend(s[i:i + n] for i in range(len(s) - n + 1))
+    if not grams:
+        return 0.0
+    return round(1.0 - len(set(grams)) / len(grams), 3)
+
+
 def extract_facts(history: Sequence[Message]) -> list[str]:
     """从对话抽取用户陈述作事实层原料（骨架用用户原话；真实由 LLM 结构化抽取补充）。
     过滤纯语气词/附和（嗯/哦/好的…）——它们不是事实，当事实存只会把召回淹没。"""

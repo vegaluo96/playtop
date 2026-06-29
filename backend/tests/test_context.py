@@ -309,6 +309,20 @@ class TestAssembler(unittest.TestCase):
         self.assertNotIn("封面拍摄", non_op[0]["content"])   # 系统前缀不含近况
         self.assertNotIn("封面拍摄临时换模特", " ".join(m["content"] for m in non_op))  # 整轮都不再注入
 
+    def test_open_threads_get_proactive_followup_instruction(self):
+        # 留存：未了的线头是「你还记得我」最强钩子，要和 curiosity 一样明确【主动追一句】，不只当资料躺着。
+        from micall.context.models import Relationship
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "小语"}, "persona": {}})
+        prof = UserProfile("u", "x", relationship=Relationship(stage="熟络", open_threads=["他没说完的那个面试"]))
+        a = ContextAssembler(char, profile=prof)
+        sysmsg = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertIn("他没说完的那个面试", sysmsg)   # 线头注入了
+        self.assertIn("主动追一句", sysmsg)            # 且有「主动追问」指令（对称于 curiosity）
+        # 没有线头的角色不应凭空出现这条指令
+        bare = ContextAssembler(char, profile=UserProfile("u", "x")).build(
+            character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertNotIn("主动追一句", bare)
+
     def test_within_call_learning_injected_into_turn(self):
         # 通话中现学：用户说了名字/在做，下一轮 system+user 里应带上，让角色当通就懂你（不进缓存）。
         a = ContextAssembler(CharacterRuntime.from_spec({

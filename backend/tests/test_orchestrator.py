@@ -81,6 +81,16 @@ class TestVariedOpening(unittest.TestCase):
             self.assertIn("不一样", o)                               # 反重复要求在
             self.assertTrue(any(ang in o for ang in _OPENING_ANGLES))  # 含某个角度
 
+    def test_memory_callback_opening_when_thread_exists(self):
+        # 留存杠杆：有「未了的线头」时多半用记忆回扣开场（最强「你还记得我」），但不是每通（仍变化、防跨通复读）。
+        from micall.session.orchestrator import _varied_opening
+        base = "（开场）"
+        # 无线头(默认)：绝不出现记忆回扣角度
+        self.assertTrue(all("追一句上次没聊完" not in _varied_opening(base, prefer_memory=False) for _ in range(40)))
+        # 有线头：会出现记忆回扣，但既不是 0% 也不是 100%（约一半 → 经常被记着、又不套路化）
+        hits = sum("追一句上次没聊完" in _varied_opening(base, prefer_memory=True) for _ in range(200))
+        self.assertTrue(0 < hits < 200)
+
 
 class TestFiller(unittest.TestCase):
     def test_filler_detection(self):

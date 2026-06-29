@@ -227,8 +227,27 @@ class SignalingServer:
             self._consume_balance(user_id, session)
             self._record_call(user_id, session)
         self._record_usage(user_id, session)
+        self._log_repetition(session)
         self._schedule_understanding(session, user_id)
         self._schedule_autonomy(session)
+
+    def _log_repetition(self, session: "CallSession") -> None:
+        """每通记一个 📊 AI 重复度（可观测）：把「车轱辘话」从『等用户截图』变成日志里能 grep 的数。
+        超阈值（global_defaults.repetition_warn，默认 0.45）告警，便于事后查那通转写。纯诊断、不影响通话。"""
+        try:
+            ai = [m.get("content", "") for m in (getattr(session, "history", None) or [])
+                  if m.get("role") == "assistant"]
+            if len(ai) < 3:
+                return
+            from ..offline.understanding import repetition_score
+            rs = repetition_score(ai)
+            warn = float(self.config.global_defaults.get("repetition_warn", 0.45))
+            if rs >= warn:
+                log.warning("📊 本通 AI 重复度偏高 rep=%.2f（%d句，阈值%.2f）——疑似车轱辘话，建议查这通转写", rs, len(ai), warn)
+            else:
+                log.info("📊 本通 AI 重复度 rep=%.2f（%d句）", rs, len(ai))
+        except Exception as e:
+            log.warning("重复度诊断失败（忽略）：%r", e)
 
     def _thread_key(self, user_id: str, character_id: str) -> tuple[str, str]:
         """续接暂存的 key：仅登录用户（user_id × character_id）。"""

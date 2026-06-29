@@ -342,5 +342,17 @@ class TestEngine(unittest.TestCase):
         self.assertTrue(any("累" in r for r in repo.recall("u", "lin_wan", "累", top_k=5)))
 
 
+class TestRepetitionScore(unittest.TestCase):
+    def test_repeat_scores_higher_than_varied(self):
+        # 可观测：把「车轱辘话」量成一个数。反复说同一段 → 重复度明显高于句句新鲜。
+        from micall.offline.understanding import repetition_score
+        varied = ["今天天气真好啊", "你吃饭了吗", "我刚看了部电影挺有意思", "周末打算去爬山"]
+        repeat = ["我刚在茶楼发呆茶都凉了", "我刚在茶楼坐了好久茶都凉透了", "我刚在茶楼发呆茶都凉了"]
+        self.assertEqual(repetition_score([]), 0.0)
+        self.assertEqual(repetition_score(["短"]), 0.0)          # 不足 n 字 → 0，不报噪
+        self.assertGreater(repetition_score(repeat), repetition_score(varied))
+        self.assertGreaterEqual(repetition_score(repeat), 0.2)   # 明显复读应被量到
+
+
 if __name__ == "__main__":
     unittest.main()
