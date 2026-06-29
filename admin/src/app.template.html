@@ -800,7 +800,15 @@
           </div>
         </sc-for>
         <sc-if value="{{ dUser.noRecharge }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:#A8ABB5;padding:8px 0;border-top:1px solid #F4F4F6;">暂无充值记录</div></sc-if>
-        <div onClick="{{ toggleBan }}" style="margin-top:24px;text-align:center;font-size:14px;font-weight:600;color:{{ banColor }};background:{{ banBg }};border-radius:11px;padding:12px;cursor:pointer;" style-active="transform:scale(.98)">{{ banLabel }}</div>
+        <div style="margin-top:24px;display:flex;flex-direction:column;gap:9px;">
+          <span style="font-size:13px;font-weight:600;color:#878B95;">手动调整时长</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input value="{{ grantMin }}" onInput="{{ onGrantMin }}" placeholder="分钟" inputmode="numeric" style="flex:1;min-width:0;border:1px solid #E6E7EB;border-radius:10px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" style-focus="border-color:#B9AEFF;background:#fff" />
+            <div onClick="{{ grantPlus }}" style="flex:none;font-size:13px;font-weight:600;color:#1FA971;background:rgba(31,169,113,.1);border-radius:10px;padding:10px 15px;cursor:pointer;white-space:nowrap;" style-active="transform:scale(.95)">+ 增加</div>
+            <div onClick="{{ grantMinus }}" style="flex:none;font-size:13px;font-weight:600;color:#E0594F;background:rgba(224,89,79,.1);border-radius:10px;padding:10px 15px;cursor:pointer;white-space:nowrap;" style-active="transform:scale(.95)">− 扣减</div>
+          </div>
+        </div>
+        <div onClick="{{ toggleBan }}" style="margin-top:14px;text-align:center;font-size:14px;font-weight:600;color:{{ banColor }};background:{{ banBg }};border-radius:11px;padding:12px;cursor:pointer;" style-active="transform:scale(.98)">{{ banLabel }}</div>
         <div onClick="{{ clearMemory }}" style="margin-top:10px;text-align:center;font-size:13.5px;font-weight:600;color:#878B95;background:#F4F4F6;border-radius:11px;padding:11px;cursor:pointer;" style-active="transform:scale(.98)">清除该用户记忆</div>
         <div style="text-align:center;font-size:12px;color:#B0B3BC;margin-top:7px;">让所有角色像初识 TA 一样重新开始（保留账号/账单/通话）</div>
       </sc-if>

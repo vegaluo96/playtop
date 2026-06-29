@@ -16,7 +16,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          createCharacter, deleteCharacter, generateCharacter, generateCore, setCharacterOnline, resetCharAutonomous,
          loadDefaultCharacter, saveDefaultCharacter, saveCharacterOrder,
          loadInviteConfig, saveInviteConfig,
-         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, resetUserMemory, cloneVoice,
+         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, resetUserMemory, grantUserMinutes, cloneVoice,
          worldRefresh, loadWorld, testHotSources, loadLimits, saveLimits,
          loadHotSources, saveHotSources, testOneSource, removeTopic, pinTopic,
          generateAvatar, uploadAvatar, adminAvatarUrl } from "./configService";
@@ -103,7 +103,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, importText: "", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null, worldEndpoints: [], newSource: "", srcOne: {}, catFilter: "",
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, grantMin: "", notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, importText: "", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null, worldEndpoints: [], newSource: "", srcOne: {}, catFilter: "",
     confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
@@ -415,6 +415,21 @@ export class AdminLogic {
     const res = await resetUserMemory(userId, "");   // 空角色 = 清该用户对所有角色的记忆
     if (!res.ok) { this.toastMsg("操作失败"); return; }
     this.toastMsg(`已清除该用户记忆（${res.cleared} 个角色）`);
+  }
+
+  /** 手动给用户加/减时长（分钟）。sign=+1 增加 / -1 扣减；读输入框 grantMin 的绝对值。 */
+  async grantMinutes(userId?: string, sign = 1) {
+    if (!userId) return;
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const n = Math.abs(parseInt(this.state.grantMin, 10) || 0);
+    if (!n) { this.toastMsg("请输入分钟数"); return; }
+    const delta = sign < 0 ? -n : n;
+    const res = await grantUserMinutes(userId, delta);
+    if (!res.ok) { this.toastMsg(res.error || "操作失败"); return; }
+    const u = this.users.find((x) => x.id === userId);   // 同步刷新列表/详情里的剩余时长
+    if (u) { u.minsRaw = Math.round((res.remaining_seconds || 0) / 60) + " 分钟"; }
+    this.setState({ grantMin: "" });
+    this.toastMsg(`已${delta > 0 ? "增加" : "扣减"} ${Math.abs(delta)} 分钟（剩余约 ${Math.round((res.remaining_seconds || 0) / 60)} 分钟）`);
   }
 
   /** 删除兑换码：二次确认后执行（删除即失效，不可撤销）。 */
@@ -1412,6 +1427,8 @@ export class AdminLogic {
       dUser, dChar, dCall, dTicket,
       banLabel, banColor, banBg, toggleBan: () => this.toggleBan(d && d.id),
       clearMemory: () => this.clearMemory(d && d.id),
+      grantMin: s.grantMin, onGrantMin: (e: any) => this.setState({ grantMin: e.target.value }),
+      grantPlus: () => this.grantMinutes(d && d.id, 1), grantMinus: () => this.grantMinutes(d && d.id, -1),
       charBioLen, saveChar: () => this.saveChar(),
       savingChar: !!s.savingChar, saveCharOpacity: s.savingChar ? ".6" : "1",
       saveCharLabel: s.savingChar ? "保存中…" : ((s.detail && s.detail.id === "__new__") ? "创建角色" : "保存修改"),

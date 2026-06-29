@@ -841,6 +841,25 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "error": "缺少 user_id"})
             _REPO.set_user_banned(uid, bool(b.get("banned")))
             return self._json(200, {"ok": True})
+        if route == "/admin/users/grant-minutes":   # 运营手动给用户加/减时长（分钟，可负）；走 ledger reason=admin_grant
+            if _REPO is None:
+                return self._json(200, {"ok": False, "error": "no repo"})
+            b = self._body()
+            uid = (b.get("user_id") or "").strip()
+            try:
+                minutes = int(b.get("minutes") or 0)
+            except (TypeError, ValueError):
+                minutes = 0
+            if not uid:
+                return self._json(400, {"ok": False, "error": "缺少 user_id"})
+            if minutes == 0:
+                return self._json(400, {"ok": False, "error": "分钟数不能为 0"})
+            minutes = max(-100000, min(100000, minutes))   # 防误操作的安全上下限
+            try:
+                remaining = _REPO.add_seconds(uid, minutes * 60, "admin_grant")
+                return self._json(200, {"ok": True, "remaining_seconds": remaining})
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
         if route == "/admin/reset-memory":       # 清某用户的记忆（事实层+理解层），运营/客服纠错用；保留账号/账单/通话
             if _REPO is None:
                 return self._json(200, {"ok": False, "error": "no repo"})

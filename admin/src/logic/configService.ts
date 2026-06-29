@@ -307,6 +307,20 @@ export async function resetUserMemory(userId: string, characterId = ""): Promise
   }
   return { ok: false, cleared: 0 };
 }
+/** 运营手动给用户加/减通话时长（分钟，可负）。返回 {ok, 剩余秒数}。 */
+export async function grantUserMinutes(userId: string, minutes: number): Promise<{ ok: boolean; remaining_seconds?: number; error?: string }> {
+  const b = base();
+  if (!b) return { ok: false, error: "未接后端" };
+  try {
+    const r = await fetch(`${b}/admin/users/grant-minutes`, {
+      method: "POST", headers: authHeaders(true), credentials: "include",
+      body: JSON.stringify({ user_id: userId, minutes }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d && d.ok) return { ok: true, remaining_seconds: Number(d.remaining_seconds) || 0 };
+    return { ok: false, error: (d && d.error) || "操作失败" };
+  } catch { return { ok: false, error: "网络错误" }; }
+}
 export async function createRedeemCode(code: string, minutes: number, maxUses: number): Promise<{ ok: boolean; code?: string; error?: string }> {
   const b = base();
   if (!b) return { ok: false, error: "需接入后端" };
