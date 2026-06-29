@@ -83,17 +83,15 @@ export class MiCallLogic {
   private notify: () => void = () => {};
 
   // ── instance data (ported verbatim) ──────────────────────────────────────
-  // 冷启动占位 = 后台设定的【默认角色 维佳/vega】本人。这样首屏（含无痕窗口·无缓存）第一帧就直接画默认角色的
-  // 名字 + 球色，不再「先中性球(图一) → 秒切默认维佳(图二)」。loadCharacters 拉到全量后默认角色仍排首位(idx0)、
-  // 同 id 同色同名，无任何变化、无闪。⚠️ 若将来在后台把默认角色从 vega 改掉，需同步这里的 id/name/desc。
+  // 内置 chars 仅作【未接后端/演示】的最后兜底，不再假设具体默认角色——过去硬编码 vega，一旦后台把默认角色
+  // 改成别的，首屏就会「先闪 vega → 跳到真实默认」。现在改为：首屏不画任何具体角色，等 loadCharacters 拉到
+  // 后台真实默认再显（charsReady=false 期间是中性球+空名，无角色名/无头像，不会闪错人）。无需再手动同步默认 id。
   chars: Char[] = [
-    // 头像 URL 也内置：默认角色 vega 已生成头像，首帧即直接显头像（不再先渐变球→秒切头像）；
-    // 未生成时该 URL 404，img 的暗底占位会显一个中性暗圆兜底（不回到彩色球）。
     { name: "维佳", hue: hueFromId("vega"), desc: "在混沌里找非对称机会的人", traits: [], bio: "", id: "vega", avatar: "/api/avatar?c=vega" },
   ];
-  // 角色已就绪：冷启动占位即真实默认角色(vega)，故首帧即可显示、不必再走中性占位窗口。
-  // 返回访客由构造器读 micall_chars 缓存覆盖；loadCharacters 跑完用全量真实角色覆盖。三条路径都不闪。
-  charsReady = true;
+  // 默认【未就绪】：首屏（无痕/无缓存）先走中性占位，直到 loadCharacters 拉到后台真实默认角色才显示——
+  // 杜绝「闪一个写死的角色再跳默认」。返回访客由构造器读 micall_chars 缓存即时置 true、直接显真实角色，不走中性窗口。
+  charsReady = false;
   private _scenesBuilt = false;
 
   state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, legalOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 0, remainingLoaded: false, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false, justConnected: false };
