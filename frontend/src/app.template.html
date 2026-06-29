@@ -38,16 +38,9 @@
     @keyframes toastDrop{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
     .nobar::-webkit-scrollbar{width:0;height:0;display:none;}
     .nobar{scrollbar-width:none;-ms-overflow-style:none;}
-    .deskside{display:none;}
-    @media (min-width:1100px){
-      .appwrap{gap:0 !important;padding:0 !important;align-items:stretch !important;}
-      .mobnav{display:none !important;}
-      .deskside{display:flex;flex-direction:column;width:25%;height:calc(100vh / var(--fz,1));overflow-y:auto;border-radius:0;background:#fff;box-shadow:none;padding:24px 14px 24px;box-sizing:border-box;color:#2A2A2E;border-right:.5px solid rgba(0,0,0,.07);border-left:.5px solid rgba(0,0,0,.07);}
-      .phone{flex:1;width:auto !important;height:100vh !important;background:var(--bg) !important;box-shadow:none !important;border-radius:0 !important;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;}
-      .screen{position:relative !important;inset:auto !important;width:100% !important;height:auto !important;min-height:100% !important;flex:1 0 auto !important;border-radius:0 !important;box-shadow:none !important;}
-      .notch{display:none !important;}
-      .statusbar{display:none !important;}
-    }
+    /* 移动端 H5 产品：两侧的桌面栏（左菜单栏 + 右「通话记录」栏）是原型预览残留，桌面上会留下空栏「残影」。
+       桌面统一改为「居中单列手机」：.deskside 两栏始终隐藏，菜单/历史走机内汉堡与历史按钮（与手机端一致）。 */
+    .deskside{display:none !important;}
     @keyframes backdropIn{from{opacity:0}to{opacity:1}}
     @keyframes haloPulse{0%,100%{opacity:.45;transform:scale(1)}50%{opacity:.8;transform:scale(1.12)}}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased;}
