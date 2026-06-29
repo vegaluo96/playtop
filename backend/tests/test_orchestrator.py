@@ -231,6 +231,50 @@ class TestOpeningBrevity(unittest.TestCase):
         self.assertIn("插不进话", s._opening_directive)
         self.assertIn("一句", s._opening_directive)
 
+    def test_opening_speaks_only_first_complete_sentence(self):
+        # 修「话没说完」：开场只说【完整的第一句】就停 —— 多句开场只播第一句，
+        # 且绝不把后面没说完的半句念出来（截图里「……我这人就是，风」那种）。
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        # 模型给了两句（第一句完整 + 第二句起了个头没结尾标点）→ 只应播第一句、丢掉残句。
+        llm = StubLLM(["[emotion:tender]你好呀。我今天路过河边看见个小孩"])
+
+        async def run():
+            s = _make_session(emit, llm=llm)
+            await s.start()
+            events.clear()                       # 只看开场轮的事件
+            await s._generate_turn("（开场）", opening=True)
+            await s.end()
+
+        asyncio.run(run())
+        ai = [e["text"] for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
+        self.assertEqual(len(ai), 1)             # 只说一句
+        self.assertIn("你好呀", ai[0])
+        self.assertNotIn("路过河边", " ".join(ai))   # 没说完的下半句没被念出来
+
+    def test_normal_turn_still_multi_sentence(self):
+        # 只收开场，正常对话仍可多句（别误伤正常回合）。
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        llm = StubLLM(["[emotion:tender]嗯，我在听。今天过得怎么样？"])
+
+        async def run():
+            s = _make_session(emit, llm=llm)
+            await s.start()
+            events.clear()
+            await s._generate_turn("我有点累", opening=False)
+            await s.end()
+
+        asyncio.run(run())
+        ai = [e["text"] for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
+        self.assertGreaterEqual(len(ai), 2)      # 正常轮两句都在
+
 
 class TestOrchestrator(unittest.TestCase):
     def test_turn_event_sequence(self):
