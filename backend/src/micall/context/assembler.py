@@ -900,7 +900,13 @@ class ContextAssembler:
         if hist and hist[-1].get("role") == "user":
             *head, last = hist
             messages.extend(head)
-            messages.append({"role": "user", "content": human + guard + "\n" + topics_line + auto_open + recall_preamble + live + voice_emo + last["content"]})
+            # 动态反复读护栏：直接【引用】你上一轮的原话并明令禁止重复它——泛泛的「别复读自己」实测压不住
+            # 弱快脑「逐字重播上一轮」（用户实测：开场说的近况、上一句答复被一字不差搬一遍）；点名引用具体那句、
+            # 要求这轮换内容正面回应新话，对弱模型更有约束力。仅当有上一轮 AI 话时加。
+            prev_ai = next((m["content"] for m in reversed(head) if m.get("role") == "assistant"), "")
+            anti = (f"（⚠你上一轮刚说过：「{prev_ai[:24]}…」——这一轮【绝不要】重复它、也别只改几个字重说一遍；"
+                    "正面回应 TA 刚说的这句、说点不一样的。）\n") if prev_ai else ""
+            messages.append({"role": "user", "content": human + guard + "\n" + topics_line + auto_open + recall_preamble + live + anti + voice_emo + last["content"]})
         else:
             # 开场轮（AI 先开口、history 为空）：把开场寒暄上下文 + 时事话题池 + 一次性近况一并给 → 角色【主动】挑一件对味的
             # 新鲜事带出来（这正是真人寒暄后自然分享的时机；此前 else 分支漏了 topics_line，开场从不提世界）。
