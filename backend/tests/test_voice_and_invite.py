@@ -171,9 +171,11 @@ class TestLlmSqueeze(unittest.TestCase):
 
     def test_default_config_squeezes_llm_fast(self):
         # 出厂配置就把 llm_fast 的抗重复 + 用量上报打开（对齐 ASR 免费升级的做法）。
+        # frequency_penalty 由 0.3→0.5、presence_penalty 0→0.2：压跨轮逐字复读（用户反馈）。
         from micall.config import load_config
         fast = load_config().node("llm_fast").params
-        self.assertEqual(float(fast.get("frequency_penalty", 0)), 0.3)
+        self.assertGreaterEqual(float(fast.get("frequency_penalty", 0)), 0.5)
+        self.assertGreaterEqual(float(fast.get("presence_penalty", 0)), 0.2)
         self.assertTrue(fast.get("report_usage"))
 
 
