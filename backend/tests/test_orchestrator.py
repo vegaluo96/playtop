@@ -189,25 +189,18 @@ class TestEchoGuard(unittest.TestCase):
         s._ai_said = ""
         self.assertFalse(s._looks_like_echo("你好呀"))        # 没有基准 → 不是
 
-    def test_two_char_exempt_in_tail_so_it_hits(self):
+    def test_two_char_substring_is_echo(self):
+        # 「2字命中」实验已撤回（用户要求调回 3 字）：2 字若是 AI 原话子串 → 仍判回声（防 AI 自己声音回灌当插话）。
         import time
         s = self._sess()
-        s._ai_said = "好的，那我们就这么定了"               # 含「好的」子串
-        # AI【已说完】(拖尾窗)：2 字短附和豁免回声 → 真用户的「好的/对啊」必命中、不被吞
-        s._audio_until = time.monotonic() - 0.3
-        self.assertFalse(s._looks_like_echo("好的"))
-        self.assertFalse(s._looks_like_echo("对啊"))
-
-    def test_two_char_substring_while_playing_is_echo(self):
-        import time
-        s = self._sess()
-        s._ai_said = "哎你问对人了"                          # AI 正说这句
-        s._audio_until = time.monotonic() + 5.0             # 音频还在播
-        # AI【正在说】时，它原话里的 2 字碎片回灌（「对人」「你问」）= 回声 → 必须挡住，防自我打断/卡住
-        self.assertTrue(s._looks_like_echo("对人"))
+        s._ai_said = "哎你问对人了"
+        s._audio_until = time.monotonic() - 0.3            # 拖尾窗（AI 已说完）
+        self.assertTrue(s._looks_like_echo("对人"))         # 2 字子串 = 回声（任何窗口）
         self.assertTrue(s._looks_like_echo("你问"))
-        # 3 字子串照常判回声
-        self.assertTrue(s._looks_like_echo("你问对"))
+
+    def test_bargein_min_chars_aec_is_3(self):
+        # 「调整回去 3 个字」：AI 说话时要 3 字才算真打断（2 字多是 AI 自己声音回灌的碎片→认 2 字会自我打断/卡住）。
+        self.assertEqual(self._sess()._bargein_min_chars_aec, 3)
 
     def test_echo_overlap_default_068(self):
         # 模糊重叠门槛默认 0.68（越高越不误杀顺着话题、与 AI 用词重合的真用户话）
@@ -249,11 +242,11 @@ class TestOpeningBrevity(unittest.TestCase):
         self.assertEqual(spy.caps[1], s._reply_max_tokens)      # 正常轮回到正常上限
         self.assertLess(s._opening_max_tokens, s._reply_max_tokens)
 
-    def test_opening_directive_demands_brevity(self):
-        # 开场指令显式要求「短/一句/打不断」，让模型从语义上就收着说。
+    def test_opening_directive_demands_one_substantive_sentence(self):
+        # 开场指令：就一句，但【要有内容】——禁止敷衍成一个『哟？』把话甩回来（治「上来一个哟」）。
         s = _make_session(lambda ev: None)
-        self.assertIn("插不进话", s._opening_directive)
         self.assertIn("一句", s._opening_directive)
+        self.assertIn("哟", s._opening_directive)        # 明确点名禁止「哟？」这种空开场
 
     def test_opening_speaks_only_first_complete_sentence(self):
         # 修「话没说完」：开场只说【完整的第一句】就停 —— 多句开场只播第一句，

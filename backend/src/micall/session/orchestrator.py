@@ -335,8 +335,9 @@ class CallSession:
             "若还不大认识 TA（初识），就带一点真想认识 TA 的好奇起个头——按你的性子轻轻起个话头/问一句，"
             "别审问、别太满；若是老相识，可自然带出你记得或惦记的某件事，让 TA 觉得被记着。"
             "但绝不要编造没真实发生过的共同经历或'上次谈过的事'——拿不准就只温暖地打个招呼。"
-            "【务必短】这是开场、TA 这会儿还插不进话（打不断你）——就【一句话】、干脆利落，"
-            "别一口气说一大段、别连着抛好几个问题、别铺垫半天；把话头递出去就停，等 TA 接。）"))
+            "【就一句、但要有内容】这是开场——说【一句完整、有内容的招呼/起头】（按你的性子，带点你此刻的状态或对 TA 的惦记），"
+            "别一口气说一大段、别连着抛好几个问题、别铺垫半天；但也【绝不能敷衍成一个字/一个『哟？』『在吗』就把话甩回来】，"
+            "那等于没开口。一句话，刚刚好。）"))
         # 续接重拨开场：上一通刚因网络断了、TA 又拨回来（上面对话里就是你们刚聊的）。别重新开场。
         self._continuation_directive = str(turn.get("continuation_directive",
             "（你们这通电话刚因为网络断了、TA 又拨回来——上面就是你们断线前正聊着的话。"
@@ -410,20 +411,13 @@ class CallSession:
             return False
         nt = _norm(text)
         if len(nt) < 2:
-            return False
-        now_playing = now <= self._audio_until
-        # 2 字短附和（好的/对啊/是吗）：只在 AI【已说完】(拖尾窗)豁免回声→真用户的短附和收得到、必命中；
-        # 但 AI【正在说】时【不】豁免——此刻 2 字极可能是 AI 自己语音回灌进麦克风的碎片（如它正说「你问对人」
-        # 漏回「对人」），若豁免会被当用户插话→「说到一半自我打断 / 经常卡住」(实测回归)。
-        if len(nt) < 3 and not now_playing:
-            return False
+            return False                    # 0~1 字永不判回声；2 字及以上走子串/模糊判定（防 AI 自己声音回灌被当插话）
         said = _norm(self._ai_said)
         if nt in said:
-            return True                     # AI 原话被原样转写回来：任何模式都判回声（含 AI 正说时的 2 字碎片）
+            return True                     # AI 原话被原样转写回来：任何模式都判回声（高置信）
         # 即便全双工硬件 AEC 也【始终保留】模糊重叠判定：浏览器 AEC 外放下并不完美，会漏一点 AI 自己的
         # 声音进麦克风；若此时放开判定，漏进来的 AI 余音会被当插话 →「说到一半自我打断」(实测踩坑)。
-        # 模糊重叠只对【3 字以上】（2 字字符集太粗、易把真打断误挡），且仅音频在播时。
-        if now_playing and len(nt) >= 3:
+        if now <= self._audio_until:        # 音频还在播：模糊重叠也判回声（含 AEC，防自我打断）
             chars = set(nt)
             overlap = sum(1 for ch in chars if ch in said) / len(chars)
             return overlap >= self._echo_overlap
