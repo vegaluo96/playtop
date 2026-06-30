@@ -13,7 +13,7 @@ import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
          loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
          loadRedeemCodes, createRedeemCode, deleteRedeemCode,
-         createCharacter, deleteCharacter, generateCharacter, generateCore, setCharacterOnline, resetCharAutonomous,
+         createCharacter, deleteCharacter, generateCharacter, generateCore, setCharacterOnline, resetCharAutonomous, syncRealtimeToFactory,
          loadDefaultCharacter, saveDefaultCharacter, saveCharacterOrder,
          loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, resetUserMemory, grantUserMinutes, cloneVoice,
@@ -794,6 +794,23 @@ export class AdminLogic {
     this.toastMsg("已生成，可微调后保存");
   }
 
+  /** 一键同步出厂「口吻」：清掉被后台覆盖的 realtime_prompt_extra/hidden_layer，让仓库更新的出厂值流回（下一通生效）。
+   * 破坏性（会丢弃你手动改过的「口吻」覆盖），故走二次确认。其它覆盖（音色/core/资料）一律保留。 */
+  syncRealtime() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    this.askConfirm({
+      title: "同步出厂口吻",
+      body: "把所有角色被后台覆盖的「实时口吻」(realtime_prompt_extra) 和「内里」(hidden_layer) 清掉，采用仓库最新的出厂值，下一通生效。音色/内核/资料等其它后台改动全部保留。注意：你手动改过的「口吻」那一项会被这次同步覆盖掉。",
+      okLabel: "同步", danger: true, action: () => this._doSyncRealtime(),
+    });
+  }
+  private async _doSyncRealtime() {
+    const res = await syncRealtimeToFactory();
+    if (!res.ok) { this.toastMsg(res.error || "同步失败"); return; }
+    const n = res.count || 0;
+    this.toastMsg(n > 0 ? `已同步 ${n} 个角色到出厂口吻，下一通生效` : "没有被覆盖的口吻，已都是出厂值");
+  }
+
   /** AI 生成内核：按当前编辑态的现有维度提炼一段 core，填进内核框（运营可再微调）。 */
   async genCore() {
     if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
@@ -1406,6 +1423,7 @@ export class AdminLogic {
       importText: s.importText || "", onImportText: (e: any) => this.setState({ importText: e.target.value }),
       copyImportTpl: () => { try { navigator.clipboard.writeText(IMPORT_TEMPLATE); this.toastMsg("模板已复制，去 AI（DeepSeek/Gemini）粘贴"); } catch { this.toastMsg("复制失败，请手动全选复制"); } },
       runImport: () => this.importChar(),
+      syncRealtime: () => this.syncRealtime(),   // 一键同步出厂口吻（清被覆盖的 realtime_prompt_extra/hidden_layer）
       voicePresetCount, voiceCloneCount, voiceMatchTotal, ttsEngine, voicesView, apiCards,
       secTitle: titles[s.section][0], secSub: titles[s.section][1],
       query: s.query, onQuery: (e: any) => this.setState({ query: e.target.value }),

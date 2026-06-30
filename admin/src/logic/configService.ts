@@ -459,6 +459,16 @@ export async function resetCharAutonomous(id: string): Promise<boolean> {
   } catch { /* noop */ }
   return false;
 }
+/** 一键同步出厂「口吻」：清掉被后台覆盖的 realtime_prompt_extra/hidden_layer，让仓库更新的出厂值流回（下一通生效）。 */
+export async function syncRealtimeToFactory(): Promise<{ ok: boolean; count?: number; affected?: any[]; error?: string }> {
+  const b = base();
+  if (!b) return { ok: false, error: "需接入后端" };
+  try {
+    const r = await fetch(`${b}/admin/characters/sync-realtime`, { method: "POST", headers: authHeaders(true), credentials: "include" });
+    if (r.ok) return await r.json();
+  } catch { /* noop */ }
+  return { ok: false, error: "同步失败" };
+}
 /** AI 一键生成角色字段。 */
 export async function generateCharacter(prompt: string): Promise<{ ok: boolean; fields?: any; error?: string }> {
   const b = base();

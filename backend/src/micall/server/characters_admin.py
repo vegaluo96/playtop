@@ -313,6 +313,39 @@ def write_character_from_admin(payload: dict) -> None:
     tmp.replace(CHAR_OVERRIDES_PATH)
 
 
+# ── 一键同步出厂「口吻」：清掉被后台覆盖的 realtime_prompt_extra / hidden_layer，让新出厂值流回 ──
+# 覆盖优先，所以运营改过这两个字段的角色不会自动吃到仓库更新的出厂值；此处只删这两个键、
+# 其它覆盖（音色/core/资料…）一律保留 → 下一通即用出厂新口吻。返回受影响角色清单。
+_SYNC_FIELDS = (("runtime_overrides", "realtime_prompt_extra"), ("persona", "hidden_layer"))
+
+
+def sync_realtime_to_factory() -> list[dict]:
+    ov = load_overrides()
+    if not isinstance(ov, dict):
+        return []
+    facts = factory_specs()
+    affected: list[dict] = []
+    for cid, node in list(ov.items()):
+        if not isinstance(node, dict):
+            continue
+        cleared: list[str] = []
+        for sub, key in _SYNC_FIELDS:
+            block = node.get(sub)
+            if isinstance(block, dict) and key in block:
+                block.pop(key, None)
+                cleared.append(key)
+                if not block:                  # 子块被清空 → 一并删，保持覆盖文件干净
+                    node.pop(sub, None)
+        if cleared:
+            if not node:                       # 整个角色覆盖只剩这两键 → 删掉空节点
+                ov.pop(cid, None)
+            name = facts.get(cid, {}).get("identity", {}).get("name", cid)
+            affected.append({"id": cid, "name": name, "fields": cleared})
+    if affected:
+        _save_json_file(CHAR_OVERRIDES_PATH, ov)
+    return affected
+
+
 # ── 新建自定义角色：扁平字段 → 全 spec，存 custom_characters.json ──
 def _spec_from_flat(cid: str, p: dict) -> dict:
     def s(v) -> str:

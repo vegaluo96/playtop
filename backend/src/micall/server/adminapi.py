@@ -956,6 +956,10 @@ class _Handler(BaseHTTPRequestHandler):
             from .characters_admin import reset_autonomous_state
             ok = reset_autonomous_state(_REPO, ((self._body() or {}).get("id") or "").strip())
             return self._json(200 if ok else 400, {"ok": ok, "error": None if ok else "未知角色"})
+        if route == "/admin/characters/sync-realtime":   # 一键同步出厂口吻：清掉被覆盖的 realtime_prompt_extra/hidden_layer
+            from .characters_admin import sync_realtime_to_factory
+            affected = sync_realtime_to_factory()
+            return self._json(200, {"ok": True, "count": len(affected), "affected": affected})
         if route == "/admin/characters/generate":  # AI 一键生成角色
             import asyncio
 

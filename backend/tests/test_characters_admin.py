@@ -161,6 +161,24 @@ class TestCharactersAdmin(unittest.TestCase):
         self.assertEqual(fields["name"], "小柔")                  # 来自 Pass②
         self.assertEqual(fields["prompt_extra"], "短句、别端着、别只顾自己")  # 行为字段一等公民、有产出
 
+    def test_sync_realtime_to_factory_clears_only_voice_fields(self):
+        # 一键同步出厂口吻：清掉被覆盖的 realtime_prompt_extra + hidden_layer → 回落出厂；其它覆盖(音色)保留。
+        cid, spec = _a_factory_char()
+        factory_rpe = spec.get("runtime_overrides", {}).get("realtime_prompt_extra", "")
+        ca.write_character_from_admin({
+            "id": cid, "prompt_extra": "运营改过的旧口吻", "hidden_layer": "运营改过的里", "voice_id": "male-qn-qingse",
+        })
+        self.assertEqual(ca.effective_specs()[cid]["runtime_overrides"]["realtime_prompt_extra"], "运营改过的旧口吻")
+        affected = ca.sync_realtime_to_factory()
+        self.assertTrue(any(a["id"] == cid for a in affected))
+        eff = ca.effective_specs()[cid]
+        self.assertEqual(eff["runtime_overrides"].get("realtime_prompt_extra", ""), factory_rpe)  # 回落出厂
+        self.assertNotEqual(eff["runtime_overrides"].get("realtime_prompt_extra", ""), "运营改过的旧口吻")
+        self.assertEqual(eff["voice"]["voice_id"], "male-qn-qingse")  # 音色覆盖原样保留
+
+    def test_sync_realtime_to_factory_noop_when_no_overrides(self):
+        self.assertEqual(ca.sync_realtime_to_factory(), [])
+
     def test_per_character_knobs_roundtrip_and_clear(self):
         # 角色级旋钮（话长/记忆深度）后台可编辑：写入 runtime_overrides、回显、空字符串清空回退全局。
         cid, _ = _a_factory_char()
