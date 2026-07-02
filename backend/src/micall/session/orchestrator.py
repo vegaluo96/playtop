@@ -600,6 +600,11 @@ class CallSession:
         except asyncio.CancelledError:
             pass
         except Exception as e:
+            # 开场轮没有 _guarded_turn 兜底——异常若逃逸，greet task 死在 emit THINKING 之后，
+            # 通话就永远钉在「思考中」。兑现 docstring 的「失败静默忽略」：回 listening 等用户开口。
+            log.warning("开场白失败（不卡死，回 listening 等用户开口）：%r", e)
+            await self._recover_to_listening()
+        except Exception as e:
             log.warning("开场白生成失败（忽略，照常等用户开口）：%r", e)
 
     async def _embed_query(self, text: str) -> list[float] | None:
@@ -695,11 +700,16 @@ class CallSession:
                         finally:
                             if not _intr.done():
                                 _intr.cancel()
+                        # 注意：cancel() 只是【请求】取消——必须等 __anext__ 真正退出再离开循环，
+                        # 否则 aclosing 会对「仍在运行」的生成器调 aclose() → RuntimeError（already running）
+                        # → 开场轮由此炸死在 THINKING、前端永远「思考中」。旧 wait_for 内部就等了，这里补齐。
                         if _intr in done:            # 被打断：放弃取首 token，尽快退出让新一轮起跑
                             _anext.cancel()
+                            await asyncio.wait({_anext})
                             break
                         if _anext not in done:       # 墙钟超时：首 token 没来 → 复用下方超时兜底
                             _anext.cancel()
+                            await asyncio.wait({_anext})
                             raise asyncio.TimeoutError
                         token = _anext.result()      # 可能抛 StopAsyncIteration（下方捕获）
                     else:

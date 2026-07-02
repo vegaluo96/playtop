@@ -618,5 +618,75 @@ class TestInCallWindowAndReplyCap(unittest.TestCase):
         self.assertLessEqual(s._reply_max_tokens, 600)
 
 
+class _SlowFirstTokenLLM(StubLLM):
+    """首 token 永远比超时慢：复现线上「开场首 token 超时」场景。"""
+
+    async def stream(self, messages, *, temperature=0.8, max_tokens=256, response_format=None):
+        await asyncio.sleep(1.0)   # 远大于测试里调小的 llm_first_token_timeout
+        yield "来"
+
+
+class TestFirstTokenTimeoutRecovery(unittest.TestCase):
+    """回归护栏（线上事故）：首 token 竞速的超时/打断路径 cancel 后必须【等取消完成】——
+    否则 aclosing 对仍在运行的生成器调 aclose() → RuntimeError(already running)，
+    开场轮（无 _guarded_turn 兜底）死在 emit THINKING 之后 → 前端永远「思考中」。"""
+
+    def test_opening_timeout_recovers_to_listening(self):
+        # 真路径：ready → begin_conversation → _run_opening。首 token 超时后开场任务
+        # 不得抛任何异常，且状态必须回 LISTENING（不卡 THINKING）。
+        from micall.session.state import Phase
+
+        async def emit(ev):
+            pass
+
+        async def run():
+            s = _make_session(emit, llm=_SlowFirstTokenLLM())
+            s._llm_first_token_timeout = 0.05
+            await s.start()
+            s.begin_conversation()             # 前端 ready：起计费 + 开场任务
+            await s._greet_task                # 开场任务完整跑完：任何异常逃逸都会让本测试直接失败
+            phase_after = s.sm.phase
+            await s.end()
+            return phase_after
+
+        self.assertEqual(asyncio.run(run()), Phase.LISTENING)
+
+    def test_generate_turn_timeout_no_exception(self):
+        # 绕过 _run_opening 兜底直打 _generate_turn：超时路径本身就不得抛（aclose 撞 already running）。
+        from micall.session.state import Phase
+
+        async def emit(ev):
+            pass
+
+        async def run():
+            s = _make_session(emit, llm=_SlowFirstTokenLLM())
+            s._llm_first_token_timeout = 0.05
+            await s.start()
+            await s._generate_turn("嗯", opening=False)   # 不应抛
+            return s.sm.phase
+
+        self.assertEqual(asyncio.run(run()), Phase.LISTENING)
+
+    def test_interrupt_during_first_token_wait_exits_promptly(self):
+        # B6 本意的护栏：THINKING 期打断要【立刻】唤醒首 token 等待（而非白等墙钟超时），
+        # 且退出路径不得抛错、状态回 LISTENING。
+        from micall.session.state import Phase
+
+        async def emit(ev):
+            pass
+
+        async def run():
+            s = _make_session(emit, llm=_SlowFirstTokenLLM())
+            s._llm_first_token_timeout = 5.0              # 足够长：只能靠打断退出
+            await s.start()
+            turn = asyncio.create_task(s._guarded_turn("嗯"))
+            await asyncio.sleep(0.05)                     # 让轮次进到「等首 token」
+            await s.interrupt()                           # THINKING 期打断
+            await asyncio.wait_for(turn, timeout=1.0)     # 必须迅速退出（远小于 5s 墙钟）
+            return s.sm.phase
+
+        self.assertEqual(asyncio.run(run()), Phase.LISTENING)
+
+
 if __name__ == "__main__":
     unittest.main()
