@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ..config import Config, load_config, resolve_voice
+from ..config import Config, as_int, load_config, resolve_voice
 from ..context import CharacterRuntime, ContextAssembler
 from ..memory import MemoryRepository, make_repository
 from ..offline import AutonomyEngine, UnderstandingEngine, due_to_advance
@@ -484,6 +484,9 @@ class SignalingServer:
             memory_top_k=_mem_depth,
             # 上下文总预算（系统前缀+滑窗历史）：膨胀的人设/画像会吃光预算饿死历史 → 放宽并 config 化。
             budget_chars=int(self.config.global_defaults.get("budget_chars", 16000)),
+            # 历史保底条数：预算被超大人设吃光也至少喂这么多条最近历史，防富人设角色复读+跑题。可后台调。
+            # try 兜非整数误配（如 "6.5"/"six")——否则每次 start_call 直接抛、该角色所有来电都建不起会话。
+            min_history=as_int(self.config.global_defaults.get("incall_min_history"), 6),
             reply_language=reply_language or "",   # 用户选的对话语言：非中文则让 AI 改用该语言说（多语言生效）
         )
         # 余额：登录用户读 users.remaining_seconds（服务端权威，§5）；游客按 IP 给剩余试用（刷新不重置，防刷）。

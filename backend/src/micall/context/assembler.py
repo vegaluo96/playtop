@@ -757,6 +757,9 @@ class ContextAssembler:
         # （max(0,6000-len(system))≈0），历史被饿死 → 通话内 LLM 几乎看不到前几轮。放宽到 16000，
         # 系统前缀走 prefix 缓存、重复轮近乎免费，主要增量是历史 token（正是要喂的）。可经 config 调。
         budget_chars: int = 16000,
+        # 历史保底条数：预算被超大人设吃光时，仍【至少】喂进最近这么多条历史。防「富人设角色历史被饿死
+        # → 既复读又跑题」。默认 6 条(3 轮问答)——够模型拿住当前话头；正常角色预算充裕、本就纳更多、不受影响。
+        min_history: int = 6,
         memory_top_k: int = 5,
         reply_language: str = "",
     ) -> None:
@@ -765,6 +768,9 @@ class ContextAssembler:
         self.autonomous = autonomous
         self.memory = memory
         self.budget_chars = budget_chars
+        # 钳到 [1, 40]：下界 1 保住「预算再紧也至少喂最近 1 条」（否则 min_history=0/负 会返回空历史 →
+        # build 误走开场分支、当轮用户话被整条丢弃）；上界 40 防运营误配超大值让 budget_chars 对历史静默失效。
+        self.min_history = min(max(1, min_history), 40)
         self.memory_top_k = memory_top_k
         # 用户选的对话语言（前端 start_call 下发）：非中文则在前缀里加一条强指令让 AI 改用该语言说。
         self.reply_language = reply_language or ""
@@ -829,6 +835,13 @@ class ContextAssembler:
         system = self.prefix(scenario)
         messages: list[Message] = [{"role": "system", "content": system}]
         hist = self._windowed(history, reserved=len(system))
+        # 上下文预算诊断：只在【系统前缀吃掉 >50% 预算】(有饿死历史风险)时打，避免每轮刷屏；grep 🪟 一眼看
+        # 这轮喂了几条历史、人设是否过大在挤压历史（复读+跑题的硬成因，该给这个角色收人设）。正常小人设不打。
+        if len(system) > self.budget_chars * 0.5:
+            _hchars = sum(len(m.get("content", "")) for m in hist)
+            log.info("🪟 上下文：系统前缀 %d 字 · 历史 %d 条/%d 字 · 预算 %d%s",
+                     len(system), len(hist), _hchars, self.budget_chars,
+                     "（⚠人设过大挤压历史，考虑收人设）" if len(system) > self.budget_chars * 0.6 else "")
 
         # L3 情节记忆 Top-K（可伸缩）：语义相似 + 时间衰减 + 情感权重；经自然化（§3.5）。
         # per-user×per-char 隔离（铁律7），需 profile 提供 user_id。
@@ -903,9 +916,16 @@ class ContextAssembler:
             # 动态反复读护栏：直接【引用】你上一轮的原话并明令禁止重复它——泛泛的「别复读自己」实测压不住
             # 弱快脑「逐字重播上一轮」（用户实测：开场说的近况、上一句答复被一字不差搬一遍）；点名引用具体那句、
             # 要求这轮换内容正面回应新话，对弱模型更有约束力。仅当有上一轮 AI 话时加。
-            prev_ai = next((m["content"] for m in reversed(head) if m.get("role") == "assistant"), "")
-            anti = (f"（⚠你上一轮刚说过：「{prev_ai[:24]}…」——这一轮【绝不要】重复它、也别只改几个字重说一遍；"
-                    "正面回应 TA 刚说的这句、说点不一样的。）\n") if prev_ai else ""
+            # 点名【最近至多 2 轮】AI 话，覆盖「复读几轮前那句」（原仅盯上一轮前 24 字抓不到）。关键：只给
+            # 【短指针片段】而非整句照抄——这两句 AI 原话已在上文(messages.extend(head))出现过一次，若再逐字塞回
+            # 就是在 prompt 里把「要禁止的话」重复两遍，反而给弱模型做了「请复述这些」的示范、加剧复读。
+            # 片段去掉括号/引号/空白防与外层拼接嵌套错位；用「意思」而非逐字，弱化范本感。
+            def _frag(s: str) -> str:
+                return re.sub(r"[「」『』（）()\[\]\r\n\t ]+", "", s)[:16]
+            prev_ais = [m["content"] for m in reversed(head) if m.get("role") == "assistant" and m.get("content")][:2]
+            anti = ("（⚠你最近说过：" + "、".join(f"{_frag(p)}…" for p in prev_ais if _frag(p)) +
+                    "——这几句的【意思】别再重复、也别只改几个字重说；正面回应 TA 刚说的这句、说点不一样的。）\n"
+                    ) if prev_ais else ""
             messages.append({"role": "user", "content": human + guard + "\n" + topics_line + auto_open + recall_preamble + live + anti + voice_emo + last["content"]})
         else:
             # 开场轮（AI 先开口、history 为空）：把开场寒暄上下文 + 时事话题池 + 一次性近况一并给 → 角色【主动】挑一件对味的
@@ -971,12 +991,14 @@ class ContextAssembler:
         return _now_line(now) + static
 
     def _windowed(self, history: list[Message], *, reserved: int) -> list[Message]:
-        """L4 滑窗：从最近往回纳入，吃满剩余预算即停（滑窗最先被裁，§3.4）。"""
+        """L4 滑窗：从最近往回纳入，吃满剩余预算即停（滑窗最先被裁，§3.4）。
+        保底：即便预算被超大人设吃光，也【至少】保最近 self.min_history 条——否则富人设角色历史被饿到只剩
+        一两轮，模型看不清自己刚说过啥(复读)、接不住几轮前的话头(跑题)。够保底后才因预算停。"""
         budget = max(0, self.budget_chars - reserved)
         picked: list[Message] = []
         for m in reversed(history):
             cost = len(m.get("content", "")) + 8
-            if cost > budget and picked:
+            if cost > budget and len(picked) >= self.min_history:   # 已够保底才因预算停（否则硬纳到保底）
                 break
             budget -= cost
             picked.append(m)

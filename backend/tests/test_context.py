@@ -77,6 +77,46 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(msgs[-1]["content"].endswith("在吗"))
         self.assertIn("现实时间", msgs[-1]["content"])   # 时间观念每轮注入末轮 user
 
+    def test_windowed_keeps_min_history_when_persona_starves_budget(self):
+        # 富人设把预算吃光时，历史仍【至少】保住 min_history 条——否则模型看不清刚说的/接不住前几轮 = 复读+跑题。
+        a = ContextAssembler(self._char(), budget_chars=100, min_history=6)   # 预算极小，模拟人设吃光
+        hist = [{"role": ("user" if i % 2 == 0 else "assistant"), "content": f"第{i}句" * 20} for i in range(20)]
+        kept = a._windowed(hist, reserved=100)                # reserved≥budget → 预算为 0
+        self.assertGreaterEqual(len(kept), 6)                  # 保底生效，没被饿死
+        self.assertEqual(kept[-1], hist[-1])                   # 保的是【最近】的
+
+    def test_windowed_still_bounded_by_budget_for_normal_persona(self):
+        # 正常人设、预算充裕：不受保底影响，按预算多纳（保底只兜底、不设上限）。
+        a = ContextAssembler(self._char(), budget_chars=100000, min_history=6)
+        hist = [{"role": "user", "content": "短"} for _ in range(30)]
+        self.assertEqual(len(a._windowed(hist, reserved=0)), 30)   # 预算够 → 全纳
+
+    def test_windowed_never_empty_even_when_min_history_zero(self):
+        # 对抗核验抓到的回归：min_history 配 0/负，预算被吃光时也【绝不返回空】——否则末轮 user 被丢、
+        # build 误走开场分支。钳到下界 1，保住至少最近 1 条。
+        a = ContextAssembler(self._char(), budget_chars=100, min_history=0)
+        self.assertEqual(a.min_history, 1)                          # 0 被钳到 1
+        kept = a._windowed([{"role": "user", "content": "很长的一句" * 50}], reserved=100)
+        self.assertEqual(len(kept), 1)                              # 预算为 0 也保住最近 1 条，非空
+
+    def test_anti_repeat_quotes_recent_ai_turns(self):
+        # 反复读护栏引用最近至多 2 轮 AI 原话（原仅 1 轮·前 24 字）：复读几轮前那句也能被点名压住。
+        char = CharacterRuntime("x", "小艾", {"core_traits": ["温柔"]})
+        a = ContextAssembler(char)
+        hist = [
+            {"role": "user", "content": "聊点别的"},
+            {"role": "assistant", "content": "我跟你说过我特别喜欢下雨天"},
+            {"role": "user", "content": "嗯"},
+            {"role": "assistant", "content": "外面路灯的光斜斜照进来照在你脸上格外好看"},   # >16 字
+            {"role": "user", "content": "你重复着呢"},
+        ]
+        turn = a.build(character_id="x", scenario="", history=hist)[-1]["content"]
+        self.assertIn("你最近说过", turn)
+        self.assertIn("下雨天", turn)        # 指针片段点到了【前一轮】AI 话
+        self.assertIn("路灯", turn)          # 也点到【上一轮】AI 话（覆盖两轮，不止最近一句）
+        # 只给短指针片段、不整句照抄（防「把要禁止的话逐字再塞一遍」反而诱导复读）：每句 ≤16 字。
+        self.assertNotIn("格外好看", turn)   # 上一轮话的尾巴（第17字后）不该出现在护栏引用里
+
     def test_reply_language_directive(self):
         # 多语言生效：用户在前端选了「英语」→ 后端把强语言指令注入系统前缀，让 AI 真用英语说。
         from micall.context.assembler import language_directive, tts_language_boost
