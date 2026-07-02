@@ -688,5 +688,98 @@ class TestFirstTokenTimeoutRecovery(unittest.TestCase):
         self.assertEqual(asyncio.run(run()), Phase.LISTENING)
 
 
+class _ErrorLLM(StubLLM):
+    """首 token 直接炸（上游 4xx/断连等确定性失败）。"""
+
+    async def stream(self, messages, *, temperature=0.8, max_tokens=256, response_format=None):
+        raise RuntimeError("上游炸了")
+        yield ""  # pragma: no cover —— 仅为让本函数成为异步生成器
+
+
+class TestOpeningFallback(unittest.TestCase):
+    """开场兜底：快脑没在时限内开口（超时/上游错误）→ 必须用角色音色应一声，绝不「接通即沉默」；
+    正常开场绝不叠兜底（不双开场）；置空配置 = 关闭兜底回到静默降级。"""
+
+    def _run_greet(self, llm, timeout=0.05, tweak=None):
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        async def run():
+            s = _make_session(emit, llm=llm)
+            s._llm_first_token_timeout = timeout
+            if tweak:
+                tweak(s)
+            await s.start()
+            s.begin_conversation()
+            await s._greet_task
+            phase, hist = s.sm.phase, list(s.history)
+            await s.end()
+            return phase, hist
+
+        phase, hist = asyncio.run(run())
+        ai = [e["text"] for e in events if e.get("type") == "subtitle" and e.get("role") == "ai"]
+        return ai, phase, hist
+
+    def test_timeout_speaks_fallback(self):
+        from micall.session.state import Phase
+        ai, phase, hist = self._run_greet(_SlowFirstTokenLLM())
+        self.assertEqual(len(ai), 1)
+        self.assertIn("喂", ai[0])                          # 兜底那一声说出来了
+        self.assertEqual(phase, Phase.LISTENING)            # 说完回可说话态
+        self.assertEqual(hist[-1]["role"], "assistant")     # 进上下文：AI 知道自己刚应过
+
+    def test_provider_error_speaks_fallback(self):
+        from micall.session.state import Phase
+        ai, phase, hist = self._run_greet(_ErrorLLM())
+        self.assertEqual(len(ai), 1)
+        self.assertIn("喂", ai[0])
+        self.assertEqual(phase, Phase.LISTENING)
+
+    def test_normal_opening_no_double_greet(self):
+        ai, phase, hist = self._run_greet(StubLLM(["[emotion:tender]你好呀。"]), timeout=5.0)
+        self.assertEqual(len(ai), 1)                        # 只有正常开场那一句
+        self.assertIn("你好呀", ai[0])
+        self.assertNotIn("喂？", " ".join(ai))              # 绝不叠兜底（不双开场）
+
+    def test_fallback_disabled_by_empty_config(self):
+        from micall.session.state import Phase
+        ai, phase, hist = self._run_greet(
+            _SlowFirstTokenLLM(), tweak=lambda s: setattr(s, "_opening_fallback_line", ""))
+        self.assertEqual(ai, [])                            # 关闭兜底：保持静默降级
+        self.assertEqual(phase, Phase.LISTENING)            # 但绝不卡思考
+
+    def test_cancel_during_first_token_wait_propagates_cleanly(self):
+        # 挂断/余额耗尽打在竞速窗内：任务取消必须干净传播——不得被 aclose(already running)
+        # 顶替成 RuntimeError（那会吞掉取消、日志误导、泄漏挂在 LLM 流上的任务）。
+        async def emit(ev):
+            pass
+
+        async def run():
+            s = _make_session(emit, llm=_SlowFirstTokenLLM())
+            s._llm_first_token_timeout = 5.0
+            await s.start()
+            turn = asyncio.create_task(s._generate_turn("嗯"))
+            await asyncio.sleep(0.05)                 # 让轮次进到「等首 token」
+            turn.cancel()
+            try:
+                await turn
+            except asyncio.CancelledError:
+                return turn.cancelled()
+            return False                              # 非 CancelledError 收尾 = 取消被顶替，失败
+
+        self.assertTrue(asyncio.run(run()))
+
+    def test_fallback_disabled_with_provider_error_still_recovers(self):
+        # 对抗核验抓到的路径：关闭兜底 × 上游报错（phase 停在 THINKING 抛出、内层 except 吞掉）
+        # → 兜底 early-return 跳过自身 finally → 必须由 _run_opening 的无条件恢复兜住，绝不卡「思考中」。
+        from micall.session.state import Phase
+        ai, phase, hist = self._run_greet(
+            _ErrorLLM(), tweak=lambda s: setattr(s, "_opening_fallback_line", ""))
+        self.assertEqual(ai, [])
+        self.assertEqual(phase, Phase.LISTENING)
+
+
 if __name__ == "__main__":
     unittest.main()

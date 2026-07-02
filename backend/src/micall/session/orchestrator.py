@@ -105,6 +105,10 @@ AudioEmit = Callable[[bytes], Awaitable[None]]
 
 _AUDIO_CHUNK = 4096   # 预合成缓冲回放时的分块大小（别一次性灌一大块给前端）
 
+# 开场兜底应答（快脑没及时开口时说的那一声）。中文默认像真人接起电话；用户选了非中文对话语言用英文版。
+_OPENING_FALLBACK_CN = "喂？我在呢。"
+_OPENING_FALLBACK_EN = "Hey, I'm here."
+
 # 开场多样化（修「每次开头都重复一样的话」）：开场默认靠静态指令 + 静态自主状态（如「刚调好花椒鸡尾酒」），
 # 模式太强 → 每通都同一句。每通随机选一个【开场角度】注入，把模型从同一个 mode 上推开。
 _OPENING_ANGLES = [
@@ -326,6 +330,15 @@ class CallSession:
         # 接通后【主动开口】：不等用户先说，AI 先说一句针对 TA 的开场白——填掉「接通到用户开口」的冷场，
         # 个性化素材（关系/上次聊到什么/隔了多久/上次心情/节日）assembler 在开场轮已组装。默认开。
         self._greet_on_start = bool(turn.get("greet_on_start", True))
+        # 开场兜底应答：快脑没在时限内开口（首token超时/上游抖/空流）→ 不冷场，用角色音色先应这一声
+        # （真人接电话也是先『喂？』，不需要 LLM 也在人设内）。置空 "" 或 false = 关闭兜底、保持静默降级。
+        # 只认字符串：null/true/数字等直觉写法绝不 str() 硬转——否则 TTS 会把 "None"/"123" 当台词念出来。
+        _ofl = turn.get("opening_fallback_line", _OPENING_FALLBACK_CN)
+        if _ofl is False:
+            _ofl = ""                          # false = 关闭（运营直觉写法）
+        elif not isinstance(_ofl, str):
+            _ofl = _OPENING_FALLBACK_CN        # null/true/数字等 = 用默认
+        self._opening_fallback_line = _ofl.strip()
         self._opening_directive = str(turn.get("opening_directive",
             "（来电刚接通，请你先开口说第一句话，自然地招呼 TA。"
             "【若系统里有具体的『当前情境』】（比如模拟面试 / 哄睡 / 练口语 / 成语接龙这类有明确情境的）——"
@@ -587,7 +600,23 @@ class CallSession:
                     _has_scene = bool(self.scenario_prompt) and self.scenario not in ("", "chat")
                     directive = (self._continuation_directive if self._continuation
                                  else _varied_opening(self._opening_directive, prefer_memory=_prefer_mem, has_scene=_has_scene))
-                    await self._generate_turn(directive, opening=True)
+                    _last_before = self.history[-1] if self.history else None   # 比对象身份，不比长度：_trim_history 会让长度失真
+                    try:
+                        await self._generate_turn(directive, opening=True)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:   # 生成炸了也不许冷场——落到下方「没说出话」的统一兜底
+                        log.warning("开场白生成失败（转兜底应答，不冷场）：%r", e)
+                    # 开场轮一句都没说出（首token超时/上游错误/空流——说了话才会给 history 追加 assistant 行，
+                    # 且裁剪保尾，新行必在末位）→ 兜底应一声，绝不让「接通即沉默」发生。
+                    _spoke_opening = bool(self.history) and self.history[-1] is not _last_before \
+                        and self.history[-1].get("role") == "assistant"
+                    if not _spoke_opening:
+                        await self._speak_fallback_opening()
+                        # 兜底可能一声没出就让位（运营置空关闭 / 已在打断）：而异常路径的 phase 还停在
+                        # THINKING、内层 except 又吞了异常（到不了外层恢复）→ 这里无条件再兜一次
+                        # （幂等：仅 THINKING/SPEAKING 才转 LISTENING），绝不把「思考中」留在场上。
+                        await self._recover_to_listening()
                     # 等开场音频真正播完（_audio_until 是已发音频播放到的终点），这段尾巴继续抑制 ASR 防回声切断。
                     tail = self._audio_until - time.monotonic()
                     if tail > 0:
@@ -604,8 +633,39 @@ class CallSession:
             # 通话就永远钉在「思考中」。兑现 docstring 的「失败静默忽略」：回 listening 等用户开口。
             log.warning("开场白失败（不卡死，回 listening 等用户开口）：%r", e)
             await self._recover_to_listening()
+
+    async def _speak_fallback_opening(self) -> None:
+        """开场兜底：快脑没在时限内开口 → 用角色自己的音色先应一声（不经 LLM，TTS 一两秒就出声）。
+        真人接起电话也是先『喂？』——完全在人设内，且把「接通即沉默」这一最差体验彻底堵死。
+        说出的话进 history：用户接话时 AI 知道自己刚应过。可经 turn.opening_fallback_line 配置，置空关闭。"""
+        line = self._opening_fallback_line
+        lang = str(getattr(self.assembler, "reply_language", "") or "")
+        if line == _OPENING_FALLBACK_CN and lang and not lang.startswith("中"):
+            line = _OPENING_FALLBACK_EN   # 用户选了非中文对话语言：默认兜底换英文（运营自定义的行尊重原样）
+        if not line or self._interrupt.is_set() or not self.sm.active:
+            return
+        try:
+            if self.sm.phase == Phase.LISTENING:
+                self.sm.to(Phase.THINKING)   # 状态机无 listening→speaking 直跳；这步不下发（免得 UI 闪一下思考）
+            if self.sm.phase != Phase.THINKING:
+                return                        # 已在说话/挂断等：不硬闯
+            self._ai_said = ""                # 回声基准同 _open_speaking：以这句为准
+            self.emotion_tag = "neutral"
+            self.sm.to(Phase.SPEAKING)
+            await self._emit(ServerEvent.state(Phase.SPEAKING.value))
+            _, speed, pitch, vol = prosody_for("neutral", self.emotion_map)
+            spoke: list[str] = []
+            await self._speak_job({"emotion": "neutral", "speed": speed, "pitch": pitch,
+                                   "vol": vol, "tts": line, "sub": line}, None, spoke)
+            if spoke:
+                self.history.append({"role": "assistant", "content": "".join(spoke)})
+            log.info("🛟 开场兜底应答已说出（快脑未及时开口）")
         except Exception as e:
-            log.warning("开场白生成失败（忽略，照常等用户开口）：%r", e)
+            log.warning("开场兜底失败（放弃，回 listening）：%r", e)
+        finally:
+            if not self._interrupt.is_set() and self.sm.phase in (Phase.SPEAKING, Phase.THINKING):
+                self.sm.to(Phase.LISTENING)
+                await self._emit(ServerEvent.state(Phase.LISTENING.value))
 
     async def _embed_query(self, text: str) -> list[float] | None:
         """把本轮用户话向量化用于情节记忆余弦召回。仅配了 Embedding 且库里有可检索记忆时才嵌入，
@@ -698,18 +758,20 @@ class CallSession:
                                 {_anext, _intr}, timeout=self._llm_first_token_timeout,
                                 return_when=asyncio.FIRST_COMPLETED)
                         finally:
+                            # 无论怎么离开（拿到token/超时/被打断/本任务被取消=挂断·余额耗尽打在竞速窗内），
+                            # 都把两个子任务收干净。cancel() 只是【请求】——必须 await 到 __anext__ 真正退出，
+                            # 否则 aclosing 对「仍在运行」的生成器调 aclose() 抛 already running，把真正的
+                            # 退出原因（如 CancelledError）顶替掉：取消被吞、日志误导、泄漏挂在 LLM 流上的任务。
                             if not _intr.done():
                                 _intr.cancel()
-                        # 注意：cancel() 只是【请求】取消——必须等 __anext__ 真正退出再离开循环，
-                        # 否则 aclosing 会对「仍在运行」的生成器调 aclose() → RuntimeError（already running）
-                        # → 开场轮由此炸死在 THINKING、前端永远「思考中」。旧 wait_for 内部就等了，这里补齐。
+                            if not _anext.done():
+                                _anext.cancel()
+                                await asyncio.wait({_anext})
                         if _intr in done:            # 被打断：放弃取首 token，尽快退出让新一轮起跑
-                            _anext.cancel()
-                            await asyncio.wait({_anext})
+                            if _anext.done() and not _anext.cancelled():
+                                _anext.exception()   # 取回异常，避免「Task exception was never retrieved」噪声
                             break
                         if _anext not in done:       # 墙钟超时：首 token 没来 → 复用下方超时兜底
-                            _anext.cancel()
-                            await asyncio.wait({_anext})
                             raise asyncio.TimeoutError
                         token = _anext.result()      # 可能抛 StopAsyncIteration（下方捕获）
                     else:
