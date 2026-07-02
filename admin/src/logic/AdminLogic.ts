@@ -108,7 +108,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, grantMin: "", notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, importText: "", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null, worldEndpoints: [], newSource: "", srcOne: {}, catFilter: "",
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, grantMin: "", notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, importText: "", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null, worldEndpoints: [], newSource: "", srcOne: {}, catFilter: "", apiTestingAll: false,
     confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false, genCharBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
@@ -591,10 +591,9 @@ export class AdminLogic {
     this.toastMsg(ok ? name + " 配置已保存" : name + " 保存失败，请重试");
   }
 
-  /** 连通性测试：有后端实测该节点；结果写进 apiStatus，驱动卡片状态徽标（不再写死「已连接」）。 */
-  async testApi(sectionKey: string, name: string) {
-    this.setState((p) => ({ apiStatus: { ...p.apiStatus, [sectionKey]: "testing" }, apiTestDetail: { ...p.apiTestDetail, [sectionKey]: null } }));
-    const res = await testApiSection(sectionKey, this.state.apiCfg[sectionKey]);
+  /** 把一次连通性测试的真实结果折进 apiStatus/apiTestDetail（驱动卡片徽标 + 「节点状态」汇总表）。
+   * 单测与「一键体检」共用，避免两处逻辑漂移。返回归一化结论供体检汇总统计。 */
+  private _applyApiResult(sectionKey: string, res: any): "ok" | "fail" | "unprobed" {
     const st = res.ok === false ? "fail" : "ok";   // ok===null（无后端）当通过；false 才算失败
     // 把真实结果（后端 note/错误 + ms）留在卡下方，不再只闪一下 toast。
     const detail = res.ok === false
@@ -603,10 +602,47 @@ export class AdminLogic {
           ? { kind: res.live ? "live" : "maybe", text: res.answer, ms: res.ms }
           : { kind: "ok", text: res.note || "", ms: res.ms });
     this.setState((p) => ({ apiStatus: { ...p.apiStatus, [sectionKey]: st }, apiTestDetail: { ...p.apiTestDetail, [sectionKey]: detail } }));
+    // 归一化：真去 ping 到（有 ms）算 ok；ASR/生图无法文本探（无 ms、只回 note）算「未实测」，不能算正常。
+    if (res.ok === false) return "fail";
+    return res.ms != null ? "ok" : "unprobed";
+  }
+
+  /** 连通性测试：有后端实测该节点；结果写进 apiStatus，驱动卡片状态徽标（不再写死「已连接」）。 */
+  async testApi(sectionKey: string, name: string) {
+    this.setState((p) => ({ apiStatus: { ...p.apiStatus, [sectionKey]: "testing" }, apiTestDetail: { ...p.apiTestDetail, [sectionKey]: null } }));
+    const res = await testApiSection(sectionKey, this.state.apiCfg[sectionKey]);
+    this._applyApiResult(sectionKey, res);
     if (res.ok === null) this.toastMsg(name + " 连接测试成功");
     else if (res.ok === false) this.toastMsg(name + " 测试失败：" + (res.error || "未知错误"));
     else if (res.answer != null) this.toastMsg(name + (res.live ? " 看着像真联网 ✅" : " 已连上、但答案不像真联网 ⚠️"));
     else this.toastMsg(name + " 测试成功" + (res.ms ? ` · ${res.ms}ms` : ""));
+  }
+
+  /** 一键体检：并发实测所有模型接口，各卡 + 「节点状态」表徽标同时亮绿/红，末尾一条汇总。
+   * DeepSeek 单点挂过一整天、当时只能一个个点测——这个按钮把逐项排查压成一次。 */
+  async testAllApis() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    if (this.state.apiTestingAll) return;   // 防连点：体检中再点无效
+    const keys: string[] = (this.apiSections || []).map((s: any) => s.key);
+    this.setState((p) => ({
+      apiTestingAll: true,
+      apiStatus: { ...p.apiStatus, ...Object.fromEntries(keys.map((k) => [k, "testing"])) },
+      apiTestDetail: { ...p.apiTestDetail, ...Object.fromEntries(keys.map((k) => [k, null])) },
+    }));
+    const outcomes = await Promise.all(keys.map(async (k) => {
+      try {
+        const res = await testApiSection(k, this.state.apiCfg[k]);
+        return this._applyApiResult(k, res);
+      } catch (e: any) {
+        this._applyApiResult(k, { ok: false, error: String((e && e.message) || e || "请求失败") });
+        return "fail" as const;
+      }
+    }));
+    const ok = outcomes.filter((o) => o === "ok").length;
+    const fail = outcomes.filter((o) => o === "fail").length;
+    const unprobed = outcomes.filter((o) => o === "unprobed").length;
+    this.setState({ apiTestingAll: false });
+    this.toastMsg(`体检完成：${ok} 正常 · ${fail} 挂` + (unprobed ? ` · ${unprobed} 无法探测(ASR/生图)` : ""));
   }
 
   /** 手动拉取世界库：真跑一遍 open-meteo 天气 + 免费热榜/维基真实热点抓取，把真实结果亮在面板上「看效果」。 */
@@ -1458,6 +1494,8 @@ export class AdminLogic {
       runImport: () => this.importChar(),
       syncRealtime: () => this.syncRealtime(),   // 一键同步出厂口吻（清被覆盖的 realtime_prompt_extra/hidden_layer）
       voicePresetCount, voiceCloneCount, voiceMatchTotal, ttsEngine, voicesView, apiCards,
+      onTestAllApis: () => this.testAllApis(), testAllBusy: s.apiTestingAll,
+      testAllLabel: s.apiTestingAll ? "体检中…" : "🩺 一键体检",
       secTitle: titles[s.section][0], secSub: titles[s.section][1],
       query: s.query, onQuery: (e: any) => this.setState({ query: e.target.value }),
       isDashboard: s.section === "dashboard", isUsers: s.section === "users", isChars: s.section === "characters", isVoices: s.section === "voices",
