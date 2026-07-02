@@ -24,6 +24,9 @@ except ImportError:  # pragma: no cover
 
 # MiniMax T2A v2 voice_setting.emotion 只认这几种；传其它值会 2013 invalid params。
 _MINIMAX_EMOTIONS = {"happy", "sad", "angry", "fearful", "disgusted", "surprised", "neutral"}
+# gentle 档放行的「温和情绪」：这几档 MiniMax 念出来仍是同一个人；强情绪(angry/fearful/disgusted/surprised)
+# 会明显改音色质感、逐句切=「变声」，gentle 下压成只走韵律。温暖陪伴产品里强情绪本就少用。
+_GENTLE_EMOTIONS = {"happy", "sad", "neutral"}
 _EMOTION_ALIAS = {
     "joyful": "happy", "excited": "happy", "pleased": "happy", "warm": "happy", "playful": "happy",
     "sympathy": "sad", "sorrow": "sad", "down": "sad", "comfort": "sad",
@@ -41,6 +44,18 @@ def _minimax_emotion(tag: str) -> str:
     if t in _MINIMAX_EMOTIONS:
         return t
     return _EMOTION_ALIAS.get(t, "")
+
+
+def _gate_emotion(emo: str, mode: str) -> str:
+    """按情绪档收敛 MiniMax 情绪枚举（治「音色一句一变」）。纯函数便于测。
+    off：一律去情绪；gentle(默认)：只放 _GENTLE_EMOTIONS(happy/sad/neutral)、压掉强情绪；full：不动。"""
+    if not emo:
+        return emo
+    if mode == "off":
+        return ""
+    if mode != "full" and emo not in _GENTLE_EMOTIONS:   # 非 full 即按 gentle 处理（含未知档，保守收敛）
+        return ""
+    return emo
 
 
 def _is_param_error(e: Exception) -> bool:
@@ -86,6 +101,9 @@ class MiniMaxTTS(TTSProvider):
         self._pron_dict = [str(x) for x in pd] if isinstance(pd, list) else []
         vm = p.get("voice_modify") or {}                                     # 音色微调 {pitch,intensity,timbre,sound_effects}；默认空=不动
         self._voice_modify = dict(vm) if isinstance(vm, dict) else {}
+        # 情绪档位：强情绪(angry/fearful/disgusted/surprised)会把同一个嗓子念出很不同的音色质感 → 逐句切换=「音色变来变去」。
+        # gentle(默认)：只放 happy/sad/neutral 的温和表达、压掉强情绪(只走韵律)；off：完全不带情绪枚举(最稳)；full：全 6 档(旧行为)。
+        self._emotion_mode = str(p.get("emotion_mode", "gentle") or "gentle").strip().lower()
         # 瞬时错误重试（铁律2，走配置）：上游限流/网关抖/连接超时时，「首块音频出来前」退避重试，
         # 别让一句话因一次瞬时抖动而失声。已出音频则不重试（防整段重复念）。默认重试 1 次、0.4s 起步。
         from ..config import as_float
@@ -103,6 +121,8 @@ class MiniMaxTTS(TTSProvider):
         global _RICH_OK
         vid = voice_id or self.node.params.get("default_voice", "")
         emo = _minimax_emotion(emotion) if vid not in _NO_EMOTION_VOICES else ""
+        # 情绪档位收敛（治「音色一句一变」）：只砍 MiniMax 情绪枚举——speed/vol/拟声不受影响，情绪感不至于全丢。
+        emo = _gate_emotion(emo, self._emotion_mode)
 
         # 第一档：尽量全功能（情绪 + 扩展）。
         yielded = False

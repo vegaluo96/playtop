@@ -104,6 +104,20 @@ class TestSentenceEmotion(unittest.TestCase):
         self.assertTrue(all(prosody_for(e)[2] == 0 for e in ("sad", "happy", "excited", "playful", "angry")))
         self.assertEqual(prosody_for("没这个情绪"), prosody_for("neutral"))  # 未知 → 中性兜底
 
+    def test_emotion_mode_gates_strong_emotions(self):
+        # 治「音色一句一变」：gentle(默认)压掉强情绪(angry/fearful/disgusted/surprised)、保温和三档；
+        # off 全砍；full 不动。只砍 MiniMax 情绪枚举，speed/vol/拟声不受影响。
+        from micall.providers.minimax_tts import _gate_emotion
+        for strong in ("angry", "fearful", "disgusted", "surprised"):
+            self.assertEqual(_gate_emotion(strong, "gentle"), "")     # 强情绪 → 压成韵律-only
+        for soft in ("happy", "sad", "neutral"):
+            self.assertEqual(_gate_emotion(soft, "gentle"), soft)     # 温和情绪保留
+        for e in ("happy", "angry", "surprised"):
+            self.assertEqual(_gate_emotion(e, "off"), "")             # off 一律去情绪
+            self.assertEqual(_gate_emotion(e, "full"), e)             # full 旧行为不动
+        self.assertEqual(_gate_emotion("", "gentle"), "")            # 本就无情绪 → 不动
+        self.assertEqual(_gate_emotion("angry", "怪档位"), "")        # 未知档位保守按 gentle 收敛
+
     def test_prosody_emotion_map_reroutes_per_character(self):
         # 角色卡 voice.emotion_map 把同一情绪标签按本角色重路由到不同韵律档（vega: caring→sad 念得低沉）。
         from micall.session.emotion import prosody_for
