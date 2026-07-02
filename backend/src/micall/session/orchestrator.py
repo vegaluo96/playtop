@@ -779,8 +779,10 @@ class CallSession:
                 except StopAsyncIteration:
                     break
                 except asyncio.TimeoutError:
-                    log.warning("LLM 首 token 超时 %.1fs，放弃本轮（防卡死，下方兜底回 listening）",
-                                self._llm_first_token_timeout)
+                    # 带上肇事节点（模型+端点，不含密钥）：反复超时时一眼看出是哪个上游在拖，省一轮排查。
+                    log.warning("LLM 首 token 超时 %.1fs，放弃本轮（防卡死，下方兜底回 listening）· model=%s endpoint=%s",
+                                self._llm_first_token_timeout,
+                                getattr(self.llm, "_model", "?"), getattr(self.llm, "_endpoint", "?"))
                     break
                 if self._interrupt.is_set():
                     break
