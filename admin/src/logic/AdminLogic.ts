@@ -101,6 +101,7 @@ export class AdminLogic {
   realInviteStats: any = null;  // 接后端后的邀请 KPI（null = 用演示）
   redeemCodes: any[] = [];      // 兑换码列表（后台「订单充值」）
   _limU = 200; _limC = 200; _limO = 200;   // 列表分页：用户/通话/订单当前拉取条数（「加载更多」逐次 +200）
+  _moreU = false; _moreC = false; _moreO = false;   // 是否还有下一页：多取 1 条判定（避免恰好满页时 >= 误显「加载更多」）
   defaultCharId = "";           // 当前默认角色 cid（用户端进来先选它）
 
   private _t: Timer | undefined;
@@ -108,7 +109,7 @@ export class AdminLogic {
 
   state: State = {
     section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, grantMin: "", notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, importText: "", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null, worldEndpoints: [], newSource: "", srcOne: {}, catFilter: "",
-    confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
+    confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false, genCharBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
     apiCfg: {
@@ -476,7 +477,7 @@ export class AdminLogic {
   /** 拉后台真实数据并映射成既有视图形状；无后端/失败时保持内置演示数据。 */
   private async loadRealData() {
     const [dash, users, calls, orders, tickets, invites, codes] = await Promise.all([
-      loadDashboard(), loadUsers(this._limU), loadCalls(this._limC), loadOrders(this._limO), loadTickets(), loadInvites(), loadRedeemCodes(),
+      loadDashboard(), loadUsers(this._limU + 1), loadCalls(this._limC + 1), loadOrders(this._limO + 1), loadTickets(), loadInvites(), loadRedeemCodes(),
     ]);
     if (codes) this.redeemCodes = codes;
     if (dash) {
@@ -500,7 +501,8 @@ export class AdminLogic {
     const OSTAT: Record<string, string> = { paid: "已支付", refunded: "已退款", pending: "待支付", failed: "已失败" };
 
     if (users) {
-      this.users = users.map((u: any, i: number) => ({
+      this._moreU = users.length > this._limU;   // 多取的那 1 条存在 → 还有下一页；只展示 _limU 条
+      this.users = users.slice(0, this._limU).map((u: any, i: number) => ({
         id: u.user_id, name: nameOf(u.email), email: u.email || "",
         initial: (nameOf(u.email)[0] || "U").toUpperCase(), grad: GRADS[i % GRADS.length],
         // 剩余时长 = 账户余额 remaining_seconds（不是已通话时长 total_seconds——那是「累计已用」，两码事）。
@@ -511,8 +513,9 @@ export class AdminLogic {
       }));
     }
     if (calls) {
+      this._moreC = calls.length > this._limC;
       const REASON: Record<string, string> = { ended: "正常结束", out_of_minutes: "时长用尽", error: "异常中断" };
-      this.calls = calls.map((c: any, i: number) => {
+      this.calls = calls.slice(0, this._limC).map((c: any, i: number) => {
         const cn = charName(c.character_id);
         const tx = Array.isArray(c.transcript) ? c.transcript : [];
         // 把逐句对话转成可直接渲染的气泡：用户右侧紫泡、角色左侧灰泡（测试期看真实对话内容用）。
@@ -539,7 +542,8 @@ export class AdminLogic {
       });
     }
     if (orders) {
-      this.orders = orders.map((o: any) => ({
+      this._moreO = orders.length > this._limO;
+      this.orders = orders.slice(0, this._limO).map((o: any) => ({
         id: o.order_id, user: o.user_email || "—", plan: o.plan,
         amount: "$" + ((o.amount_cents || 0) / 100).toFixed(2), status: OSTAT[o.status] || o.status,
       }));
@@ -783,15 +787,30 @@ export class AdminLogic {
   /** AI 一键生成角色字段，填进编辑表单（运营可再微调）。 */
   async genCharAI() {
     if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    if (this.state.genCharBusy) return;   // 防连点：生成中再点会并发多请求 + 覆盖表单
+    this.setState({ genCharBusy: true });
     this.toastMsg("AI 生成中…");
-    const res = await generateCharacter((this.state.charAiPrompt || "").trim());
-    if (!res.ok || !res.fields) { this.toastMsg(res.error || "生成失败"); return; }
-    const f = res.fields;
-    this.setState((p) => ({ charBio: f.background_story || "", charEdit: { ...p.charEdit,
-      name: f.name || "", tagline: f.tagline || "", gender: f.gender || (p.charEdit as any).gender, age: f.age || (p.charEdit as any).age,
-      traits: f.traits || "", speaking_style: f.speaking_style || "", background_story: f.background_story || "",
-      core: f.core || "", likes: f.likes || "", dislikes: f.dislikes || "" } }));
-    this.toastMsg("已生成，可微调后保存");
+    try {
+      const res = await generateCharacter((this.state.charAiPrompt || "").trim());
+      if (!res.ok || !res.fields) { this.toastMsg(res.error || "生成失败"); return; }
+      const f: any = res.fields;
+      const pick = (v: any, cur: any) => (v != null && v !== "" ? v : cur);   // 生成没给的字段不清空既有值
+      this.setState((p) => { const c: any = p.charEdit; return { charBio: f.background_story || c.background_story || "",
+        // 两段式生成的【全部】字段都回填（此前只填了 10 个：occupation/appearance/summary/hobbies/catchphrases/
+        // quirks/soft_spot/values/hidden_layer/nationality/residence/prompt_extra 全被丢弃，运营还得手抄）。
+        charEdit: { ...c,
+          name: pick(f.name, c.name), tagline: pick(f.tagline, c.tagline), gender: pick(f.gender, c.gender), age: pick(f.age, c.age),
+          nationality: pick(f.nationality, c.nationality), occupation: pick(f.occupation, c.occupation), residence: pick(f.residence, c.residence),
+          appearance: pick(f.appearance, c.appearance), summary: pick(f.summary, c.summary), traits: pick(f.traits, c.traits),
+          speaking_style: pick(f.speaking_style, c.speaking_style), catchphrases: pick(f.catchphrases, c.catchphrases),
+          quirks: pick(f.quirks, c.quirks), hobbies: pick(f.hobbies, c.hobbies), likes: pick(f.likes, c.likes), dislikes: pick(f.dislikes, c.dislikes),
+          background_story: pick(f.background_story, c.background_story), hidden_layer: pick(f.hidden_layer, c.hidden_layer),
+          soft_spot: pick(f.soft_spot, c.soft_spot), values: pick(f.values, c.values), prompt_extra: pick(f.prompt_extra, c.prompt_extra),
+          core: pick(f.core, c.core) } }; });
+      this.toastMsg("已生成，可微调后保存");
+    } finally {
+      this.setState({ genCharBusy: false });
+    }
   }
 
   /** 一键同步出厂「口吻」：清掉被后台覆盖的 realtime_prompt_extra/hidden_layer，让仓库更新的出厂值流回（下一通生效）。
@@ -808,6 +827,20 @@ export class AdminLogic {
     const res = await syncRealtimeToFactory();
     if (!res.ok) { this.toastMsg(res.error || "同步失败"); return; }
     const n = res.count || 0;
+    // 同步已把后台覆盖的口吻/内里清掉、出厂值回流；但本地 this.chars 还是旧覆盖值——不刷新的话，
+    // 打开抽屉看到的仍是旧口吻，运营再一保存又把清掉的覆盖写回、白同步。拉后端真值把这两项回填。
+    if (n > 0) {
+      const fresh = await loadCharacters();
+      if (fresh) {
+        for (const row of fresh) {
+          const c = this.chars.find((x) => x.cid === row.id);
+          if (!c) continue;
+          c.prompt_extra = (row as any).prompt_extra ?? "";   // realtime_prompt_extra 出厂值
+          c.hidden_layer = (row as any).hidden_layer ?? "";
+        }
+        this.setState({});
+      }
+    }
     this.toastMsg(n > 0 ? `已同步 ${n} 个角色到出厂口吻，下一通生效` : "没有被覆盖的口吻，已都是出厂值");
   }
 
@@ -1443,9 +1476,9 @@ export class AdminLogic {
       toggleNotif: () => this.setState((p) => ({ notifOpen: !p.notifOpen })), closeNotif: () => this.setState({ notifOpen: false }), markAllRead: () => this.setState({ notifRead: true, notifOpen: false }),
       userFilters, usersView, charsView, callsView, ticketsView, ordersView, plans,
       // 列表「加载更多」：拉满当前上限 → 可能还有更多，给个按钮翻页（突破默认 200）
-      moreUsers: usingBackend() && this.users.length >= this._limU,
-      moreCalls: usingBackend() && this.calls.length >= this._limC,
-      moreOrders: usingBackend() && this.orders.length >= this._limO,
+      moreUsers: usingBackend() && this._moreU,
+      moreCalls: usingBackend() && this._moreC,
+      moreOrders: usingBackend() && this._moreO,
       loadMoreUsers: () => this.loadMore("users"), loadMoreCalls: () => this.loadMore("calls"), loadMoreOrders: () => this.loadMore("orders"),
       redeemCode: s.redeemCode, onRedeemCode: (e: any) => this.setState({ redeemCode: e.target.value }),
       redeemUses: s.redeemUses, onRedeemUses: (e: any) => this.setState({ redeemUses: e.target.value }),

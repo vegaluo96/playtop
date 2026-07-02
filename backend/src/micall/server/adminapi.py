@@ -368,8 +368,9 @@ def admin_world_refresh() -> dict:
     cities = sorted({clean_city((s.get("identity") or {}).get("residence", ""))
                      for s in effective_specs().values()} - {""})
     rewriter = make_search_llm(cfg)   # 现在它只是「改写脑」（qwen-long 等），不负责找热点
+    from ..providers._http import run_isolated   # 一次性循环收尾关 client，防手动刷新泄漏连接
     try:
-        res = asyncio.run(refresh_world(cities, now, rewriter, cfg.global_defaults.get("hot_api_endpoints")))
+        res = run_isolated(refresh_world(cities, now, rewriter, cfg.global_defaults.get("hot_api_endpoints")))
     except Exception as e:
         log.warning("手动世界库刷新失败：%r", e)
         return {"ok": False, "error": str(e)[:300], "rewriter_configured": rewriter is not None}

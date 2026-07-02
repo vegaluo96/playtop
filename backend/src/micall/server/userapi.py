@@ -199,13 +199,18 @@ class _Handler(BaseHTTPRequestHandler):
         return _REPO.user_for_token(_bearer(self.headers))
 
     def _ip(self) -> str:
-        """客户端真实 IP（nginx 转发的 X-Forwarded-For / X-Real-IP，回退对端地址）。"""
+        """客户端真实 IP（限流/防刷按它计配额）。与 wsserver._client_ip 同口径：
+        优先 X-Real-IP（nginx 用 $remote_addr 覆盖写入，客户端伪造不了）；其次取 X-Forwarded-For 的【最后一跳】
+        （$proxy_add_x_forwarded_for 把真实对端追加在末尾，取首段会被客户端 `X-Forwarded-For: 伪造` 绕过配额）；
+        都没有再回退握手对端地址。"""
+        xri = self.headers.get("X-Real-IP")
+        if xri and xri.strip():
+            return xri.strip()
         xff = self.headers.get("X-Forwarded-For")
         if xff:
-            return xff.split(",")[0].strip()
-        xri = self.headers.get("X-Real-IP")
-        if xri:
-            return xri.strip()
+            hops = [p.strip() for p in xff.split(",") if p.strip()]
+            if hops:
+                return hops[-1]   # 可信反代追加的最后一跳，而非客户端可伪造的首段
         return self.client_address[0] if self.client_address else "unknown"
 
     def do_GET(self) -> None:
@@ -343,7 +348,7 @@ class _Handler(BaseHTTPRequestHandler):
             if kind not in ("cookie", "register", "terms"):
                 kind = "cookie"
             try:
-                _REPO.record_consent(kind, CONSENT_VERSION, user_id=self._uid() or "", ip=self._client_ip())
+                _REPO.record_consent(kind, CONSENT_VERSION, user_id=self._uid() or "", ip=self._ip())
             except Exception as e:
                 log.warning("consent 记录失败（忽略）：%r", e)
             return self._json(200, {"ok": True, "version": CONSENT_VERSION})

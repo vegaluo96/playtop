@@ -488,7 +488,9 @@ class SignalingServer:
         )
         # 余额：登录用户读 users.remaining_seconds（服务端权威，§5）；游客按 IP 给剩余试用（刷新不重置，防刷）。
         # 试用时长读 global_defaults.guest_trial_seconds（后台可改，_reload_config 已在 start_call 刷新→下一通生效）。
-        trial = int(self.config.global_defaults.get("guest_trial_seconds", _GUEST_TRIAL_SECONDS) or _GUEST_TRIAL_SECONDS)
+        # 按「键是否存在」取值（而非真值）：否则后台把 guest_trial_seconds 设 0（关闭白送）会被 `0 or 600` 回退、关不掉。
+        _gt = self.config.global_defaults.get("guest_trial_seconds")
+        trial = max(0, int(_GUEST_TRIAL_SECONDS if _gt is None else _gt))
         remaining = (self.repo.remaining_seconds(user_id) if user_id != _ANON
                      else self.repo.guest_trial_remaining(client_ip, trial))
         # 续接重拨：上一通因网络掉线、窗口内重拨【同一角色 + 同一场景】 → 回灌最近几轮 + 进续接开场（不重新自我介绍）。

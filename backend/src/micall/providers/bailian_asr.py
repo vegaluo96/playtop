@@ -47,16 +47,19 @@ def _delta_text(delta: object) -> str:
 def _collapse_repeat(s: str) -> str:
     """兜底：整段识别偶发把整句重复一遍（流式分块/模型重复）→ 折叠成一份。
 
-    真正彻底的处理放到实时流式 WS 那层（能看原始事件）；这里先保证落地文本不翻倍。
+    只折「明显的整句翻倍」：空白分隔的 `X X`，或**每半足够长**（≥6 字）的无空格翻倍。
+    绝不动「谢谢/拜拜/妈妈/研究研究」这类合法叠词——否则会被折成单字，再在编排层
+    `len<final_min` 被当噪声丢弃，AI 对这些高频短语完全不回应。
     """
     t = " ".join(s.split())  # 归一空白
     if not t:
         return t
     parts = t.split(" ")
-    if len(parts) == 2 and parts[0] and parts[0] == parts[1]:  # "X X"
+    if len(parts) == 2 and parts[0] and parts[0] == parts[1]:  # "X X"（空白分隔的整词翻倍）
         return parts[0]
     n = len(t)
-    if n % 2 == 0 and t[: n // 2] == t[n // 2:]:               # "XX"
+    # 无空格翻倍：仅当每半≥6 字才判为「整句重复」，避免误伤 2~4 字叠词（谢谢/妈妈/研究研究…）
+    if n >= 12 and n % 2 == 0 and t[: n // 2] == t[n // 2:]:   # "XXXXXX XXXXXX"（无空格整句翻倍）
         return t[: n // 2]
     return t
 

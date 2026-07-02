@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import re
+import threading
 import xml.etree.ElementTree as ET
 from typing import Any
 
@@ -516,6 +517,9 @@ async def fetch_topics(rewrite_llm: Any, now: datetime.datetime, endpoints: Any 
 #  topics_src     : [{text,url,cat,date,pinned?}]  同一【滚动池】带原文链接+领域+日期(+置顶)（后台核对、角色检索、衰减）
 #  topics_block   : [str]                   被运营手动删除的话题文本（再抓到也不收，让删除"粘住"）
 _WORLD: dict[str, Any] = {"date": "", "weather": {}, "weather_hist": {}, "topics": [], "topics_src": [], "topics_block": []}
+# 写 _WORLD 的临界区锁：后台每日刷新跑在常驻 asyncio 循环线程，运营手动刷新/删/置顶跑在后台 HTTP 处理线程
+# （各自 asyncio.run）——两线程并发改 topics_src 会丢更新。锁只护【同步写段】（不跨 await/网络），held 极短。
+_WORLD_LOCK = threading.Lock()
 _HIST_DAYS = 4   # 每城最多留几天观测（够算「这两天/前两天」的变化感即可，不堆历史）
 
 # 世界库落盘路径：让【天气滚动历史】跨进程重启存活——否则每次重启只有「今天」、永远算不出「昨天→今天」的变化。
@@ -586,11 +590,12 @@ async def refresh_world(cities: list[str], now: datetime.datetime, search_llm: A
             weather[c] = obs["line"]
             _record_weather(c, date_str, obs)   # 连续性底料：记下今天的温度/天气码
     fresh = await fetch_topics(search_llm, now, hot_endpoints)   # 今天新抓的 [{text,url,cat,date}]
-    _merge_topics(fresh, now)                                    # 并进滚动池（去重）+ 衰减(丢旧闻) + 封顶(遗忘最旧)
-    pool = _WORLD["topics_src"]
-    _WORLD["date"], _WORLD["weather"] = date_str, weather
-    _WORLD["topics"] = [t["text"] for t in pool]
-    _save_store()
+    with _WORLD_LOCK:                                            # 同步写段：与运营手动刷新/删/置顶互斥，防丢更新
+        _merge_topics(fresh, now)                                # 并进滚动池（去重）+ 衰减(丢旧闻) + 封顶(遗忘最旧)
+        pool = _WORLD["topics_src"]
+        _WORLD["date"], _WORLD["weather"] = date_str, weather
+        _WORLD["topics"] = [t["text"] for t in pool]
+        _save_store()
     log.info("🌍 世界库刷新：%d 城真实天气 + 本次新增 %d 条 → 滚动池 %d 条（date=%s）",
              len(weather), len(fresh), len(pool), date_str)
     return {"cities": len(weather), "topics": len(pool), "fetched": len(fresh)}
@@ -686,29 +691,31 @@ def remove_topic(text: str) -> bool:
     text = (text or "").strip()
     if not text:
         return False
-    pool = [t for t in (_WORLD.get("topics_src") or []) if isinstance(t, dict)]
-    kept = [t for t in pool if t.get("text") != text]
-    blocked = _WORLD.setdefault("topics_block", [])
-    if text not in blocked:
-        blocked.append(text)
-    if len(blocked) > 500:                                   # 黑名单也封顶，别无限涨
-        del blocked[:-500]
-    _WORLD["topics_src"] = kept
-    _WORLD["topics"] = [t["text"] for t in kept]
-    _save_store()
-    return len(kept) < len(pool)
+    with _WORLD_LOCK:
+        pool = [t for t in (_WORLD.get("topics_src") or []) if isinstance(t, dict)]
+        kept = [t for t in pool if t.get("text") != text]
+        blocked = _WORLD.setdefault("topics_block", [])
+        if text not in blocked:
+            blocked.append(text)
+        if len(blocked) > 500:                              # 黑名单也封顶，别无限涨
+            del blocked[:-500]
+        _WORLD["topics_src"] = kept
+        _WORLD["topics"] = [t["text"] for t in kept]
+        _save_store()
+        return len(kept) < len(pool)
 
 
 def pin_topic(text: str, on: bool = True) -> bool:
     """运营置顶/取消置顶一条话题：pinned=True 豁免衰减/封顶、检索时优先。落盘。返回是否命中。"""
     text = (text or "").strip()
-    hit = False
-    for t in (_WORLD.get("topics_src") or []):
-        if isinstance(t, dict) and t.get("text") == text:
-            t["pinned"] = bool(on)
-            hit = True
-    if hit:
-        _save_store()
+    with _WORLD_LOCK:
+        hit = False
+        for t in (_WORLD.get("topics_src") or []):
+            if isinstance(t, dict) and t.get("text") == text:
+                t["pinned"] = bool(on)
+                hit = True
+        if hit:
+            _save_store()
     return hit
 
 

@@ -73,6 +73,24 @@ def loop_client(factory: "Callable[[], httpx.AsyncClient]") -> "httpx.AsyncClien
     return client
 
 
+def run_isolated(coro):
+    """在一次性事件循环里跑协程（asyncio.run），收尾时【在同一个循环内】关掉该循环缓存的 client——
+    否则每次一次性 run 新建的 per-loop client 不 aclose，靠 GC 回收套接字既慢又会刷「Unclosed client」告警。
+    仍守铁律：只关自己这轮循环里建的 client，绝不跨循环 aclose 别人的。供后台线程「同步入口跑一段异步」用
+    （如手动世界库刷新）。"""
+    async def _wrap():
+        try:
+            return await coro
+        finally:
+            ent = _CLIENTS.pop(id(asyncio.get_running_loop()), None)
+            if ent is not None and not ent[1].is_closed:
+                try:
+                    await ent[1].aclose()
+                except Exception:
+                    pass
+    return asyncio.run(_wrap())
+
+
 # ── provider 瞬时错误重试（LLM/TTS 共用）：一通电话最怕「上游抖一下就把这一轮/这通话打死」。 ──
 # 限流(429)/网关抖动(502/504)/上游过载(503/500)/连接·读超时都是【瞬时】的，退避后重试常立刻成功；
 # 鉴权(401/403)/请求错(400)/余额是【确定性】的，重试纯属浪费、还拖慢降级。仅在「尚未吐出任何字节」时

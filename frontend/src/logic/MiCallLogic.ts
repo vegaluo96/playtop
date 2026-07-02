@@ -98,7 +98,7 @@ export class MiCallLogic {
   charsReady = false;
   private _scenesBuilt = false;
 
-  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, legalOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 0, remainingLoaded: false, trialSeconds: 600, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false, justConnected: false };
+  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, legalOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 0, remainingLoaded: false, trialSeconds: 600, dialTotal: 0, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false, justConnected: false };
 
   t: Timer[] = [];
   i = 0;
@@ -117,6 +117,7 @@ export class MiCallLogic {
   private rtcDiscoTimer: ReturnType<typeof setTimeout> | null = null;  // 中途 disconnected 宽限计时器：到点仍未自愈才回退 WS
   private rtcFellBack = false;                     // 本通是否已回退（防重复回退）
   private dialWatchdog: ReturnType<typeof setTimeout> | null = null;  // 拨号兜底超时：后端始终不应答即转接通失败
+  private _dialing = false;                          // 拨号同步锁：phase 直到 beginCall 才置 calling，其间双击/慢授权会漏建两通
   private _lostAt = 0;                              // 上次「非自愿掉线」时刻（ms）：窗口内重拨同一角色→续接、保留字幕
   private _lostCharIndex = -1;                      // 掉线时的角色下标：重拨须同一角色才续接
   private _lostScene = "";                          // 掉线时的场景 key：重拨须同角色【且同场景】才续接/保留字幕（与后端一致）
@@ -995,7 +996,10 @@ export class MiCallLogic {
   }
 
   async startCall() {
-    if (this.state.phase !== "idle") return;
+    // phase 直到 beginCall 里 await acquireMic() 之后才置 calling；期间双击/慢授权会穿过 phase 守卫、
+    // 漏建两通（双 start_call + 麦克风流泄漏 + 双 watchdog）。加一个【同步】拨号锁堵住这段窗口。
+    if (this.state.phase !== "idle" || this._dialing) return;
+    this._dialing = true;
     // 拨号前先停掉音色试听音频——否则试听后直接拨号，试听会和通话叠着一起播。
     try { this.previewAudio?.pause(); this.previewAudio = null; } catch { /* noop */ }
     this.setState((s) => (s.previewing != null ? { previewing: null } : {}));
@@ -1006,6 +1010,7 @@ export class MiCallLogic {
       if (ok || this.usingMockSignaling()) {
         this.setState({ micGranted: true });
       } else {
+        this._dialing = false;
         this.toast("需要麦克风权限才能通话，请在浏览器允许后重试");
         return;
       }
@@ -1019,7 +1024,11 @@ export class MiCallLogic {
     // re-acquiring after a previous hang-up is silent (no prompt).
     if (this.state.micGranted && !this.micStream) await this.acquireMic();
     this.player.resume(); // 必须在点接听的手势链里，iOS 才允许出声
-    this.setState({ phase: "calling", callFailed: false, lowWarned: false });
+    this._dialing = false;   // phase 即将置 calling，phase 守卫接手；释放同步拨号锁
+    // 进度环分母：登录用户按【本通开局余额】做「满」的参照（此后随计费回落 100%→0%），而非写死 1 小时——
+    // 否则余额≠3600s 的用户环形要么长期满格、要么早早见底，失真。游客仍用 trialSeconds（见 remainPct）。
+    this.setState({ phase: "calling", callFailed: false, lowWarned: false,
+      dialTotal: Math.max(this.state.remaining || 0, 60) });
     // scenario = key（记录/统计的稳定标签）；scenario_prompt = 完整情境指令（喂 LLM，让 AI 真进入场景）。
     const msg: ClientMessage = {
       type: "start_call", character_id: this.characterId(this.state.charIndex),
@@ -1636,7 +1645,7 @@ export class MiCallLogic {
       hint,
       remainLabel,
       remainMinNum: Math.max(0, Math.round((this.state.remaining || 0) / 60)),
-      remainPct: Math.max(4, Math.min(100, Math.round((this.state.remaining || 0) / (this.state.loggedIn ? 3600 : (this.state.trialSeconds || 600)) * 100))) + "%",
+      remainPct: Math.max(4, Math.min(100, Math.round((this.state.remaining || 0) / (this.state.loggedIn ? (this.state.dialTotal || 3600) : (this.state.trialSeconds || 600)) * 100))) + "%",
       orbCursor: "pointer",
       orbTap: () => this.setState((s) => ({ charDetailOpen: !s.charDetailOpen })),
       actionTap: () => {

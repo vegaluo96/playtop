@@ -99,16 +99,20 @@ def _content_tokens(text: str) -> list[str]:
     return toks
 
 
-def _grounded_in_history(text: str, history: Sequence[Message]) -> bool:
+def _grounded_in_history(text: str, history: Sequence[Message], *, user_only: bool = False) -> bool:
     """信而核验（trust-but-verify）：候选记忆里【有辨识度的内容词】是否真在本通对话里出现过。
     第一性原理——记忆只能来自真实记录，不能靠 LLM 凭空断言。判据是「有没有实质重合」：
       · 抠不出可判定的内容词（全是落款套话）→ 保守判 True（不误删真记忆）；
       · 有内容词、但【一个都没】落在对话全文里 → False（多半是慢脑凭空造的「我们聊过 X / 你答应过老周」）。
-    宽进严出：只要命中一个辨识度内容词就放行，最大限度不误删；零重合才丢——专治「整条无中生有」。"""
+    宽进严出：只要命中一个辨识度内容词就放行，最大限度不误删；零重合才丢——专治「整条无中生有」。
+    user_only=True：只拿【对方(user)】原话当证据——核验「关于 TA 的事实」用。否则角色在通话里凭空提到的
+    实体（虚构『老周』）也算数、被慢脑当成 TA 的事实写库。共同经历(shared_refs)仍按全程转写核验
+    （双方真说出口的都是真事件），故默认 False。"""
     distinct = set(_content_tokens(text))
     if not distinct:
         return True
-    convo = "".join((m.get("content") or "") for m in history).lower()
+    msgs = [m for m in history if m.get("role") == "user"] if user_only else history
+    convo = "".join((m.get("content") or "") for m in msgs).lower()
     if not convo:
         return True
     return any(t in convo for t in distinct)
@@ -408,9 +412,10 @@ class UnderstandingEngine:
             text, imp = _fact_text_importance(f)
             if not text:
                 continue
-            # 信而核验：慢脑【新增/改写】的事实必须能在对话里找到由头；查无实据的丢弃。
+            # 信而核验：慢脑【新增/改写】的关于 TA 的事实，必须能在【对方原话】里找到由头；查无实据的丢弃。
+            # 只认 user 台词——否则角色通话里凭空提到的实体（虚构『老周』）会被当成 TA 的事实写库、下通当真注入。
             # 安全：用户原话已由 extract_facts 全量兜底入库（默认 0.3），丢掉的只是慢脑可能脑补的转写，信息不丢。
-            if not _grounded_in_history(text, history):
+            if not _grounded_in_history(text, history, user_only=True):
                 dropped_facts += 1
                 continue
             scored_facts.append((text, imp))

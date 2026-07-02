@@ -347,6 +347,10 @@ class CallSession:
 
     # ── 下行封装：状态未结束才发（结束后丢弃迟到事件）──
     async def _emit(self, ev: dict) -> None:
+        # IDLE=还没接通、ENDED=已挂断：此时被取消任务的「迟到事件」若下发，会打到正在关闭的连接。
+        # 唯一合法的结束态下行——end() 的 ended——走 _emit_raw 直发，不受此闸约束。
+        if self.sm.phase in (Phase.IDLE, Phase.ENDED):
+            return
         await self._emit_raw(ev)
 
     # ── 接通 ──
@@ -679,7 +683,25 @@ class CallSession:
             while True:
                 try:
                     if _first_token:
-                        token = await asyncio.wait_for(_it.__anext__(), timeout=self._llm_first_token_timeout)
+                        # 首 token 墙钟等待必须能被【打断】唤醒：否则上一轮还卡在等首 token 时用户插话，
+                        # _begin_turn 的 `await prev` 会白等最长 llm_first_token_timeout(6s) 才放行新一轮
+                        # ——越是 LLM 慢、越想打断，打断后反而多等数秒。与 _interrupt 竞速即可即时让位。
+                        _anext = asyncio.ensure_future(_it.__anext__())
+                        _intr = asyncio.ensure_future(self._interrupt.wait())
+                        try:
+                            done, _ = await asyncio.wait(
+                                {_anext, _intr}, timeout=self._llm_first_token_timeout,
+                                return_when=asyncio.FIRST_COMPLETED)
+                        finally:
+                            if not _intr.done():
+                                _intr.cancel()
+                        if _intr in done:            # 被打断：放弃取首 token，尽快退出让新一轮起跑
+                            _anext.cancel()
+                            break
+                        if _anext not in done:       # 墙钟超时：首 token 没来 → 复用下方超时兜底
+                            _anext.cancel()
+                            raise asyncio.TimeoutError
+                        token = _anext.result()      # 可能抛 StopAsyncIteration（下方捕获）
                     else:
                         token = await _it.__anext__()
                 except StopAsyncIteration:
@@ -950,7 +972,7 @@ class CallSession:
         if self.sm.phase != Phase.ENDED and self.sm.can(Phase.ENDED):
             self.sm.to(Phase.ENDED)
         if emit_ended:
-            await self._emit(ServerEvent.ended())
+            await self._emit_raw(ServerEvent.ended())   # 已进 ENDED：绕过 _emit 的结束态闸，直发这条合法收尾
         # 真实：触发离线理解引擎 worker（§3.3）回写事实层 + 更新画像。接入点：
         #   schedule_offline_understanding(self.character_id, user_id, self.history)
 

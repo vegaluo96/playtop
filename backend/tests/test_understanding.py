@@ -10,6 +10,7 @@ from micall.offline import (
     merge_profile,
     parse_profile_update,
 )
+from micall.offline.understanding import _grounded_in_history
 from micall.providers import StubLLM
 
 
@@ -33,6 +34,33 @@ class TestExtractFacts(unittest.TestCase):
         ]
         # 纯语气词/笑声不入事实层，只留真有信息量的那句
         self.assertEqual(extract_facts(history), ["我下周要去成都出差"])
+
+
+class TestGroundedVerify(unittest.TestCase):
+    """信而核验：候选记忆必须能在真实对话里找到由头。user_only 用于「关于 TA 的事实」——
+    角色在通话里凭空提到的实体（虚构『老周』）不能被当成 TA 的事实写库。"""
+
+    def _hist(self):
+        return [
+            {"role": "user", "content": "我最近在学吉他"},
+            {"role": "assistant", "content": "你上次提到的老周最近怎么样了"},   # 角色凭空造的实体
+        ]
+
+    def test_user_only_rejects_entity_only_said_by_character(self):
+        # 「老周」只在角色台词里 → 关于 TA 的事实核验（user_only）应判查无实据。
+        self.assertFalse(_grounded_in_history("TA 有个朋友叫老周", self._hist(), user_only=True))
+
+    def test_user_only_accepts_entity_said_by_user(self):
+        self.assertTrue(_grounded_in_history("TA 在学吉他", self._hist(), user_only=True))
+
+    def test_full_history_accepts_shared_experience_from_either_speaker(self):
+        # 共同经历按全程转写核验：角色真说出口的「老周」也是真发生过的对话事件。
+        self.assertTrue(_grounded_in_history("聊到老周", self._hist()))
+
+    def test_no_content_tokens_is_conservatively_kept(self):
+        # 抠不出可判定内容词（单字/纯标点，无二元词）→ 保守判 True，不误删。
+        self.assertTrue(_grounded_in_history("嗯", self._hist(), user_only=True))
+        self.assertTrue(_grounded_in_history("。", self._hist(), user_only=True))
 
 
 class TestCorrectionRemoval(unittest.TestCase):
